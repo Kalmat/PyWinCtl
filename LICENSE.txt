@@ -28,7 +28,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 --------------------------------------------------------------------------------
 
-This fork (Linux and macOS support) Copyright (c) 2021, Kalma (aka alef) <palookjones@gmail.com>
+This fork (Linux and macOS support) Copyright (c) 2021, Kalmat (aka alef) <palookjones@gmail.com>
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without

@@ -5,12 +5,12 @@ PyGetWindow-MP (Multi-Platform)
 
 This a fork from asweigart's PyGetWindow module (https://github.com/asweigart/PyGetWindow)
 
-It adds Linux and macOS experimental support, making it a real Multi-Platform solution, in the hope others can use it, test it or contribute.
+It adds Linux and macOS experimental support, in the hope others can use it, test it or contribute.
 
 You can test it on your system by adding pygetwindow folder to your PYTHONPATH, and then executing: "pytest -vv test_pygetwindow.py" (script located within "tests" folder)
 
-###IMPORTANT NOTICE:
+####IMPORTANT NOTICE:
 macOS doesn't "like" controlling windows from other apps, so there are two separate classes you can use.
-One is based on NSWindow (you have to pass the NSApp() Object. It means you have to be the "owner" of the app).
+One is based on NSWindow Objects (you have to pass the NSApp() Object. It means you have to be the "owner" of the app).
 The other one is based on Apple Script, so it is not fully trustable, but it's working fine in most cases.
 To test macOS NSWindow class, you can execute "python3 test_MacNSWindow.py" (also located within "test" folder)
