@@ -10,6 +10,7 @@ It adds Linux and macOS experimental support, in the hope others can use it, tes
 You can test it on your system by adding pygetwindow folder to your PYTHONPATH, and then executing: "pytest -vv test_pygetwindow.py" (script located within "tests" folder)
 
 ####IMPORTANT NOTICE:
+
 macOS doesn't "like" controlling windows from other apps, so there are two separate classes you can use.
 One is based on NSWindow Objects (you have to pass the NSApp() Object. It means you have to be the "owner" of the app).
 The other one is based on Apple Script, so it is not fully trustable, but it's working fine in most cases.
