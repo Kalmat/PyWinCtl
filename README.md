@@ -1,4 +1,4 @@
-First off, my most sincere thanks and acknowledge to macdeport (https://github.com/macdeport) and holychowders (https://github.com/holychowders) for their help and moral boost.
+First off, my most sincere thanks and acknowledgement to macdeport (https://github.com/macdeport) and holychowders (https://github.com/holychowders) for their help and moral boost.
 
 PyGetWindow-MP (Multi-Platform)
 ==============================
