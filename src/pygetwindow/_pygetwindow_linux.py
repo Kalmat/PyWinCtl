@@ -8,7 +8,7 @@ import Xlib.X
 import Xlib.display
 import ewmh
 import pyautogui
-from pygetwindow import PyGetWindowException, pointInRect, BaseWindow, Rect, Point, Size, _levenshtein
+from pygetwindow import PyGetWindowException, pointInRect, BaseWindow, Rect, Point, Size
 
 DISP = Xlib.display.Display()
 ROOT = DISP.screen().root
