@@ -80,7 +80,7 @@ def getWindowsWithTitle(title):
     """Returns a Window object list with the given name."""
     matches = []
     for win in getAllWindows():
-        if _levenshtein(win.title, title) > 0.9:
+        if win.title == title:
             matches.append(win)
 
     return matches
