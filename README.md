@@ -3,11 +3,9 @@ First off, my most sincere thanks and acknowledgement to macdeport (https://gith
 PyGetWindow-MP (Multi-Platform)
 ==============================
 
-This is a fork from asweigart's PyGetWindow module (https://github.com/asweigart/PyGetWindow)
+This is a fork from asweigart's PyGetWindow module (https://github.com/asweigart/PyGetWindow), intended to obtain GUI information on and control application's windows.
 
-It adds Linux and macOS experimental support, in the hope others can use it, test it or contribute.
-
-You can test it on your system by adding pygetwindow folder to your PYTHONPATH, and then executing: "pytest -vv test_pygetwindow.py" (script located within "tests" folder)
+This fork adds Linux and macOS experimental support to the windows-only original module, in the hope others can use it, test it or contribute
 
 #### IMPORTANT MACOS NOTICE:
 
