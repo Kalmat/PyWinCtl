@@ -415,8 +415,7 @@ def main():
     npw = getActiveWindow()
     print("ACTIVE WINDOW:", npw, npw.title, "/", npw.box)
     print()
-    # displayWindowsUnderMouse(0, 0)
-    npw.minimize(wait=True)
+    displayWindowsUnderMouse(0, 0)
 
 
 if __name__ == "__main__":
