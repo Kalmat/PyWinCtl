@@ -160,18 +160,17 @@ class LinuxWindow(BaseWindow):
         if not self.isMinimized:
             if "GNOME" in self._get_wm():
                 # https://stackoverflow.com/questions/5262413/does-xlib-have-an-active-window-event
-                self.activate()
-                # It takes some time to refresh. Wait is "mandatory" in this case
-                wait = True
                 x11 = ctypes.cdll.LoadLibrary('libX11.so.6')
                 # m_display = x11.XOpenDisplay(None)
                 m_display = x11.XOpenDisplay(bytes(os.environ["DISPLAY"], 'ascii'))
                 m_screen = x11.XDefaultScreen(m_display)
                 # m_root_win = x11.XDefaultRootWindow(m_display, ctypes.c_int(0))
-                # hwnd = x11GetWindowsWithTitle(m_display, m_root_win, self.title)
-                hwnd = ROOT.get_full_property(DISP.intern_atom('_NET_ACTIVE_WINDOW'), Xlib.X.AnyPropertyType).value[0]
-                x11.XIconifyWindow(m_display, hwnd, m_screen)
-                x11.XFlush(m_display)
+                self.activate()
+                windows = ROOT.get_full_property(DISP.intern_atom('_NET_ACTIVE_WINDOW'), Xlib.X.AnyPropertyType).value
+                if windows:
+                    hwnd = windows[0]
+                    x11.XIconifyWindow(m_display, hwnd, m_screen)
+                    x11.XFlush(m_display)
                 # Keystroke hack. Tested OK on Ubuntu/Unity
                 # self.activate(wait=True)
                 # pyautogui.hotkey('winleft', 'h')
@@ -416,7 +415,8 @@ def main():
     npw = getActiveWindow()
     print("ACTIVE WINDOW:", npw, npw.title, "/", npw.box)
     print()
-    displayWindowsUnderMouse(0, 0)
+    # displayWindowsUnderMouse(0, 0)
+    npw.minimize(wait=True)
 
 
 if __name__ == "__main__":
