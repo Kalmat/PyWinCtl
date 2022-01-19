@@ -158,32 +158,18 @@ class LinuxWindow(BaseWindow):
 
         Returns ''True'' if window was minimized"""
         if not self.isMinimized:
-            if "GNOME" in self._get_wm():
-                # https://stackoverflow.com/questions/5262413/does-xlib-have-an-active-window-event
-                x11 = ctypes.cdll.LoadLibrary('libX11.so.6')
-                # m_display = x11.XOpenDisplay(None)
-                m_display = x11.XOpenDisplay(bytes(os.environ["DISPLAY"], 'ascii'))
-                m_screen = x11.XDefaultScreen(m_display)
-                # m_root_win = x11.XDefaultRootWindow(m_display, ctypes.c_int(0))
-                self.activate()
-                windows = ROOT.get_full_property(DISP.intern_atom('_NET_ACTIVE_WINDOW'), Xlib.X.AnyPropertyType).value
-                if windows:
-                    hwnd = windows[0]
-                    x11.XIconifyWindow(m_display, hwnd, m_screen)
-                    x11.XFlush(m_display)
-                # Keystroke hack. Tested OK on Ubuntu/Unity
-                # self.activate(wait=True)
-                # pyautogui.hotkey('winleft', 'h')
-            else:
-                # This is working OK at least on Mint/Cinnamon and Raspbian/LXDE
-                hints = self._hWnd.get_wm_hints()
-                prev_state = hints["initial_state"]
-                hints["initial_state"] = HINT_STATE_ICONIC
-                self._hWnd.set_wm_hints(hints)
-                self.hide(wait=wait)
-                self.show(wait=wait)
-                hints["initial_state"] = prev_state
-                self._hWnd.set_wm_hints(hints)
+            x11 = ctypes.cdll.LoadLibrary('libX11.so.6')
+            # m_display = x11.XOpenDisplay(None)
+            m_display = x11.XOpenDisplay(bytes(os.environ["DISPLAY"], 'ascii'))
+            m_screen = x11.XDefaultScreen(m_display)
+            # m_root_win = x11.XDefaultRootWindow(m_display, ctypes.c_int(0))
+            self.activate()
+            # https://stackoverflow.com/questions/5262413/does-xlib-have-an-active-window-event
+            windows = ROOT.get_full_property(DISP.intern_atom('_NET_ACTIVE_WINDOW'), Xlib.X.AnyPropertyType).value
+            if windows:
+                hwnd = windows[0]
+                x11.XIconifyWindow(m_display, hwnd, m_screen)
+                x11.XFlush(m_display)
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and not self.isMinimized:
             retries += 1
