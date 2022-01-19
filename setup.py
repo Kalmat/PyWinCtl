@@ -19,8 +19,8 @@ with io.open("README.md", encoding="utf-8") as fileObj:
 setup(
     name='PyGetWindow',
     version=version,
-    url='https://github.com/Kalma/pygetwindow',
-    author='Kalma',
+    url='https://github.com/Kalmat/pygetwindow',
+    author='Kalmat',
     author_email='palookjones@gmail.com',
     description=('A simple, cross-platform module for obtaining GUI information on application\'s windows.'),
     long_description=long_description,
@@ -44,6 +44,8 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7'
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9'
     ],
 )
