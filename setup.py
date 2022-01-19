@@ -30,8 +30,8 @@ setup(
     package_dir={'': 'src'},
     test_suite='tests',
     install_requires=[
-        "PyRect==0.1.4"
-        "pywin32==0.2.0; sys_platform == 'win32'",
+        "PyRect==0.1.4",
+        "pywin32==302; sys_platform == 'win32'",
         "xlib==0.21; sys_platform == 'linux'",
         "ewmh==0.1.6; sys_platform == 'linux'",
         "pyobjc==8.1; sys_platform == 'darwin'"
