@@ -7,7 +7,7 @@ scriptFolder = os.path.dirname(os.path.realpath(__file__))
 os.chdir(scriptFolder)
 
 # Find version info from module (without importing the module):
-with open("src/pygetwindow/__init__.py", "r") as fileObj:
+with open("src/pygetwindowmp/__init__.py", "r") as fileObj:
     version = re.search(
         r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]', fileObj.read(), re.MULTILINE
     ).group(1)
@@ -17,11 +17,11 @@ with io.open("README.md", encoding="utf-8") as fileObj:
     long_description = fileObj.read()
 
 setup(
-    name='PyGetWindow',
+    name='PyGetWindowMP',
     version=version,
-    url='https://github.com/asweigart/pygetwindow',
-    author='Al Sweigart',
-    author_email='al@inventwithpython.com',
+    url='https://github.com/Kalmat/pygetwindow',
+    author='Kalmat',
+    author_email='palookjones@gmail.com',
     description=('A simple, cross-platform module for obtaining GUI information on application\'s windows.'),
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -29,7 +29,13 @@ setup(
     packages=find_packages(where='src'),
     package_dir={'': 'src'},
     test_suite='tests',
-    install_requires=['pyrect'],
+    install_requires=[
+        "PyRect==0.1.4"
+        "pywin32==0.2.0; sys_platform == 'win32'",
+        "xlib==0.21; sys_platform == 'linux'",
+        "ewmh==0.1.6; sys_platform == 'linux'",
+        "pyobjc==8.1; sys_platform == 'darwin'"
+    ],
     keywords="gui window geometry resize minimize maximize close title",
     classifiers=[
         'Development Status :: 4 - Beta',
@@ -46,6 +52,8 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7'
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9'
     ],
 )

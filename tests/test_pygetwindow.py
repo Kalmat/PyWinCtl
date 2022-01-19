@@ -4,7 +4,7 @@ import sys
 import pytest
 import subprocess
 import time
-import pygetwindow
+import pygetwindowmp
 
 
 def test_basic():
@@ -13,8 +13,8 @@ def test_basic():
         subprocess.Popen('notepad')
         time.sleep(0.5)
 
-        testWindows = [pygetwindow.getActiveWindow()]
-        # testWindows = pygetwindow.getWindowsWithTitle('Untitled - Notepad')   # Not working in other languages
+        testWindows = [pygetwindowmp.getActiveWindow()]
+        # testWindows = pygetwindowmp.getWindowsWithTitle('Untitled - Notepad')   # Not working in other languages
         assert len(testWindows) == 1
 
         npw = testWindows[0]  # testWindows[0] is the selected window
@@ -25,7 +25,7 @@ def test_basic():
         subprocess.Popen('gedit')
         time.sleep(5)
 
-        testWindows = [pygetwindow.getActiveWindow()]
+        testWindows = [pygetwindowmp.getActiveWindow()]
         assert len(testWindows) == 1
 
         npw = testWindows[0]  # testWindows[0] is the selected window
@@ -38,7 +38,7 @@ def test_basic():
         subprocess.Popen(['open', '-a', 'TextEdit', 'test.txt'])
         time.sleep(5)
 
-        testWindows = pygetwindow.getWindowsWithTitle('test.txt')
+        testWindows = pygetwindowmp.getWindowsWithTitle('test.txt')
         assert len(testWindows) == 1
 
         npw = testWindows[0]  # testWindows[0] is the selected window
@@ -172,7 +172,7 @@ def basic_linux(npw):
     assert npw is not None
 
     wait = True
-    timelap = 0.1
+    timelap = 0.5
 
     # Test maximize/minimize/restore.
     if npw.isMaximized:  # Make sure it starts un-maximized
@@ -447,4 +447,4 @@ def main():
 
 
 if __name__ == '__main__':
-    pytest.main()
+    main()

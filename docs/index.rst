@@ -27,6 +27,14 @@ PyGetWindow has functions for obtaining ``Window`` objects from a place on the s
 
 .. code-block:: none
 
+    >>> import pygetwindowmp as gw
+
+    >>> gw.getAllTitles()
+    ('', 'C:
+    >>> import pygetwindowmp as gw
+
+    >>> gw.getAllTitles()
+    ('', 'C:
     >>> import pygetwindow as gw
 
     >>> gw.getAllTitles()

@@ -1,7 +1,7 @@
 import ctypes
 from ctypes import wintypes # We can't use ctypes.wintypes, we must import wintypes this way.
 
-from pygetwindow import PyGetWindowException, pointInRect, BaseWindow, Rect, Point, Size
+from pygetwindowmp import PyGetWindowException, pointInRect, BaseWindow, Rect, Point, Size
 
 
 NULL = 0 # Used to match the Win32 API value of "null".

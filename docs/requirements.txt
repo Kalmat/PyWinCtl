@@ -1,7 +1,5 @@
-pyrect
-numpy
-ctypes; sys_platform == 'win32'
-pyautogui; sys_platform == 'linux'
-xlib; sys_platform == 'linux'
-ewmh; sys_platform == 'linux'
-pyobjc; sys_platform == 'darwin'
+PyRect==0.1.4
+pywin32==0.2.0; sys_platform == 'win32'
+xlib==0.21; sys_platform == 'linux'
+ewmh==0.1.6; sys_platform == 'linux'
+pyobjc==8.1; sys_platform == 'darwin'

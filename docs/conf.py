@@ -19,9 +19,9 @@
 
 # -- Project information -----------------------------------------------------
 
-project = 'PyGetWindow'
-copyright = '2019, Al Sweigart'
-author = 'Al Sweigart'
+project = 'PyGetWindowMP'
+copyright = '2021, Kalmat'
+author = 'Kalmat <palookjones@gmail.com'
 
 # The short X.Y version
 version = ''
@@ -141,7 +141,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'pygetwindow', 'PyGetWindow Documentation',
+    (master_doc, 'pygetwindowmp', 'PyGetWindow Documentation',
      [author], 1)
 ]
 

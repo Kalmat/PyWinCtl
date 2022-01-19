@@ -103,6 +103,14 @@ class BaseWindow:
         """If maximized or minimized, restores the window to it's normal size."""
         raise NotImplementedError
 
+    def hide(self):
+        """If hidden or showing, hides the app from screen and title bar."""
+        raise NotImplementedError
+
+    def show(self):
+        """If hidden or showing, shows the window on screen and in title bar."""
+        raise NotImplementedError
+
     def activate(self):
         """Activate this window and make it the foreground window."""
         raise NotImplementedError
@@ -377,4 +385,3 @@ elif sys.platform == "linux":
     Window = LinuxWindow
 else:
     raise NotImplementedError('PyGetWindow currently does not support this platform. If you think you can help, please contribute! https://github.com/asweigart/pygetwindow')
-

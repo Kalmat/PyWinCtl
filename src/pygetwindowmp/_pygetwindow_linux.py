@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+import ctypes
 import os
 import sys
 import platform
@@ -7,8 +8,7 @@ import time
 import Xlib.X
 import Xlib.display
 import ewmh
-import pyautogui
-from pygetwindow import PyGetWindowException, pointInRect, BaseWindow, Rect, Point, Size
+from pygetwindowmp import PyGetWindowException, pointInRect, BaseWindow, Rect, Point, Size
 
 DISP = Xlib.display.Display()
 ROOT = DISP.screen().root
@@ -52,8 +52,7 @@ def getActiveWindow():
     win_id = EWMH.getActiveWindow()
     if win_id:
         return LinuxWindow(win_id)
-    else:
-        return None
+    return None
 
 
 def getActiveWindowTitle():
@@ -94,7 +93,8 @@ def getAllTitles():
 
 def getAllWindows():
     """Returns a list of strings of window titles for all visible windows."""
-    return [LinuxWindow(window) for window in EWMH.getClientList()]
+    windows = EWMH.getClientList()
+    return [LinuxWindow(window) for window in windows]
 
 
 class LinuxWindow(BaseWindow):
@@ -109,6 +109,7 @@ class LinuxWindow(BaseWindow):
         It follows ctypes format for compatibility"""
         # https://stackoverflow.com/questions/12775136/get-window-position-and-size-in-python-with-xlib - mgalgs
         win = self._hWnd
+        x = y = w = h = 0
         geom = win.get_geometry()
         (x, y) = (geom.x, geom.y)
         while True:
@@ -119,7 +120,10 @@ class LinuxWindow(BaseWindow):
             if parent.id == ROOT.id:
                 break
             win = parent
-        return Rect(x, y, x + geom.width, y + geom.height)
+        w = geom.width
+        h = geom.height
+
+        return Rect(x, y, x + w, y + h)
 
     def _saveWindowInitValues(self):
         # Saves initial rect values to allow reset to original position, size, state and hints.
@@ -146,7 +150,7 @@ class LinuxWindow(BaseWindow):
 
     def _get_wm(self):
         # https://stackoverflow.com/questions/3333243/how-can-i-check-with-python-which-window-manager-is-running
-        return os.environ.get('XDG_CURRENT_DESKTOP') or ""
+        return os.environ.get('XDG_CURRENT_DESKTOP', "")
 
     def minimize(self, wait=False):
         """Minimizes this window.
@@ -155,13 +159,22 @@ class LinuxWindow(BaseWindow):
         Returns ''True'' if window was minimized"""
         if not self.isMinimized:
             if "GNOME" in self._get_wm():
+                # https://stackoverflow.com/questions/5262413/does-xlib-have-an-active-window-event
+                self.activate()
+                # It takes some time to refresh. Wait is "mandatory" in this case
+                wait = True
+                x11 = ctypes.cdll.LoadLibrary('libX11.so.6')
+                # m_display = x11.XOpenDisplay(None)
+                m_display = x11.XOpenDisplay(bytes(os.environ["DISPLAY"], 'ascii'))
+                m_screen = x11.XDefaultScreen(m_display)
+                # m_root_win = x11.XDefaultRootWindow(m_display, ctypes.c_int(0))
+                # hwnd = x11GetWindowsWithTitle(m_display, m_root_win, self.title)
+                hwnd = ROOT.get_full_property(DISP.intern_atom('_NET_ACTIVE_WINDOW'), Xlib.X.AnyPropertyType).value[0]
+                x11.XIconifyWindow(m_display, hwnd, m_screen)
+                x11.XFlush(m_display)
                 # Keystroke hack. Tested OK on Ubuntu/Unity
-                self.activate(wait=True)
-                pyautogui.hotkey('winleft', 'h')
-                retries = 0
-                while wait and retries < WAIT_ATTEMPTS and not self.isMinimized:
-                    retries += 1
-                    time.sleep(WAIT_DELAY * retries)
+                # self.activate(wait=True)
+                # pyautogui.hotkey('winleft', 'h')
             else:
                 # This is working OK at least on Mint/Cinnamon and Raspbian/LXDE
                 hints = self._hWnd.get_wm_hints()
@@ -172,6 +185,10 @@ class LinuxWindow(BaseWindow):
                 self.show(wait=wait)
                 hints["initial_state"] = prev_state
                 self._hWnd.set_wm_hints(hints)
+        retries = 0
+        while wait and retries < WAIT_ATTEMPTS and not self.isMinimized:
+            retries += 1
+            time.sleep(WAIT_DELAY * retries)
         return self.isMinimized
 
     def maximize(self, wait=False):
@@ -288,14 +305,13 @@ class LinuxWindow(BaseWindow):
         Use 'wait' option to confirm action requested (in a reasonable time).
 
         Returns ''True'' if window was moved to the given position"""
-        if newLeft < 0 or newTop < 0:  # Xlib/EWMH won't accept negative positions
-            return False
-        EWMH.setMoveResizeWindow(self._hWnd, x=newLeft, y=newTop, w=self.width, h=self.height)
-        EWMH.display.flush()
-        retries = 0
-        while wait and retries < WAIT_ATTEMPTS and (self.left != newLeft or self.top != newTop):
-            retries += 1
-            time.sleep(WAIT_DELAY * retries)
+        if newLeft >= 0 and newTop >= 0:  # Xlib/EWMH won't accept negative positions
+            EWMH.setMoveResizeWindow(self._hWnd, x=newLeft, y=newTop, w=self.width, h=self.height)
+            EWMH.display.flush()
+            retries = 0
+            while wait and retries < WAIT_ATTEMPTS and (self.left != newLeft or self.top != newTop):
+                retries += 1
+                time.sleep(WAIT_DELAY * retries)
         return self.left == newLeft and self.top == newTop
 
     def _moveResizeTo(self, newLeft, newTop, newWidth, newHeight):
@@ -307,7 +323,8 @@ class LinuxWindow(BaseWindow):
     @property
     def isMinimized(self):
         """Returns ``True`` if the window is currently minimized."""
-        return STATE_HIDDEN in EWMH.getWmState(self._hWnd, str=True)
+        state = EWMH.getWmState(self._hWnd, str=True)
+        return STATE_HIDDEN in state
 
     @property
     def isMaximized(self):
@@ -318,24 +335,30 @@ class LinuxWindow(BaseWindow):
     @property
     def isActive(self):
         """Returns ``True`` if the window is currently the active, foreground window."""
-        return EWMH.getActiveWindow() == self._hWnd
+        win = EWMH.getActiveWindow()
+        return win == self._hWnd
 
     @property
     def title(self):
         """Returns the window title as a string."""
-        return EWMH.getWmName(self._hWnd)
+        name = EWMH.getWmName(self._hWnd)
+        if isinstance(name, bytes):
+            name = name.decode()
+        return name
 
     @property
     def visible(self):
         """Returns ``True`` if the window is currently visible."""
         win = DISP.create_resource_object('window', self._hWnd)
-        return win.get_attributes().map_state == Xlib.X.IsViewable
+        state = win.get_attributes().map_state
+        return state == Xlib.X.IsViewable
 
     @property
     def _isMapped(self):
         # Returns ``True`` if the window is currently mapped
         win = DISP.create_resource_object('window', self._hWnd)
-        return win.get_attributes().map_state != Xlib.X.IsUnmapped
+        state = win.get_attributes().map_state
+        return state != Xlib.X.IsUnmapped
 
 
 def cursor():
@@ -391,8 +414,8 @@ def main():
     print("PLATFORM:", sys.platform)
     print("SCREEN SIZE:", resolution())
     npw = getActiveWindow()
-    print("ACTIVE WINDOW:", npw.title, "/", npw.box)
-    print("")
+    print("ACTIVE WINDOW:", npw, npw.title, "/", npw.box)
+    print()
     displayWindowsUnderMouse(0, 0)
 
 

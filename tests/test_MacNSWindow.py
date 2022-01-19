@@ -9,8 +9,8 @@ import sys
 import time
 from AppKit import *
 from PyObjCTools import AppHelper
-import pygetwindow
-
+import pygetwindowmp
+import traceback
 
 # Cocoa prefers composition to inheritance. The members of an object's
 # delegate will be called upon the happening of certain events. Once we define
@@ -39,7 +39,7 @@ class Delegate(NSObject):
         if self.demoMode:
 
             if not self.npw:
-                self.npw = pygetwindow.getActiveWindow(NSApp())
+                self.npw = pygetwindowmp.getActiveWindow(NSApp())
 
                 if self.npw:
                     print("ACTIVE WINDOW:", self.npw.title)
@@ -48,7 +48,7 @@ class Delegate(NSObject):
                     return
 
             wait = True
-            timelap = 0.0
+            timelap = 0.3
 
             self.npw.maximize(wait=wait)
             time.sleep(timelap)
@@ -63,6 +63,13 @@ class Delegate(NSObject):
             self.npw.restore(wait=wait)
             time.sleep(timelap)
             assert not self.npw.isMinimized
+
+            self.npw.hide(wait=wait)
+            time.sleep(timelap)
+            assert not self.npw.visible
+            self.npw.show(wait=wait)
+            time.sleep(timelap)
+            assert self.npw.visible
 
             # Test resizing
             self.npw.resizeTo(600, 400, wait=wait)
