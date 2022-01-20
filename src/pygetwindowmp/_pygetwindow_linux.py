@@ -160,6 +160,7 @@ class LinuxWindow(BaseWindow):
             ev = Xlib.protocol.event.ClientMessage(window=self._hWnd.id, client_type=prop, data=data)
             mask = Xlib.X.SubstructureRedirectMask | Xlib.X.SubstructureNotifyMask
             DISP.send_event(destination=ROOT, event=ev, event_mask=mask)
+            DISP.flush()
             retries = 0
             while wait and retries < WAIT_ATTEMPTS and not self.isMinimized:
                 retries += 1
@@ -391,8 +392,7 @@ def main():
     npw = getActiveWindow()
     print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()
-    # displayWindowsUnderMouse(0, 0)
-    npw.minimize()
+    displayWindowsUnderMouse(0, 0)
 
 
 if __name__ == "__main__":
