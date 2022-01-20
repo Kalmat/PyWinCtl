@@ -1,4 +1,4 @@
-v0.0.1, 2021/11/12 -- Added Linux and macOS support
+v0.0.9, 2021/11/12 -- Added Linux and macOS support
 v0.0.6, 2019/06/18 -- Fixed setup.py to make it backwards compatible with Python 2.
 v0.0.5, 2019/05/17 -- Fixed setup.py to read readme.md with the utf-8 encoding explicitly.
 v0.0.4, 2019/01/28 -- Renamed getFocusedWindow() to getActiveWindow(), and other "focus" names to "active".

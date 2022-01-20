@@ -6,8 +6,8 @@ import platform
 import time
 import Xlib.X
 import Xlib.display
+import Xlib.protocol
 import ewmh
-from Xlib.protocol.rq import array_unsigned_codes
 
 from pygetwindowmp import PyGetWindowException, pointInRect, BaseWindow, Rect, Point, Size
 
@@ -38,8 +38,8 @@ STATE_ATTENTION = '_NET_WM_STATE_DEMANDS_ATTENTION'
 STATE_FOCUSED = '_NET_WM_STATE_FOCUSED'
 
 # EWMH/Xlib set state actions
-ACTION_UNSET = 0   # Add state
-ACTION_SET = 1     # Remove state
+ACTION_UNSET = 0   # Remove state
+ACTION_SET = 1     # Add state
 ACTION_TOGGLE = 2  # Toggle state
 
 # EWMH/Xlib State Hints
