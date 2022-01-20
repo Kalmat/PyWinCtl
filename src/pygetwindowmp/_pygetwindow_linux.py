@@ -1,13 +1,14 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-import ctypes
-import os
+
 import sys
 import platform
 import time
 import Xlib.X
 import Xlib.display
 import ewmh
+from Xlib.protocol.rq import array_unsigned_codes
+
 from pygetwindowmp import PyGetWindowException, pointInRect, BaseWindow, Rect, Point, Size
 
 DISP = Xlib.display.Display()
@@ -148,23 +149,17 @@ class LinuxWindow(BaseWindow):
         EWMH.setCloseWindow(self._hWnd)
         EWMH.display.flush()
 
-    def _get_wm(self):
-        # https://stackoverflow.com/questions/3333243/how-can-i-check-with-python-which-window-manager-is-running
-        return os.environ.get('XDG_CURRENT_DESKTOP') or ""
-
     def minimize(self, wait=False):
         """Minimizes this window.
         Use 'wait' option to confirm action requested (in a reasonable time).
 
         Returns ''True'' if window was minimized"""
         if not self.isMinimized:
-            x11 = ctypes.cdll.LoadLibrary('libX11.so.6')
-            # m_display = x11.XOpenDisplay(None)
-            m_display = x11.XOpenDisplay(bytes(os.environ["DISPLAY"], 'ascii'))
-            m_screen = x11.XDefaultScreen(m_display)
-            # m_root_win = x11.XDefaultRootWindow(m_display, ctypes.c_int(0))
-            x11.XIconifyWindow(m_display, self._hWnd.id, m_screen)
-            x11.XFlush(m_display)
+            prop = DISP.intern_atom("WM_CHANGE_STATE", False)
+            data = (32, [Xlib.Xutil.IconicState, 0, 0, 0, 0])
+            ev = Xlib.protocol.event.ClientMessage(window=self._hWnd.id, client_type=prop, data=data)
+            mask = Xlib.X.SubstructureRedirectMask | Xlib.X.SubstructureNotifyMask
+            DISP.send_event(destination=ROOT, event=ev, event_mask=mask)
             retries = 0
             while wait and retries < WAIT_ATTEMPTS and not self.isMinimized:
                 retries += 1
@@ -190,7 +185,7 @@ class LinuxWindow(BaseWindow):
         Use 'wait' option to confirm action requested (in a reasonable time).
 
         Returns ''True'' if window was restored"""
-        # Activation is enough to restore a minimized window in GNOME/Unity, CINNAMON and LXDE
+        # Activation seems to be enough to restore a minimized window in GNOME, CINNAMON and LXDE
         self.activate(wait=wait)
         if self.isMaximized:
             EWMH.setWmState(self._hWnd, ACTION_UNSET, STATE_MAX_VERT, STATE_MAX_HORZ)
@@ -394,9 +389,10 @@ def main():
     print("PLATFORM:", sys.platform)
     print("SCREEN SIZE:", resolution())
     npw = getActiveWindow()
-    print("ACTIVE WINDOW:", npw, npw.title, "/", npw.box)
+    print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()
-    displayWindowsUnderMouse(0, 0)
+    # displayWindowsUnderMouse(0, 0)
+    npw.minimize()
 
 
 if __name__ == "__main__":
