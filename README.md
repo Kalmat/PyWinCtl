@@ -7,7 +7,7 @@ This is a fork from asweigart's PyGetWindow module (https://github.com/asweigart
 
 This fork adds Linux and macOS experimental support to the MS Windows™-only original module, in the hope others can use it, test it or contribute
 
-#### USING THIS CODE
+### USING THIS CODE
 
 If you want to use this code or contribute, you can either:
 
@@ -18,13 +18,13 @@ Be sure you install all dependencies described on "docs/requirements.txt" by usi
 
 In case you have any issues, comments or suggestions, do not hesitate to open an issue, or contact me (palookjones@gmail.com)
 
-#### TEST
+### TEST
 
 To test this module on your own system, cd to "tests" folder and run:
 
     pytest -vv test_pygetwindow.py
 
-#### INSTALL
+### INSTALL
 
 To install this module on your system, download the wheel file (.whl) located in "dist" folder, and run:
 
@@ -32,7 +32,13 @@ To install this module on your system, download the wheel file (.whl) located in
 
 You may want to add '--force-reinstall' option to be sure you are installing the right dependencies version.
 
-#### IMPORTANT MacOS NOTICE:
+Then, you can use it on your own projects just importing it:
+
+    import pygetwindowmp
+
+The module has a different name, so you don't need to uninstall previous PyGetWindow versions. Besides, the Windows-part of PyGetWindowMP module is exactly the same as in the original module.
+
+### IMPORTANT MacOS NOTICE:
 
 macOS doesn't "like" controlling windows from other apps, so there are two separate classes you can use:
 

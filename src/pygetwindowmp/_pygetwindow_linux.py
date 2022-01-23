@@ -204,9 +204,9 @@ class LinuxWindow(BaseWindow):
         Returns ''True'' if window was hidden (unmapped)"""
         win = DISP.create_resource_object('window', self._hWnd)
         win.unmap_sub_windows()
-        DISP.sync()
+        DISP.flush()
         win.unmap()
-        DISP.sync()
+        DISP.flush()
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and self._isMapped:
             retries += 1
@@ -220,9 +220,9 @@ class LinuxWindow(BaseWindow):
         Returns ''True'' if window is showing (mapped)"""
         win = DISP.create_resource_object('window', self._hWnd)
         win.map()
-        DISP.sync()
+        DISP.flush()
         win.map_sub_windows()
-        DISP.sync()
+        DISP.flush()
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and not self._isMapped:
             retries += 1
@@ -272,7 +272,9 @@ class LinuxWindow(BaseWindow):
         Use 'wait' option to confirm action requested (in a reasonable time).
 
         Returns ''True'' if window was moved to the given position"""
-        return self.moveTo(self.left + xOffset, self.top + yOffset, wait)
+        newLeft = max(0, self.left + xOffset)  # Xlib/EWMH won't accept negative positions
+        newTop = max(0, self.top + yOffset)
+        return self.moveTo(newLeft, newTop, wait)
 
     moveRel = move  # moveRel is an alias for the move() method.
 
@@ -281,19 +283,21 @@ class LinuxWindow(BaseWindow):
         Use 'wait' option to confirm action requested (in a reasonable time).
 
         Returns ''True'' if window was moved to the given position"""
-        if newLeft >= 0 and newTop >= 0:  # Xlib/EWMH won't accept negative positions
-            EWMH.setMoveResizeWindow(self._hWnd, x=newLeft, y=newTop, w=self.width, h=self.height)
-            EWMH.display.flush()
-            retries = 0
-            while wait and retries < WAIT_ATTEMPTS and (self.left != newLeft or self.top != newTop):
-                retries += 1
-                time.sleep(WAIT_DELAY * retries)
+        newLeft = max(0, newLeft)  # Xlib/EWMH won't accept negative positions
+        newTop = max(0, newTop)
+        EWMH.setMoveResizeWindow(self._hWnd, x=newLeft, y=newTop, w=self.width, h=self.height)
+        EWMH.display.flush()
+        retries = 0
+        while wait and retries < WAIT_ATTEMPTS and (self.left != newLeft or self.top != newTop):
+            retries += 1
+            time.sleep(WAIT_DELAY * retries)
         return self.left == newLeft and self.top == newTop
 
     def _moveResizeTo(self, newLeft, newTop, newWidth, newHeight):
-        if newLeft >= 0 and newTop >= 0:  # Xlib/EWMH won't accept negative positions
-            EWMH.setMoveResizeWindow(self._hWnd, x=newLeft, y=newTop, w=newWidth, h=newHeight)
-            EWMH.display.flush()
+        newLeft = max(0, newLeft)  # Xlib/EWMH won't accept negative positions
+        newTop = max(0, newTop)
+        EWMH.setMoveResizeWindow(self._hWnd, x=newLeft, y=newTop, w=newWidth, h=newHeight)
+        EWMH.display.flush()
         return
 
     @property
@@ -329,11 +333,14 @@ class LinuxWindow(BaseWindow):
         state = win.get_attributes().map_state
         return state == Xlib.X.IsViewable
 
+    isVisible = visible  # isVisible is an alias for the visible property.
+
     @property
     def _isMapped(self):
         # Returns ``True`` if the window is currently mapped
         win = DISP.create_resource_object('window', self._hWnd)
         state = win.get_attributes().map_state
+        print(win.get_attributes(), win.get_attributes().map_state)
         return state != Xlib.X.IsUnmapped
 
 

@@ -172,7 +172,7 @@ def basic_linux(npw):
     assert npw is not None
 
     wait = True
-    timelap = 0.5
+    timelap = 0.0
 
     # Test maximize/minimize/restore.
     if npw.isMaximized:  # Make sure it starts un-maximized
@@ -307,7 +307,7 @@ def basic_macOS(npw):
     assert npw is not None
 
     wait = True
-    timelap = 3.00
+    timelap = 0.00
 
     # Test maximize/minimize/restore.
     if npw.isMaximized:  # Make sure it starts un-maximized
