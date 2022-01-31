@@ -5,12 +5,12 @@
 
 # We need to import the relevant object definitions from PyObjC
 
-import sys
 import time
+
 from AppKit import *
-from PyObjCTools import AppHelper
+
 import pygetwindowmp
-import traceback
+
 
 # Cocoa prefers composition to inheritance. The members of an object's
 # delegate will be called upon the happening of certain events. Once we define
@@ -206,6 +206,14 @@ class Delegate(NSObject):
             time.sleep(timelap)
             assert self.npw.size == (810, 610)
 
+            # Test lower and raise window
+            print("LOWER")
+            self.npw.lowerWindow()
+            time.sleep(timelap)
+            print("RAISE")
+            self.npw.raiseWindow()
+            time.sleep(timelap)
+
             # Test closing
             self.npw.close()
 
@@ -236,15 +244,21 @@ def demo():
     # the type of window, its size and position etc)
     mask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable
     w = NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(frame, mask, NSBackingStoreBuffered, False)
+    w2 = NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(frame, mask, NSBackingStoreBuffered, False)
+
     # ... tell it which delegate object to use (here it happens
     # to be the same delegate as the application is using)...
     w.setDelegate_(delegate)
+    w2.setDelegate_(delegate)
     # ... and set some properties. Unicode strings are preferred.
     w.setTitle_(u'Hello, World!')
+    w2.setTitle_(u'Test')
     # All set. Now we can show the window ...
+    w2.orderFrontRegardless()
     w.orderFrontRegardless()
 
     # ... and start the application
+    w2.display()
     w.display()
     a.run()
     #AppHelper.runEventLoop()

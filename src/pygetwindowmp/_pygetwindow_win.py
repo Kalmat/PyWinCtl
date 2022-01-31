@@ -1,8 +1,12 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
 import ctypes
-from ctypes import wintypes # We can't use ctypes.wintypes, we must import wintypes this way.
+import sys
+import time
+from ctypes import wintypes  # We can't use ctypes.wintypes, we must import wintypes this way.
 
 from pygetwindowmp import PyGetWindowException, pointInRect, BaseWindow, Rect, Point, Size
-
 
 NULL = 0 # Used to match the Win32 API value of "null".
 
@@ -22,9 +26,11 @@ SW_RESTORE = 9
 
 # SetWindowPos constants:
 HWND_TOP = 0
+HWND_BOTTOM = 1
 
 # Window Message constants:
 WM_CLOSE = 0x0010
+SMTO_NORMAL = 0
 
 # This ctypes structure is for a Win32 POINT structure,
 # which is documented here: http://msdn.microsoft.com/en-us/library/windows/desktop/dd162805(v=vs.85).aspx
@@ -273,6 +279,55 @@ class Win32Window(BaseWindow):
         if result == 0:
             _raiseWithLastError()
 
+    def lowerWindow(self):
+        """Lowers the window to the bottom so that it does not obscure any sibling windows.
+        """
+        result = ctypes.windll.user32.SetWindowPos(self._hWnd, HWND_BOTTOM, self.left, self.top, self.width, self.height, 0)
+        if result == 0:
+            _raiseWithLastError()
+
+    def raiseWindow(self):
+        """Raises the window to top so that it is not obscured by any sibling windows.
+        """
+        result = ctypes.windll.user32.SetWindowPos(self._hWnd, HWND_TOP, self.left, self.top, self.width, self.height, 0)
+        if result == 0:
+            _raiseWithLastError()
+
+    def sendBehind(self):
+        """Sends the window to the very bottom, under all other windows, including desktop icons.
+        It may also cause that window does not accept focus nor keyboard/mouse events.
+
+        WARNING: On GNOME it will stay on top of desktop icons... by the moment"""
+        def getWorkerW():
+
+            thelist = []
+
+            def findit(hwnd, ctx):
+                p = ctypes.windll.user32.FindWindowEx(hwnd, None, "SHELLDLL_DefView", "")
+                if p != 0:
+                    thelist.append(ctypes.windll.user32.FindWindowEx(None, hwnd, "WorkerW", ""))
+
+            ctypes.windll.user32.EnumWindows(findit, None)
+            return thelist
+
+        # https://www.codeproject.com/Articles/856020/Draw-Behind-Desktop-Icons-in-Windows-plus
+        progman = ctypes.windll.user32.FindWindow("Progman", None)
+        ctypes.windll.user32.SendMessageTimeout(progman, 0x052C, 0, 0, SMTO_NORMAL, 1000)
+        workerw = getWorkerW()
+        result = 0
+        if workerw:
+            result = ctypes.windll.user32.SetParent(self._hWnd, workerw[0])
+        if result == 0:
+            _raiseWithLastError()
+
+    def sendFront(self):
+        """Brings window back from bottom. Use this function to revert windows status after using sendBehind()
+        """
+        ret1 = ctypes.windll.user32.ShowWindow(self._hWnd, SW_SHOW)
+        ret2 = ctypes.windll.user32.BringWindowToTop(self._hWnd)
+        ret3 = ctypes.windll.user32.SetForegroundWindow(self._hWnd)
+        if ret1 == 0 or ret2 == 0 or ret3 == 0:
+            _raiseWithLastError()
 
     @property
     def isMinimized(self):
@@ -304,6 +359,8 @@ class Win32Window(BaseWindow):
         """Return ``True`` if the window is currently visible."""
         return isWindowVisible(self._hWnd)
 
+    isVisible = visible  # isVisible is an alias for the visible property.
+
 
 def cursor():
     """Returns the current xy coordinates of the mouse cursor as a two-integer
@@ -326,26 +383,46 @@ def resolution():
     """
     return Size(width=ctypes.windll.user32.GetSystemMetrics(0), height=ctypes.windll.user32.GetSystemMetrics(1))
 
-'''
+
 def displayWindowsUnderMouse(xOffset=0, yOffset=0):
     """This function is meant to be run from the command line. It will
     automatically display the location and RGB of the mouse cursor."""
     print('Press Ctrl-C to quit.')
     if xOffset != 0 or yOffset != 0:
         print('xOffset: %s yOffset: %s' % (xOffset, yOffset))
-    resolution = size()
     try:
+        prevWindows = None
         while True:
-            # Get and print the mouse coordinates.
-            x, y = position()
-            positionStr = 'X: ' + str(x - xOffset).rjust(4) + ' Y: ' + str(y - yOffset).rjust(4)
-
-            # TODO - display windows under the mouse
-
-            sys.stdout.write(positionStr)
-            sys.stdout.write('\b' * len(positionStr))
+            x, y = cursor()
+            positionStr = 'X: ' + str(x - xOffset).rjust(4) + ' Y: ' + str(y - yOffset).rjust(
+                4) + '  (Press Ctrl-C to quit)'
+            if prevWindows is not None:
+                sys.stdout.write(positionStr)
+                sys.stdout.write('\b' * len(positionStr))
+            windows = getWindowsAt(x, y)
+            if windows != prevWindows:
+                print('\n')
+                prevWindows = windows
+                for win in windows:
+                    name = win.title
+                    eraser = '' if len(name) >= len(positionStr) else ' ' * (len(positionStr) - len(name))
+                    sys.stdout.write((name or ("<No Name> ID: " + str(win._hWnd))) + eraser + '\n')
             sys.stdout.flush()
+            time.sleep(0.3)
     except KeyboardInterrupt:
-        sys.stdout.write('\n')
+        sys.stdout.write('\n\n')
         sys.stdout.flush()
-'''
+
+
+def main():
+    """Run this script from command-line to get windows under mouse pointer"""
+    print("PLATFORM:", sys.platform)
+    print("SCREEN SIZE:", resolution())
+    npw = getActiveWindow()
+    print("ACTIVE WINDOW:", npw.title, "/", npw.box)
+    print()
+    displayWindowsUnderMouse(0, 0)
+
+
+if __name__ == "__main__":
+    main()

@@ -134,6 +134,28 @@ class BaseWindow:
     def _moveResizeTo(self, newLeft, newTop, newWidth, newHeight):
         raise NotImplementedError
 
+    def lowerWindow(self):
+        """Lowers the window to the bottom so that it does not obscure any sibling windows.
+        """
+        raise NotImplementedError
+
+    def raiseWindow(self):
+        """Raises the window to top so that it is not obscured by any sibling windows.
+        """
+        raise NotImplementedError
+
+    def sendBehind(self):
+        """Sends the window to the very bottom, under all other windows, including desktop icons.
+        It may also cause that window does not accept focus nor keyboard/mouse events.
+
+        WARNING: On GNOME it will obscure desktop icons... by the moment"""
+        raise NotImplementedError
+
+    def sendFront(self):
+        """Brings window back from bottom. Use this function to revert windows status after using sendBehind()
+        """
+        raise NotImplementedError
+
     @property
     def isMinimized(self):
         """Returns True if the window is currently minimized."""

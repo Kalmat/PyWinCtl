@@ -6,9 +6,11 @@ import platform
 import subprocess
 import sys
 import time
+
 import AppKit
 import Quartz
-from pygetwindowmp import PyGetWindowException, pointInRect, BaseWindow, Rect, Point, Size
+
+from pygetwindowmp import pointInRect, BaseWindow, Rect, Point, Size
 
 """ 
 IMPORTANT NOTICE:
@@ -409,7 +411,48 @@ class MacOSWindow(BaseWindow):
                 self.width != newWidth and self.height != newHeight:
             retries += 1
             time.sleep(WAIT_DELAY * retries)
+        return newLeft == self.left and newTop == self.top and newWidth == self.width and newHeight == self.height
+
+    def lowerWindow(self):
+        """Lowers the window to the bottom so that it does not obscure any sibling windows.
+        """
+        cmd = """osascript -e 'tell application "System Events" to tell application "%s"
+                                    try
+                                        set winList to every window whose visible is true
+                                        if not winList = {} then
+                                            repeat with oWin in (items of reverse of winList)
+                                                if not name of oWin = "%s" then
+                                                    set index of oWin to 1
+                                                end if
+                                            end repeat
+                                        end if
+                                    end try 
+                               end tell'""" % (self.appName, self.title)
+        os.system(cmd)
         return
+
+    def raiseWindow(self):
+        """Raises the window to top so that it is not obscured by any sibling windows.
+        """
+        cmd = """osascript -e 'tell application "System Events" to tell application "%s"
+                                    try
+                                        tell window "%s" to set index to 1
+                                    end try
+                               end tell'""" % (self.appName, self.title)
+        os.system(cmd)
+        return
+
+    def sendBehind(self):
+        """Sends the window to the very bottom, under all other windows, including desktop icons.
+        It may also cause that window does not accept focus nor keyboard/mouse events.
+
+        WARNING: On GNOME it will obscure desktop icons... by the moment"""
+        raise NotImplementedError
+
+    def sendFront(self):
+        """Brings window back from bottom. Use this function to revert windows status after using sendBehind()
+        """
+        raise NotImplementedError
 
     @property
     def isMinimized(self):
@@ -491,6 +534,8 @@ class MacOSWindow(BaseWindow):
                                 return (isMapped as string)'""" % (self.title, self.appName, self.appName)
         ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").strip()
         return (ret == "true") or self.isMaximized
+
+    isVisible = visible  # isVisible is an alias for the visible property.
 
     def _exists(self):
         cmd = """osascript -e 'tell application "System Events" to tell application process "%s"
@@ -654,7 +699,45 @@ class MacOSNSWindow(BaseWindow):
 
     def _moveResizeTo(self, newLeft, newTop, newWidth, newHeight):
         self._hWnd.setFrame_display_animate_(AppKit.NSMakeRect(newLeft, resolution().height - newTop - newHeight, newWidth, newHeight), True, True)
-        return
+        return self.left == newLeft and self.top == newTop and self.width == newWidth and self.height == newHeight
+
+    def lowerWindow(self):
+        """Lowers the window to the bottom so that it does not obscure any sibling windows.
+        """
+        # self._hWnd.orderBack_(self._app)  # Not working or using it wrong???
+        windows = self._app.orderedWindows()
+        if windows:
+            windows.reverse()
+            for win in windows:
+                if win != self._hWnd:
+                    win.makeKeyAndOrderFront_(self._app)
+
+    def raiseWindow(self):
+        """Raises the window to top so that it is not obscured by any sibling windows.
+        """
+        self._hWnd.makeKeyAndOrderFront_(self._app)
+
+    def sendBehind(self):
+        """Sends the window to the very bottom, under all other windows, including desktop icons.
+        It may also cause that window does not accept focus nor keyboard/mouse events.
+
+        WARNING: On GNOME it will obscure desktop icons... by the moment"""
+        # https://stackoverflow.com/questions/4982584/how-do-i-draw-the-desktop-on-mac-os-x
+        ret1 = self._hWnd.setLevel_(Quartz.kCGDesktopWindowLevel - 1)
+        ret2 = self._hWnd.setCollectionBehavior_(Quartz.NSWindowCollectionBehaviorCanJoinAllSpaces |
+                                                Quartz.NSWindowCollectionBehaviorStationary |
+                                                Quartz.NSWindowCollectionBehaviorIgnoresCycle)
+        return ret1 and ret2
+
+    def sendFront(self):
+        """Brings window back from bottom. Use this function to revert windows status after using sendBehind()
+        """
+        # https://stackoverflow.com/questions/4982584/how-do-i-draw-the-desktop-on-mac-os-x
+        ret1 = self._hWnd.setLevel_(Quartz.kCGDesktopWindowLevel + 1)
+        ret2 = self._hWnd.setCollectionBehavior_(Quartz.NSWindowCollectionBehaviorCanJoinAllSpaces |
+                                                 Quartz.NSWindowCollectionBehaviorStationary |
+                                                 Quartz.NSWindowCollectionBehaviorIgnoresCycle)
+        return ret1 and ret2
 
     @property
     def isMinimized(self):
@@ -683,6 +766,8 @@ class MacOSNSWindow(BaseWindow):
     def visible(self):
         """Returns ``True`` if the window is currently visible."""
         return self._hWnd.isVisible()
+
+    isVisible = visible  # isVisible is an alias for the visible property.
 
 
 def cursor():

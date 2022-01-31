@@ -1,17 +1,21 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import sys
+import os
 import platform
+import sys
 import time
+
 import Xlib.X
 import Xlib.display
 import Xlib.protocol
 import ewmh
+from pynput import mouse
 
-from pygetwindowmp import PyGetWindowException, pointInRect, BaseWindow, Rect, Point, Size
+from pygetwindowmp import pointInRect, BaseWindow, Rect, Point, Size
 
 DISP = Xlib.display.Display()
+SCREEN = DISP.screen()
 ROOT = DISP.screen().root
 EWMH = ewmh.EWMH(_display=DISP, root=ROOT)
 
@@ -98,6 +102,30 @@ def getAllWindows():
     return [LinuxWindow(window) for window in windows]
 
 
+def _xlibGetAllWindows(parent=None, title=""):
+    # Not using window class (get_wm_class())
+
+    if not parent:
+        parent = ROOT
+    allWindows = [parent]
+
+    def findit(hwnd):
+        query = hwnd.query_tree()
+        for child in query.children:
+            allWindows.append(child)
+            findit(child)
+
+    findit(parent)
+    if not title:
+        matches = allWindows
+    else:
+        matches = []
+        for w in allWindows:
+            if w.get_wm_name() == title:
+                matches.append(w)
+    return matches
+
+
 class LinuxWindow(BaseWindow):
 
     def __init__(self, hWnd):
@@ -110,9 +138,9 @@ class LinuxWindow(BaseWindow):
         It follows ctypes format for compatibility"""
         # https://stackoverflow.com/questions/12775136/get-window-position-and-size-in-python-with-xlib - mgalgs
         win = self._hWnd
-        x = y = w = h = 0
         geom = win.get_geometry()
-        (x, y) = (geom.x, geom.y)
+        x = geom.x
+        y = geom.y
         while True:
             parent = win.query_tree().parent
             pgeom = parent.get_geometry()
@@ -159,7 +187,11 @@ class LinuxWindow(BaseWindow):
             data = (32, [Xlib.Xutil.IconicState, 0, 0, 0, 0])
             ev = Xlib.protocol.event.ClientMessage(window=self._hWnd.id, client_type=prop, data=data)
             mask = Xlib.X.SubstructureRedirectMask | Xlib.X.SubstructureNotifyMask
-            DISP.send_event(destination=ROOT, event=ev, event_mask=mask)
+            ROOT.send_event(event=ev, event_mask=mask)
+            # These other options are equivalent to previous code. Keeping them as a mere reference
+            # DISP.send_event(destination=ROOT, event=ev, event_mask=mask)
+            # data = [Xlib.Xutil.IconicState, 0, 0, 0, 0]
+            # EWMH._setProperty(_type="WM_CHANGE_STATE", data=data, mask=mask)
             DISP.flush()
             retries = 0
             while wait and retries < WAIT_ATTEMPTS and not self.isMinimized:
@@ -235,7 +267,9 @@ class LinuxWindow(BaseWindow):
 
         Returns ''True'' if window was activated"""
         if "arm" in platform.platform():
-            EWMH.setWmState(self._hWnd, ACTION_SET, STATE_ABOVE, STATE_NULL)
+            EWMH.setWmState(self._hWnd, ACTION_UNSET, STATE_BELOW, STATE_NULL)
+            EWMH.display.flush()
+            EWMH.setWmState(self._hWnd, ACTION_SET, STATE_ABOVE, STATE_FOCUSED)
         else:
             EWMH.setActiveWindow(self._hWnd)
         EWMH.display.flush()
@@ -298,7 +332,84 @@ class LinuxWindow(BaseWindow):
         newTop = max(0, newTop)
         EWMH.setMoveResizeWindow(self._hWnd, x=newLeft, y=newTop, w=newWidth, h=newHeight)
         EWMH.display.flush()
-        return
+        return newLeft == self.left and newTop == self.top and newWidth == self.width and newHeight == self.height
+
+    def lowerWindow(self):
+        """Lowers the window to the bottom so that it does not obscure any sibling windows.
+        """
+        w = DISP.create_resource_object('window', self._hWnd)
+        w.configure(stack_mode=Xlib.X.Below)
+        DISP.flush()
+
+    def raiseWindow(self):
+        """Raises the window to top so that it is not obscured by any sibling windows.
+        """
+        w = DISP.create_resource_object('window', self._hWnd)
+        w.configure(stack_mode=Xlib.X.Above)
+        DISP.flush()
+
+    def sendBehind(self):
+        """Sends the window to the very bottom, under all other windows, including desktop icons.
+        It may also cause that the window does not accept focus nor keyboard/mouse events.
+
+        WARNING: On GNOME it will obscure desktop icons... by the moment"""
+        # https://stackoverflow.com/questions/58885803/can-i-use-net-wm-window-type-dock-ewhm-extension-in-openbox
+        w = DISP.create_resource_object('window', self._hWnd)
+
+        # This adds the properties (notice the PropMode options), but with no effect
+        w.change_property(DISP.intern_atom('_NET_WM_STATE', False), Xlib.Xatom.ATOM,
+                          32, [DISP.intern_atom('_NET_WM_STATE_BELOW', False), ],
+                          Xlib.X.PropModeReplace)
+        w.change_property(DISP.intern_atom('_NET_WM_STATE', False), Xlib.Xatom.ATOM,
+                          32, [DISP.intern_atom('_NET_WM_STATE_SKIP_TASKBAR', False), ],
+                          Xlib.X.PropModeAppend)
+        w.change_property(DISP.intern_atom('_NET_WM_STATE', False), Xlib.Xatom.ATOM,
+                          32, [DISP.intern_atom('_NET_WM_STATE_SKIP_PAGER', False), ],
+                          Xlib.X.PropModeAppend)
+        DISP.flush()
+
+        # This sends window below all others, but not behind the desktop icons
+        w.change_property(DISP.intern_atom('_NET_WM_WINDOW_TYPE', False), Xlib.Xatom.ATOM,
+                          32, [DISP.intern_atom("_NET_WM_WINDOW_TYPE_DESKTOP", False), ],
+                          Xlib.X.PropModeReplace)
+        DISP.flush()
+
+        if "GNOME" in os.environ.get('XDG_CURRENT_DESKTOP', ""):
+            pass
+            # This sends the window "too far behind" (below all others, including Wallpaper, like unmapped)
+            # Trying to figure out how to raise it on top of wallpaper but behind desktop icons
+            # TODO: Find Wallpaper window to try to reparent our window to it, or to its same parent
+            # desktop = _xlibGetAllWindows(title="gnome-shell")  # or "main", not sure...
+            # if desktop:
+            #     w = DISP.create_resource_object('window', hWnd)
+            #     w.reparent(desktop[-1], 0, 0)
+            #     DISP.flush()
+
+        else:
+            # Mint/Cinnamon: just clicking on the desktop, it raises, sending the window/wallpaper to the bottom!
+            m = mouse.Controller()
+            m.move(SCREEN.width_in_pixels - 1, 100)
+            m.click(mouse.Button.left, 1)
+        return '_NET_WM_WINDOW_TYPE_DESKTOP' in EWMH.getWmWindowType(self._hWnd, str=True)
+
+    def sendFront(self):
+        """Brings window back from bottom. Use this function to revert windows status after using sendBehind()
+        """
+        w = DISP.create_resource_object('window', self._hWnd)
+        w.unmap()
+        w.change_property(DISP.intern_atom('_NET_WM_WINDOW_TYPE', False), Xlib.Xatom.ATOM,
+                          32, [DISP.intern_atom("_NET_WM_WINDOW_TYPE_NORMAL", False), ],
+                          Xlib.X.PropModeReplace)
+        DISP.flush()
+        # self.raiseWindow()
+        w.change_property(DISP.intern_atom('_NET_WM_STATE', False), Xlib.Xatom.ATOM,
+                          32, [DISP.intern_atom('_NET_WM_STATE_FOCUSED', False), ],
+                          Xlib.X.PropModeReplace)
+        DISP.flush()
+        w.map()
+        EWMH.setActiveWindow(self._hWnd)
+        EWMH.display.flush()
+        return '_NET_WM_WINDOW_TYPE_NORMAL' in EWMH.getWmWindowType(self._hWnd, str=True) and self.isActive
 
     @property
     def isMinimized(self):
@@ -340,7 +451,6 @@ class LinuxWindow(BaseWindow):
         # Returns ``True`` if the window is currently mapped
         win = DISP.create_resource_object('window', self._hWnd)
         state = win.get_attributes().map_state
-        print(win.get_attributes(), win.get_attributes().map_state)
         return state != Xlib.X.IsUnmapped
 
 

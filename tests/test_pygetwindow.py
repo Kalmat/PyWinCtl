@@ -161,6 +161,10 @@ def basic_win32(npw):
     npw.size = (301, 201)
     assert npw.size == (301, 201)
 
+    # Test window stacking
+    npw.lowerWindow()
+    npw.raiseWindow()
+
     # Test closing
     npw.close()
 
@@ -297,6 +301,12 @@ def basic_linux(npw):
     npw.size = (801, 601)
     time.sleep(timelap)
     assert npw.size == (801, 601)
+
+    # Test window stacking
+    npw.lowerWindow()
+    time.sleep(timelap)
+    npw.raiseWindow()
+    time.sleep(timelap)
 
     # Test closing
     npw.close()
@@ -437,6 +447,18 @@ def basic_macOS(npw):
     npw.size = (810, 610)
     time.sleep(timelap)
     assert npw.size == (810, 610)
+
+    npw.lowerWindow()
+    time.sleep(timelap)
+
+    npw.raiseWindow()
+    time.sleep(timelap)
+
+    # Test window stacking
+    npw.lowerWindow()
+    time.sleep(timelap)
+    npw.raiseWindow()
+    time.sleep(timelap)
 
     # Test closing
     npw.close()
