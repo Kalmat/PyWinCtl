@@ -6,6 +6,8 @@ import sys
 import time
 from ctypes import wintypes  # We can't use ctypes.wintypes, we must import wintypes this way.
 
+import win32con
+import win32gui
 from pygetwindowmp import PyGetWindowException, pointInRect, BaseWindow, Rect, Point, Size
 
 NULL = 0 # Used to match the Win32 API value of "null".
@@ -178,10 +180,21 @@ def getAllWindows():
 
     return windowObjs
 
+def _getChildWindows(parent):
+
+    children = []
+
+    def foreach_window(hwnd, param):
+        children.append(hwnd)
+
+    ctypes.windll.user32.EnumChildWindows(parent, enumWindowsProc(foreach_window), None)
+    return children
+
 
 class Win32Window(BaseWindow):
     def __init__(self, hWnd):
         self._hWnd = hWnd # TODO fix this, this is a LP_c_long insead of an int.
+        self._parent = win32gui.GetParent(self._hWnd)
         self._setupRectProperties()
 
 
@@ -282,14 +295,16 @@ class Win32Window(BaseWindow):
     def lowerWindow(self):
         """Lowers the window to the bottom so that it does not obscure any sibling windows.
         """
-        result = ctypes.windll.user32.SetWindowPos(self._hWnd, HWND_BOTTOM, self.left, self.top, self.width, self.height, 0)
+        result = ctypes.windll.user32.SetWindowPos(self._hWnd, HWND_BOTTOM, 0, 0, 0, 0,
+                                                   win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE)
         if result == 0:
             _raiseWithLastError()
 
     def raiseWindow(self):
         """Raises the window to top so that it is not obscured by any sibling windows.
         """
-        result = ctypes.windll.user32.SetWindowPos(self._hWnd, HWND_TOP, self.left, self.top, self.width, self.height, 0)
+        result = ctypes.windll.user32.SetWindowPos(self._hWnd, HWND_TOP, 0, 0, 0, 0,
+                                                   win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE)
         if result == 0:
             _raiseWithLastError()
 
@@ -303,30 +318,31 @@ class Win32Window(BaseWindow):
             thelist = []
 
             def findit(hwnd, ctx):
-                p = ctypes.windll.user32.FindWindowEx(hwnd, None, "SHELLDLL_DefView", "")
+                p = win32gui.FindWindowEx(hwnd, None, "SHELLDLL_DefView", "")
                 if p != 0:
-                    thelist.append(ctypes.windll.user32.FindWindowEx(None, hwnd, "WorkerW", ""))
+                    thelist.append(win32gui.FindWindowEx(None, hwnd, "WorkerW", ""))
 
-            ctypes.windll.user32.EnumWindows(findit, None)
+            win32gui.EnumWindows(findit, None)
             return thelist
 
         # https://www.codeproject.com/Articles/856020/Draw-Behind-Desktop-Icons-in-Windows-plus
-        progman = ctypes.windll.user32.FindWindow("Progman", None)
-        ctypes.windll.user32.SendMessageTimeout(progman, 0x052C, 0, 0, SMTO_NORMAL, 1000)
+        progman = win32gui.FindWindow("Progman", None)
+        win32gui.SendMessageTimeout(progman, 0x052C, 0, 0, SMTO_NORMAL, 1000)
         workerw = getWorkerW()
         result = 0
         if workerw:
-            result = ctypes.windll.user32.SetParent(self._hWnd, workerw[0])
+            result = win32gui.SetParent(self._hWnd, workerw[0])
         if result == 0:
             _raiseWithLastError()
 
     def sendFront(self):
         """Brings window back from bottom. Use this function to revert windows status after using sendBehind()
         """
-        ret1 = ctypes.windll.user32.ShowWindow(self._hWnd, SW_SHOW)
-        ret2 = ctypes.windll.user32.BringWindowToTop(self._hWnd)
-        ret3 = ctypes.windll.user32.SetForegroundWindow(self._hWnd)
-        if ret1 == 0 or ret2 == 0 or ret3 == 0:
+        result = win32gui.SetParent(self._hWnd, self._parent)
+        # TODO: Didn't find other way to properly redraw the window, by the moment
+        result = result | win32gui.ShowWindow(self._hWnd, win32con.SW_MINIMIZE)
+        result = result | win32gui.ShowWindow(self._hWnd, win32con.SW_RESTORE)
+        if result == 0:
             _raiseWithLastError()
 
     @property
@@ -421,7 +437,12 @@ def main():
     npw = getActiveWindow()
     print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()
-    displayWindowsUnderMouse(0, 0)
+    # displayWindowsUnderMouse(0, 0)
+    time.sleep(3)
+    npw.sendBehind()
+    time.sleep(2)
+    npw.sendFront()
+    time.sleep(2)
 
 
 if __name__ == "__main__":

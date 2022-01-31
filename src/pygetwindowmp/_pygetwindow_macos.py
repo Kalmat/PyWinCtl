@@ -416,6 +416,7 @@ class MacOSWindow(BaseWindow):
     def lowerWindow(self):
         """Lowers the window to the bottom so that it does not obscure any sibling windows.
         """
+        # https://apple.stackexchange.com/questions/233687/how-can-i-send-the-currently-active-window-to-the-back
         cmd = """osascript -e 'tell application "System Events" to tell application "%s"
                                     try
                                         set winList to every window whose visible is true
