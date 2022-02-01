@@ -702,6 +702,20 @@ class MacOSNSWindow(BaseWindow):
         self._hWnd.setFrame_display_animate_(AppKit.NSMakeRect(newLeft, resolution().height - newTop - newHeight, newWidth, newHeight), True, True)
         return self.left == newLeft and self.top == newTop and self.width == newWidth and self.height == newHeight
 
+    def alwaysOnTop(self, aot=True):
+        """Keeps window on top of all others.
+
+        Use aot=False to deactivate always-on-top behavior
+        """
+        raise NotImplementedError
+
+    def alwaysOnBottom(self, aot=True):
+        """Keeps window below of all others, but on top of desktop icons and keeping all window properties
+
+        Use aob=False to deactivate always-on-bottom behavior
+        """
+        raise NotImplementedError
+
     def lowerWindow(self):
         """Lowers the window to the bottom so that it does not obscure any sibling windows.
         """
@@ -716,28 +730,26 @@ class MacOSNSWindow(BaseWindow):
     def raiseWindow(self):
         """Raises the window to top so that it is not obscured by any sibling windows.
         """
-        self._hWnd.makeKeyAndOrderFront_(self._app)
+        return self._hWnd.makeKeyAndOrderFront_(self._app)
 
-    def sendBehind(self):
-        """Sends the window to the very bottom, under all other windows, including desktop icons.
-        It may also cause that window does not accept focus nor keyboard/mouse events.
+    def sendBehind(self, sb=True):
+        """Sends the window to the very bottom, below all other windows, including desktop icons.
+        It may also cause that the window does not accept focus nor keyboard/mouse events.
+
+        Use sb=False to bring the window back from background
 
         WARNING: On GNOME it will obscure desktop icons... by the moment"""
         # https://stackoverflow.com/questions/4982584/how-do-i-draw-the-desktop-on-mac-os-x
-        ret1 = self._hWnd.setLevel_(Quartz.kCGDesktopWindowLevel - 1)
-        ret2 = self._hWnd.setCollectionBehavior_(Quartz.NSWindowCollectionBehaviorCanJoinAllSpaces |
-                                                Quartz.NSWindowCollectionBehaviorStationary |
-                                                Quartz.NSWindowCollectionBehaviorIgnoresCycle)
-        return ret1 and ret2
-
-    def sendFront(self):
-        """Brings window back from bottom. Use this function to revert windows status after using sendBehind()
-        """
-        # https://stackoverflow.com/questions/4982584/how-do-i-draw-the-desktop-on-mac-os-x
-        ret1 = self._hWnd.setLevel_(Quartz.kCGDesktopWindowLevel + 1)
-        ret2 = self._hWnd.setCollectionBehavior_(Quartz.NSWindowCollectionBehaviorCanJoinAllSpaces |
-                                                 Quartz.NSWindowCollectionBehaviorStationary |
-                                                 Quartz.NSWindowCollectionBehaviorIgnoresCycle)
+        if sb:
+            ret1 = self._hWnd.setLevel_(Quartz.kCGDesktopWindowLevel - 1)
+            ret2 = self._hWnd.setCollectionBehavior_(Quartz.NSWindowCollectionBehaviorCanJoinAllSpaces |
+                                                    Quartz.NSWindowCollectionBehaviorStationary |
+                                                    Quartz.NSWindowCollectionBehaviorIgnoresCycle)
+        else:
+            ret1 = self._hWnd.setLevel_(Quartz.kCGDesktopWindowLevel + 1)
+            ret2 = self._hWnd.setCollectionBehavior_(Quartz.NSWindowCollectionBehaviorCanJoinAllSpaces |
+                                                     Quartz.NSWindowCollectionBehaviorStationary |
+                                                     Quartz.NSWindowCollectionBehaviorIgnoresCycle)
         return ret1 and ret2
 
     @property

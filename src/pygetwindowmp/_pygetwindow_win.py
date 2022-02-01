@@ -4,8 +4,10 @@
 import ctypes
 import sys
 import time
+from threading import Thread, Event
 from ctypes import wintypes  # We can't use ctypes.wintypes, we must import wintypes this way.
 
+import win32api
 import win32con
 import win32gui
 from pygetwindowmp import PyGetWindowException, pointInRect, BaseWindow, Rect, Point, Size
@@ -58,6 +60,24 @@ class RECT(ctypes.Structure):
                 ('top', ctypes.c_long),
                 ('right', ctypes.c_long),
                 ('bottom', ctypes.c_long)]
+
+
+class _sendBottom(Thread):
+    def __init__(self, hWnd, sleep_interval=0.5):
+        super().__init__()
+        self._hWnd = hWnd
+        self._kill = Event()
+        self._interval = sleep_interval
+
+    def run(self):
+        while not self._kill.is_set():
+            # TODO: Find a smart way (not a for) to get if this is necessary (window is not already at the bottom)
+            win32gui.SetWindowPos(self._hWnd, HWND_BOTTOM, 0, 0, 0, 0,
+                                  win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE)
+            self._kill.wait(self._interval)
+
+    def kill(self):
+        self._kill.set()
 
 
 def _getAllTitles():
@@ -195,6 +215,8 @@ class Win32Window(BaseWindow):
     def __init__(self, hWnd):
         self._hWnd = hWnd # TODO fix this, this is a LP_c_long insead of an int.
         self._parent = win32gui.GetParent(self._hWnd)
+        self._t = None
+        self._tContinue = False
         self._setupRectProperties()
 
 
@@ -292,6 +314,40 @@ class Win32Window(BaseWindow):
         if result == 0:
             _raiseWithLastError()
 
+    def alwaysOnTop(self, aot=True):
+        """Keeps window on top of all others.
+
+        Use aot=False to deactivate always-on-top behavior
+        """
+        # https://stackoverflow.com/questions/25381589/pygame-set-window-on-top-without-changing-its-position/49482325 (kmaork)
+        zorder = win32con.HWND_TOPMOST if aot else win32con.HWND_NOTOPMOST
+        result = win32gui.SetWindowPos(self._hWnd, zorder, 0, 0, 0, 0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
+        if result == 0:
+            _raiseWithLastError()
+
+    def alwaysOnBottom(self, aob=True):
+        """Keeps window below of all others, but on top of desktop icons and keeping all window properties
+
+        Use aob=False to deactivate always-on-bottom behavior
+        """
+
+        if aob:
+            result = win32gui.SetWindowPos(self._hWnd, HWND_BOTTOM, 0, 0, 0, 0,
+                                           win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE)
+            # there is no HWND_TOPBOTTOM (similar to TOPMOST), so it won't keep window below all others as desired
+            if self._t is None:
+                self._t = _sendBottom(self._hWnd)
+            if not self._t.is_alive():
+                self._t.start()
+            # TODO: Catch win32con.WM_WINDOWPOSCHANGING and resend window to bottom (is it possible with pywin32?)
+            # https://stackoverflow.com/questions/527950/how-to-make-always-on-bottom-window
+        else:
+            if self._t.is_alive():
+                self._t.kill()
+            result = self.sendBehind(sb=False)
+        if result == 0:
+            _raiseWithLastError()
+
     def lowerWindow(self):
         """Lowers the window to the bottom so that it does not obscure any sibling windows.
         """
@@ -308,42 +364,47 @@ class Win32Window(BaseWindow):
         if result == 0:
             _raiseWithLastError()
 
-    def sendBehind(self):
-        """Sends the window to the very bottom, under all other windows, including desktop icons.
-        It may also cause that window does not accept focus nor keyboard/mouse events.
+    def sendBehind(self, sb=True):
+        """Sends the window to the very bottom, below all other windows, including desktop icons.
+        It may also cause that the window does not accept focus nor keyboard/mouse events.
 
-        WARNING: On GNOME it will stay on top of desktop icons... by the moment"""
-        def getWorkerW():
+        Use sb=False to bring the window back from background
 
-            thelist = []
+        WARNING: On GNOME it will obscure desktop icons... by the moment"""
+        if sb:
+            def getWorkerW():
 
-            def findit(hwnd, ctx):
-                p = win32gui.FindWindowEx(hwnd, None, "SHELLDLL_DefView", "")
-                if p != 0:
-                    thelist.append(win32gui.FindWindowEx(None, hwnd, "WorkerW", ""))
+                thelist = []
 
-            win32gui.EnumWindows(findit, None)
-            return thelist
+                def findit(hwnd, ctx):
+                    p = win32gui.FindWindowEx(hwnd, None, "SHELLDLL_DefView", "")
+                    if p != 0:
+                        thelist.append(win32gui.FindWindowEx(None, hwnd, "WorkerW", ""))
 
-        # https://www.codeproject.com/Articles/856020/Draw-Behind-Desktop-Icons-in-Windows-plus
-        progman = win32gui.FindWindow("Progman", None)
-        win32gui.SendMessageTimeout(progman, 0x052C, 0, 0, SMTO_NORMAL, 1000)
-        workerw = getWorkerW()
-        result = 0
-        if workerw:
-            result = win32gui.SetParent(self._hWnd, workerw[0])
+                win32gui.EnumWindows(findit, None)
+                return thelist
+
+            # https://www.codeproject.com/Articles/856020/Draw-Behind-Desktop-Icons-in-Windows-plus
+            progman = win32gui.FindWindow("Progman", None)
+            win32gui.SendMessageTimeout(progman, 0x052C, 0, 0, SMTO_NORMAL, 1000)
+            workerw = getWorkerW()
+            result = 0
+            if workerw:
+                result = win32gui.SetParent(self._hWnd, workerw[0])
+        else:
+            result = win32gui.SetParent(self._hWnd, self._parent)
+            # Window raises, but completely transparent
+            # Sometimes this works, but not always
+            # result = result | win32gui.ShowWindow(self._hWnd, win32con.SW_SHOW)
+            # win32gui.SetLayeredWindowAttributes(self._hWnd, win32api.RGB(255, 255, 255), 255, win32con.LWA_COLORKEY)
+            # win32gui.UpdateWindow(self._hWnd)
+            # Didn't find a better way to update window content by the moment (tried redraw(), update(), ...)
+            result = result | win32gui.ShowWindow(self._hWnd, win32con.SW_MINIMIZE)
+            result = result | win32gui.ShowWindow(self._hWnd, win32con.SW_RESTORE)
+
         if result == 0:
             _raiseWithLastError()
-
-    def sendFront(self):
-        """Brings window back from bottom. Use this function to revert windows status after using sendBehind()
-        """
-        result = win32gui.SetParent(self._hWnd, self._parent)
-        # TODO: Didn't find other way to properly redraw the window, by the moment
-        result = result | win32gui.ShowWindow(self._hWnd, win32con.SW_MINIMIZE)
-        result = result | win32gui.ShowWindow(self._hWnd, win32con.SW_RESTORE)
-        if result == 0:
-            _raiseWithLastError()
+        return result
 
     @property
     def isMinimized(self):
@@ -437,12 +498,7 @@ def main():
     npw = getActiveWindow()
     print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()
-    # displayWindowsUnderMouse(0, 0)
-    time.sleep(3)
-    npw.sendBehind()
-    time.sleep(2)
-    npw.sendFront()
-    time.sleep(2)
+    displayWindowsUnderMouse(0, 0)
 
 
 if __name__ == "__main__":

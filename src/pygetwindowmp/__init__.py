@@ -134,6 +134,20 @@ class BaseWindow:
     def _moveResizeTo(self, newLeft, newTop, newWidth, newHeight):
         raise NotImplementedError
 
+    def alwaysOnTop(self, aot):
+        """Keeps window on top of all others.
+
+        Use aot=False to deactivate always-on-top behavior
+        """
+        raise NotImplementedError
+
+    def alwaysOnBottom(self, aob):
+        """Keeps window below of all others, but on top of desktop icons and keeping all window properties
+
+        Use aob=False to deactivate always-on-bottom behavior
+        """
+        raise NotImplementedError
+
     def lowerWindow(self):
         """Lowers the window to the bottom so that it does not obscure any sibling windows.
         """
@@ -144,16 +158,11 @@ class BaseWindow:
         """
         raise NotImplementedError
 
-    def sendBehind(self):
+    def sendBehind(self, sb):
         """Sends the window to the very bottom, under all other windows, including desktop icons.
         It may also cause that window does not accept focus nor keyboard/mouse events.
 
         WARNING: On GNOME it will obscure desktop icons... by the moment"""
-        raise NotImplementedError
-
-    def sendFront(self):
-        """Brings window back from bottom. Use this function to revert windows status after using sendBehind()
-        """
         raise NotImplementedError
 
     @property
