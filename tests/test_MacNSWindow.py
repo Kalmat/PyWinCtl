@@ -214,6 +214,26 @@ class Delegate(NSObject):
             self.npw.raiseWindow()
             time.sleep(timelap)
 
+            # Test managing window stacking
+            print("ALWAYS ON TOP")
+            self.npw.alwaysOnTop()
+            time.sleep(timelap)
+            print("DEACTIVATE AOT")
+            self.npw.alwaysOnTop(aot=False)
+            time.sleep(timelap)
+            print("ALWAYS AT BOTTOM")
+            self.npw.alwaysOnBottom()
+            time.sleep(timelap)
+            print("DEACTIVATE AOB")
+            self.npw.alwaysOnBottom(aob=False)
+            time.sleep(timelap)
+            print("SEND BEHIND")
+            self.npw.sendBehind()
+            time.sleep(timelap)
+            print("BRING FROM BEHIND")
+            self.npw.sendBehind(sb=False)
+            time.sleep(timelap)
+
             # Test closing
             self.npw.close()
 

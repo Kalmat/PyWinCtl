@@ -413,6 +413,20 @@ class MacOSWindow(BaseWindow):
             time.sleep(WAIT_DELAY * retries)
         return newLeft == self.left and newTop == self.top and newWidth == self.width and newHeight == self.height
 
+    def alwaysOnTop(self, aot):
+        """Keeps window on top of all others.
+
+        Use aot=False to deactivate always-on-top behavior
+        """
+        raise NotImplementedError
+
+    def alwaysOnBottom(self, aob):
+        """Keeps window below of all others, but on top of desktop icons and keeping all window properties
+
+        Use aob=False to deactivate always-on-bottom behavior
+        """
+        raise NotImplementedError
+
     def lowerWindow(self):
         """Lowers the window to the bottom so that it does not obscure any sibling windows.
         """
@@ -443,16 +457,11 @@ class MacOSWindow(BaseWindow):
         os.system(cmd)
         return
 
-    def sendBehind(self):
+    def sendBehind(self, sb=True):
         """Sends the window to the very bottom, under all other windows, including desktop icons.
         It may also cause that window does not accept focus nor keyboard/mouse events.
 
         WARNING: On GNOME it will obscure desktop icons... by the moment"""
-        raise NotImplementedError
-
-    def sendFront(self):
-        """Brings window back from bottom. Use this function to revert windows status after using sendBehind()
-        """
         raise NotImplementedError
 
     @property
@@ -707,14 +716,22 @@ class MacOSNSWindow(BaseWindow):
 
         Use aot=False to deactivate always-on-top behavior
         """
-        raise NotImplementedError
+        if aot:
+            ret = self._hWnd.setLevel_(Quartz.kCGScreenSaverWindowLevel)
+        else:
+            ret = self._hWnd.setLevel_(Quartz.kCGNormalWindowLevel)
+        return ret
 
-    def alwaysOnBottom(self, aot=True):
+    def alwaysOnBottom(self, aob=True):
         """Keeps window below of all others, but on top of desktop icons and keeping all window properties
 
         Use aob=False to deactivate always-on-bottom behavior
         """
-        raise NotImplementedError
+        if aob:
+            ret = self._hWnd.setLevel_(Quartz.kCGDesktopWindowLevel)
+        else:
+            ret = self._hWnd.setLevel_(Quartz.kCGNormalWindowLevel)
+        return ret
 
     def lowerWindow(self):
         """Lowers the window to the bottom so that it does not obscure any sibling windows.
@@ -746,10 +763,10 @@ class MacOSNSWindow(BaseWindow):
                                                     Quartz.NSWindowCollectionBehaviorStationary |
                                                     Quartz.NSWindowCollectionBehaviorIgnoresCycle)
         else:
-            ret1 = self._hWnd.setLevel_(Quartz.kCGDesktopWindowLevel + 1)
-            ret2 = self._hWnd.setCollectionBehavior_(Quartz.NSWindowCollectionBehaviorCanJoinAllSpaces |
-                                                     Quartz.NSWindowCollectionBehaviorStationary |
-                                                     Quartz.NSWindowCollectionBehaviorIgnoresCycle)
+            ret1 = self._hWnd.setLevel_(Quartz.kCGNormalWindowLevel)
+            ret2 = self._hWnd.setCollectionBehavior_(Quartz.NSWindowCollectionBehaviorDefault |
+                                                     Quartz.NSWindowCollectionBehaviorParticipatesInCycle |
+                                                     Quartz.NSWindowCollectionBehaviorManaged)
         return ret1 and ret2
 
     @property
