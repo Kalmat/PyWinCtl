@@ -4,10 +4,9 @@
 import ctypes
 import sys
 import time
-from threading import Thread, Event
+import threading
 from ctypes import wintypes  # We can't use ctypes.wintypes, we must import wintypes this way.
 
-import win32api
 import win32con
 import win32gui
 from pygetwindowmp import PyGetWindowException, pointInRect, BaseWindow, Rect, Point, Size
@@ -62,28 +61,11 @@ class RECT(ctypes.Structure):
                 ('bottom', ctypes.c_long)]
 
 
-class _sendBottom(Thread):
-    def __init__(self, hWnd, sleep_interval=0.5):
-        super().__init__()
-        self._hWnd = hWnd
-        self._kill = Event()
-        self._interval = sleep_interval
-
-    def run(self):
-        while not self._kill.is_set():
-            # TODO: Find a smart way (not a for) to get if this is necessary (window is not already at the bottom)
-            win32gui.SetWindowPos(self._hWnd, HWND_BOTTOM, 0, 0, 0, 0,
-                                  win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE)
-            self._kill.wait(self._interval)
-
-    def kill(self):
-        self._kill.set()
-
-
 def _getAllTitles():
     # This code taken from https://sjohannes.wordpress.com/2012/03/23/win32-python-getting-all-window-titles/
     # A correction to this code (for enumWindowsProc) is here: http://makble.com/the-story-of-lpclong
     titles = []
+
     def foreach_window(hWnd, lParam):
         if isWindowVisible(hWnd):
             length = getWindowTextLength(hWnd)
@@ -337,13 +319,14 @@ class Win32Window(BaseWindow):
             # there is no HWND_TOPBOTTOM (similar to TOPMOST), so it won't keep window below all others as desired
             if self._t is None:
                 self._t = _sendBottom(self._hWnd)
+                self._t.daemon = True
             if not self._t.is_alive():
                 self._t.start()
             # TODO: Catch win32con.WM_WINDOWPOSCHANGING and resend window to bottom (is it possible with pywin32?)
             # https://stackoverflow.com/questions/527950/how-to-make-always-on-bottom-window
         else:
             if self._t.is_alive():
-                self._t.kill()
+                self._t.stop()
             result = self.sendBehind(sb=False)
         if result == 0:
             _raiseWithLastError()
@@ -437,6 +420,25 @@ class Win32Window(BaseWindow):
         return isWindowVisible(self._hWnd)
 
     isVisible = visible  # isVisible is an alias for the visible property.
+
+
+class _sendBottom(threading.Thread):
+    def __init__(self, hWnd, interval=0.5):
+        threading.Thread.__init__(self)
+        self._hWnd = hWnd
+        self._interval = interval
+        self._stop = threading.Event()
+
+    def run(self):
+        while not self._stop.is_set() and win32gui.IsWindow(self._hWnd):
+            # TODO: Find a smart way (not a for) to get if this is necessary (window is not already at the bottom)
+            # Window flickers a bit. All these parameters are intended to minimize it... with limited success
+            win32gui.SetWindowPos(self._hWnd, win32con.HWND_BOTTOM, 0, 0, 0, 0,
+                                  win32con.SWP_NOSENDCHANGING | win32con.SWP_NOOWNERZORDER | win32con.SWP_ASYNCWINDOWPOS | win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE | win32con.SWP_NOREDRAW | win32con.SWP_NOCOPYBITS)
+            self._stop.wait(self._interval)
+
+    def stop(self):
+        self._stop.set()
 
 
 def cursor():
