@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-
+import atexit
 import ctypes
 import sys
 import time
@@ -314,19 +314,18 @@ class Win32Window(BaseWindow):
         """
 
         if aob:
-            result = win32gui.SetWindowPos(self._hWnd, HWND_BOTTOM, 0, 0, 0, 0,
-                                           win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE)
-            # there is no HWND_TOPBOTTOM (similar to TOPMOST), so it won't keep window below all others as desired
-            if self._t is None:
-                self._t = _sendBottom(self._hWnd)
-                self._t.daemon = True
-            if not self._t.is_alive():
-                self._t.start()
-            # TODO: Catch win32con.WM_WINDOWPOSCHANGING and resend window to bottom (is it possible with pywin32?)
-            # https://stackoverflow.com/questions/527950/how-to-make-always-on-bottom-window
+            result = win32gui.SetWindowPos(self._hWnd, win32con.HWND_BOTTOM, 0, 0, 0, 0,
+                                  win32con.SWP_NOSENDCHANGING | win32con.SWP_NOOWNERZORDER | win32con.SWP_ASYNCWINDOWPOS | win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE | win32con.SWP_NOREDRAW | win32con.SWP_NOCOPYBITS)
+            if result != 0:
+                # There is no HWND_TOPBOTTOM (similar to TOPMOST), so it won't keep window below all others as desired
+                # Is there an easy way to catch WM_WINDOWPOSCHANGING event, unlike this: https://stackoverflow.com/questions/64529896/attach-keyboard-hook-to-specific-window?
+                if self._t is None:
+                    self._t = _sendBottom(self._hWnd)
+                if not self._t.is_alive():
+                    self._t.start()
         else:
             if self._t.is_alive():
-                self._t.stop()
+                self._t.kill()
             result = self.sendBehind(sb=False)
         if result == 0:
             _raiseWithLastError()
@@ -428,19 +427,29 @@ class _sendBottom(threading.Thread):
         threading.Thread.__init__(self)
         self._hWnd = hWnd
         self._interval = interval
-        self._stop = threading.Event()
+        self._kill = threading.Event()
+
+    def _isLast(self):
+        # This avoids flickering and CPU consumption. Not very smart, but no other option found... by the moment
+        h = win32gui.GetWindow(self._hWnd, win32con.GW_HWNDLAST)
+        last = True
+        while h != 0 and h != self._hWnd:
+            h = win32gui.GetWindow(h, win32con.GW_HWNDPREV)
+            # not sure if this always guarantees these other windows are "system" windows (not user windows)
+            if h != self._hWnd and win32gui.IsWindowVisible(h) and win32gui.GetClassName(h) not in ("WorkerW", "Progman"):
+                last = False
+                break
+        return last
 
     def run(self):
+        while not self._kill.is_set() and win32gui.IsWindow(self._hWnd):
+            if not self._isLast():
+                win32gui.SetWindowPos(self._hWnd, win32con.HWND_BOTTOM, 0, 0, 0, 0,
+                                      win32con.SWP_NOSENDCHANGING | win32con.SWP_NOOWNERZORDER | win32con.SWP_ASYNCWINDOWPOS | win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE | win32con.SWP_NOREDRAW | win32con.SWP_NOCOPYBITS)
+            self._kill.wait(self._interval)
 
-        while not self._stop.is_set() and win32gui.IsWindow(self._hWnd):
-            # TODO: Find a smart way (not a for) to get if this is necessary (window is not already at the bottom)
-            # Window flickers a bit. All these parameters are intended to minimize it... with limited success
-            win32gui.SetWindowPos(self._hWnd, win32con.HWND_BOTTOM, 0, 0, 0, 0,
-                                  win32con.SWP_NOSENDCHANGING | win32con.SWP_NOOWNERZORDER | win32con.SWP_ASYNCWINDOWPOS | win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE | win32con.SWP_NOREDRAW | win32con.SWP_NOCOPYBITS)
-            self._stop.wait(self._interval)
-
-    def stop(self):
-        self._stop.set()
+    def kill(self):
+        self._kill.set()
 
 
 def cursor():
