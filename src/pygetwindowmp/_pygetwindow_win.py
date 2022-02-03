@@ -423,6 +423,7 @@ class Win32Window(BaseWindow):
 
 
 class _sendBottom(threading.Thread):
+
     def __init__(self, hWnd, interval=0.5):
         threading.Thread.__init__(self)
         self._hWnd = hWnd
@@ -430,6 +431,7 @@ class _sendBottom(threading.Thread):
         self._stop = threading.Event()
 
     def run(self):
+
         while not self._stop.is_set() and win32gui.IsWindow(self._hWnd):
             # TODO: Find a smart way (not a for) to get if this is necessary (window is not already at the bottom)
             # Window flickers a bit. All these parameters are intended to minimize it... with limited success
