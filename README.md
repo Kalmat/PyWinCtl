@@ -63,7 +63,8 @@ New menu control functions (pending work from asweigart's original ideas), acces
                 if option["text"] == "Exit":
                     itemID = option["id"]
                     break
-    npw.menu.clickMenuItem(itemID)   # Exit program
+            break
+    win.menu.clickMenuItem(itemID)   # Exit program
 
 Menu structure (returned by getMenu() method) will contain all you may likely need to handle application menu. Functions included in this subclass:
 
