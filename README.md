@@ -54,7 +54,7 @@ Window class properties:
 New menu control functions (pending work from asweigart's original ideas), accessible through 'menu' submodule. E.g.:
 
     win = pygetwindowmp.getActiveWindow('Untitled - Notepad')
-    menu = npw.menu.getMenu()
+    menu = win.menu.getMenu()
     for key in menu.keys():
         if menu[key]["text"] == "File":
             entries = menu[key]["entries"]
