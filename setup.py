@@ -22,7 +22,7 @@ setup(
     url='https://github.com/Kalmat/pygetwindow',
     author='Kalmat',
     author_email='palookjones@gmail.com',
-    description=('A simple, cross-platform module for obtaining GUI information on application\'s windows.'),
+    description=('A simple, cross-platform module to control and obtain GUI information on application\'s windows.'),
     long_description=long_description,
     long_description_content_type="text/markdown",
     license='BSD 3',
@@ -36,7 +36,7 @@ setup(
         "ewmh==0.1.6; sys_platform == 'linux'",
         "pyobjc==8.1; sys_platform == 'darwin'"
     ],
-    keywords="gui window geometry resize minimize maximize close title",
+    keywords="gui window geometry resize minimize maximize close title move size position",
     classifiers=[
         'Development Status :: 4 - Beta',
         'Environment :: Win32 (MS Windows)',
@@ -52,6 +52,7 @@ setup(
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9'
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10'
     ],
 )

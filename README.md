@@ -5,7 +5,74 @@ PyGetWindow-MP (Multi-Platform)
 
 This is a fork from asweigart's PyGetWindow module (https://github.com/asweigart/PyGetWindow), intended to obtain GUI information on and control application's windows.
 
-This fork adds Linux and macOS experimental support to the MS Windows™-only original module, in the hope others can use it, test it or contribute
+This fork adds Linux and macOS experimental support to the original MS Windows-only original module, in the hope others can use it, test it or contribute
+
+### Features
+
+All these functions are available at the moment, in all three platforms (Windows, Linux and macOS):
+
+General, independent functions:
+
+* getActiveWindow
+* getActiveWindowTitle
+* getWindowsAt
+* getWindowsWithTitle
+* getAllWindows
+* getAllTitles
+* cursor (mouse position)
+* resolution (screen size)
+
+Window class functions:
+
+* close
+* minimize
+* maximize
+* restore
+* hide
+* show
+* activate
+* resize / resizeRel
+* resizeTo
+* move / moveRel
+* moveTo
+* alwaysOnTop
+* alwaysOnBottom
+* lowerWindow
+* raiseWindow
+* sendBehind
+
+Window class properties:
+
+* title
+* isMinimized
+* isMaximized
+* isActive
+* isVisible
+
+##### Only in MS-Windows (by now)
+
+New menu control functions (pending work from asweigart's original ideas), accessible through 'menu' submodule. E.g.:
+
+    win = pygetwindowmp.getActiveWindow('Untitled - Notepad')
+    menu = npw.menu.getMenu()
+    for key in menu.keys():
+        if menu[key]["text"] == "File":
+            entries = menu[key]["entries"]
+            for subkey in entries.keys():
+                option = entries[subkey]
+                if option["text"] == "Exit":
+                    itemID = option["id"]
+                    break
+    npw.menu.clickMenuItem(itemID)   # Exit program
+
+Menu structure (returned by getMenu() method) will contain all you may likely need to handle application menu. Functions included in this subclass:
+
+* getMenu
+* getMenuInfo
+* getMenuItemCount
+* getMenuItemInfo
+* getMenuItemRect
+* clickMenuItem
 
 ### USING THIS CODE
 

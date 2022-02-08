@@ -1,4 +1,4 @@
-# PyGetWindow
+# PyGetWindowMP
 # A cross-platform module to find information about the windows on the screen.
 
 # Work in progress
@@ -8,41 +8,29 @@
 # https://stackoverflow.com/questions/7142342/get-window-position-size-with-python
 
 
-# win32 api and ctypes on Windows
-# cocoa api and pyobjc on Mac
-# Xlib on linux
+# pywin32 on Windows
+# pyobjc (AppKit and Quartz) on Mac
+# Xlib and ewmh on linux
 
 
 # Possible Future Features:
 # get/click menu (win32: GetMenuItemCount, GetMenuItemInfo, GetMenuItemID, GetMenu, GetMenuItemRect)
 
 
-__version__ = "0.0.9"
+__version__ = "0.0.10"
 
 import sys, collections, pyrect
 
 
-class PyGetWindowException(Exception):
-    """
-    Base class for exceptions raised when PyGetWindow functions
-    encounter a problem. If PyGetWindow raises an exception that isn't
-    this class, that indicates a bug in the module.
-    """
-    pass
+Rect = collections.namedtuple("Rect", "left top right bottom")
+Point = collections.namedtuple("Point", "x y")
+Size = collections.namedtuple("Size", "width height")
 
 
 def pointInRect(x, y, left, top, width, height):
     """Returns ``True`` if the ``(x, y)`` point is within the box described
     by ``(left, top, width, height)``."""
     return left < x < left + width and top < y < top + height
-
-
-# NOTE: `Rect` is a named tuple for use in Python, while structs.RECT represents
-# the win32 RECT struct. PyRect's Rect class is used for handling changing
-# geometry of rectangular areas.
-Rect = collections.namedtuple("Rect", "left top right bottom")
-Point = collections.namedtuple("Point", "x y")
-Size = collections.namedtuple("Size", "width height")
 
 
 class BaseWindow:
@@ -59,11 +47,7 @@ class BaseWindow:
             self._rect._height = r.bottom - r.top  # Setting _height directly to skip the onRead.
 
         def _onChange(oldBox, newBox):
-            if sys.platform == "win32":
-                self.moveTo(newBox.left, newBox.top)
-                self.resizeTo(newBox.width, newBox.height)
-            else:
-                self._moveResizeTo(newBox.left, newBox.top, newBox.width, newBox.height)
+            self._moveResizeTo(newBox.left, newBox.top, newBox.width, newBox.height)
 
         r = self._getWindowRect()
         self._rect = pyrect.Rect(r.left, r.top, r.right - r.left, r.bottom - r.top, onChange=_onChange, onRead=_onRead)
@@ -159,8 +143,10 @@ class BaseWindow:
         raise NotImplementedError
 
     def sendBehind(self, sb):
-        """Sends the window to the very bottom, under all other windows, including desktop icons.
-        It may also cause that window does not accept focus nor keyboard/mouse events.
+        """Sends the window to the very bottom, below all other windows, including desktop icons.
+        It may also cause that the window does not accept focus nor keyboard/mouse events.
+
+        Use sb=False to bring the window back from background
 
         WARNING: On GNOME it will obscure desktop icons... by the moment"""
         raise NotImplementedError
@@ -397,6 +383,8 @@ elif sys.platform == "win32":
         getWindowsWithTitle,
         getAllWindows,
         getAllTitles,
+        cursor,
+        resolution,
     )
 
     Window = Win32Window

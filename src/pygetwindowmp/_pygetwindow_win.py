@@ -1,145 +1,40 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-import atexit
+
 import ctypes
 import sys
 import time
 import threading
-from ctypes import wintypes  # We can't use ctypes.wintypes, we must import wintypes this way.
+from typing import List
 
 import win32con
 import win32gui
-from pygetwindowmp import PyGetWindowException, pointInRect, BaseWindow, Rect, Point, Size
+import win32gui_struct
 
-NULL = 0 # Used to match the Win32 API value of "null".
+from pygetwindowmp import pointInRect, BaseWindow, Rect, Point, Size
 
-# These FORMAT_MESSAGE_ constants are used for FormatMesage() and are
-# documented at https://docs.microsoft.com/en-us/windows/desktop/api/winbase/nf-winbase-formatmessage#parameters
-FORMAT_MESSAGE_ALLOCATE_BUFFER = 0x00000100
-FORMAT_MESSAGE_FROM_SYSTEM = 0x00001000
-FORMAT_MESSAGE_IGNORE_INSERTS = 0x00000200
-
-# These SW_ constants are used for ShowWindow() and are documented at
-# https://docs.microsoft.com/en-us/windows/desktop/api/winuser/nf-winuser-showwindow#parameters
-SW_MINIMIZE = 6
-SW_MAXIMIZE = 3
-SW_HIDE = 0
-SW_SHOW = 5
-SW_RESTORE = 9
-
-# SetWindowPos constants:
-HWND_TOP = 0
-HWND_BOTTOM = 1
-
-# Window Message constants:
-WM_CLOSE = 0x0010
-SMTO_NORMAL = 0
-
-# This ctypes structure is for a Win32 POINT structure,
-# which is documented here: http://msdn.microsoft.com/en-us/library/windows/desktop/dd162805(v=vs.85).aspx
-# The POINT structure is used by GetCursorPos().
-class POINT(ctypes.Structure):
-    _fields_ = [("x", ctypes.c_long),
-                ("y", ctypes.c_long)]
-
-enumWindows = ctypes.windll.user32.EnumWindows
-enumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_int, ctypes.POINTER(ctypes.c_int))
-getWindowText = ctypes.windll.user32.GetWindowTextW
-getWindowTextLength = ctypes.windll.user32.GetWindowTextLengthW
-isWindowVisible = ctypes.windll.user32.IsWindowVisible
-
-
-class RECT(ctypes.Structure):
-    """A nice wrapper of the RECT structure.
-
-    Microsoft Documentation:
-    https://msdn.microsoft.com/en-us/library/windows/desktop/dd162897(v=vs.85).aspx
-    """
-    _fields_ = [('left', ctypes.c_long),
-                ('top', ctypes.c_long),
-                ('right', ctypes.c_long),
-                ('bottom', ctypes.c_long)]
-
-
-def _getAllTitles():
-    # This code taken from https://sjohannes.wordpress.com/2012/03/23/win32-python-getting-all-window-titles/
-    # A correction to this code (for enumWindowsProc) is here: http://makble.com/the-story-of-lpclong
-    titles = []
-
-    def foreach_window(hWnd, lParam):
-        if isWindowVisible(hWnd):
-            length = getWindowTextLength(hWnd)
-            buff = ctypes.create_unicode_buffer(length + 1)
-            getWindowText(hWnd, buff, length + 1)
-            titles.append((hWnd, buff.value))
-        return True
-    enumWindows(enumWindowsProc(foreach_window), 0)
-
-    return titles
-
-
-def _formatMessage(errorCode):
-    """A nice wrapper for FormatMessageW(). TODO
-
-    Microsoft Documentation:
-    https://docs.microsoft.com/en-us/windows/desktop/api/winbase/nf-winbase-formatmessagew
-
-    Additional information:
-    https://stackoverflow.com/questions/18905702/python-ctypes-and-mutable-buffers
-    https://stackoverflow.com/questions/455434/how-should-i-use-formatmessage-properly-in-c
-    """
-    lpBuffer = wintypes.LPWSTR()
-
-    ctypes.windll.kernel32.FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_IGNORE_INSERTS,
-                                          NULL,
-                                          errorCode,
-                                          0, # dwLanguageId
-                                          ctypes.cast(ctypes.byref(lpBuffer), wintypes.LPWSTR),
-                                          0, # nSize
-                                          NULL)
-    msg = lpBuffer.value.rstrip()
-    ctypes.windll.kernel32.LocalFree(lpBuffer) # Free the memory allocated for the error message's buffer.
-    return msg
-
-
-def _raiseWithLastError():
-    """A helper function that raises PyGetWindowException using the error
-    information from GetLastError() and FormatMessage()."""
-    errorCode = ctypes.windll.kernel32.GetLastError()
-    raise PyGetWindowException('Error code from Windows: %s - %s' % (errorCode, _formatMessage(errorCode)))
+# WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
+#          You may set wait to True in case you need to effectively know if/when change has been applied.
+WAIT_ATTEMPTS = 10
+WAIT_DELAY = 0.025  # Will be progressively increased on every retry
 
 
 def getActiveWindow():
     """Returns a Window object of the currently active (focused) Window."""
-    hWnd = ctypes.windll.user32.GetForegroundWindow()
-    if hWnd == 0:
-        # TODO - raise error instead
-        return None # Note that this function doesn't use GetLastError().
-    else:
+    hWnd = win32gui.GetForegroundWindow()
+    if hWnd:
         return Win32Window(hWnd)
+    else:
+        return None
 
 
 def getActiveWindowTitle():
     """Returns a string of the title text of the currently active (focused) Window."""
-    # NOTE - This function isn't threadsafe because it relies on a global variable. I don't use nonlocal because I want this to work on Python 2.
-
-    global activeWindowTitle
-    activeWindowHwnd = ctypes.windll.user32.GetForegroundWindow()
-    if activeWindowHwnd == 0:
-        # TODO - raise error instead
-        return None # Note that this function doesn't use GetLastError().
-
-    def foreach_window(hWnd, lParam):
-        global activeWindowTitle
-        if hWnd == activeWindowHwnd:
-            length = getWindowTextLength(hWnd)
-            buff = ctypes.create_unicode_buffer(length + 1)
-            getWindowText(hWnd, buff, length + 1)
-            activeWindowTitle =  buff.value
-        return True
-    enumWindows(enumWindowsProc(foreach_window), 0)
-
-    return activeWindowTitle
+    hWnd = getActiveWindow()
+    if hWnd:
+        return hWnd.title
+    else:
+        return ""
 
 
 def getWindowsAt(x, y):
@@ -148,153 +43,180 @@ def getWindowsAt(x, y):
     * ``x`` (int, optional): The x position of the window(s).
     * ``y`` (int, optional): The y position of the window(s)."""
     windowsAtXY = []
-    for window in getAllWindows():
-        if pointInRect(x, y, window.left, window.top, window.width, window.height):
-            windowsAtXY.append(window)
+    for win in getAllWindows():
+        if pointInRect(x, y, win.left, win.top, win.width, win.height):
+            windowsAtXY.append(win)
     return windowsAtXY
 
 
 def getWindowsWithTitle(title):
-    """Returns a list of Window objects that substring match ``title`` in their title text."""
-    hWndsAndTitles = _getAllTitles()
-    windowObjs = []
-    for hWnd, winTitle in hWndsAndTitles:
-        if title.upper() in winTitle.upper(): # do a case-insensitive match
-            windowObjs.append(Win32Window(hWnd))
-    return windowObjs
+    """Returns a Window object list with the given name."""
+    matches = []
+    for win in getAllWindows():
+        if win.title == title:
+            matches.append(win)
+    return matches
 
 
 def getAllTitles():
-    """Returns a list of strings of window titles for all visible windows.
-    """
+    """Returns a list of strings of window titles for all visible windows."""
     return [window.title for window in getAllWindows()]
 
 
 def getAllWindows():
     """Returns a list of Window objects for all visible windows.
     """
-    windowObjs = []
-    def foreach_window(hWnd, lParam):
-        if ctypes.windll.user32.IsWindowVisible(hWnd) != 0:
-            windowObjs.append(Win32Window(hWnd))
-        return True
-    enumWindows(enumWindowsProc(foreach_window), 0)
+    matches = []
+    windowObjs = _findWindowHandles(onlyVisible=True)
+    for win in windowObjs:
+        if win32gui.IsWindowVisible(win):
+            matches.append(Win32Window(win))
+    return matches
 
-    return windowObjs
 
-def _getChildWindows(parent):
+def _findWindowHandles(parent: int = None, window_class: str = None, title: str = None, onlyVisible: bool = False) -> List[int]:
+    # https://stackoverflow.com/questions/56973912/how-can-i-set-windows-10-desktop-background-with-smooth-transition
+    # Fixed: original post returned duplicated handles when trying to retrieve all windows (no class nor title)
 
-    children = []
+    def _make_filter(class_name: str, title: str, onlyVisible=False):
 
-    def foreach_window(hwnd, param):
-        children.append(hwnd)
+        def enum_windows(handle: int, h_list: list):
+            if class_name and class_name not in win32gui.GetClassName(handle):
+                return True  # continue enumeration
+            if title and title not in win32gui.GetWindowText(handle):
+                return True  # continue enumeration
+            if not onlyVisible or (onlyVisible and win32gui.IsWindowVisible(handle)):
+                h_list.append(handle)
 
-    ctypes.windll.user32.EnumChildWindows(parent, enumWindowsProc(foreach_window), None)
-    return children
+        return enum_windows
+
+    cb = _make_filter(window_class, title, onlyVisible)
+    try:
+        handle_list = []
+        if parent:
+            win32gui.EnumChildWindows(parent, cb, handle_list)
+        else:
+            win32gui.EnumWindows(cb, handle_list)
+        return handle_list
+    except:
+        return []
 
 
 class Win32Window(BaseWindow):
     def __init__(self, hWnd):
-        self._hWnd = hWnd # TODO fix this, this is a LP_c_long insead of an int.
+        self._hWnd = hWnd
+        self._setupRectProperties()
         self._parent = win32gui.GetParent(self._hWnd)
         self._t = None
-        self._tContinue = False
-        self._setupRectProperties()
-
+        self.menu = self._Menu(self)
 
     def _getWindowRect(self):
-        """A nice wrapper for GetWindowRect(). TODO
-
-        Syntax:
-        BOOL GetWindowRect(
-          HWND   hWnd,
-          LPRECT lpRect
-        );
-
-        Microsoft Documentation:
-        https://docs.microsoft.com/en-us/windows/desktop/api/winuser/nf-winuser-getwindowrect
-        """
-        rect = RECT()
-        result = ctypes.windll.user32.GetWindowRect(self._hWnd, ctypes.byref(rect))
-        if result != 0:
-            return Rect(rect.left, rect.top, rect.right, rect.bottom)
-        else:
-            _raiseWithLastError()
-
+        x, y, r, b = win32gui.GetWindowRect(self._hWnd)
+        return Rect(x, y, r, b)
 
     def __repr__(self):
         return '%s(hWnd=%s)' % (self.__class__.__name__, self._hWnd)
 
-
     def __eq__(self, other):
         return isinstance(other, Win32Window) and self._hWnd == other._hWnd
-
 
     def close(self):
         """Closes this window. This may trigger "Are you sure you want to
         quit?" dialogs or other actions that prevent the window from
         actually closing. This is identical to clicking the X button on the
         window."""
-        result = ctypes.windll.user32.PostMessageA(self._hWnd, WM_CLOSE, 0, 0)
-        if result == 0:
-            _raiseWithLastError()
+        win32gui.PostMessage(self._hWnd, win32con.WM_CLOSE, 0, 0)
+        return win32gui.IsWindow(self._hWnd)
 
-
-    def minimize(self):
+    def minimize(self, wait=False):
         """Minimizes this window."""
-        ctypes.windll.user32.ShowWindow(self._hWnd, SW_MINIMIZE)
+        if not self.isMinimized:
+            win32gui.ShowWindow(self._hWnd, win32con.SW_MINIMIZE)
+            retries = 0
+            while wait and retries < WAIT_ATTEMPTS and not self.isMinimized:
+                retries += 1
+                time.sleep(WAIT_DELAY * retries)
+        return self.isMinimized
 
-
-    def maximize(self):
+    def maximize(self, wait=False):
         """Maximizes this window."""
-        ctypes.windll.user32.ShowWindow(self._hWnd, SW_MAXIMIZE)
+        if not self.isMaximized:
+            win32gui.ShowWindow(self._hWnd, win32con.SW_MAXIMIZE)
+            retries = 0
+            while wait and retries < WAIT_ATTEMPTS and not self.isMaximized:
+                retries += 1
+                time.sleep(WAIT_DELAY * retries)
+        return self.isMaximized
 
-
-    def restore(self):
+    def restore(self, wait=False):
         """If maximized or minimized, restores the window to it's normal size."""
-        ctypes.windll.user32.ShowWindow(self._hWnd, SW_RESTORE)
+        win32gui.ShowWindow(self._hWnd, win32con.SW_RESTORE)
+        retries = 0
+        while wait and retries < WAIT_ATTEMPTS and (self.isMaximized or self.isMinimized):
+            retries += 1
+            time.sleep(WAIT_DELAY * retries)
+        return not self.isMaximized and not self.isMinimized
         
-    def show(self):
+    def show(self, wait=False):
         """If hidden or showing, shows the window on screen and in title bar."""
-        ctypes.windll.user32.ShowWindow(self._hWnd,SW_SHOW)
+        win32gui.ShowWindow(self._hWnd, win32con.SW_SHOW)
+        retries = 0
+        while wait and retries < WAIT_ATTEMPTS and not self.isVisible:
+            retries += 1
+            time.sleep(WAIT_DELAY * retries)
+        return self.isVisible
 
-    def hide(self):
+    def hide(self, wait=False):
         """If hidden or showing, hides the window from screen and title bar."""
-        ctypes.windll.user32.ShowWindow(self._hWnd,SW_HIDE)
+        win32gui.ShowWindow(self._hWnd, win32con.SW_HIDE)
+        retries = 0
+        while wait and retries < WAIT_ATTEMPTS and self.isVisible:
+            retries += 1
+            time.sleep(WAIT_DELAY * retries)
+        return not self.isVisible
 
-    def activate(self):
+    def activate(self, wait=False):
         """Activate this window and make it the foreground (focused) window."""
-        result = ctypes.windll.user32.SetForegroundWindow(self._hWnd)
-        if result == 0:
-            _raiseWithLastError()
+        win32gui.SetForegroundWindow(self._hWnd)
+        return getActiveWindow()._hWnd == self._hWnd
 
-
-    def resize(self, widthOffset, heightOffset):
+    def resize(self, widthOffset, heightOffset, wait=False):
         """Resizes the window relative to its current size."""
-        result = ctypes.windll.user32.SetWindowPos(self._hWnd, HWND_TOP, self.left, self.top, self.width + widthOffset, self.height + heightOffset, 0)
-        if result == 0:
-            _raiseWithLastError()
-    resizeRel = resize # resizeRel is an alias for the resize() method.
+        return self.resizeTo(self.width + widthOffset, self.height + heightOffset, wait)
 
-    def resizeTo(self, newWidth, newHeight):
+    resizeRel = resize  # resizeRel is an alias for the resize() method.
+
+    def resizeTo(self, newWidth, newHeight, wait=False):
         """Resizes the window to a new width and height."""
-        result = ctypes.windll.user32.SetWindowPos(self._hWnd, HWND_TOP, self.left, self.top, newWidth, newHeight, 0)
-        if result == 0:
-            _raiseWithLastError()
+        result = win32gui.SetWindowPos(self._hWnd, win32con.HWND_TOP, self.left, self.top, newWidth, newHeight, 0)
+        retries = 0
+        while result != 0 and wait and retries < WAIT_ATTEMPTS and (self.width != newWidth or self.height != newHeight):
+            retries += 1
+            time.sleep(WAIT_DELAY * retries)
+        return self.width == newWidth and self.height == newHeight
 
-
-    def move(self, xOffset, yOffset):
+    def move(self, xOffset, yOffset, wait=False):
         """Moves the window relative to its current position."""
-        result = ctypes.windll.user32.SetWindowPos(self._hWnd, HWND_TOP, self.left + xOffset, self.top + yOffset, self.width, self.height, 0)
-        if result == 0:
-            _raiseWithLastError()
-    moveRel = move # moveRel is an alias for the move() method.
+        return self.moveTo(self.left + xOffset, self.top + yOffset, wait)
 
-    def moveTo(self, newLeft, newTop):
+    moveRel = move  # moveRel is an alias for the move() method.
+
+    def moveTo(self, newLeft, newTop, wait=False):
         """Moves the window to new coordinates on the screen."""
-        result = ctypes.windll.user32.SetWindowPos(self._hWnd, HWND_TOP, newLeft, newTop, self.width, self.height, 0)
-        if result == 0:
-            _raiseWithLastError()
+        result = win32gui.SetWindowPos(self._hWnd, win32con.HWND_TOP, newLeft, newTop, self.width, self.height, 0)
+        retries = 0
+        while result != 0 and wait and retries < WAIT_ATTEMPTS and (self.left != newLeft or self.top != newTop):
+            retries += 1
+            time.sleep(WAIT_DELAY * retries)
+        return self.left == newLeft and self.top == newTop
+
+    def _moveResizeTo(self, newLeft, newTop, newWidth, newHeight):
+        result = win32gui.SetWindowPos(self._hWnd, win32con.HWND_TOP, newLeft, newTop, newWidth, newHeight, 0)
+        retries = 0
+        while result != 0 and retries < WAIT_ATTEMPTS and (self.left != newLeft or self.top != newTop):
+            retries += 1
+            time.sleep(WAIT_DELAY * retries)
+        return newLeft == self.left and newTop == self.top and newWidth == self.width and newHeight == self.height
 
     def alwaysOnTop(self, aot=True):
         """Keeps window on top of all others.
@@ -304,8 +226,7 @@ class Win32Window(BaseWindow):
         # https://stackoverflow.com/questions/25381589/pygame-set-window-on-top-without-changing-its-position/49482325 (kmaork)
         zorder = win32con.HWND_TOPMOST if aot else win32con.HWND_NOTOPMOST
         result = win32gui.SetWindowPos(self._hWnd, zorder, 0, 0, 0, 0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
-        if result == 0:
-            _raiseWithLastError()
+        return result != 0
 
     def alwaysOnBottom(self, aob=True):
         """Keeps window below of all others, but on top of desktop icons and keeping all window properties
@@ -318,33 +239,33 @@ class Win32Window(BaseWindow):
                                   win32con.SWP_NOSENDCHANGING | win32con.SWP_NOOWNERZORDER | win32con.SWP_ASYNCWINDOWPOS | win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE | win32con.SWP_NOREDRAW | win32con.SWP_NOCOPYBITS)
             if result != 0:
                 # There is no HWND_TOPBOTTOM (similar to TOPMOST), so it won't keep window below all others as desired
-                # Is there an easy way to catch WM_WINDOWPOSCHANGING event, unlike this: https://stackoverflow.com/questions/64529896/attach-keyboard-hook-to-specific-window?
+                # May be catching WM_WINDOWPOSCHANGING event? Not sure if possible for a "foreign" window, and seems really complex
+                # https://stackoverflow.com/questions/64529896/attach-keyboard-hook-to-specific-window
                 if self._t is None:
                     self._t = _sendBottom(self._hWnd)
+                    # Not sure about the best behavior: stop thread when program ends or keeping sending window below
+                    self._t.setDaemon(True)
                 if not self._t.is_alive():
                     self._t.start()
         else:
             if self._t.is_alive():
                 self._t.kill()
             result = self.sendBehind(sb=False)
-        if result == 0:
-            _raiseWithLastError()
+        return result != 0
 
     def lowerWindow(self):
         """Lowers the window to the bottom so that it does not obscure any sibling windows.
         """
-        result = ctypes.windll.user32.SetWindowPos(self._hWnd, HWND_BOTTOM, 0, 0, 0, 0,
-                                                   win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE)
-        if result == 0:
-            _raiseWithLastError()
+        result = win32gui.SetWindowPos(self._hWnd, win32con.HWND_BOTTOM, 0, 0, 0, 0,
+                                       win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE)
+        return result != 0
 
     def raiseWindow(self):
         """Raises the window to top so that it is not obscured by any sibling windows.
         """
-        result = ctypes.windll.user32.SetWindowPos(self._hWnd, HWND_TOP, 0, 0, 0, 0,
-                                                   win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE)
-        if result == 0:
-            _raiseWithLastError()
+        result = win32gui.SetWindowPos(self._hWnd, win32con.HWND_TOP, 0, 0, 0, 0,
+                                       win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE)
+        return result != 0
 
     def sendBehind(self, sb=True):
         """Sends the window to the very bottom, below all other windows, including desktop icons.
@@ -368,7 +289,7 @@ class Win32Window(BaseWindow):
 
             # https://www.codeproject.com/Articles/856020/Draw-Behind-Desktop-Icons-in-Windows-plus
             progman = win32gui.FindWindow("Progman", None)
-            win32gui.SendMessageTimeout(progman, 0x052C, 0, 0, SMTO_NORMAL, 1000)
+            win32gui.SendMessageTimeout(progman, 0x052C, 0, 0, win32con.SMTO_NORMAL, 1000)
             workerw = getWorkerW()
             result = 0
             if workerw:
@@ -376,49 +297,159 @@ class Win32Window(BaseWindow):
         else:
             result = win32gui.SetParent(self._hWnd, self._parent)
             # Window raises, but completely transparent
-            # Sometimes this works, but not always
+            # Sometimes this fixes it, but not always
             # result = result | win32gui.ShowWindow(self._hWnd, win32con.SW_SHOW)
             # win32gui.SetLayeredWindowAttributes(self._hWnd, win32api.RGB(255, 255, 255), 255, win32con.LWA_COLORKEY)
             # win32gui.UpdateWindow(self._hWnd)
-            # Didn't find a better way to update window content by the moment (tried redraw(), update(), ...)
+            # Didn't find a better way to update window content by the moment (also tried redraw(), update(), ...)
             result = result | win32gui.ShowWindow(self._hWnd, win32con.SW_MINIMIZE)
             result = result | win32gui.ShowWindow(self._hWnd, win32con.SW_RESTORE)
-
-        if result == 0:
-            _raiseWithLastError()
-        return result
+        return result != 0
 
     @property
     def isMinimized(self):
         """Returns ``True`` if the window is currently minimized."""
-        return ctypes.windll.user32.IsIconic(self._hWnd) != 0
+        return win32gui.IsIconic(self._hWnd) != 0
 
     @property
     def isMaximized(self):
         """Returns ``True`` if the window is currently maximized."""
-        return ctypes.windll.user32.IsZoomed(self._hWnd) != 0
+        state = win32gui.GetWindowPlacement(self._hWnd)
+        return state[1] == win32con.SW_SHOWMAXIMIZED
 
     @property
     def isActive(self):
         """Returns ``True`` if the window is currently the active, foreground window."""
-        return getActiveWindow() == self
+        return win32gui.GetForegroundWindow() == self._hWnd
 
     @property
     def title(self):
         """Returns the window title as a string."""
-        textLenInCharacters = ctypes.windll.user32.GetWindowTextLengthW(self._hWnd)
-        stringBuffer = ctypes.create_unicode_buffer(textLenInCharacters + 1) # +1 for the \0 at the end of the null-terminated string.
-        ctypes.windll.user32.GetWindowTextW(self._hWnd, stringBuffer, textLenInCharacters + 1)
-
-        # TODO it's ambiguous if an error happened or the title text is just empty. Look into this later.
-        return stringBuffer.value
+        name = win32gui.GetWindowText(self._hWnd)
+        if isinstance(name, bytes):
+            name = name.decode()
+        return name
 
     @property
     def visible(self):
         """Return ``True`` if the window is currently visible."""
-        return isWindowVisible(self._hWnd)
+        return win32gui.IsWindowVisible(self._hWnd)
 
     isVisible = visible  # isVisible is an alias for the visible property.
+
+    class _Menu:
+
+        def __init__(self, parent):
+            self._parent = parent
+            self._hWnd = parent._hWnd
+            self._hMenu = win32gui.GetMenu(self._hWnd)
+            self._menuStructure = {}
+
+        def getMenu(self) -> dict:
+            """Loads and returns the Menu structure in a dictionary format, if exists, or empty.
+
+            Notes:
+                Main Menu handle is the parent of the level-0 items (e.g. menu["0"]["parent"])
+
+                Item types:
+                    0 - normal option (if handle != 0 -> sub-menu)
+
+                    2048 - separator
+
+                Item states:
+                    0 - click enabled
+
+                    1 - click disabled
+
+                    3 - non interactive (e.g. separator)
+
+                    8 - checkable
+
+                Item Rect is relative to window, so in most cases it shouldn't change even though window moves or resizes
+
+                Item id will contain the wID of the item, as required by clickMenuItem(itemID)
+            """
+
+            def findit(parent, level="", parentRect=None):
+                option = self._menuStructure
+                if level:
+                    for section in level.split(".")[1:]:
+                        option = option[section]
+
+                for i in range(win32gui.GetMenuItemCount(parent)):
+                    item_info = self.getMenuItemInfo(itemID=i, hSubMenu=parent)
+                    text = item_info.text.split("\t")
+                    title = text[0].replace("&", "")
+                    shortcut = "" if len(text) < 2 else text[1]
+                    rect = self.getMenuItemRect(itemID=i, hSubMenu=parent, relative=True, parentRect=parentRect)
+                    option[str(i)] = {"parent": parent, "handle": item_info.hSubMenu, "id": item_info.wID,
+                                      "type": item_info.fType, "state": item_info.fState, "text": title,
+                                      "shortcut": shortcut, "rect": rect, "entries": {}}
+                    findit(item_info.hSubMenu, level + "." + str(i) + ".entries", rect)
+
+            if self._hMenu:
+                findit(self._hMenu)
+            return self._menuStructure
+
+        def clickMenuItem(self, itemID):
+            """Simulates a click on a menu item
+
+            itemID corresponds to the desired menu option (check ''itemID'' in menu struct)"""
+            if self._hMenu:
+                win32gui.PostMessage(self._hWnd, win32con.WM_COMMAND, itemID, 0)
+
+        def getMenuInfo(self):
+            """Returns the MENUINFO struct of the main menu
+            """
+            menu_info = None
+            if self._hMenu:
+                buf = win32gui_struct.EmptyMENUINFO()
+                win32gui.GetMenuInfo(self._hMenu, buf)
+                menu_info = win32gui_struct.UnpackMENUINFO(buf)
+            return menu_info
+
+        def getMenuItemCount(self, hSubMenu=0):
+            """Returns the number of items within a menu (main menu if no sub-menu given)
+
+            Use hSubMenu to get the number of items within a submenu"""
+            if not hSubMenu:
+                hSubMenu = self._hMenu
+            if hSubMenu and self._hMenu:
+                return win32gui.GetMenuItemCount(hSubMenu)
+            return 0
+
+        def getMenuItemInfo(self, itemID, hSubMenu=0):
+            """Returns the ITEMINFO struct for the given menu item (main menu if no sub-menu given)
+
+            Use hSubMenu to get info from an item within a submenu"""
+            if not hSubMenu:
+                hSubMenu = self._hMenu
+            item_info = None
+            if hSubMenu and self._hMenu and 0 <= itemID < self.getMenuItemCount(hSubMenu=hSubMenu):
+                buf, extras = win32gui_struct.EmptyMENUITEMINFO()
+                win32gui.GetMenuItemInfo(hSubMenu, itemID, True, buf)
+                item_info = win32gui_struct.UnpackMENUITEMINFO(buf)
+            return item_info
+
+        def getMenuItemRect(self, itemID, hSubMenu=0, parentRect=None, relative=False):
+            """Returns the Rect occupied by the Menu option (main menu if no sub-menu given)
+
+            Use relative=True to get values within window (won't change if window moves)"""
+            if not hSubMenu:
+                hSubMenu = self._hMenu
+            ret = None
+            if hSubMenu and self._hMenu and 0 <= itemID < self.getMenuItemCount(hSubMenu=hSubMenu):
+                [result, (x, y, r, b)] = win32gui.GetMenuItemRect(self._hWnd, hSubMenu, itemID)
+                if result != 0:
+                    if relative:
+                        x = abs(abs(x) - abs(self._parent.left))
+                        y = abs(abs(y) - abs(self._parent.top))
+                        r = abs(abs(r) - abs(self._parent.left))
+                        b = abs(abs(b) - abs(self._parent.top))
+                    if parentRect:
+                        x = parentRect.left
+                    ret = Rect(x, y, r, b)
+            return ret
 
 
 class _sendBottom(threading.Thread):
@@ -460,9 +491,8 @@ def cursor():
       (x, y) tuple of the current xy coordinates of the mouse cursor.
     """
 
-    cursor = POINT()
-    ctypes.windll.user32.GetCursorPos(ctypes.byref(cursor))
-    return Point(x=cursor.x, y=cursor.y)
+    cursor = win32gui.GetCursorPos()
+    return Point(x=cursor[0], y=cursor[1])
 
 
 def resolution():

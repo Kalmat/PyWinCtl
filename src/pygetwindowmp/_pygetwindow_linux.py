@@ -377,7 +377,7 @@ class LinuxWindow(BaseWindow):
             # https://stackoverflow.com/questions/58885803/can-i-use-net-wm-window-type-dock-ewhm-extension-in-openbox
             w = DISP.create_resource_object('window', self._hWnd)
 
-            # This adds the properties (notice the PropMode options), but with no effect
+            # This adds the properties (notice the PropMode options), but with no effect on GNOME
             w.change_property(DISP.intern_atom('_NET_WM_STATE', False), Xlib.Xatom.ATOM,
                               32, [DISP.intern_atom('_NET_WM_STATE_BELOW', False), ],
                               Xlib.X.PropModeReplace)
@@ -419,7 +419,6 @@ class LinuxWindow(BaseWindow):
                               32, [DISP.intern_atom("_NET_WM_WINDOW_TYPE_NORMAL", False), ],
                               Xlib.X.PropModeReplace)
             DISP.flush()
-            # self.raiseWindow()
             w.change_property(DISP.intern_atom('_NET_WM_STATE', False), Xlib.Xatom.ATOM,
                               32, [DISP.intern_atom('_NET_WM_STATE_FOCUSED', False), ],
                               Xlib.X.PropModeReplace)

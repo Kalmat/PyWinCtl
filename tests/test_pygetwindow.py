@@ -1,9 +1,11 @@
-from __future__ import division, print_function
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
 
-import sys
-import pytest
 import subprocess
+import sys
 import time
+
+import pytest
 import pygetwindowmp
 
 
@@ -17,7 +19,7 @@ def test_basic():
         # testWindows = pygetwindowmp.getWindowsWithTitle('Untitled - Notepad')   # Not working in other languages
         assert len(testWindows) == 1
 
-        npw = testWindows[0]  # testWindows[0] is the selected window
+        npw = testWindows[0]
 
         basic_win32(npw)
 
@@ -28,7 +30,7 @@ def test_basic():
         testWindows = [pygetwindowmp.getActiveWindow()]
         assert len(testWindows) == 1
 
-        npw = testWindows[0]  # testWindows[0] is the selected window
+        npw = testWindows[0]
 
         basic_linux(npw)
 
@@ -41,7 +43,7 @@ def test_basic():
         testWindows = pygetwindowmp.getWindowsWithTitle('test.txt')
         assert len(testWindows) == 1
 
-        npw = testWindows[0]  # testWindows[0] is the selected window
+        npw = testWindows[0]
 
         basic_macOS(npw)
 
