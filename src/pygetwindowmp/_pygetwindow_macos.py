@@ -27,7 +27,7 @@ WAIT_ATTEMPTS = 10
 WAIT_DELAY = 0.025  # Will be progressively increased on every retry
 
 
-def getActiveWindow(app: AppKit.NSApp = None) -> Union[BaseWindow, None]:
+def getActiveWindow(app: AppKit.NSApplication = None) -> Union[BaseWindow, None]:
     """Returns a Window object of the currently active Window or None."""
     if not app:
         app = WS.frontmostApplication()
@@ -49,7 +49,7 @@ def getActiveWindow(app: AppKit.NSApp = None) -> Union[BaseWindow, None]:
     return None
 
 
-def getActiveWindowTitle(app: AppKit.NSApp = None) -> str:
+def getActiveWindowTitle(app: AppKit.NSApplication = None) -> str:
     """Returns a Window object of the currently active Window or empty string."""
     win = getActiveWindow(app)
     if win:
@@ -58,7 +58,7 @@ def getActiveWindowTitle(app: AppKit.NSApp = None) -> str:
         return ""
 
 
-def getWindowsAt(x: int, y: int, app: AppKit.NSApp = None) -> List[BaseWindow]:
+def getWindowsAt(x: int, y: int, app: AppKit.NSApplication = None) -> List[BaseWindow]:
     """Returns a list of windows under the mouse pointer or an empty list."""
     matches = []
     for win in getAllWindows(app):
@@ -68,7 +68,7 @@ def getWindowsAt(x: int, y: int, app: AppKit.NSApp = None) -> List[BaseWindow]:
     return matches
 
 
-def getWindowsWithTitle(title, app: AppKit.NSApp = None) -> List[BaseWindow]:
+def getWindowsWithTitle(title, app: AppKit.NSApplication = None) -> List[BaseWindow]:
     """Returns a list of window objects matching the given title or an empty list."""
     matches = []
     windows = getAllWindows(app)
@@ -78,12 +78,12 @@ def getWindowsWithTitle(title, app: AppKit.NSApp = None) -> List[BaseWindow]:
     return matches
 
 
-def getAllTitles(app: AppKit.NSApp = None) -> List[str]:
+def getAllTitles(app: AppKit.NSApplication = None) -> List[str]:
     """Returns a list of strings of window titles for all visible windows."""
     return [win.title for win in getAllWindows(app)]
 
 
-def getAllWindows(app: AppKit.NSApp = None) -> List[BaseWindow]:
+def getAllWindows(app: AppKit.NSApplication = None) -> List[BaseWindow]:
     """Returns a list of window objects for all visible windows."""
     windows = []
     if not app:
@@ -95,7 +95,7 @@ def getAllWindows(app: AppKit.NSApp = None) -> List[BaseWindow]:
                     windows.append(MacOSWindow(app, item[1]))
     else:
         for win in app.orderedWindows():
-            windows.append(MacOSWindow(app, win))
+            windows.append(MacOSNSWindow(app, win))
     return windows
 
 
@@ -118,7 +118,7 @@ def _getWindowTitles() -> List[List[str]]:
     return retList
 
 
-def _getAllApps() -> AppKit.NSApp:
+def _getAllApps() -> List[AppKit.NSRunningApplication]:
     return WS.runningApplications()
 
 
@@ -131,7 +131,7 @@ def _getAllWindows(excludeDesktop: bool = True, screenOnly: bool = True):
     return Quartz.CGWindowListCopyWindowInfo(flags, Quartz.kCGNullWindowID)
 
 
-def _getAllAppWindows(app: AppKit.NSApp):
+def _getAllAppWindows(app: AppKit.NSApplication):
     windows = _getAllWindows()
     windowsInApp = []
     for win in windows:
@@ -142,7 +142,7 @@ def _getAllAppWindows(app: AppKit.NSApp):
 
 class MacOSWindow(BaseWindow):
 
-    def __init__(self, app, title: str):
+    def __init__(self, app: AppKit.NSRunningApplication, title: str):
         self._app = app
         self.appName = app.localizedName()
         self.appPID = app.processIdentifier()
@@ -557,7 +557,7 @@ class MacOSWindow(BaseWindow):
 
 class MacOSNSWindow(BaseWindow):
 
-    def __init__(self, app: AppKit.NSApp, hWnd: AppKit.NSWindow):
+    def __init__(self, app: AppKit.NSApplication, hWnd: AppKit.NSWindow):
         self._app = app
         self._hWnd = hWnd
         self._setupRectProperties()
