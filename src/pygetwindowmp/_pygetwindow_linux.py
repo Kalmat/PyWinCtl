@@ -134,7 +134,7 @@ def _xlibGetAllWindows(parent: int = None, title: str = "") -> List[int]:
 
 class LinuxWindow(BaseWindow):
 
-    def __init__(self, hWnd: list[Union[None, Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]]):
+    def __init__(self, hWnd: List[Union[None, Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]]):
         self._hWnd = hWnd
         self._setupRectProperties()
         # self._saveWindowInitValues()  # Store initial Window parameters to allow reset and other actions
