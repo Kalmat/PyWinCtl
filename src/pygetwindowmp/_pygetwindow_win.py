@@ -11,7 +11,7 @@ import win32con
 import win32gui
 import win32gui_struct
 
-from pygetwindowmp import pointInRect, BaseWindow, Rect, Point, Size, Win32Window
+from pygetwindowmp import pointInRect, BaseWindow, Rect, Point, Size
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -19,7 +19,7 @@ WAIT_ATTEMPTS = 10
 WAIT_DELAY = 0.025  # Will be progressively increased on every retry
 
 
-def getActiveWindow() -> Union[Win32Window, None]:
+def getActiveWindow() -> Union[BaseWindow, None]:
     """Returns a Window object of the currently active (focused) Window."""
     hWnd = win32gui.GetForegroundWindow()
     if hWnd:
@@ -37,7 +37,7 @@ def getActiveWindowTitle() -> str:
         return ""
 
 
-def getWindowsAt(x: int, y: int) -> List[Win32Window]:
+def getWindowsAt(x: int, y: int) -> List[BaseWindow]:
     """Returns a list of Window objects whose windows contain the point ``(x, y)``.
 
     * ``x`` (int, optional): The x position of the window(s).
@@ -49,7 +49,7 @@ def getWindowsAt(x: int, y: int) -> List[Win32Window]:
     return windowsAtXY
 
 
-def getWindowsWithTitle(title: str) -> List[Win32Window]:
+def getWindowsWithTitle(title: str) -> List[BaseWindow]:
     """Returns a Window object list with the given name."""
     matches = []
     for win in getAllWindows():
@@ -63,7 +63,7 @@ def getAllTitles() -> List[str]:
     return [window.title for window in getAllWindows()]
 
 
-def getAllWindows() -> List[Win32Window]:
+def getAllWindows() -> List[BaseWindow]:
     """Returns a list of Window objects for all visible windows.
     """
     matches = []
@@ -339,7 +339,7 @@ class Win32Window(BaseWindow):
 
     class _Menu:
 
-        def __init__(self, parent: Win32Window):
+        def __init__(self, parent: BaseWindow):
             self._parent = parent
             self._hWnd = parent._hWnd
             self._hMenu = win32gui.GetMenu(self._hWnd)

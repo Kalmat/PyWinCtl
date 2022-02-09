@@ -18,7 +18,7 @@ from Xlib.xobject.fontable import Fontable, GC, Font
 from Xlib.xobject.resource import Resource
 from pynput import mouse
 
-from pygetwindowmp import pointInRect, BaseWindow, Rect, Point, Size, LinuxWindow
+from pygetwindowmp import pointInRect, BaseWindow, Rect, Point, Size
 
 DISP = Xlib.display.Display()
 SCREEN = DISP.screen()
@@ -58,7 +58,7 @@ HINT_STATE_NORMAL = 1
 HINT_STATE_ICONIC = 3
 
 
-def getActiveWindow() -> Union[LinuxWindow, None]:
+def getActiveWindow() -> Union[BaseWindow, None]:
     """Returns a Window object of the currently active Window or None."""
     win_id = EWMH.getActiveWindow()
     if win_id:
@@ -75,7 +75,7 @@ def getActiveWindowTitle() -> str:
         return ""
 
 
-def getWindowsAt(x: int, y: int) -> List[LinuxWindow]:
+def getWindowsAt(x: int, y: int) -> List[BaseWindow]:
     """Returns a list of Window objects whose windows contain the point ``(x, y)``.
 
     * ``x`` (int): The x position of the window(s).
@@ -87,7 +87,7 @@ def getWindowsAt(x: int, y: int) -> List[LinuxWindow]:
     return windowsAtXY
 
 
-def getWindowsWithTitle(title: str) -> List[LinuxWindow]:
+def getWindowsWithTitle(title: str) -> List[BaseWindow]:
     """Returns a Window object list with the given name."""
     matches = []
     for win in getAllWindows():
@@ -102,7 +102,7 @@ def getAllTitles() -> List[str]:
     return [window.title for window in getAllWindows()]
 
 
-def getAllWindows() -> List[LinuxWindow]:
+def getAllWindows() -> List[BaseWindow]:
     """Returns a list of strings of window titles for all visible windows."""
     windows = EWMH.getClientList()
     return [LinuxWindow(window) for window in windows]
@@ -174,7 +174,7 @@ class LinuxWindow(BaseWindow):
         return '%s(hWnd=%s)' % (self.__class__.__name__, self._hWnd)
 
     def __eq__(self, other):
-        return isinstance(other, LinuxWindow) and self._hWnd == other._hWnd
+        return isinstance(other, BaseWindow) and self._hWnd == other._hWnd
 
     def close(self) -> None:
         """Closes this window. This may trigger "Are you sure you want to

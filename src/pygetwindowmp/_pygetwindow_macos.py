@@ -11,7 +11,7 @@ from typing import Union, List
 import AppKit
 import Quartz
 
-from pygetwindowmp import pointInRect, BaseWindow, Rect, Point, Size, MacOSWindow, MacOSNSWindow
+from pygetwindowmp import pointInRect, BaseWindow, Rect, Point, Size
 
 """ 
 IMPORTANT NOTICE:
@@ -27,7 +27,7 @@ WAIT_ATTEMPTS = 10
 WAIT_DELAY = 0.025  # Will be progressively increased on every retry
 
 
-def getActiveWindow(app: AppKit.NSApp = None) -> Union[MacOSWindow, MacOSNSWindow, None]:
+def getActiveWindow(app: AppKit.NSApp = None) -> Union[BaseWindow, None]:
     """Returns a Window object of the currently active Window or None."""
     if not app:
         app = WS.frontmostApplication()
@@ -58,7 +58,7 @@ def getActiveWindowTitle(app: AppKit.NSApp = None) -> str:
         return ""
 
 
-def getWindowsAt(x: int, y: int, app: AppKit.NSApp = None) -> Union[List[MacOSWindow], List[MacOSNSWindow]]:
+def getWindowsAt(x: int, y: int, app: AppKit.NSApp = None) -> List[BaseWindow]:
     """Returns a list of windows under the mouse pointer or an empty list."""
     matches = []
     for win in getAllWindows(app):
@@ -68,7 +68,7 @@ def getWindowsAt(x: int, y: int, app: AppKit.NSApp = None) -> Union[List[MacOSWi
     return matches
 
 
-def getWindowsWithTitle(title, app: AppKit.NSApp = None) -> Union[List[MacOSWindow], List[MacOSNSWindow]]:
+def getWindowsWithTitle(title, app: AppKit.NSApp = None) -> List[BaseWindow]:
     """Returns a list of window objects matching the given title or an empty list."""
     matches = []
     windows = getAllWindows(app)
@@ -83,7 +83,7 @@ def getAllTitles(app: AppKit.NSApp = None) -> List[str]:
     return [win.title for win in getAllWindows(app)]
 
 
-def getAllWindows(app: AppKit.NSApp = None) -> Union[List[MacOSWindow], List[MacOSNSWindow]]:
+def getAllWindows(app: AppKit.NSApp = None) -> List[BaseWindow]:
     """Returns a list of window objects for all visible windows."""
     windows = []
     if not app:
@@ -95,11 +95,11 @@ def getAllWindows(app: AppKit.NSApp = None) -> Union[List[MacOSWindow], List[Mac
                     windows.append(MacOSWindow(app, item[1]))
     else:
         for win in app.orderedWindows():
-            windows.append(MacOSNSWindow(app, win))
+            windows.append(MacOSWindow(app, win))
     return windows
 
 
-def _getWindowTitles() -> List[str]:
+def _getWindowTitles() -> List[List[str]]:
     # https://gist.github.com/qur2/5729056 - qur2
     cmd = """osascript -e 'tell application "System Events"
                                 set winNames to {}
@@ -118,7 +118,7 @@ def _getWindowTitles() -> List[str]:
     return retList
 
 
-def _getAllApps() -> List[AppKit.RunningApplication]:
+def _getAllApps() -> AppKit.NSApp:
     return WS.runningApplications()
 
 
@@ -142,7 +142,7 @@ def _getAllAppWindows(app: AppKit.NSApp):
 
 class MacOSWindow(BaseWindow):
 
-    def __init__(self, app: AppKit.NSRunningApplication, title: str):
+    def __init__(self, app, title: str):
         self._app = app
         self.appName = app.localizedName()
         self.appPID = app.processIdentifier()
@@ -173,7 +173,7 @@ class MacOSWindow(BaseWindow):
         return '%s(hWnd=%s)' % (self.__class__.__name__, self._app)
 
     def __eq__(self, other):
-        return isinstance(other, MacOSWindow) and self._app == other._app
+        return isinstance(other, BaseWindow) and self._app == other._app
 
     def close(self, force:bool = False) -> bool:
         """Closes this window or app. This may trigger "Are you sure you want to
@@ -577,7 +577,7 @@ class MacOSNSWindow(BaseWindow):
         return '%s(hWnd=%s)' % (self.__class__.__name__, self._hWnd)
 
     def __eq__(self, other):
-        return isinstance(other, MacOSNSWindow) and self._hWnd == other._hWnd
+        return isinstance(other, BaseWindow) and self._hWnd == other._hWnd
 
     def close(self) -> bool:
         """Closes this window. This may trigger "Are you sure you want to
