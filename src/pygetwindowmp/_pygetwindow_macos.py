@@ -142,7 +142,7 @@ def _getAllAppWindows(app: AppKit.NSApp):
 
 class MacOSWindow(BaseWindow):
 
-    def __init__(self, app, title: str):
+    def __init__(self, app: AppKit.NSRunningApplication, title: str):
         self._app = app
         self.appName = app.localizedName()
         self.appPID = app.processIdentifier()
@@ -583,7 +583,7 @@ class MacOSNSWindow(BaseWindow):
         """Closes this window. This may trigger "Are you sure you want to
         quit?" dialogs or other actions that prevent the window from actually
         closing. This is identical to clicking the X button on the window."""
-        self._hWnd.performClose_(self._app)
+        return self._hWnd.performClose_(self._app)
 
     def minimize(self, wait: bool = False) -> bool:
         """Minimizes this window.
