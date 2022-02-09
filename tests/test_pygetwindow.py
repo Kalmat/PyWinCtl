@@ -178,7 +178,7 @@ def basic_linux(npw):
     assert npw is not None
 
     wait = True
-    timelap = 0.0
+    timelap = 0.5
 
     # Test maximize/minimize/restore.
     if npw.isMaximized:  # Make sure it starts un-maximized

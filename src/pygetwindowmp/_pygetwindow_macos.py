@@ -6,11 +6,12 @@ import platform
 import subprocess
 import sys
 import time
+from typing import Union, List
 
 import AppKit
 import Quartz
 
-from pygetwindowmp import pointInRect, BaseWindow, Rect, Point, Size
+from pygetwindowmp import pointInRect, BaseWindow, Rect, Point, Size, MacOSWindow, MacOSNSWindow
 
 """ 
 IMPORTANT NOTICE:
@@ -26,7 +27,7 @@ WAIT_ATTEMPTS = 10
 WAIT_DELAY = 0.025  # Will be progressively increased on every retry
 
 
-def getActiveWindow(app=None):
+def getActiveWindow(app: AppKit.NSApp = None) -> Union[MacOSWindow, MacOSNSWindow, None]:
     """Returns a Window object of the currently active Window or None."""
     if not app:
         app = WS.frontmostApplication()
@@ -48,7 +49,7 @@ def getActiveWindow(app=None):
     return None
 
 
-def getActiveWindowTitle(app=None):
+def getActiveWindowTitle(app: AppKit.NSApp = None) -> str:
     """Returns a Window object of the currently active Window or empty string."""
     win = getActiveWindow(app)
     if win:
@@ -57,7 +58,7 @@ def getActiveWindowTitle(app=None):
         return ""
 
 
-def getWindowsAt(x, y, app=None):
+def getWindowsAt(x: int, y: int, app: AppKit.NSApp = None) -> Union[List[MacOSWindow], List[MacOSNSWindow]]:
     """Returns a list of windows under the mouse pointer or an empty list."""
     matches = []
     for win in getAllWindows(app):
@@ -67,7 +68,7 @@ def getWindowsAt(x, y, app=None):
     return matches
 
 
-def getWindowsWithTitle(title, app=None):
+def getWindowsWithTitle(title, app: AppKit.NSApp = None) -> Union[List[MacOSWindow], List[MacOSNSWindow]]:
     """Returns a list of window objects matching the given title or an empty list."""
     matches = []
     windows = getAllWindows(app)
@@ -77,12 +78,12 @@ def getWindowsWithTitle(title, app=None):
     return matches
 
 
-def getAllTitles(app=None):
+def getAllTitles(app: AppKit.NSApp = None) -> List[str]:
     """Returns a list of strings of window titles for all visible windows."""
     return [win.title for win in getAllWindows(app)]
 
 
-def getAllWindows(app=None):
+def getAllWindows(app: AppKit.NSApp = None) -> Union[List[MacOSWindow], List[MacOSNSWindow]]:
     """Returns a list of window objects for all visible windows."""
     windows = []
     if not app:
@@ -98,7 +99,7 @@ def getAllWindows(app=None):
     return windows
 
 
-def _getWindowTitles():
+def _getWindowTitles() -> List[str]:
     # https://gist.github.com/qur2/5729056 - qur2
     cmd = """osascript -e 'tell application "System Events"
                                 set winNames to {}
@@ -117,11 +118,11 @@ def _getWindowTitles():
     return retList
 
 
-def _getAllApps():
+def _getAllApps() -> List[AppKit.RunningApplication]:
     return WS.runningApplications()
 
 
-def _getAllWindows(excludeDesktop=True, screenOnly=True):
+def _getAllWindows(excludeDesktop: bool = True, screenOnly: bool = True):
     # Source: https://stackoverflow.com/questions/53237278/obtain-list-of-all-window-titles-on-macos-from-a-python-script/53985082#53985082
     # This returns a list of window info objects, which is static, so needs to be refreshed and takes some time to the OS to refresh it
     # Besides, since it may not have kCGWindowName value and the kCGWindowNumber can't be accessed from Apple Script, it's useless
@@ -130,7 +131,7 @@ def _getAllWindows(excludeDesktop=True, screenOnly=True):
     return Quartz.CGWindowListCopyWindowInfo(flags, Quartz.kCGNullWindowID)
 
 
-def _getAllAppWindows(app):
+def _getAllAppWindows(app: AppKit.NSApp):
     windows = _getAllWindows()
     windowsInApp = []
     for win in windows:
@@ -141,7 +142,7 @@ def _getAllAppWindows(app):
 
 class MacOSWindow(BaseWindow):
 
-    def __init__(self, app, title):
+    def __init__(self, app, title: str):
         self._app = app
         self.appName = app.localizedName()
         self.appPID = app.processIdentifier()
@@ -152,7 +153,7 @@ class MacOSWindow(BaseWindow):
         # On Yosemite and below we need to use Zoom instead of FullScreen to maximize windows
         self.use_zoom = (ver <= 10.10)
 
-    def _getWindowRect(self):
+    def _getWindowRect(self) -> Rect:
         """Returns a rect of window position and size (left, top, right, bottom).
         It follows ctypes format for compatibility"""
         cmd = """osascript -e 'tell application "System Events" to tell application process "%s"
@@ -174,7 +175,7 @@ class MacOSWindow(BaseWindow):
     def __eq__(self, other):
         return isinstance(other, MacOSWindow) and self._app == other._app
 
-    def close(self, force=False):
+    def close(self, force:bool = False) -> bool:
         """Closes this window or app. This may trigger "Are you sure you want to
         quit?" dialogs or other actions that prevent the window from actually
         closing. This is identical to clicking the X button on the window.
@@ -191,7 +192,7 @@ class MacOSWindow(BaseWindow):
             self._app.terminate()
         return not self._exists()
 
-    def minimize(self, wait=False):
+    def minimize(self, wait: bool = False) -> bool:
         """Minimizes this window.
         Use 'wait' option to confirm action requested (in a reasonable time).
 
@@ -208,7 +209,7 @@ class MacOSWindow(BaseWindow):
             time.sleep(WAIT_DELAY * retries)
         return self.isMinimized
 
-    def maximize(self, wait=False, force=False):
+    def maximize(self, wait: bool = False) -> bool:
         """Maximizes this window.
         Use 'wait' option to confirm action requested (in a reasonable time).
 
@@ -234,7 +235,7 @@ class MacOSWindow(BaseWindow):
                 time.sleep(WAIT_DELAY * retries)
         return self.isMaximized
 
-    def restore(self, wait=False):
+    def restore(self, wait: bool = False) -> bool:
         """If maximized or minimized, restores the window to it's normal size.
         Use 'wait' option to confirm action requested (in a reasonable time).
 
@@ -267,7 +268,7 @@ class MacOSWindow(BaseWindow):
             time.sleep(WAIT_DELAY * retries)
         return not self.isMaximized and not self.isMinimized
 
-    def hide(self, wait=False):
+    def hide(self, wait: bool = False) -> bool:
         """If hidden or showing, hides the app from screen and title bar.
         Use 'wait' option to confirm action requested (in a reasonable time).
 
@@ -293,7 +294,7 @@ class MacOSWindow(BaseWindow):
             time.sleep(WAIT_DELAY * retries)
         return not self.visible
 
-    def show(self, wait=False):
+    def show(self, wait: bool = False) -> bool:
         """If hidden or showing, shows the window on screen and in title bar.
         Use 'wait' option to confirm action requested (in a reasonable time).
 
@@ -318,7 +319,7 @@ class MacOSWindow(BaseWindow):
             time.sleep(WAIT_DELAY * retries)
         return self.visible
 
-    def activate(self, wait=False):
+    def activate(self, wait: bool = False) -> bool:
         """Activate this window and make it the foreground (focused) window.
         Use 'wait' option to confirm action requested (in a reasonable time).
 
@@ -340,7 +341,7 @@ class MacOSWindow(BaseWindow):
             time.sleep(WAIT_DELAY * retries)
         return self.isActive
 
-    def resize(self, widthOffset, heightOffset, wait=False):
+    def resize(self, widthOffset: int, heightOffset: int, wait: bool = False) -> bool:
         """Resizes the window relative to its current size.
         Use 'wait' option to confirm action requested (in a reasonable time)
 
@@ -349,7 +350,7 @@ class MacOSWindow(BaseWindow):
 
     resizeRel = resize  # resizeRel is an alias for the resize() method.
 
-    def resizeTo(self, newWidth, newHeight, wait=False):
+    def resizeTo(self, newWidth: int, newHeight: int, wait: bool = False) -> bool:
         """Resizes the window to a new width and height.
         Use 'wait' option to confirm action requested (in a reasonable time).
 
@@ -367,7 +368,7 @@ class MacOSWindow(BaseWindow):
             time.sleep(WAIT_DELAY * retries)
         return self.width == newWidth and self.height == newHeight
 
-    def move(self, xOffset, yOffset, wait=False):
+    def move(self, xOffset: int, yOffset: int, wait: bool = False) -> bool:
         """Moves the window relative to its current position.
         Use 'wait' option to confirm action requested (in a reasonable time).
 
@@ -376,7 +377,7 @@ class MacOSWindow(BaseWindow):
 
     moveRel = move  # moveRel is an alias for the move() method.
 
-    def moveTo(self, newLeft, newTop, wait=False):
+    def moveTo(self, newLeft:int, newTop: int, wait: bool = False) -> bool:
         """Moves the window to new coordinates on the screen.
         Use 'wait' option to confirm action requested (in a reasonable time).
 
@@ -394,7 +395,7 @@ class MacOSWindow(BaseWindow):
             time.sleep(WAIT_DELAY * retries)
         return self.left == newLeft and self.top == newTop
 
-    def _moveResizeTo(self, newLeft, newTop, newWidth, newHeight):
+    def _moveResizeTo(self, newLeft: int, newTop: int, newWidth: int, newHeight: int) -> bool:
         cmd = """osascript -e 'tell application "System Events" to tell application process "%s"
                                     set winName to "%s"
                                     try
@@ -413,21 +414,21 @@ class MacOSWindow(BaseWindow):
             time.sleep(WAIT_DELAY * retries)
         return newLeft == self.left and newTop == self.top and newWidth == self.width and newHeight == self.height
 
-    def alwaysOnTop(self, aot):
+    def alwaysOnTop(self, aot: bool = True) -> bool:
         """Keeps window on top of all others.
 
         Use aot=False to deactivate always-on-top behavior
         """
         raise NotImplementedError
 
-    def alwaysOnBottom(self, aob):
+    def alwaysOnBottom(self, aob: bool = True) -> bool:
         """Keeps window below of all others, but on top of desktop icons and keeping all window properties
 
         Use aob=False to deactivate always-on-bottom behavior
         """
         raise NotImplementedError
 
-    def lowerWindow(self):
+    def lowerWindow(self) -> None:
         """Lowers the window to the bottom so that it does not obscure any sibling windows.
         """
         # https://apple.stackexchange.com/questions/233687/how-can-i-send-the-currently-active-window-to-the-back
@@ -444,9 +445,8 @@ class MacOSWindow(BaseWindow):
                                     end try 
                                end tell'""" % (self.appName, self.title)
         os.system(cmd)
-        return
 
-    def raiseWindow(self):
+    def raiseWindow(self) -> None:
         """Raises the window to top so that it is not obscured by any sibling windows.
         """
         cmd = """osascript -e 'tell application "System Events" to tell application "%s"
@@ -455,9 +455,8 @@ class MacOSWindow(BaseWindow):
                                     end try
                                end tell'""" % (self.appName, self.title)
         os.system(cmd)
-        return
 
-    def sendBehind(self, sb=True):
+    def sendBehind(self, sb: bool = True) -> bool:
         """Sends the window to the very bottom, under all other windows, including desktop icons.
         It may also cause that window does not accept focus nor keyboard/mouse events.
 
@@ -465,7 +464,7 @@ class MacOSWindow(BaseWindow):
         raise NotImplementedError
 
     @property
-    def isMinimized(self):
+    def isMinimized(self) -> bool:
         """Returns ``True`` if the window is currently minimized."""
         cmd = """osascript -e 'tell application "System Events" to tell application process "%s" 
                                     set isMin to false
@@ -478,7 +477,7 @@ class MacOSWindow(BaseWindow):
         return ret == "true"
 
     @property
-    def isMaximized(self):
+    def isMaximized(self) -> bool:
         """Returns ``True`` if the window is currently maximized (full screen)."""
         if self.use_zoom:
             cmd = """osascript -e 'tell application "System Events" to tell application "%s" 
@@ -500,7 +499,7 @@ class MacOSWindow(BaseWindow):
         return ret == "true"
 
     @property
-    def isActive(self):
+    def isActive(self) -> bool:
         """Returns ``True`` if the window is currently the active, foreground window."""
         ret = "false"
         if self._app.isActive():
@@ -515,11 +514,11 @@ class MacOSWindow(BaseWindow):
         return ret == "true" or self.isMaximized
 
     @property
-    def title(self):
+    def title(self) -> str:
         return self.winTitle
 
     @property
-    def visible(self):
+    def visible(self) -> bool:
         """Returns ``True`` if the window is currently visible.
 
         Non-existing and Hidden windows are not visible"""
@@ -547,7 +546,7 @@ class MacOSWindow(BaseWindow):
 
     isVisible = visible  # isVisible is an alias for the visible property.
 
-    def _exists(self):
+    def _exists(self) -> bool:
         cmd = """osascript -e 'tell application "System Events" to tell application process "%s"
                                     set isAlive to exists window "%s"
                                 end tell
@@ -558,12 +557,12 @@ class MacOSWindow(BaseWindow):
 
 class MacOSNSWindow(BaseWindow):
 
-    def __init__(self, app, hWnd):
+    def __init__(self, app: AppKit.NSApp, hWnd: AppKit.NSWindow):
         self._app = app
         self._hWnd = hWnd
         self._setupRectProperties()
 
-    def _getWindowRect(self):
+    def _getWindowRect(self) -> Rect:
         """Returns a rect of window position and size (left, top, right, bottom).
         It follows ctypes format for compatibility"""
         frame = self._hWnd.frame()
@@ -580,13 +579,13 @@ class MacOSNSWindow(BaseWindow):
     def __eq__(self, other):
         return isinstance(other, MacOSNSWindow) and self._hWnd == other._hWnd
 
-    def close(self):
+    def close(self) -> bool:
         """Closes this window. This may trigger "Are you sure you want to
         quit?" dialogs or other actions that prevent the window from actually
         closing. This is identical to clicking the X button on the window."""
         self._hWnd.performClose_(self._app)
 
-    def minimize(self, wait=False):
+    def minimize(self, wait: bool = False) -> bool:
         """Minimizes this window.
         Use 'wait' option to confirm action requested (in a reasonable time).
 
@@ -599,7 +598,7 @@ class MacOSNSWindow(BaseWindow):
                 time.sleep(WAIT_DELAY * retries)
         return self.isMinimized
 
-    def maximize(self, wait=False):
+    def maximize(self, wait: bool = False) -> bool:
         """Maximizes this window.
         Use 'wait' option to confirm action requested (in a reasonable time).
 
@@ -612,7 +611,7 @@ class MacOSNSWindow(BaseWindow):
                 time.sleep(WAIT_DELAY * retries)
         return self.isMaximized
 
-    def restore(self, wait=False):
+    def restore(self, wait: bool = False) -> bool:
         """If maximized or minimized, restores the window to it's normal size.
         Use 'wait' option to confirm action requested (in a reasonable time).
 
@@ -628,19 +627,7 @@ class MacOSNSWindow(BaseWindow):
             time.sleep(WAIT_DELAY * retries)
         return not self.isMaximized and not self.isMinimized
 
-    def hide(self, wait=False):
-        """If hidden or showing, hides the app from screen and title bar.
-        Use 'wait' option to confirm action requested (in a reasonable time).
-
-        Returns ''True'' if window was hidden (unmapped)"""
-        self._hWnd.orderOut_(self._app)
-        retries = 0
-        while wait and retries < WAIT_ATTEMPTS and self.visible:
-            retries += 1
-            time.sleep(WAIT_DELAY * retries)
-        return not self.visible
-
-    def show(self, wait=False):
+    def show(self, wait: bool = False) -> bool:
         """If hidden or showing, shows the window on screen and in title bar.
         Use 'wait' option to confirm action requested (in a reasonable time).
 
@@ -652,7 +639,19 @@ class MacOSNSWindow(BaseWindow):
             time.sleep(WAIT_DELAY * retries)
         return self.visible
 
-    def activate(self, wait=False):
+    def hide(self, wait: bool = False) -> bool:
+        """If hidden or showing, hides the app from screen and title bar.
+        Use 'wait' option to confirm action requested (in a reasonable time).
+
+        Returns ''True'' if window was hidden (unmapped)"""
+        self._hWnd.orderOut_(self._app)
+        retries = 0
+        while wait and retries < WAIT_ATTEMPTS and self.visible:
+            retries += 1
+            time.sleep(WAIT_DELAY * retries)
+        return not self.visible
+
+    def activate(self, wait: bool = False) -> bool:
         """Activate this window and make it the foreground (focused) window.
         Use 'wait' option to confirm action requested (in a reasonable time).
 
@@ -665,7 +664,7 @@ class MacOSNSWindow(BaseWindow):
             time.sleep(WAIT_DELAY * retries)
         return self.isActive
 
-    def resize(self, widthOffset, heightOffset, wait=False):
+    def resize(self, widthOffset: int, heightOffset: int, wait: bool = False) -> bool:
         """Resizes the window relative to its current size.
         Use 'wait' option to confirm action requested (in a reasonable time)
 
@@ -674,7 +673,7 @@ class MacOSNSWindow(BaseWindow):
 
     resizeRel = resize  # resizeRel is an alias for the resize() method.
 
-    def resizeTo(self, newWidth, newHeight, wait=False):
+    def resizeTo(self, newWidth: int, newHeight: int, wait: bool = False) -> bool:
         """Resizes the window to a new width and height.
         Use 'wait' option to confirm action requested (in a reasonable time).
 
@@ -686,7 +685,7 @@ class MacOSNSWindow(BaseWindow):
             time.sleep(WAIT_DELAY * retries)
         return self.width == newWidth and self.height == newHeight
 
-    def move(self, xOffset, yOffset, wait=False):
+    def move(self, xOffset: int, yOffset: int, wait: bool = False) -> bool:
         """Moves the window relative to its current position.
         Use 'wait' option to confirm action requested (in a reasonable time).
 
@@ -695,7 +694,7 @@ class MacOSNSWindow(BaseWindow):
 
     moveRel = move  # moveRel is an alias for the move() method.
 
-    def moveTo(self, newLeft, newTop, wait=False):
+    def moveTo(self, newLeft:int, newTop: int, wait: bool = False) -> bool:
         """Moves the window to new coordinates on the screen.
         Use 'wait' option to confirm action requested (in a reasonable time).
 
@@ -707,11 +706,11 @@ class MacOSNSWindow(BaseWindow):
             time.sleep(WAIT_DELAY * retries)
         return self.left == newLeft and self.top == newTop
 
-    def _moveResizeTo(self, newLeft, newTop, newWidth, newHeight):
+    def _moveResizeTo(self, newLeft: int, newTop: int, newWidth: int, newHeight: int) -> bool:
         self._hWnd.setFrame_display_animate_(AppKit.NSMakeRect(newLeft, resolution().height - newTop - newHeight, newWidth, newHeight), True, True)
         return self.left == newLeft and self.top == newTop and self.width == newWidth and self.height == newHeight
 
-    def alwaysOnTop(self, aot=True):
+    def alwaysOnTop(self, aot: bool = True) -> bool:
         """Keeps window on top of all others.
 
         Use aot=False to deactivate always-on-top behavior
@@ -722,7 +721,7 @@ class MacOSNSWindow(BaseWindow):
             ret = self._hWnd.setLevel_(Quartz.kCGNormalWindowLevel)
         return ret
 
-    def alwaysOnBottom(self, aob=True):
+    def alwaysOnBottom(self, aob: bool = True) -> bool:
         """Keeps window below of all others, but on top of desktop icons and keeping all window properties
 
         Use aob=False to deactivate always-on-bottom behavior
@@ -733,23 +732,25 @@ class MacOSNSWindow(BaseWindow):
             ret = self._hWnd.setLevel_(Quartz.kCGNormalWindowLevel)
         return ret
 
-    def lowerWindow(self):
+    def lowerWindow(self) -> bool:
         """Lowers the window to the bottom so that it does not obscure any sibling windows.
         """
         # self._hWnd.orderBack_(self._app)  # Not working or using it wrong???
         windows = self._app.orderedWindows()
+        ret = False
         if windows:
             windows.reverse()
             for win in windows:
                 if win != self._hWnd:
-                    win.makeKeyAndOrderFront_(self._app)
+                    ret = win.makeKeyAndOrderFront_(self._app)
+        return ret
 
-    def raiseWindow(self):
+    def sendBehind(self, sb: bool = True) -> bool:
         """Raises the window to top so that it is not obscured by any sibling windows.
         """
         return self._hWnd.makeKeyAndOrderFront_(self._app)
 
-    def sendBehind(self, sb=True):
+    def sendBehind(self, sb: bool = True) -> bool:
         """Sends the window to the very bottom, below all other windows, including desktop icons.
         It may also cause that the window does not accept focus nor keyboard/mouse events.
 
@@ -770,17 +771,17 @@ class MacOSNSWindow(BaseWindow):
         return ret1 and ret2
 
     @property
-    def isMinimized(self):
+    def isMinimized(self) -> bool:
         """Returns ``True`` if the window is currently minimized."""
         return self._hWnd.isMiniaturized()
 
     @property
-    def isMaximized(self):
+    def isMaximized(self) -> bool:
         """Returns ``True`` if the window is currently maximized (fullscreen)."""
         return self._hWnd.isZoomed()
 
     @property
-    def isActive(self):
+    def isActive(self) -> bool:
         """Returns ``True`` if the window is currently the active, foreground window."""
         windows = getAllWindows(self._app)
         for win in windows:
@@ -788,19 +789,19 @@ class MacOSNSWindow(BaseWindow):
         return False
 
     @property
-    def title(self):
+    def title(self) -> str:
         """Returns the window title as a string."""
         return self._hWnd.title()
 
     @property
-    def visible(self):
+    def visible(self) -> bool:
         """Returns ``True`` if the window is currently visible."""
         return self._hWnd.isVisible()
 
     isVisible = visible  # isVisible is an alias for the visible property.
 
 
-def cursor():
+def cursor() -> Point:
     """Returns the current xy coordinates of the mouse cursor as a two-integer tuple
 
     Returns:
@@ -813,7 +814,7 @@ def cursor():
     return Point(x, y)
 
 
-def resolution():
+def resolution() -> Size:
     """Returns the width and height of the screen as a two-integer tuple.
 
     Returns:
@@ -824,7 +825,7 @@ def resolution():
     return Size(mainMonitor.size.width, mainMonitor.size.height)
 
 
-def displayWindowsUnderMouse(xOffset=0, yOffset=0):
+def displayWindowsUnderMouse(xOffset:int = 0, yOffset: int = 0) -> None:
     """This function is meant to be run from the command line. It will
     automatically show mouse pointer position and windows names under it"""
     if xOffset != 0 or yOffset != 0:

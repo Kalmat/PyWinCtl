@@ -11,14 +11,14 @@ This fork adds Linux and macOS experimental support to the original MS Windows-o
 
 All these functions are available at the moment, in all three platforms (Windows, Linux and macOS):
 
-|  General, independent functions:  |  Window class functions:  |  Window class properties:  |
+|  General, independent functions:  |  Window class methods:  |  Window class properties:  |
 |  :---:  |  :---:  |  :---:  |
 |  getActiveWindow  |  close  |  title  |
 |  getActiveWindowTitle  |  minimize  |  isMinimized  |
 |  getAllWindows  |  maximize  |  isMaximized  |
 |  getAllTitles  |  restore  |  isActive  |
 |  getWindowsWithTitle  |  hide  |  isVisible  |
-|  getWindowsAt  |  show  |  |  |  
+|  getWindowsAt  |  show  |  | 
 |  cursor (mouse position)  |  activate  |    |  
 |  resolution (screen size)  |  resize / resizeRel  |  |    
 |  |  resizeTo  |  |  
@@ -34,22 +34,32 @@ All these functions are available at the moment, in all three platforms (Windows
 
 New menu control functions (pending work from asweigart's original ideas), accessible through 'menu' submodule. E.g.:
 
+    subprocess.Popen('notepad')
     windows = pygetwindowmp.getWindowsWithTitle('Untitled - Notepad')
     if windows:
         win = windows[0]
         menu = win.menu.getMenu()
-        for key in menu.keys():
-            if menu[key]["text"] == "File":
-                entries = menu[key]["entries"]
-                for subkey in entries.keys():
-                    option = entries[subkey]
-                    if option["text"] == "Exit":
-                        itemID = option["id"]
-                        break
-                break
-        win.menu.clickMenuItem(itemID)   # Exit program
+        try:
+            itemID = win.menu["File"]["entries"]["Exit"]["wID"]
+            win.menu.clickMenuItem(itemID)   # Exit program
+        except:
+            print("Option not found")
+    else:
+        print("Window not found")
 
-Menu structure (returned by getMenu() method) will contain all you may likely need to handle application menu. Functions included in this subclass:
+Menu dictionary (returned by getMenu() method) will likely contain all you may need to handle application menu:
+
+    Key:            item title (text property)
+    Values:
+      "parent":     parent sub-menu handle
+      "hSubMenu":   item handle (!= 0 for sub-menu items only)
+      "wID":        item ID (required for other actions, e.g. clickMenuItem())
+      "item_info":  MENUITEMINFO structure (use item_info.xxx to access individual fields)
+      "shortcut":   shortcut to menu item (if any)
+      "rect":       Rect structure of the menu item. It is relative to window position, so it won't likely change if window is moved or resized
+      "entries":    sub-items within the sub-menu (if any)
+
+Functions included in this subclass:
 
 |  Menu sub-module functions:  |
 |  :---:  |
@@ -59,6 +69,8 @@ Menu structure (returned by getMenu() method) will contain all you may likely ne
 |  getMenuItemInfo  |
 |  getMenuItemRect  |
 |  clickMenuItem  |
+
+Note not all windows/applications will have a menu accessible by these methods.
 
 ### USING THIS CODE
 
