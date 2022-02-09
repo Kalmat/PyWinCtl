@@ -173,7 +173,7 @@ class MacOSWindow(BaseWindow):
         return '%s(hWnd=%s)' % (self.__class__.__name__, self._app)
 
     def __eq__(self, other):
-        return isinstance(other, BaseWindow) and self._app == other._app
+        return isinstance(other, MacOSWindow) and self._app == other._app
 
     def close(self, force:bool = False) -> bool:
         """Closes this window or app. This may trigger "Are you sure you want to
@@ -577,7 +577,7 @@ class MacOSNSWindow(BaseWindow):
         return '%s(hWnd=%s)' % (self.__class__.__name__, self._hWnd)
 
     def __eq__(self, other):
-        return isinstance(other, BaseWindow) and self._hWnd == other._hWnd
+        return isinstance(other, MacOSNSWindow) and self._hWnd == other._hWnd
 
     def close(self) -> bool:
         """Closes this window. This may trigger "Are you sure you want to

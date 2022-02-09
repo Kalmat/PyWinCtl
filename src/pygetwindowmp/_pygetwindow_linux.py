@@ -134,7 +134,7 @@ def _xlibGetAllWindows(parent: int = None, title: str = "") -> List[int]:
 
 class LinuxWindow(BaseWindow):
 
-    def __init__(self, hWnd: List[Union[None, Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]]):
+    def __init__(self, hWnd: Union[Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]):
         self._hWnd = hWnd
         self._setupRectProperties()
         # self._saveWindowInitValues()  # Store initial Window parameters to allow reset and other actions
@@ -174,7 +174,7 @@ class LinuxWindow(BaseWindow):
         return '%s(hWnd=%s)' % (self.__class__.__name__, self._hWnd)
 
     def __eq__(self, other):
-        return isinstance(other, BaseWindow) and self._hWnd == other._hWnd
+        return isinstance(other, LinuxWindow) and self._hWnd == other._hWnd
 
     def close(self) -> None:
         """Closes this window. This may trigger "Are you sure you want to
