@@ -10,12 +10,12 @@ from typing import Union, List
 import Xlib.X
 import Xlib.display
 import Xlib.protocol
-import ewmh
 from Xlib.xobject.colormap import Colormap
 from Xlib.xobject.cursor import Cursor
 from Xlib.xobject.drawable import Drawable, Pixmap, Window
 from Xlib.xobject.fontable import Fontable, GC, Font
 from Xlib.xobject.resource import Resource
+import ewmh
 from pynput import mouse
 
 from pygetwindowmp import pointInRect, BaseWindow, Rect, Point, Size
@@ -32,7 +32,8 @@ WAIT_DELAY = 0.025  # Will be progressively increased on every retry
 
 # These _NET_WM_STATE_ constants are used to manage Window state and are documented at
 # https://ewmh.readthedocs.io/en/latest/ewmh.html
-STATE_NULL = 0
+WM_CHANGE_STATE = 'WM_CHANGE_STATE'
+WM_STATE = '_NET_WM_STATE'
 STATE_MODAL = '_NET_WM_STATE_MODAL'
 STATE_STICKY = '_NET_WM_STATE_STICKY'
 STATE_MAX_VERT = '_NET_WM_STATE_MAXIMIZED_VERT'
@@ -46,11 +47,17 @@ STATE_ABOVE = '_NET_WM_STATE_ABOVE'
 STATE_BELOW = '_NET_WM_STATE_BELOW'
 STATE_ATTENTION = '_NET_WM_STATE_DEMANDS_ATTENTION'
 STATE_FOCUSED = '_NET_WM_STATE_FOCUSED'
+STATE_NULL = 0
 
 # EWMH/Xlib set state actions
 ACTION_UNSET = 0   # Remove state
 ACTION_SET = 1     # Add state
 ACTION_TOGGLE = 2  # Toggle state
+
+# EWMH/Xlib WINDOW_TYPE values
+WM_WINDOW_TYPE = '_NET_WM_WINDOW_TYPE'
+WINDOW_DESKTOP = '_NET_WM_WINDOW_TYPE_DESKTOP'
+WINDOW_NORMAL = '_NET_WM_WINDOW_TYPE_NORMAL'
 
 # EWMH/Xlib State Hints
 HINT_STATE_WITHDRAWN = 0
@@ -135,6 +142,7 @@ def _xlibGetAllWindows(parent: int = None, title: str = "") -> List[int]:
 class LinuxWindow(BaseWindow):
 
     def __init__(self, hWnd: Union[Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]):
+        super().__init__()
         self._hWnd = hWnd
         self._setupRectProperties()
         # self._saveWindowInitValues()  # Store initial Window parameters to allow reset and other actions
@@ -176,12 +184,13 @@ class LinuxWindow(BaseWindow):
     def __eq__(self, other):
         return isinstance(other, LinuxWindow) and self._hWnd == other._hWnd
 
-    def close(self) -> None:
+    def close(self) -> bool:
         """Closes this window. This may trigger "Are you sure you want to
         quit?" dialogs or other actions that prevent the window from actually
         closing. This is identical to clicking the X button on the window."""
         EWMH.setCloseWindow(self._hWnd)
         EWMH.display.flush()
+        return self._hWnd not in EWMH.getClientList()
 
     def minimize(self, wait: bool = False) -> bool:
         """Minimizes this window.
@@ -189,7 +198,7 @@ class LinuxWindow(BaseWindow):
 
         Returns ''True'' if window was minimized"""
         if not self.isMinimized:
-            prop = DISP.intern_atom("WM_CHANGE_STATE", False)
+            prop = DISP.intern_atom(WM_CHANGE_STATE, False)
             data = (32, [Xlib.Xutil.IconicState, 0, 0, 0, 0])
             ev = Xlib.protocol.event.ClientMessage(window=self._hWnd.id, client_type=prop, data=data)
             mask = Xlib.X.SubstructureRedirectMask | Xlib.X.SubstructureNotifyMask
@@ -340,7 +349,7 @@ class LinuxWindow(BaseWindow):
         EWMH.display.flush()
         return newLeft == self.left and newTop == self.top and newWidth == self.width and newHeight == self.height
 
-    def alwaysOnTop(self, aot: bool = True) -> None:
+    def alwaysOnTop(self, aot: bool = True) -> bool:
         """Keeps window on top of all others.
 
         Use aot=False to deactivate always-on-top behavior
@@ -348,8 +357,9 @@ class LinuxWindow(BaseWindow):
         action = ACTION_SET if aot else ACTION_UNSET
         EWMH.setWmState(self._hWnd, action, STATE_ABOVE)
         EWMH.display.flush()
+        return STATE_ABOVE in EWMH.getWmState(self._hWnd, str=True)
 
-    def alwaysOnBottom(self, aob: bool = True) -> None:
+    def alwaysOnBottom(self, aob: bool = True) -> bool:
         """Keeps window below of all others, but on top of desktop icons and keeping all window properties
 
         Use aob=False to deactivate always-on-bottom behavior
@@ -357,6 +367,7 @@ class LinuxWindow(BaseWindow):
         action = ACTION_SET if aob else ACTION_UNSET
         EWMH.setWmState(self._hWnd, action, STATE_BELOW)
         EWMH.display.flush()
+        return STATE_BELOW in EWMH.getWmState(self._hWnd, str=True)
 
     def lowerWindow(self) -> bool:
         """Lowers the window to the bottom so that it does not obscure any sibling windows.
@@ -364,7 +375,8 @@ class LinuxWindow(BaseWindow):
         w = DISP.create_resource_object('window', self._hWnd)
         w.configure(stack_mode=Xlib.X.Below)
         DISP.flush()
-        return STATE_BELOW in EWMH.getWmState(self._hWnd, str=True)
+        windows = EWMH.getClientListStacking()
+        return windows and self._hWnd == windows[-1]
 
     def raiseWindow(self) -> bool:
         """Raises the window to top so that it is not obscured by any sibling windows.
@@ -372,7 +384,8 @@ class LinuxWindow(BaseWindow):
         w = DISP.create_resource_object('window', self._hWnd)
         w.configure(stack_mode=Xlib.X.Above)
         DISP.flush()
-        return STATE_ABOVE in EWMH.getWmState(self._hWnd, str=True)
+        windows = EWMH.getClientListStacking()
+        return windows and self._hWnd == windows[0]
 
     def sendBehind(self, sb: bool = True) -> bool:
         """Sends the window to the very bottom, below all other windows, including desktop icons.
@@ -386,20 +399,20 @@ class LinuxWindow(BaseWindow):
             w = DISP.create_resource_object('window', self._hWnd)
 
             # This adds the properties (notice the PropMode options), but with no effect on GNOME
-            w.change_property(DISP.intern_atom('_NET_WM_STATE', False), Xlib.Xatom.ATOM,
-                              32, [DISP.intern_atom('_NET_WM_STATE_BELOW', False), ],
+            w.change_property(DISP.intern_atom(WM_STATE, False), Xlib.Xatom.ATOM,
+                              32, [DISP.intern_atom(STATE_BELOW, False), ],
                               Xlib.X.PropModeReplace)
-            w.change_property(DISP.intern_atom('_NET_WM_STATE', False), Xlib.Xatom.ATOM,
-                              32, [DISP.intern_atom('_NET_WM_STATE_SKIP_TASKBAR', False), ],
+            w.change_property(DISP.intern_atom(WM_STATE, False), Xlib.Xatom.ATOM,
+                              32, [DISP.intern_atom(STATE_SKIP_TASKBAR, False), ],
                               Xlib.X.PropModeAppend)
-            w.change_property(DISP.intern_atom('_NET_WM_STATE', False), Xlib.Xatom.ATOM,
-                              32, [DISP.intern_atom('_NET_WM_STATE_SKIP_PAGER', False), ],
+            w.change_property(DISP.intern_atom(WM_STATE, False), Xlib.Xatom.ATOM,
+                              32, [DISP.intern_atom(STATE_SKIP_PAGER, False), ],
                               Xlib.X.PropModeAppend)
             DISP.flush()
 
             # This sends window below all others, but not behind the desktop icons
-            w.change_property(DISP.intern_atom('_NET_WM_WINDOW_TYPE', False), Xlib.Xatom.ATOM,
-                              32, [DISP.intern_atom("_NET_WM_WINDOW_TYPE_DESKTOP", False), ],
+            w.change_property(DISP.intern_atom(WM_WINDOW_TYPE, False), Xlib.Xatom.ATOM,
+                              32, [DISP.intern_atom(WINDOW_DESKTOP, False), ],
                               Xlib.X.PropModeReplace)
             DISP.flush()
 
@@ -419,22 +432,22 @@ class LinuxWindow(BaseWindow):
                 m = mouse.Controller()
                 m.move(SCREEN.width_in_pixels - 1, 100)
                 m.click(mouse.Button.left, 1)
-            return '_NET_WM_WINDOW_TYPE_DESKTOP' in EWMH.getWmWindowType(self._hWnd, str=True)
+            return WINDOW_DESKTOP in EWMH.getWmWindowType(self._hWnd, str=True)
         else:
             w = DISP.create_resource_object('window', self._hWnd)
             w.unmap()
-            w.change_property(DISP.intern_atom('_NET_WM_WINDOW_TYPE', False), Xlib.Xatom.ATOM,
-                              32, [DISP.intern_atom("_NET_WM_WINDOW_TYPE_NORMAL", False), ],
+            w.change_property(DISP.intern_atom(WM_WINDOW_TYPE, False), Xlib.Xatom.ATOM,
+                              32, [DISP.intern_atom(WINDOW_NORMAL, False), ],
                               Xlib.X.PropModeReplace)
             DISP.flush()
-            w.change_property(DISP.intern_atom('_NET_WM_STATE', False), Xlib.Xatom.ATOM,
-                              32, [DISP.intern_atom('_NET_WM_STATE_FOCUSED', False), ],
+            w.change_property(DISP.intern_atom(WM_STATE, False), Xlib.Xatom.ATOM,
+                              32, [DISP.intern_atom(STATE_FOCUSED, False), ],
                               Xlib.X.PropModeReplace)
             DISP.flush()
             w.map()
             EWMH.setActiveWindow(self._hWnd)
             EWMH.display.flush()
-            return '_NET_WM_WINDOW_TYPE_NORMAL' in EWMH.getWmWindowType(self._hWnd, str=True) and self.isActive
+            return WINDOW_NORMAL in EWMH.getWmWindowType(self._hWnd, str=True) and self.isActive
 
     @property
     def isMinimized(self) -> bool:
@@ -443,19 +456,19 @@ class LinuxWindow(BaseWindow):
         return STATE_HIDDEN in state
 
     @property
-    def isMaximized(self):
+    def isMaximized(self) -> bool:
         """Returns ``True`` if the window is currently maximized."""
         state = EWMH.getWmState(self._hWnd, str=True)
         return STATE_MAX_VERT in state and STATE_MAX_HORZ in state
 
     @property
-    def isActive(self):
+    def isActive(self) -> bool:
         """Returns ``True`` if the window is currently the active, foreground window."""
         win = EWMH.getActiveWindow()
         return win == self._hWnd
 
     @property
-    def title(self):
+    def title(self) -> str:
         """Returns the window title as a string."""
         name = EWMH.getWmName(self._hWnd)
         if isinstance(name, bytes):
@@ -463,7 +476,7 @@ class LinuxWindow(BaseWindow):
         return name
 
     @property
-    def visible(self):
+    def visible(self) -> bool:
         """Returns ``True`` if the window is currently visible."""
         win = DISP.create_resource_object('window', self._hWnd)
         state = win.get_attributes().map_state
@@ -472,14 +485,14 @@ class LinuxWindow(BaseWindow):
     isVisible = visible  # isVisible is an alias for the visible property.
 
     @property
-    def _isMapped(self):
+    def _isMapped(self) -> bool:
         # Returns ``True`` if the window is currently mapped
         win = DISP.create_resource_object('window', self._hWnd)
         state = win.get_attributes().map_state
         return state != Xlib.X.IsUnmapped
 
 
-def cursor():
+def cursor() -> Point:
     """Returns the current xy coordinates of the mouse cursor as a two-integer tuple
 
     Returns:
@@ -489,7 +502,7 @@ def cursor():
     return Point(mp.root_x, mp.root_y)
 
 
-def resolution():
+def resolution() -> Size:
     """Returns the width and height of the screen as a two-integer tuple.
 
     Returns:
@@ -499,7 +512,7 @@ def resolution():
     return Size(res[0], res[1])
 
 
-def displayWindowsUnderMouse(xOffset=0, yOffset=0):
+def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
     """This function is meant to be run from the command line. It will
     automatically show mouse pointer position and windows names under it"""
     if xOffset != 0 or yOffset != 0:

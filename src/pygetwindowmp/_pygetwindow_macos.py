@@ -745,7 +745,7 @@ class MacOSNSWindow(BaseWindow):
                     ret = win.makeKeyAndOrderFront_(self._app)
         return ret
 
-    def sendBehind(self, sb: bool = True) -> bool:
+    def raiseWindow(self, sb: bool = True) -> bool:
         """Raises the window to top so that it is not obscured by any sibling windows.
         """
         return self._hWnd.makeKeyAndOrderFront_(self._app)

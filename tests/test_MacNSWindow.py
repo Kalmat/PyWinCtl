@@ -264,21 +264,16 @@ def demo():
     # the type of window, its size and position etc)
     mask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable
     w = NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(frame, mask, NSBackingStoreBuffered, False)
-    w2 = NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(frame, mask, NSBackingStoreBuffered, False)
 
     # ... tell it which delegate object to use (here it happens
     # to be the same delegate as the application is using)...
     w.setDelegate_(delegate)
-    w2.setDelegate_(delegate)
     # ... and set some properties. Unicode strings are preferred.
     w.setTitle_(u'Hello, World!')
-    w2.setTitle_(u'Test')
     # All set. Now we can show the window ...
-    w2.orderFrontRegardless()
     w.orderFrontRegardless()
 
     # ... and start the application
-    w2.display()
     w.display()
     a.run()
     #AppHelper.runEventLoop()
