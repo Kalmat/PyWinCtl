@@ -178,7 +178,7 @@ class Win32Window(BaseWindow):
     def activate(self, wait: bool = False) -> bool:
         """Activate this window and make it the foreground (focused) window."""
         win32gui.SetForegroundWindow(self._hWnd)
-        return getActiveWindow()._hWnd == self._hWnd
+        return self.isActive
 
     def resize(self, widthOffset: int, heightOffset: int, wait: bool = False) -> bool:
         """Resizes the window relative to its current size."""
@@ -234,6 +234,7 @@ class Win32Window(BaseWindow):
         Use aob=False to deactivate always-on-bottom behavior
         """
 
+        ret = False
         if aob:
             result = win32gui.SetWindowPos(self._hWnd, win32con.HWND_BOTTOM, 0, 0, 0, 0,
                                   win32con.SWP_NOSENDCHANGING | win32con.SWP_NOOWNERZORDER | win32con.SWP_ASYNCWINDOWPOS | win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE | win32con.SWP_NOREDRAW | win32con.SWP_NOCOPYBITS)
@@ -241,8 +242,9 @@ class Win32Window(BaseWindow):
                 # There is no HWND_TOPBOTTOM (similar to TOPMOST), so it won't keep window below all others as desired
                 # May be catching WM_WINDOWPOSCHANGING event? Not sure if possible for a "foreign" window, and seems really complex
                 # https://stackoverflow.com/questions/64529896/attach-keyboard-hook-to-specific-window
+                ret = True
                 if self._t is None:
-                    self._t = _sendBottom(self._hWnd)
+                    self._t = _SendBottom(self._hWnd)
                     # Not sure about the best behavior: stop thread when program ends or keeping sending window below
                     self._t.setDaemon(True)
                 if not self._t.is_alive():
@@ -250,8 +252,8 @@ class Win32Window(BaseWindow):
         else:
             if self._t.is_alive():
                 self._t.kill()
-            result = self.sendBehind(sb=False)
-        return result != 0
+            ret = self.sendBehind(sb=False)
+        return ret
 
     def lowerWindow(self) -> bool:
         """Lowers the window to the bottom so that it does not obscure any sibling windows.
@@ -448,7 +450,7 @@ class Win32Window(BaseWindow):
             return ret
 
 
-class _sendBottom(threading.Thread):
+class _SendBottom(threading.Thread):
 
     def __init__(self, hWnd, interval=0.5):
         threading.Thread.__init__(self)
