@@ -39,7 +39,7 @@ New menu control functions (pending work from asweigart's original ideas), acces
     if windows:
         win = windows[0]
         menu = win.menu.getMenu()
-        ret = win.menu.clickMenuItem(["File"]["Exit"])   # Exit program
+        ret = win.menu.clickMenuItem(["File", "Exit"])   # Exit program
         if not ret:
             print("Option not found")
     else:
@@ -57,7 +57,7 @@ Windows: Menu dictionary (returned by getMenu() method) will likely contain all 
       "rect":       Rect structure of the menu item. It is relative to window position, so it won't likely change if window is moved or resized
       "entries":    sub-items within the sub-menu (if any)
 
-MacOS: Menu dictionary (returned by getMenu() method) will likely contain all you may need to handle application menu:
+MacOS: Menu dictionary (returned by getMenu() method). Only for MacOSWindow class (AppleScript-based version):
 
     Key:            item title (text property)
     Values:
