@@ -104,6 +104,7 @@ def _findWindowHandles(parent: int = None, window_class: str = None, title: str 
 
 class Win32Window(BaseWindow):
     def __init__(self, hWnd):
+        super().__init__()
         self._hWnd = hWnd
         self._setupRectProperties()
         self._parent = win32gui.GetParent(self._hWnd)
@@ -385,13 +386,28 @@ class Win32Window(BaseWindow):
                 findit(self._hMenu)
             return self._menuStructure
 
-        def clickMenuItem(self, itemID: int) -> None:
+        def clickMenuItem(self, itemPath: list) -> bool:
             """Simulates a click on a menu item
 
-            itemID corresponds to the desired menu option (check ''wID'' in menu struct)
-            Note it will not work if item is disabled (not clickable) or wID doesn't exist"""
+            itemPath corresponds to the desired menu option (e.g. ["Menu", "SubMenu", "Item"])
+            Note it will not work if item is disabled (not clickable) or path/item doesn't exist"""
+
+            found = False
             if self._hMenu:
-                win32gui.PostMessage(self._hWnd, win32con.WM_COMMAND, itemID, 0)
+                option = self._menuStructure
+                for item in itemPath[:-1]:
+                    if item in option.keys() and "entries" in option[item].keys():
+                        option = option[item]["entries"]
+                    else:
+                        option = {}
+                        break
+
+                if option and itemPath[-1] in option.keys() and "wID" in option[itemPath[-1]]:
+                    found = True
+                    itemID = option[itemPath[-1]]["wID"]
+                    win32gui.PostMessage(self._hWnd, win32con.WM_COMMAND, itemID, 0)
+
+            return found
 
         def getMenuInfo(self) -> win32gui_struct.UnpackMENUINFO:
             """Returns the MENUINFO struct of the main menu

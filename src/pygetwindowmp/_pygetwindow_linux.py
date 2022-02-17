@@ -145,6 +145,7 @@ class LinuxWindow(BaseWindow):
         super().__init__()
         self._hWnd = hWnd
         self._setupRectProperties()
+        self.menu = self._Menu(self)
         # self._saveWindowInitValues()  # Store initial Window parameters to allow reset and other actions
 
     def _getWindowRect(self) -> Rect:
@@ -490,6 +491,66 @@ class LinuxWindow(BaseWindow):
         win = DISP.create_resource_object('window', self._hWnd)
         state = win.get_attributes().map_state
         return state != Xlib.X.IsUnmapped
+
+
+    class _Menu:
+        """Not supported by Xlib (ICCCM APIs)"""
+
+        def __init__(self, parent: BaseWindow):
+            self._parent = parent
+            self._hWnd = parent._hWnd
+            self._hMenu = None
+            self._menuStructure = {}
+
+        def getMenu(self) -> dict:
+            """Loads and returns the Menu structure in a dictionary format, if exists, or empty.
+
+            Format:
+
+                Key: item title (text property)
+                Values:
+                    "parent": parent sub-menu handle (main menu handle for level-0 items)
+                    "hSubMenu": item handle (!= 0 for sub-menu items only)
+                    "wID": item ID (required for other actions, e.g. clickMenuItem())
+                    "item_info": MENUITEMINFO structure
+                    "shortcut": shortcut to menu item (if any)
+                    "rect": Rect structure of the menu item (relative to window position)
+                    "entries": sub-items within the sub-menu (if any)
+            """
+            raise NotImplementedError
+
+        def clickMenuItem(self, itemID: int) -> None:
+            """Simulates a click on a menu item
+
+            itemID corresponds to the desired menu option (check ''wID'' in menu struct)
+            Note it will not work if item is disabled (not clickable) or wID doesn't exist"""
+            raise NotImplementedError
+
+        def getMenuInfo(self):
+            """Returns the MENUINFO struct of the main menu
+            """
+            raise NotImplementedError
+
+        def getMenuItemCount(self, hSubMenu: int = 0) -> int:
+            """Returns the number of items within a menu (main menu if no sub-menu given)
+
+            Use hSubMenu to get the number of items within a submenu"""
+            raise NotImplementedError
+
+        def getMenuItemInfo(self, itemRef: int, hSubMenu: int = 0, refByID: bool = False):
+            """Returns the ITEMINFO struct for the given menu item (main menu if no sub-menu given)
+
+            itemRef is either the item position within menu/sub-menu or itemID (wID). Use refByID accordingly
+            Use hSubMenu to get info from an item within a submenu
+            """
+            raise NotImplementedError
+
+        def getMenuItemRect(self, itemPos: int, hSubMenu: int = 0, parentRect: Rect = None, relative: bool = False) -> Rect:
+            """Returns the Rect occupied by the Menu option (main menu if no sub-menu given)
+
+            parentRect will be used to inherit parent position ('left' is not properly returned by GetMenuItemRect())
+            Use relative=True to get values within window (won't change if window moves/resizes)"""
+            raise NotImplementedError
 
 
 def cursor() -> Point:

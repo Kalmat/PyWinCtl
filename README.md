@@ -39,15 +39,13 @@ New menu control functions (pending work from asweigart's original ideas), acces
     if windows:
         win = windows[0]
         menu = win.menu.getMenu()
-        try:
-            itemID = win.menu["File"]["entries"]["Exit"]["wID"]
-            win.menu.clickMenuItem(itemID)   # Exit program
-        except:
+        ret = win.menu.clickMenuItem(["File"]["Exit"])   # Exit program
+        if not ret:
             print("Option not found")
     else:
         print("Window not found")
 
-Menu dictionary (returned by getMenu() method) will likely contain all you may need to handle application menu:
+Windows: Menu dictionary (returned by getMenu() method) will likely contain all you may need to handle application menu:
 
     Key:            item title (text property)
     Values:
@@ -58,6 +56,13 @@ Menu dictionary (returned by getMenu() method) will likely contain all you may n
       "shortcut":   shortcut to menu item (if any)
       "rect":       Rect structure of the menu item. It is relative to window position, so it won't likely change if window is moved or resized
       "entries":    sub-items within the sub-menu (if any)
+
+MacOS: Menu dictionary (returned by getMenu() method) will likely contain all you may need to handle application menu:
+
+    Key:            item title (text property)
+    Values:
+        "wID":      Value required to simulate a click on the menu item
+        "items":    sub-items within the sub-menu (if any)
 
 Functions included in this subclass:
 
@@ -91,9 +96,9 @@ To test this module on your own system, cd to "tests" folder and run:
 
 ### INSTALL
 
-To install this module on your system, download the wheel file (.whl) located in "dist" folder, and run:
+To install this module on your system, download the wheel file (.whl) located in "dist" folder, and run this (don't forget to replace 'x.x.xx' with proper version number):
 
-    python3 -m pip install PyGetWindowMP-0.0.9-py3-none-any.whl
+    python3 -m pip install PyGetWindowMP-x.x.xx-py3-none-any.whl
 
 You may want to add '--force-reinstall' option to be sure you are installing the right dependencies version.
 

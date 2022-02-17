@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+import ast
 import os
 import platform
 import subprocess
@@ -143,6 +144,7 @@ def _getAllAppWindows(app: AppKit.NSApplication):
 class MacOSWindow(BaseWindow):
 
     def __init__(self, app: AppKit.NSRunningApplication, title: str):
+        super().__init__()
         self._app = app
         self.appName = app.localizedName()
         self.appPID = app.processIdentifier()
@@ -152,6 +154,7 @@ class MacOSWindow(BaseWindow):
         ver = float(v[0]+"."+v[1])
         # On Yosemite and below we need to use Zoom instead of FullScreen to maximize windows
         self.use_zoom = (ver <= 10.10)
+        self.menu = self._Menu(self)
 
     def _getWindowRect(self) -> Rect:
         """Returns a rect of window position and size (left, top, right, bottom).
@@ -554,13 +557,224 @@ class MacOSWindow(BaseWindow):
         ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").strip()
         return ret == "true"
 
+    class _Menu:
+
+        def __init__(self, parent: BaseWindow):
+            self._parent = parent
+            self._menuStructure = {}
+
+        def getMenu(self) -> dict:
+            """Loads and returns the Menu structure in a dictionary format, if exists, or empty.
+
+            Format:
+
+                Key: item title (text property)
+                Values:
+                    "wID": Value required to simulate a click on the menu item
+                    "items": sub-items within the sub-menu (if any)
+            """
+
+            itemList = []
+
+            def findit():
+
+                level = 0
+
+                while True:
+                    part = ""
+                    for lev in range(level):
+                        if lev % 2 == 0:
+                            part = " of every menu" + part
+                        else:
+                            part = " of every menu item" + part
+                    subCmd = "set itemList to name" + part + " of every menu bar item"
+                    # It's possible to get pos and size as well, but... is it worth if you can click by name?
+
+                    if level % 2 == 0:  # Grabbing items only (menus will have non-empty lists on the next level)
+
+                        cmd = """
+                                on run arg1
+                                set procName to arg1 as string
+                                tell application "System Events"
+                                    tell process procName
+                                        tell menu bar 1
+                                            %s
+                                        end tell
+                                    end tell
+                                end tell
+                                return itemList as list
+                                end run
+                                """ % subCmd
+                        # https://stackoverflow.com/questions/69774133/how-to-use-global-variables-inside-of-an-applescript-function-for-a-python-code
+                        # Didn't find a way to get the "injected code" working
+                        proc = subprocess.Popen(['osascript', '-s', 's', '-', str(self._parent._app.localizedName())],
+                                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
+                        ret, err = proc.communicate(cmd)
+                        ret = ret.replace("\n", "").replace('missing value', '"separator"').replace("{", "[").replace("}", "]")
+                        item = ast.literal_eval(ret)
+
+                        if err is None and not self._isListEmpty(item):
+                            itemList.append(item)
+                        else:
+                            break
+                    level += 1
+
+                return itemList != []
+
+            flatList = []
+
+            def flatenit():
+
+                for i in range(len(itemList)):
+                    subList = itemList[i]
+                    if i == 0:
+                        otherList = subList
+                    else:
+                        otherList = []
+                        for k in range(len(subList)):
+                            otherList.append(subList[k][0])
+                    flatList.append(otherList)
+
+            sep = "|&|"
+
+            def fillit():
+
+                def subfillit(subList, section="", level=0, mainlevel=0):
+
+                    option = self._menuStructure
+                    if section:
+                        for sec in section.split(sep):
+                            if sec:
+                                option = option[sec]
+
+                    for i, item in enumerate(subList):
+                        while isinstance(item, list) and len(item) > 0:
+                            item = item[0]
+                        if item:
+                            if item == "separator":
+                                option[item] = {}
+                            else:
+                                option[item] = {"wID": section.replace(sep + "items", "") + sep + item}
+                                if level+1 < len(flatList):
+                                    submenu = flatList[level + 1][mainlevel][i]
+                                    while len(submenu) > 0 and isinstance(submenu[0], list):
+                                        submenu = submenu[0]
+                                    if submenu:
+                                        option[item]["items"] = {}
+                                        subfillit(submenu, section + sep + item + sep + "items", level+1, mainlevel)
+                                else:
+                                    if mainlevel < len(flatList[level]) and i < len(flatList[level][mainlevel]):
+                                        if flatList[level][mainlevel][i]:
+                                            submenu = flatList[level][mainlevel][i]
+                                            while len(submenu) > 0 and isinstance(submenu[0], list):
+                                                submenu = submenu[0]
+                                            for subitem in submenu:
+                                                option[subitem] = {"wID": section.replace(sep+"items", "") + sep + subitem}
+                                    else:
+                                        option = {}
+                        else:
+                            option = {}
+
+                for i, item in enumerate(flatList[0]):
+                    self._menuStructure[item] = {}
+                    self._menuStructure[item]["items"] = {}
+                    subfillit(flatList[1][i], item + sep + "items", level=1, mainlevel=i)
+
+            if findit():
+                flatenit()
+                fillit()
+
+            return self._menuStructure
+
+        def _isListEmpty(self, inList):
+            # https://stackoverflow.com/questions/1593564/python-how-to-check-if-a-nested-list-is-essentially-empty/51582274
+            if isinstance(inList, list):
+                return all(map(self._isListEmpty, inList))
+            return False
+
+        def clickMenuItem(self, itemPath: list) -> bool:
+            """Simulates a click on a menu item
+
+            itemPath corresponds to the desired menu option (e.g. ["Menu", "SubMenu", "Item"])
+            Note it will not work if item is disabled (not clickable) or path/item doesn't exist"""
+
+            sep = "|&|"
+
+            option = self._menuStructure
+            found = False
+            for item in itemPath[:-1]:
+                if item in option.keys() and "items" in option[item].keys():
+                    option = option[item]["items"]
+                else:
+                    option = {}
+                    break
+
+            if option and itemPath[-1] in option.keys() and "wID" in option[itemPath[-1]]:
+                found = True
+                itemID = option[itemPath[-1]]["wID"]
+                part = ""
+                itemPath = itemID.split(sep)
+                for i, lev in enumerate(itemPath[1:-1]):
+                    if i % 2 == 0:
+                        part = str(' of menu "%s" of menu item "%s"' % (lev, lev)) + part
+                    else:
+                        part = str(' of menu item "%s" of menu "%s"' % (lev, lev)) + part
+                subCmd = str('click menu item "%s"' % itemPath[-1]) + part + str(' of menu "%s" of menu bar item "%s"' % (itemPath[0], itemPath[0]))
+
+                cmd = """
+                        on run arg1
+                        set procName to arg1 as string
+                        tell application "System Events"
+                            tell process procName
+                                tell menu bar 1
+                                    %s
+                                end tell
+                            end tell
+                        end tell
+                        end run
+                        """ % subCmd
+
+                proc = subprocess.Popen(['osascript', '-s', 's', '-', str(self._parent._app.localizedName())],
+                                        stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
+                ret, err = proc.communicate(cmd)
+
+            return found
+
+        def getMenuInfo(self):
+            """Returns the MENUINFO struct of the main menu
+            """
+            raise NotImplementedError
+
+        def getMenuItemCount(self, hSubMenu: int = 0) -> int:
+            """Returns the number of items within a menu (main menu if no sub-menu given)
+
+            Use hSubMenu to get the number of items within a submenu"""
+            raise NotImplementedError
+
+        def getMenuItemInfo(self, itemRef: int, hSubMenu: int = 0, refByID: bool = False):
+            """Returns the ITEMINFO struct for the given menu item (main menu if no sub-menu given)
+
+            itemRef is either the item position within menu/sub-menu or itemID (wID). Use refByID accordingly
+            Use hSubMenu to get info from an item within a submenu
+            """
+            raise NotImplementedError
+
+        def getMenuItemRect(self, itemPos: int, hSubMenu: int = 0, parentRect: Rect = None, relative: bool = False) -> Rect:
+            """Returns the Rect occupied by the Menu option (main menu if no sub-menu given)
+
+            parentRect will be used to inherit parent position ('left' is not properly returned by GetMenuItemRect())
+            Use relative=True to get values within window (won't change if window moves/resizes)"""
+            raise NotImplementedError
+
 
 class MacOSNSWindow(BaseWindow):
 
     def __init__(self, app: AppKit.NSApplication, hWnd: AppKit.NSWindow):
+        super().__init__()
         self._app = app
         self._hWnd = hWnd
         self._setupRectProperties()
+        self.menu = self._Menu(self)
 
     def _getWindowRect(self) -> Rect:
         """Returns a rect of window position and size (left, top, right, bottom).
@@ -799,6 +1013,65 @@ class MacOSNSWindow(BaseWindow):
         return self._hWnd.isVisible()
 
     isVisible = visible  # isVisible is an alias for the visible property.
+
+    class _Menu:
+        """Does it make sense to get info and control the menu created by yourself?"""
+
+        def __init__(self, parent: BaseWindow):
+            self._parent = parent
+            self._hWnd = parent._hWnd
+            self._hMenu = AppKit.NSApp().mainMenu()
+            self._menuStructure = {}
+
+        def getMenu(self) -> dict:
+            """Loads and returns the Menu structure in a dictionary format, if exists, or empty.
+
+            Format:
+
+                Key: item title (text property)
+                Values:
+                    "parent": parent sub-menu handle (main menu handle for level-0 items)
+                    "hSubMenu": item handle (!= 0 for sub-menu items only)
+                    "wID": item ID (required for other actions, e.g. clickMenuItem())
+                    "item_info": MENUITEMINFO structure
+                    "shortcut": shortcut to menu item (if any)
+                    "rect": Rect structure of the menu item (relative to window position)
+                    "entries": sub-items within the sub-menu (if any)
+            """
+            raise NotImplementedError
+
+        def clickMenuItem(self, itemID: int) -> None:
+            """Simulates a click on a menu item
+
+            itemID corresponds to the desired menu option (check ''wID'' in menu struct)
+            Note it will not work if item is disabled (not clickable) or wID doesn't exist"""
+            raise NotImplementedError
+
+        def getMenuInfo(self):
+            """Returns the MENUINFO struct of the main menu
+            """
+            raise NotImplementedError
+
+        def getMenuItemCount(self, hSubMenu: int = 0) -> int:
+            """Returns the number of items within a menu (main menu if no sub-menu given)
+
+            Use hSubMenu to get the number of items within a submenu"""
+            raise NotImplementedError
+
+        def getMenuItemInfo(self, itemRef: int, hSubMenu: int = 0, refByID: bool = False):
+            """Returns the ITEMINFO struct for the given menu item (main menu if no sub-menu given)
+
+            itemRef is either the item position within menu/sub-menu or itemID (wID). Use refByID accordingly
+            Use hSubMenu to get info from an item within a submenu
+            """
+            raise NotImplementedError
+
+        def getMenuItemRect(self, itemPos: int, hSubMenu: int = 0, parentRect: Rect = None, relative: bool = False) -> Rect:
+            """Returns the Rect occupied by the Menu option (main menu if no sub-menu given)
+
+            parentRect will be used to inherit parent position ('left' is not properly returned by GetMenuItemRect())
+            Use relative=True to get values within window (won't change if window moves/resizes)"""
+            raise NotImplementedError
 
 
 def cursor() -> Point:
