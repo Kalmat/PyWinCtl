@@ -35,8 +35,8 @@ def getActiveWindow(app: AppKit.NSApplication = None) -> Union[BaseWindow, None]
         app = WS.frontmostApplication()
         cmd = """on run arg1
                 set appName to arg1 as string
+                set winName to ""
                 tell application "System Events" to tell application process appName
-                    set winName to ""
                     try
                         set winName to name of (first window whose value of attribute "AXMain" is true)
                     end try
@@ -167,8 +167,8 @@ class MacOSWindow(BaseWindow):
         It follows ctypes format for compatibility"""
         cmd = """on run {arg1, arg2}
                     set procName to arg1 as string
+                    set winName to arg2 as string
                     tell application "System Events" to tell application process procName
-                        set winName to arg2 as string
                         set appBounds to {0, 0, 0, 0}
                         try
                             set appPos to get position of window winName
@@ -434,7 +434,7 @@ class MacOSWindow(BaseWindow):
                 set sizeH to arg5 as integer
                 tell application "System Events" to tell application process appName
                     try
-                        set size of windowwinName to {sizeW, sizeH}
+                        set size of window winName to {sizeW, sizeH}
                     end try
                 end tell
                 end run"""
@@ -469,7 +469,7 @@ class MacOSWindow(BaseWindow):
                 set posY to arg5 as integer
                 tell application "System Events" to tell application process appName
                     try
-                        set position of window "%s" to {posX, posY}
+                        set position of window winName to {posX, posY}
                     end try
                 end tell
                 end run"""
@@ -629,10 +629,10 @@ class MacOSWindow(BaseWindow):
             cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
-                    tell application "System Events" to tell application process "%s"
+                    tell application "System Events" to tell application process appName
                         set isFront to false
                         try
-                            set isFront to value of attribute "AXMain" of window "%s"
+                            set isFront to value of attribute "AXMain" of window winName
                         end try
                     end tell
                     return (isFront as string)
