@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import ast
-import os
 import platform
 import subprocess
 import sys
@@ -45,7 +44,8 @@ def getActiveWindow(app: AppKit.NSApplication = None) -> Union[BaseWindow, None]
                 end run"""
         proc = subprocess.Popen(['osascript', '-', app.localizedName()],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        title, err = proc.communicate(cmd)
+        ret, err = proc.communicate(cmd)
+        title = ret.replace("\n", "")
         if title:
             return MacOSWindow(app, title)
         else:
@@ -181,7 +181,7 @@ class MacOSWindow(BaseWindow):
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
-        w = ret.strip().split(", ")
+        w = ret.replace("\n", "").strip().split(", ")
 
         return Rect(int(w[0]), int(w[1]), int(w[0]) + int(w[2]), int(w[1]) + int(w[3]))
 
@@ -210,6 +210,7 @@ class MacOSWindow(BaseWindow):
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
+        ret = ret.replace("\n", "")
         if force and self._exists():
             self._app.terminate()
         return not self._exists()
@@ -231,6 +232,7 @@ class MacOSWindow(BaseWindow):
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
+        ret = ret.replace("\n", "")
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and not self.isMinimized:
             retries += 1
@@ -258,7 +260,7 @@ class MacOSWindow(BaseWindow):
                 cmd = """on run {arg1, arg2}
                         set appName to arg1 as string
                         set winName to arg2 as string
-                        tell application "System Events" to tell application process sppName
+                        tell application "System Events" to tell application process appName
                         try
                             set value of attribute "AXFullScreen" of window winName to true
                         end try
@@ -267,6 +269,7 @@ class MacOSWindow(BaseWindow):
             proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
             ret, err = proc.communicate(cmd)
+            ret = ret.replace("\n", "")
             retries = 0
             while wait and retries < WAIT_ATTEMPTS and not self.isMaximized:
                 retries += 1
@@ -292,6 +295,7 @@ class MacOSWindow(BaseWindow):
                 proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
                 ret, err = proc.communicate(cmd)
+                ret = ret.replace("\n", "")
             else:
                 cmd = """on run arg1
                         set appName to arg1 as string
@@ -304,6 +308,7 @@ class MacOSWindow(BaseWindow):
                 proc = subprocess.Popen(['osascript', '-', self.appName],
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
                 ret, err = proc.communicate(cmd)
+                ret = ret.replace("\n", "")
         if self.isMinimized:
             cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
@@ -317,6 +322,7 @@ class MacOSWindow(BaseWindow):
             proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
             ret, err = proc.communicate(cmd)
+            ret = ret.replace("\n", "")
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and (self.isMinimized or self.isMaximized):
             retries += 1
@@ -346,6 +352,7 @@ class MacOSWindow(BaseWindow):
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
+        ret = ret.replace("\n", "")
         if ret == "false":
             self._app.hide()
         retries = 0
@@ -376,6 +383,7 @@ class MacOSWindow(BaseWindow):
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
+        ret = ret.replace("\n", "")
         if ret == "false":
             self._app.unhide()
         retries = 0
@@ -406,6 +414,7 @@ class MacOSWindow(BaseWindow):
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
+        ret = ret.replace("\n", "")
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and not self.isActive:
             retries += 1
@@ -431,16 +440,17 @@ class MacOSWindow(BaseWindow):
                 set appName to arg1 as string
                 set winName to arg2 as string
                 set sizeW to arg3 as integer
-                set sizeH to arg5 as integer
+                set sizeH to arg4 as integer
                 tell application "System Events" to tell application process appName
                     try
                         set size of window winName to {sizeW, sizeH}
                     end try
                 end tell
                 end run"""
-        proc = subprocess.Popen(['osascript', '-', self.appName, self.title, newWidth, newHeight],
+        proc = subprocess.Popen(['osascript', '-', self.appName, self.title, str(newWidth), str(newHeight)],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
+        ret = ret.replace("\n", "")
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and self.width != newWidth and self.height != newHeight:
             retries += 1
@@ -466,16 +476,17 @@ class MacOSWindow(BaseWindow):
                 set appName to arg1 as string
                 set winName to arg2 as string
                 set posX to arg3 as integer
-                set posY to arg5 as integer
+                set posY to arg4 as integer
                 tell application "System Events" to tell application process appName
                     try
                         set position of window winName to {posX, posY}
                     end try
                 end tell
                 end run"""
-        proc = subprocess.Popen(['osascript', '-', self.appName, self.title, newLeft, newTop],
+        proc = subprocess.Popen(['osascript', '-', self.appName, self.title, str(newLeft), str(newTop)],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
+        ret = ret.replace("\n", "")
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and self.left != newLeft and self.top != newTop:
             retries += 1
@@ -487,9 +498,9 @@ class MacOSWindow(BaseWindow):
                 set appName to arg1 as string
                 set winName to arg2 as string
                 set posX to arg3 as integer
-                set posY to arg5 as integer
-                set sizeW to arg3 as integer
-                set sizeH to arg5 as integer
+                set posY to arg4 as integer
+                set sizeW to arg5 as integer
+                set sizeH to arg6 as integer
                 tell application "System Events" to tell application process appName
                     try
                         set position of window winName to {posX, posY}
@@ -499,9 +510,11 @@ class MacOSWindow(BaseWindow):
                     end try
                 end tell
                 end run"""
-        proc = subprocess.Popen(['osascript', '-', self.appName, self.title, newLeft, newTop, newWidth, newHeight],
+        proc = subprocess.Popen(['osascript', '-', self.appName, self.title,
+                                 str(newLeft), str(newTop), str(newWidth), str(newHeight)],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
+        ret = ret.replace("\n", "")
         retries = 0
         while retries < WAIT_ATTEMPTS and self.left != newLeft and self.top != newTop and \
                 self.width != newWidth and self.height != newHeight:
@@ -546,6 +559,7 @@ class MacOSWindow(BaseWindow):
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
+        ret = ret.replace("\n", "")
 
     def raiseWindow(self) -> None:
         """Raises the window to top so that it is not obscured by any sibling windows.
@@ -562,6 +576,7 @@ class MacOSWindow(BaseWindow):
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
+        ret = ret.replace("\n", "")
 
     def sendBehind(self, sb: bool = True) -> bool:
         """Sends the window to the very bottom, under all other windows, including desktop icons.
@@ -587,6 +602,7 @@ class MacOSWindow(BaseWindow):
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
+        ret = ret.replace("\n", "")
         return ret == "true"
 
     @property
@@ -619,6 +635,7 @@ class MacOSWindow(BaseWindow):
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
+        ret = ret.replace("\n", "")
         return ret == "true"
 
     @property
@@ -640,6 +657,7 @@ class MacOSWindow(BaseWindow):
             proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
             ret, err = proc.communicate(cmd)
+            ret = ret.replace("\n", "")
         return ret == "true" or self.isMaximized
 
     @property
@@ -676,6 +694,7 @@ class MacOSWindow(BaseWindow):
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
+        ret = ret.replace("\n", "")
         return (ret == "true") or self.isMaximized
 
     isVisible = visible  # isVisible is an alias for the visible property.
@@ -692,6 +711,7 @@ class MacOSWindow(BaseWindow):
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
+        ret = ret.replace("\n", "")
         return ret == "true"
 
     class _Menu:
