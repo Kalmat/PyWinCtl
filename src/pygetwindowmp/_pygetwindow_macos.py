@@ -33,14 +33,19 @@ def getActiveWindow(app: AppKit.NSApplication = None) -> Union[BaseWindow, None]
     """Returns a Window object of the currently active Window or None."""
     if not app:
         app = WS.frontmostApplication()
-        cmd = """osascript -e 'tell application "System Events" to tell application process "%s"
-                                    set winName to ""
-                                    try
-                                        set winName to name of (first window whose value of attribute "AXMain" is true)
-                                    end try
-                                end tell
-                                return winName'""" % app.localizedName()
-        title = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").strip()
+        cmd = """on run arg1
+                set appName to arg1 as string
+                tell application "System Events" to tell application process appName
+                    set winName to ""
+                    try
+                        set winName to name of (first window whose value of attribute "AXMain" is true)
+                    end try
+                end tell
+                return winName
+                end run"""
+        proc = subprocess.Popen(['osascript', '-', app.localizedName()],
+                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
+        title, err = proc.communicate(cmd)
         if title:
             return MacOSWindow(app, title)
         else:
@@ -1293,12 +1298,11 @@ class MacOSNSWindow(BaseWindow):
             raise NotImplementedError
 
         def getMenuItemRect(self, itemPath: list = None, wID: str = "") -> Rect:
-            def getMenuItemRect(self, itemPath: list = None, wID: str = "") -> Rect:
-                """Returns the Rect occupied by the Menu item
+            """Returns the Rect occupied by the Menu item
 
-                itemPath is a list with the desired menu item and its predecessors (e.g. ["Menu", "SubMenu", "Item"])
-                wID is the ID within menu struct (as returned by getMenu() method)
-                """
+            itemPath is a list with the desired menu item and its predecessors (e.g. ["Menu", "SubMenu", "Item"])
+            wID is the ID within menu struct (as returned by getMenu() method)
+            """
             raise NotImplementedError
 
         def getMenuItemWid(self, itemPath: str) -> str:
