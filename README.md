@@ -30,7 +30,7 @@ All these functions are available at the moment, in all three platforms (Windows
 |  |  raiseWindow  |    |  
 |  |  sendBehind  |    |  
 
-##### Only in MS-Windows (by now)
+##### Only in MS-Windows and macOS (XLib has no standard API to manage menus)
 
 New menu control functions (pending work from asweigart's original ideas), accessible through 'menu' submodule. E.g.:
 
