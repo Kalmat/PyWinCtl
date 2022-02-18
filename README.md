@@ -59,10 +59,15 @@ Windows: Menu dictionary (returned by getMenu() method) will likely contain all 
 
 MacOS: Menu dictionary (returned by getMenu() method). Only for MacOSWindow class (AppleScript-based version):
 
-    Key:            item title (text property)
+    Key: item title (text property)
     Values:
-        "wID":      Value required to simulate a click on the menu item
-        "items":    sub-items within the sub-menu (if any)
+        "wID":  Reference to the item (useful to invoke other methods to gather info)
+        "rect": Not all items will have this property
+            "left":  X coordinate of the item
+            "top":   Y coordinate of the item
+            "right":  top right corner of the item (X + Width)
+            "bottom": bottom right corner of the item (Y + Height)
+        "items": sub-items within the sub-menu (if any)
 
 Functions included in this subclass:
 
