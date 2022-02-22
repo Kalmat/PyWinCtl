@@ -728,7 +728,7 @@ class MacOSWindow(BaseWindow):
                     "rect": Rect structure of the menu item (relative to window position)
                     "entries": sub-items within the sub-menu (if any)
 
-            Comments:
+            Notes:
                 "item_info" is extremely huge and slow. Instead use getMenuItemInfo() method individually.
                 if you really want/require item_info data, set ''addItemInfo'' to ''True''
             """
@@ -998,7 +998,6 @@ class MacOSWindow(BaseWindow):
                             on run arg1
                                 set procName to arg1 as string
                                 set attrList to {}
-                                try
                                     tell application "System Events"
                                         tell process procName
                                             tell menu bar 1
@@ -1006,7 +1005,6 @@ class MacOSWindow(BaseWindow):
                                             end tell
                                         end tell
                                     end tell
-                                end try
                                 return attrList
                             end run
                             """ % subCmd
@@ -1046,7 +1044,8 @@ class MacOSWindow(BaseWindow):
                             if "wID" in option[key].keys() and option[key]["wID"] == wID:
                                 found = True
                                 break
-                            itemPos += 1
+                            else:
+                                itemPos += 1
 
                         if found:
                             part = ""
@@ -1109,17 +1108,17 @@ class MacOSWindow(BaseWindow):
 
             return item, size, pos, attr
 
-        def _parseAttr(self, ret, convert=False):
+        def _parseAttr(self, attr, convert=False):
 
             itemInfo = {}
-            while len(ret) > 0 and isinstance(ret, list):
-                ret = ret[0]
+            # while len(attr) > 0 and isinstance(attr, list):
+            #     attr = attr[0]
             if convert:
-                ret = ret.replace("\n", "").replace('missing value', '"missing value"') \
+                attr = attr.replace("\n", "").replace('missing value', '"missing value"') \
                          .replace("{", "[").replace("}", "]").replace("value:", "'") \
                          .replace(", class:", "', '").replace(", settable:", "', '").replace(", name:", "', ")
-                ret = ast.literal_eval(ret)
-            for attr in ret:
+                attr = ast.literal_eval(attr)
+            for attr in attr:
                 if len(attr) >= 4:
                     itemInfo[attr[3]] = {"value": attr[0], "class": attr[1], "settable": attr[2]}
 

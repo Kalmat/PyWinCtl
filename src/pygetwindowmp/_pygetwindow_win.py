@@ -588,7 +588,6 @@ def main():
     """Run this script from command-line to get windows under mouse pointer"""
     print("PLATFORM:", sys.platform)
     print("SCREEN SIZE:", resolution())
-    time.sleep(3)
     npw = getActiveWindow()
     print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()
