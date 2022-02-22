@@ -65,7 +65,7 @@ HINT_STATE_NORMAL = 1
 HINT_STATE_ICONIC = 3
 
 
-def getActiveWindow() -> Union[BaseWindow, None]:
+def getActiveWindow():
     """Returns a Window object of the currently active Window or None."""
     win_id = EWMH.getActiveWindow()
     if win_id:
@@ -82,7 +82,7 @@ def getActiveWindowTitle() -> str:
         return ""
 
 
-def getWindowsAt(x: int, y: int) -> List[BaseWindow]:
+def getWindowsAt(x: int, y: int):
     """Returns a list of Window objects whose windows contain the point ``(x, y)``.
 
     * ``x`` (int): The x position of the window(s).
@@ -94,7 +94,7 @@ def getWindowsAt(x: int, y: int) -> List[BaseWindow]:
     return windowsAtXY
 
 
-def getWindowsWithTitle(title: str) -> List[BaseWindow]:
+def getWindowsWithTitle(title: str):
     """Returns a Window object list with the given name."""
     matches = []
     for win in getAllWindows():
@@ -109,7 +109,7 @@ def getAllTitles() -> List[str]:
     return [window.title for window in getAllWindows()]
 
 
-def getAllWindows() -> List[BaseWindow]:
+def getAllWindows():
     """Returns a list of strings of window titles for all visible windows."""
     windows = EWMH.getClientList()
     return [LinuxWindow(window) for window in windows]

@@ -5,7 +5,7 @@ import ctypes
 import sys
 import time
 import threading
-from typing import List, Union
+from typing import List
 
 import win32con
 import win32gui
@@ -19,7 +19,7 @@ WAIT_ATTEMPTS = 10
 WAIT_DELAY = 0.025  # Will be progressively increased on every retry
 
 
-def getActiveWindow() -> Union[BaseWindow, None]:
+def getActiveWindow():
     """Returns a Window object of the currently active (focused) Window."""
     hWnd = win32gui.GetForegroundWindow()
     if hWnd:
@@ -37,7 +37,7 @@ def getActiveWindowTitle() -> str:
         return ""
 
 
-def getWindowsAt(x: int, y: int) -> List[BaseWindow]:
+def getWindowsAt(x: int, y: int):
     """Returns a list of Window objects whose windows contain the point ``(x, y)``.
 
     * ``x`` (int, optional): The x position of the window(s).
@@ -49,7 +49,7 @@ def getWindowsAt(x: int, y: int) -> List[BaseWindow]:
     return windowsAtXY
 
 
-def getWindowsWithTitle(title: str) -> List[BaseWindow]:
+def getWindowsWithTitle(title: str):
     """Returns a Window object list with the given name."""
     matches = []
     for win in getAllWindows():
@@ -63,7 +63,7 @@ def getAllTitles() -> List[str]:
     return [window.title for window in getAllWindows()]
 
 
-def getAllWindows() -> List[BaseWindow]:
+def getAllWindows():
     """Returns a list of Window objects for all visible windows.
     """
     matches = []
@@ -347,8 +347,9 @@ class Win32Window(BaseWindow):
             self._hWnd = parent._hWnd
             self._hMenu = win32gui.GetMenu(self._hWnd)
             self._menuStructure = {}
+            self._sep = "|&|"
 
-        def getMenu(self) -> dict:
+        def getMenu(self, addItemInfo: bool = False) -> dict:
             """Loads and returns the Menu structure in a dictionary format, if exists, or empty.
 
             Format:
@@ -358,62 +359,81 @@ class Win32Window(BaseWindow):
                     "parent": parent sub-menu handle (main menu handle for level-0 items)
                     "hSubMenu": item handle (!= 0 for sub-menu items only)
                     "wID": item ID (required for other actions, e.g. clickMenuItem())
-                    "item_info": MENUITEMINFO structure
                     "shortcut": shortcut to menu item (if any)
                     "rect": Rect structure of the menu item (relative to window position)
+                    "item_info": (optional) MENUITEMINFO struct
                     "entries": sub-items within the sub-menu (if any)
+
+            set ''addItemInfo'' to ''True'' in case you want/need the MENUITEMINFO struct
             """
 
-            sep = "|&|"
-
             def findit(parent: int, level: str = "", parentRect: Rect = None) -> None:
+
                 option = self._menuStructure
                 if level:
-                    for section in level.split(sep)[1:]:
+                    for section in level.split(self._sep)[1:]:
                         option = option[section]
 
                 for i in range(win32gui.GetMenuItemCount(parent)):
-                    item_info = self.getMenuItemInfo(itemRef=i, hSubMenu=parent, refByID=False)
+                    item_info = self._getMenuItemInfo(hSubMenu=parent, itemPos=i)
                     text = item_info.text.split("\t")
-                    title = (text[0].replace("&", "")) or ("Sep"+str(i))
+                    title = (text[0].replace("&", "")) or "separator"
                     shortcut = "" if len(text) < 2 else text[1]
-                    rect = self.getMenuItemRect(itemPos=i, hSubMenu=parent, relative=True, parentRect=parentRect)
+                    rect = self._getMenuItemRect(hSubMenu=parent, itemPos=i, relative=True, parentRect=parentRect)
                     option[title] = {"parent": parent, "hSubMenu": item_info.hSubMenu, "wID": item_info.wID,
-                                     "item_info": item_info, "shortcut": shortcut, "rect": rect, "entries": {}}
-                    findit(item_info.hSubMenu, level + sep + title + sep + "entries", rect)
+                                     "shortcut": shortcut, "rect": rect, "entries": {}}
+                    if addItemInfo:
+                        option[title]["item_info"] = item_info
+                    findit(item_info.hSubMenu, level + self._sep + title + self._sep + "entries", rect)
 
             if self._hMenu:
                 findit(self._hMenu)
             return self._menuStructure
 
-        def clickMenuItem(self, itemPath: list) -> bool:
+        def clickMenuItem(self, itemPath: list = None, wID: int = 0) -> bool:
             """Simulates a click on a menu item
 
-            itemPath corresponds to the desired menu option (e.g. ["Menu", "SubMenu", "Item"])
-            Note it will not work if item is disabled (not clickable) or path/item doesn't exist"""
+            Use one of these input parameters to identify desired menu item:
+                ''itemPath'' corresponds to the desired menu option (e.g. ["Menu", "SubMenu", "Item"])
+                ''wID'' is the ID within menu struct (as returned by getMenu() method)
 
+            Note it will not work if item is disabled (not clickable) or path/item doesn't exist
+            """
             found = False
+            itemID = 0
             if self._hMenu:
-                option = self._menuStructure
-                for item in itemPath[:-1]:
-                    if item in option.keys() and "entries" in option[item].keys():
-                        option = option[item]["entries"]
-                    else:
-                        option = {}
-                        break
+                if wID:
+                    itemID = wID
+                elif itemPath:
+                    if not self._menuStructure:
+                        self.getMenu()
+                    option = self._menuStructure
+                    for item in itemPath[:-1]:
+                        if item in option.keys() and "entries" in option[item].keys():
+                            option = option[item]["entries"]
+                        else:
+                            option = {}
+                            break
 
-                if option and itemPath[-1] in option.keys() and "wID" in option[itemPath[-1]]:
-                    found = True
-                    itemID = option[itemPath[-1]]["wID"]
+                    if option and itemPath[-1] in option.keys() and "wID" in option[itemPath[-1]].keys():
+                        itemID = option[itemPath[-1]]["wID"]
+
+                if itemID:
                     win32gui.PostMessage(self._hWnd, win32con.WM_COMMAND, itemID, 0)
+                    found = True
 
             return found
 
-        def getMenuInfo(self) -> win32gui_struct.UnpackMENUINFO:
-            """Returns the MENUINFO struct of the main menu
+        def getMenuInfo(self, hSubMenu: int = 0) -> win32gui_struct.UnpackMENUINFO:
+            """Returns the MENUINFO struct of the given sub-menu or main menu if none given
+
+            ''hSubMenu'' is the id of the parent sub-menu entry (as returned by getMenu() method)
             """
+            if not hSubMenu:
+                hSubMenu = self._hMenu
+
             menu_info = None
-            if self._hMenu:
+            if hSubMenu:
                 buf = win32gui_struct.EmptyMENUINFO()
                 win32gui.GetMenuInfo(self._hMenu, buf)
                 menu_info = win32gui_struct.UnpackMENUINFO(buf)
@@ -422,37 +442,53 @@ class Win32Window(BaseWindow):
         def getMenuItemCount(self, hSubMenu: int = 0) -> int:
             """Returns the number of items within a menu (main menu if no sub-menu given)
 
-            Use hSubMenu to get the number of items within a submenu"""
-            if not hSubMenu:
-                hSubMenu = self._hMenu
-            if hSubMenu and self._hMenu:
-                return win32gui.GetMenuItemCount(hSubMenu)
-            return 0
-
-        def getMenuItemInfo(self, itemRef: int, hSubMenu: int = 0, refByID: bool = False) -> win32gui_struct.UnpackMENUITEMINFO:
-            """Returns the ITEMINFO struct for the given menu item (main menu if no sub-menu given)
-
-            itemRef is either the item position within menu/sub-menu or itemID (wID). Use refByID accordingly
-            Use hSubMenu to get info from an item within a submenu
+            ''hSubMenu'' is the id of the parent sub-menu entry (as returned by getMenu() method)
             """
             if not hSubMenu:
                 hSubMenu = self._hMenu
+            return win32gui.GetMenuItemCount(hSubMenu)
+
+        def getMenuItemInfo(self, hSubMenu: int, wID: int) -> win32gui_struct.UnpackMENUITEMINFO:
+            """Returns the ITEMINFO struct for the given menu item
+
+            ''hSubMenu'' is the id of the parent sub-menu entry (as returned by getMenu() method)
+            ''wID'' is the item ID within menu struct (as returned by getMenu() method)
+            """
             item_info = None
-            if hSubMenu and self._hMenu and 0 <= itemRef < self.getMenuItemCount(hSubMenu=hSubMenu):
+            if self._hMenu:
                 buf, extras = win32gui_struct.EmptyMENUITEMINFO()
-                win32gui.GetMenuItemInfo(hSubMenu, itemRef, not refByID, buf)
+                win32gui.GetMenuItemInfo(hSubMenu, wID, False, buf)
                 item_info = win32gui_struct.UnpackMENUITEMINFO(buf)
             return item_info
 
-        def getMenuItemRect(self, itemPos: int, hSubMenu: int = 0, parentRect: Rect = None, relative: bool = False) -> Rect:
-            """Returns the Rect occupied by the Menu option (main menu if no sub-menu given)
+        def _getMenuItemInfo(self, hSubMenu: int, itemPos: int) -> win32gui_struct.UnpackMENUITEMINFO:
+            """Returns the ITEMINFO struct for the given menu item
 
-            parentRect will be used to inherit parent position ('left' is not properly returned by GetMenuItemRect())
-            Use relative=True to get values within window (won't change if window moves/resizes)"""
-            if not hSubMenu:
-                hSubMenu = self._hMenu
+            ''hSubMenu'' is the id of the parent sub-menu entry (as returned by getMenu() method)
+            ''wID'' is the item ID within menu struct (as returned by getMenu() method)
+            """
+            item_info = None
+            if self._hMenu:
+                buf, extras = win32gui_struct.EmptyMENUITEMINFO()
+                win32gui.GetMenuItemInfo(hSubMenu, itemPos, True, buf)
+                item_info = win32gui_struct.UnpackMENUITEMINFO(buf)
+            return item_info
+
+        def getMenuItemRect(self, hSubMenu: int, itemPos: int) -> Rect:
+            """Returns the Rect occupied by the Menu option
+
+            ''hSubMenu'' is the id of the parent sub-menu entry (as returned by getMenu() method)
+            ''itemPos'' is the position (zero-based ordinal) of the item within the sub-menu."""
             ret = None
-            if hSubMenu and self._hMenu and 0 <= itemPos < self.getMenuItemCount(hSubMenu=hSubMenu):
+            if self._hMenu and 0 <= itemPos < self.getMenuItemCount(hSubMenu=hSubMenu):
+                [result, (x, y, r, b)] = win32gui.GetMenuItemRect(self._hWnd, hSubMenu, itemPos)
+                if result != 0:
+                    ret = Rect(x, y, r, b)
+            return ret
+
+        def _getMenuItemRect(self, hSubMenu: int, itemPos: int, parentRect: Rect = None, relative: bool = False) -> Rect:
+            ret = None
+            if self._hMenu and hSubMenu and 0 <= itemPos < self.getMenuItemCount(hSubMenu=hSubMenu):
                 [result, (x, y, r, b)] = win32gui.GetMenuItemRect(self._hWnd, hSubMenu, itemPos)
                 if result != 0:
                     if relative:
@@ -552,6 +588,7 @@ def main():
     """Run this script from command-line to get windows under mouse pointer"""
     print("PLATFORM:", sys.platform)
     print("SCREEN SIZE:", resolution())
+    time.sleep(3)
     npw = getActiveWindow()
     print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+7#!/usr/bin/python
 # -*- coding: utf-8 -*-
 
 import ast
@@ -6,7 +6,7 @@ import platform
 import subprocess
 import sys
 import time
-from typing import Union, List
+from typing import List
 
 import AppKit
 import Quartz
@@ -25,21 +25,20 @@ IMPORTANT NOTICE:
 WS = AppKit.NSWorkspace.sharedWorkspace()
 WAIT_ATTEMPTS = 10
 WAIT_DELAY = 0.025  # Will be progressively increased on every retry
-SEP = "|&|"
 
 
-def getActiveWindow(app: AppKit.NSApplication = None) -> Union[BaseWindow, None]:
+def getActiveWindow(app: AppKit.NSApplication = None):
     """Returns a Window object of the currently active Window or None."""
     if not app:
         app = WS.frontmostApplication()
         cmd = """on run arg1
                     set appName to arg1 as string
                     set winName to ""
-                    tell application "System Events" to tell application process appName
-                        try
+                    try
+                        tell application "System Events" to tell application process appName
                             set winName to name of (first window whose value of attribute "AXMain" is true)
-                        end try
-                    end tell
+                        end tell
+                    end try
                     return winName
                 end run"""
         proc = subprocess.Popen(['osascript', '-', app.localizedName()],
@@ -65,7 +64,7 @@ def getActiveWindowTitle(app: AppKit.NSApplication = None) -> str:
         return ""
 
 
-def getWindowsAt(x: int, y: int, app: AppKit.NSApplication = None) -> List[BaseWindow]:
+def getWindowsAt(x: int, y: int, app: AppKit.NSApplication = None):
     """Returns a list of windows under the mouse pointer or an empty list."""
     matches = []
     for win in getAllWindows(app):
@@ -75,7 +74,7 @@ def getWindowsAt(x: int, y: int, app: AppKit.NSApplication = None) -> List[BaseW
     return matches
 
 
-def getWindowsWithTitle(title, app: AppKit.NSApplication = None) -> List[BaseWindow]:
+def getWindowsWithTitle(title, app: AppKit.NSApplication = None):
     """Returns a list of window objects matching the given title or an empty list."""
     matches = []
     windows = getAllWindows(app)
@@ -90,7 +89,7 @@ def getAllTitles(app: AppKit.NSApplication = None) -> List[str]:
     return [win.title for win in getAllWindows(app)]
 
 
-def getAllWindows(app: AppKit.NSApplication = None) -> List[BaseWindow]:
+def getAllWindows(app: AppKit.NSApplication = None):
     """Returns a list of window objects for all visible windows."""
     windows = []
     if not app:
@@ -110,11 +109,13 @@ def _getWindowTitles() -> List[List[str]]:
     # https://gist.github.com/qur2/5729056 - qur2
     cmd = """osascript -e 'tell application "System Events"
                                 set winNames to {}
-                                repeat with p in every process whose background only is false
-                                    repeat with w in every window of p
-                                        set end of winNames to {name of p, name of w}
+                                try
+                                    repeat with p in every process whose background only is false
+                                        repeat with w in every window of p
+                                            set end of winNames to {name of p, name of w}
+                                        end repeat
                                     end repeat
-                                end repeat
+                                end try
                             end tell
                             return winNames'"""
     ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").strip().split(", ")
@@ -125,7 +126,7 @@ def _getWindowTitles() -> List[List[str]]:
     return retList
 
 
-def _getAllApps() -> List[AppKit.NSRunningApplication]:
+def _getAllApps():
     return WS.runningApplications()
 
 
@@ -168,14 +169,14 @@ class MacOSWindow(BaseWindow):
         cmd = """on run {arg1, arg2}
                     set procName to arg1 as string
                     set winName to arg2 as string
-                    tell application "System Events" to tell application process procName
-                        set appBounds to {0, 0, 0, 0}
-                        try
+                    set appBounds to {0, 0, 0, 0}
+                    try
+                        tell application "System Events" to tell application process procName
                             set appPos to get position of window winName
                             set appSize to get size of window winName
                             set appBounds to {appPos, appSize}
-                        end try
-                    end tell
+                        end tell
+                    end try
                     return appBounds
                 end run"""
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
@@ -191,7 +192,7 @@ class MacOSWindow(BaseWindow):
     def __eq__(self, other):
         return isinstance(other, MacOSWindow) and self._app == other._app
 
-    def close(self, force:bool = False) -> bool:
+    def close(self, force: bool = False) -> bool:
         """Closes this window or app. This may trigger "Are you sure you want to
         quit?" dialogs or other actions that prevent the window from actually
         closing. This is identical to clicking the X button on the window.
@@ -201,11 +202,11 @@ class MacOSWindow(BaseWindow):
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
-                    tell application appName
-                        try
+                    try
+                        tell application appName
                             tell window winName to close
-                        end try
-                    end tell
+                        end tell
+                    end try
                 end run"""
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
@@ -222,11 +223,11 @@ class MacOSWindow(BaseWindow):
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
-                    tell application "System Events" to tell application process appName
-                        try
+                    try
+                        tell application "System Events" to tell application process appName
                             set value of attribute "AXMinimized" of window winName to true
-                        end try
-                    end tell
+                        end tell
+                    end try
                 end run"""
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
@@ -248,21 +249,21 @@ class MacOSWindow(BaseWindow):
                 cmd = """on run {arg1, arg2}
                             set appName to arg1 as string
                             set winName to arg2 as string
-                            tell application "System Events" to tell application appName
-                                try
+                            try
+                                tell application "System Events" to tell application appName
                                     tell window winName to set zoomed to true
-                                end try
-                            end tell
+                                end tell
+                            end try
                         end run"""
             else:
                 cmd = """on run {arg1, arg2}
                             set appName to arg1 as string
                             set winName to arg2 as string
-                            tell application "System Events" to tell application process appName
                             try
-                                set value of attribute "AXFullScreen" of window winName to true
+                                tell application "System Events" to tell application process appName
+                                    set value of attribute "AXFullScreen" of window winName to true
+                                end tell
                             end try
-                            end tell
                         end run"""
             proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
@@ -283,11 +284,11 @@ class MacOSWindow(BaseWindow):
                 cmd = """on run {arg1, arg2}
                             set appName to arg1 as string
                             set winName to arg2 as string
-                            tell application "System Events" to tell application appName 
-                                try
+                            try
+                                tell application "System Events" to tell application appName 
                                     tell window winName to set zoomed to false
-                                end try
-                            end tell
+                                end tell
+                            end try
                         end run"""
                 proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
@@ -295,11 +296,11 @@ class MacOSWindow(BaseWindow):
             else:
                 cmd = """on run arg1
                             set appName to arg1 as string
-                            tell application "System Events" to tell application process appName
-                                try
+                            try
+                                tell application "System Events" to tell application process appName
                                     set value of attribute "AXFullScreen" of window 1 to false
-                                end try
-                            end tell
+                                end tell
+                            end try
                         end run"""
                 proc = subprocess.Popen(['osascript', '-', self.appName],
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
@@ -308,11 +309,11 @@ class MacOSWindow(BaseWindow):
             cmd = """on run {arg1, arg2}
                         set appName to arg1 as string
                         set winName to arg2 as string
-                        tell application "System Events" to tell application process appName
-                            try
+                        try
+                            tell application "System Events" to tell application process appName
                                 set value of attribute "AXMinimized" of window winName to false
-                            end try
-                        end tell
+                            end tell
+                        end try
                     end run"""
             proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
@@ -331,16 +332,16 @@ class MacOSWindow(BaseWindow):
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
-                    tell application "System Events" to tell application appName
-                        set isPossible to false
-                        try
+                    set isPossible to false
+                    try
+                        tell application "System Events" to tell application appName
                             set isPossible to exists visible of window winName
                             if isPossible then
                                 tell window winName to set visible to false
                                 set isPossible to true
                             end if
-                        end try
-                     end tell
+                         end tell
+                    end try
                     return (isPossible as string)
                 end run"""
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
@@ -364,15 +365,15 @@ class MacOSWindow(BaseWindow):
                     set appName to arg1 as string
                     set winName to arg2 as string
                     set isPossible to false
-                   try
-                       tell application "System Events" to tell application appName
+                    try
+                        tell application "System Events" to tell application appName
                             set isPossible to exists visible of window winName
                             if isPossible then
                                 tell window winName to set visible to true
                             end if
                         end tell
-                   end try
-                   return (isPossible as string)
+                    end try
+                    return (isPossible as string)
                end run"""
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
@@ -395,15 +396,15 @@ class MacOSWindow(BaseWindow):
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
-                    tell application "System Events" to tell application process appName
-                        try
+                    try
+                        tell application "System Events" to tell application process appName
                             set visible to true
                             activate
                             set winName to winName
                             tell window winName to set visible to true 
                             tell window winName to set index to 1
-                        end try
-                    end tell
+                        end tell
+                    end try
                 end run"""
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
@@ -434,11 +435,11 @@ class MacOSWindow(BaseWindow):
                     set winName to arg2 as string
                     set sizeW to arg3 as integer
                     set sizeH to arg4 as integer
-                    tell application "System Events" to tell application process appName
-                        try
+                    try
+                        tell application "System Events" to tell application process appName
                             set size of window winName to {sizeW, sizeH}
-                        end try
-                    end tell
+                        end tell
+                    end try
                 end run"""
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title, str(newWidth), str(newHeight)],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
@@ -469,11 +470,11 @@ class MacOSWindow(BaseWindow):
                     set winName to arg2 as string
                     set posX to arg3 as integer
                     set posY to arg4 as integer
-                    tell application "System Events" to tell application process appName
-                        try
+                    try
+                        tell application "System Events" to tell application process appName
                             set position of window winName to {posX, posY}
-                        end try
-                    end tell
+                        end tell
+                    end try
                 end run"""
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title, str(newLeft), str(newTop)],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
@@ -492,14 +493,12 @@ class MacOSWindow(BaseWindow):
                     set posY to arg4 as integer
                     set sizeW to arg5 as integer
                     set sizeH to arg6 as integer
-                    tell application "System Events" to tell application process appName
-                        try
+                    try
+                        tell application "System Events" to tell application process appName
                             set position of window winName to {posX, posY}
-                        end try
-                        try
                             set size of window winName to {sizeW, sizeH}
-                        end try
-                    end tell
+                        end tell
+                    end try
                 end run"""
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title,
                                  str(newLeft), str(newTop), str(newWidth), str(newHeight)],
@@ -533,8 +532,8 @@ class MacOSWindow(BaseWindow):
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
-                    tell application "System Events" to tell application appName
-                        try
+                    try
+                        tell application "System Events" to tell application appName
                             set winList to every window whose visible is true
                             if not winList = {} then
                                 repeat with oWin in (items of reverse of winList)
@@ -543,8 +542,8 @@ class MacOSWindow(BaseWindow):
                                     end if
                                 end repeat
                             end if
-                        end try 
-                   end tell
+                        end tell
+                    end try 
                end run"""
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
@@ -556,11 +555,11 @@ class MacOSWindow(BaseWindow):
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
-                    tell application "System Events" to tell application appName
-                        try
+                    try
+                        tell application "System Events" to tell application appName
                             tell window winName to set index to 1
-                        end try
-                   end tell
+                       end tell
+                    end try
                end run"""
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
@@ -579,12 +578,12 @@ class MacOSWindow(BaseWindow):
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
-                    tell application "System Events" to tell application process appName
-                        set isMin to false
-                        try
+                    set isMin to false
+                    try
+                        tell application "System Events" to tell application process appName
                             set isMin to value of attribute "AXMinimized" of window winName
-                        end try
-                    end tell
+                        end tell
+                    end try
                     return (isMin as string)
                 end run"""
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
@@ -600,24 +599,24 @@ class MacOSWindow(BaseWindow):
             cmd = """on run {arg1, arg2}
                         set appName to arg1 as string
                         set winName to arg2 as string
-                        tell application "System Events" to tell application appName
-                            set isZoomed to false
-                            try
+                        set isZoomed to false
+                        try
+                            tell application "System Events" to tell application appName
                                 set isZoomed to zoomed of window winName
-                            end try
-                        end tell 
+                            end tell
+                        end try
                         return (isZoomed as string)
                     end run"""
         else:
             cmd = """on run {arg1, arg2}
                         set appName to arg1 as string
                         set winName to arg2 as string
-                        tell application "System Events" to tell application process appName
-                            set isFull to false
-                            try
+                        set isFull to false
+                        try
+                            tell application "System Events" to tell application process appName
                                 set isFull to value of attribute "AXFullScreen" of window winName
-                            end try
-                        end tell
+                            end tell
+                        end try
                         return (isFull as string)
                     end run"""
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
@@ -634,12 +633,12 @@ class MacOSWindow(BaseWindow):
             cmd = """on run {arg1, arg2}
                         set appName to arg1 as string
                         set winName to arg2 as string
-                        tell application "System Events" to tell application process appName
-                            set isFront to false
-                            try
+                        set isFront to false
+                        try
+                            tell application "System Events" to tell application process appName
                                 set isFront to value of attribute "AXMain" of window winName
-                            end try
-                        end tell
+                            end tell
+                        end try
                         return (isFront as string)
                     end run"""
             proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
@@ -662,20 +661,20 @@ class MacOSWindow(BaseWindow):
                     set winName to arg2 as string
                     set isPossible to false
                     set isMapped to false
-                    tell application "System Events" to tell application appName
-                        try
+                    try
+                        tell application "System Events" to tell application appName
                             set isPossible to exists visible of window winName
                             if isPossible then
                                 tell window winName to set isMapped to visible
                             end if
-                        end try
-                    end tell
-                    if not isPossible then
-                        tell application "System Events" to tell application process appName
-                            try
-                                set isMapped to visible
-                            end try
                         end tell
+                    end try
+                    if not isPossible then
+                        try
+                            tell application "System Events" to tell application process appName
+                                set isMapped to visible
+                            end tell
+                        end try
                     end if
                     return (isMapped as string)
                 end run"""
@@ -691,9 +690,12 @@ class MacOSWindow(BaseWindow):
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
-                    tell application "System Events" to tell application process appName
-                        set isAlive to exists window winName
-                    end tell
+                    set isAlive to "false"
+                    try
+                        tell application "System Events" to tell application process appName
+                            set isAlive to exists window winName
+                        end tell
+                    end try
                     return (isAlive as string)
                 end run"""
         proc = subprocess.Popen(['osascript', '-', self.appName, self.title],
@@ -707,26 +709,37 @@ class MacOSWindow(BaseWindow):
         def __init__(self, parent: BaseWindow):
             self._parent = parent
             self._menuStructure = {}
+            self.menuList = []
+            self.itemList = []
+            self._sep = "|&|"
 
-        def getMenu(self) -> dict:
+        def getMenu(self, addItemInfo: bool = False) -> dict:
             """Loads and returns the Menu structure in a dictionary format, if exists, or empty.
 
             Format:
 
                 Key: item title (text property)
                 Values:
-                    "wID": Value required to simulate a click on the menu item
-                    "rect": Not all items will have this property
-                        "left":  X coordinate of the item
-                        "top":   Y coordinate of the item
-                        "right":  top right corner of the item (X + Width)
-                        "bottom": bottom right corner of the item (Y + Height)
-                    "items": sub-items within the sub-menu (if any)
+                    "parent": parent sub-menu handle (main menu handle for level-0 items)
+                    "hSubMenu": item handle (!= 0 for sub-menu items only)
+                    "wID": item ID (required for other actions, e.g. clickMenuItem())
+                    "item_info": (optional) dictionary containing all menu item attributes
+                    "shortcut": shortcut to menu item (if any)
+                    "rect": Rect structure of the menu item (relative to window position)
+                    "entries": sub-items within the sub-menu (if any)
+
+            Comments:
+                "item_info" is extremely huge and slow. Instead use getMenuItemInfo() method individually.
+                if you really want/require item_info data, set ''addItemInfo'' to ''True''
             """
 
             nameList = []
             sizeList = []
             posList = []
+            attrList = []
+            self._menuStructure = {}
+            self.menuList = []
+            self.itemList = []
 
             def findit():
 
@@ -742,36 +755,54 @@ class MacOSWindow(BaseWindow):
                     subCmd1 = "set nameList to name" + part + " of every menu bar item"
                     subCmd2 = "set sizeList to size" + part + " of every menu bar item"
                     subCmd3 = "set posList to position" + part + " of every menu bar item"
+                    if addItemInfo:
+                        subCmd4 = "set attrList to properties of every attribute" + part + " of every menu bar item"
+                    else:
+                        subCmd4 = "set attrList to {}"
 
                     if level % 2 == 0:  # Grabbing items only (menus will have non-empty lists on the next level)
 
                         cmd = """
                                 on run arg1
                                     set procName to arg1 as string
-                                    tell application "System Events"
-                                        tell process procName
-                                            tell menu bar 1
-                                                %s
-                                                %s
-                                                %s
+                                    set nameList to {}
+                                    set sizeList to {}
+                                    set posList to {}
+                                    set attrList to {}
+                                    try
+                                        tell application "System Events"
+                                            tell process procName
+                                                tell menu bar 1
+                                                    %s
+                                                    %s
+                                                    %s
+                                                    %s
+                                                end tell
                                             end tell
                                         end tell
-                                    end tell
-                                    return {nameList, sizeList, posList}
+                                    end try
+                                    return {nameList, sizeList, posList, attrList}
                                 end run
-                                """ % (subCmd1, subCmd2, subCmd3)
+                                """ % (subCmd1, subCmd2, subCmd3, subCmd4)
                         # https://stackoverflow.com/questions/69774133/how-to-use-global-variables-inside-of-an-applescript-function-for-a-python-code
                         # Didn't find a way to get the "injected code" working if passed this way
                         proc = subprocess.Popen(['osascript', '-s', 's', '-', str(self._parent._app.localizedName())],
                                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
                         ret, err = proc.communicate(cmd)
-                        ret = ret.replace("\n", "").replace('missing value', '"separator"').replace("{", "[").replace("}", "]")
+                        if addItemInfo:
+                            ret = ret.replace("\n", "").replace('missing value', '"missing value"') \
+                                     .replace("{", "[").replace("}", "]").replace("value:", "'") \
+                                     .replace(", class:", "', '").replace(", settable:", "', '").replace(", name:", "', ")
+                        else:
+                            ret = ret.replace("\n", "").replace('missing value', '"missing value"').replace("{", "[") \
+                                     .replace("}", "]")
                         item = ast.literal_eval(ret)
 
                         if err is None and not self._isListEmpty(item[0]):
                             nameList.append(item[0])
                             sizeList.append(item[1])
                             posList.append(item[2])
+                            attrList.append(item[3])
                         else:
                             break
                     level += 1
@@ -794,105 +825,92 @@ class MacOSWindow(BaseWindow):
 
             def fillit():
 
-                def subfillit(subNameList, subSizeList, subPosList, section="", level=0, mainlevel=0):
+                def subfillit(subNameList, subSizeList, subPosList, subAttrList, section="", level=0, mainlevel=0, parent=0):
 
                     option = self._menuStructure
                     if section:
-                        for sec in section.split(SEP):
+                        for sec in section.split(self._sep):
                             if sec:
                                 option = option[sec]
 
                     for i, item in enumerate(subNameList):
-                        size = subSizeList[i]
-                        pos = subPosList[i]
-                        while isinstance(item, list) and len(item) > 0:
-                            item = item[0]
-                            size = size[0]
-                            pos = pos[0]
+                        item, size, pos, attr = self._cleanLists(i, subNameList, subSizeList, subPosList, subAttrList)
                         if item:
-                            if item == "separator":
+                            if item == "missing value":
+                                item = "separator"
                                 option[item] = {}
                             else:
-                                option[item] = {"wID": section.replace(SEP + "items", "") + SEP + item}
-                                if size and pos and size != "separator" and pos != "separator":
+                                ref = section.replace(self._sep + "entries", "") + self._sep + item
+                                option[item] = {"parent": parent, "wID": self._getNewWid(ref)}
+                                if size and pos and size != "missing value" and pos != "missing value":
                                     x, y = pos
                                     w, h = size
                                     option[item]["rect"] = Rect(x, y, w + x, y + h)
+                                if addItemInfo:
+                                    option[item]["item_info"] = self._parseAttr(attr)
                                 if level+1 < len(flatNameList):
-                                    submenu = flatNameList[level + 1][mainlevel][i]
-                                    subSize = flatSizeList[level + 1][mainlevel][i]
-                                    subPos = flatPosList[level + 1][mainlevel][i]
-                                    while len(submenu) > 0 and isinstance(submenu[0], list):
-                                        submenu = submenu[0]
-                                        subSize = subSize[0]
-                                        subPos = subPos[0]
+                                    submenu, subSize, subPos, subAttr = self._cleanLists(i, flatNameList[level + 1][mainlevel], flatSizeList[level + 1][mainlevel], flatPosList[level + 1][mainlevel], flatAttrList[level + 1][mainlevel] if addItemInfo else [])
                                     if submenu:
-                                        option[item]["items"] = {}
-                                        subfillit(submenu, subSize, subPos, section + SEP + item + SEP + "items", level+1, mainlevel)
+                                        option[item]["hSubMenu"] = self._getNewHSubMenu(ref)
+                                        option[item]["entries"] = {}
+                                        subfillit(submenu, subSize, subPos, subAttr,
+                                                  section + self._sep + item + self._sep + "entries",
+                                                  level=level+1, mainlevel=mainlevel, parent=hSubMenu)
+                                    else:
+                                        option[item]["hSubMenu"] = 0
 
                 for i, item in enumerate(flatNameList[0]):
-                    self._menuStructure[item] = {}
-                    self._menuStructure[item]["items"] = {}
-                    subfillit(flatNameList[1][i], flatSizeList[1][i], flatPosList[1][i],
-                              item + SEP + "items", level=1, mainlevel=i)
+                    hSubMenu = self._getNewHSubMenu(item)
+                    self._menuStructure[item] = {"hSubMenu": hSubMenu, "wID": self._getNewWid(item), "entries": {}}
+                    subfillit(flatNameList[1][i], flatSizeList[1][i], flatPosList[1][i], flatAttrList[1][i] if addItemInfo else [],
+                              item + self._sep + "entries", level=1, mainlevel=i, parent=hSubMenu)
 
             if findit():
                 flatNameList = flatenit(nameList)
                 flatSizeList = flatenit(sizeList)
                 flatPosList = flatenit(posList)
+                flatAttrList = flatenit(attrList) if addItemInfo else []
                 fillit()
 
             return self._menuStructure
 
-        def _isListEmpty(self, inList):
-            # https://stackoverflow.com/questions/1593564/python-how-to-check-if-a-nested-list-is-essentially-empty/51582274
-            if isinstance(inList, list):
-                return all(map(self._isListEmpty, inList))
-            return False
-
-        def clickMenuItem(self, itemPath: list = None, wID: str = "") -> bool:
+        def clickMenuItem(self, itemPath: list = None, wID: int = 0) -> bool:
             """Simulates a click on a menu item
 
-            itemPath is a list with the desired menu item and its predecessors (e.g. ["Menu", "SubMenu", "Item"])
-            wID is the ID within menu struct (as returned by getMenu() method)
+            Use one of these input parameters to identify desired menu item:
+                ''itemPath'' corresponds to the desired menu option and predecessors as list (e.g. ["Menu", "SubMenu", "Item"])
+                ''wID'' is the item ID within menu struct (as returned by getMenu() method)
 
             Note it will not work if item is disabled (not clickable) or path/item doesn't exist"""
 
-            if not itemPath and wID:
-                itemPath = wID.split(SEP + "items")
-
             found = False
-            if itemPath:
-                option = self._menuStructure
-                for item in itemPath[:-1]:
-                    if item in option.keys() and "items" in option[item].keys():
-                        option = option[item]["items"]
-                    else:
-                        option = {}
-                        break
 
-                if option and itemPath and itemPath[-1] in option.keys() and "wID" in option[itemPath[-1]]:
+            if self._checkMenuStruct():
+                if not itemPath and wID > 0:
+                    itemPath = self._getPathFromWid(wID)
+
+                if itemPath and len(itemPath) > 1:
                     found = True
-                    itemID = option[itemPath[-1]]["wID"]
                     part = ""
-                    itemPath = itemID.split(SEP)
-                    for i, lev in enumerate(itemPath[1:-1]):
+                    for i, item in enumerate(itemPath[1:-1]):
                         if i % 2 == 0:
-                            part = str(' of menu "%s" of menu item "%s"' % (lev, lev)) + part
+                            part = str(' of menu "%s" of menu item "%s"' % (item, item)) + part
                         else:
-                            part = str(' of menu item "%s" of menu "%s"' % (lev, lev)) + part
+                            part = str(' of menu item "%s" of menu "%s"' % (item, item)) + part
                     subCmd = str('click menu item "%s"' % itemPath[-1]) + part + str(' of menu "%s" of menu bar item "%s"' % (itemPath[0], itemPath[0]))
 
                     cmd = """
                             on run arg1
                                 set procName to arg1 as string
-                                tell application "System Events"
-                                    tell process procName
-                                        tell menu bar 1
-                                            %s
+                                try
+                                    tell application "System Events"
+                                        tell process procName
+                                            tell menu bar 1
+                                                %s
+                                            end tell
                                         end tell
                                     end tell
-                                end tell
+                                end try
                             end run
                             """ % subCmd
 
@@ -902,139 +920,252 @@ class MacOSWindow(BaseWindow):
 
             return found
 
-        def getMenuInfo(self) -> dict:
-            """Returns the existing MENUINFO struct of the main menu.
-            Note "existing" can be outdated or empty. Call getMenu() if you need an updated version.
+        def getMenuInfo(self, hSubMenu: int) -> dict:
+            """Returns the Menu Info dictionary for the givenj menu/sub-menu
             """
-            return self._menuStructure
+            return self.getMenuItemInfo(hSubMenu, -1)
 
-        def getMenuItemCount(self, itemPath: list = None, wID: str = "") -> int:
-            """Returns the number of items within a menu (main menu if no sub-menu given)
+        def getMenuItemCount(self, hSubMenu: int) -> int:
+            """Returns the number of items within a menu
 
-            itemPath is a list with the desired menu item and its predecessors (e.g. ["Menu", "SubMenu", "Item"])
-            wID is the ID within menu struct (as returned by getMenu() method)
+            ''hSubMenu'' is the ID within menu struct (as returned by getMenu() method)
             """
 
-            if not itemPath and wID:
-                itemPath = wID.split(SEP)
+            count = 0
+            if self._checkMenuStruct():
+                menuPath = self._getPathFromHSubMenu(hSubMenu)
 
-            i = 0
-            if itemPath:
-                option = self._menuStructure
-                for item in itemPath[:-1]:
-                    if item in option.keys() and "items" in option[item].keys():
-                        option = option[item]["items"]
-                    else:
-                        option = {}
-                        break
-
-                if option and itemPath and itemPath[-1] in option.keys() and "items" in option[itemPath[-1]]:
-                    for item in option[itemPath[-1]]["items"].keys():
-                        i += 1
-
-            return i
-
-        def getMenuItemInfo(self, itemPath: list = None, wID: str = "") -> dict:
-            """Returns the ITEMINFO struct for the given menu item
-
-            itemPath is a list with the desired menu item and its predecessors (e.g. ["Menu", "SubMenu", "Item"])
-            wID is the ID within menu struct (as returned by getMenu() method)
-            """
-
-            if not itemPath and wID:
-                itemPath = wID.split(SEP)
-
-            itemInfo = {}
-            if itemPath:
-                option = self._menuStructure
-                for item in itemPath[:-1]:
-                    if item in option.keys() and "items" in option[item].keys():
-                        option = option[item]["items"]
-                    else:
-                        option = {}
-                        break
-
-                wID = ""
-                if option and itemPath and itemPath[-1] in option.keys() and "wID" in option[itemPath[-1]]:
-                    wID = option[itemPath[-1]]["wID"]
-
-                if len(itemPath) > 0:
-                    itemInfo[itemPath[-1]] = {"rect": self.getMenuItemRect(itemPath), "wID": wID}
-
-            return itemInfo
-
-        def getMenuItemRect(self, itemPath: list = None, wID: str = "") -> Rect:
-            """Returns the Rect occupied by the Menu item
-
-            itemPath is a list with the desired menu item and its predecessors (e.g. ["Menu", "SubMenu", "Item"])
-            wID is the ID within menu struct (as returned by getMenu() method)
-            """
-
-            if not itemPath and wID:
-                itemPath = wID.split(SEP)
-
-            x = y = w = h = 0
-            if itemPath:
-                option = self._menuStructure
-                for item in itemPath[:-1]:
-                    if item in option.keys() and "items" in option[item].keys():
-                        option = option[item]["items"]
-                    else:
-                        option = {}
-                        break
-
-                if option and itemPath and itemPath[-1] in option.keys() and "wID" in option[itemPath[-1]]:
-                    itemID = option[itemPath[-1]]["wID"]
+                if menuPath:
                     part = ""
-                    itemPath = itemID.split(SEP)
-                    for i, lev in enumerate(itemPath[1:-1]):
+                    for i, item in enumerate(menuPath[:-1]):
                         if i % 2 == 0:
-                            part = str(' of menu "%s" of menu item "%s"' % (lev, lev)) + part
+                            part = str(' of menu "%s"' % item) + part
                         else:
-                            part = str(' of menu item "%s" of menu "%s"' % (lev, lev)) + part
-                    subCmd = str('set itemRect to {position, size} of menu item "%s"' % itemPath[-1]) + part + str(' of menu "%s" of menu bar item "%s"' % (itemPath[0], itemPath[0]))
+                            part = str(' of menu item "%s"' % item) + part
+                    subCmd = 'set itemCount to count of every menu item' + part + str(' of menu bar item "%s"' % menuPath[0])
 
                     cmd = """
                             on run arg1
                                 set procName to arg1 as string
-                                tell application "System Events"
-                                    tell process procName
-                                        tell menu bar 1
-                                            %s
+                                set itemCount to 0
+                                try
+                                    tell application "System Events"
+                                        tell process procName
+                                            tell menu bar 1
+                                                %s
+                                            end tell
                                         end tell
                                     end tell
-                                end tell
-                                return itemRect
+                                end try
+                                return itemCount as integer
                             end run
                             """ % subCmd
 
                     proc = subprocess.Popen(['osascript', '-s', 's', '-', str(self._parent._app.localizedName())],
                                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
                     ret, err = proc.communicate(cmd)
-                    ret = ret.replace("\n", "").replace("{", "[").replace("}", "]")
-                    rect = ast.literal_eval(ret)
-                    x, y = rect[0]
-                    w, h = rect[1]
+                    ret = ret.replace("\n", "")
+                    if ret.isnumeric():
+                        count = int(ret)
+
+            return count
+
+        def getMenuItemInfo(self, hSubMenu: int, wID: int) -> dict:
+            """Returns the Item Info dictionary for the given menu item (name, wID and rect properties)
+
+            ''hSubMenu'' is the id of the parent sub-menu entry (as returned by getMenu() method)
+            ''wID'' is the item ID within menu struct (as returned by getMenu() method)
+            """
+
+            itemInfo = []
+            if self._checkMenuStruct():
+                if wID == -1:
+                    itemPath = self._getPathFromHSubMenu(hSubMenu)
+                else:
+                    itemPath = self._getPathFromWid(wID)
+
+                if itemPath:
+                    part = ""
+                    for lev, item in enumerate(itemPath[:-1]):
+                        if lev % 2 == 0:
+                            part = str(' of menu "%s"' % item) + part
+                        else:
+                            part = str(' of menu item "%s"' % item) + part
+                    subCmd = str('set attrList to properties of every attribute of menu item "%s"' % itemPath[-1]) + part + str(' of menu bar item "%s"' % itemPath[0])
+                    # subCmd2 = str('set propList to properties of menu item "%s"' % itemPath[-1]) + part + str(' of menu bar item "%s"' % itemPath[0])
+
+                    cmd = """
+                            on run arg1
+                                set procName to arg1 as string
+                                set attrList to {}
+                                try
+                                    tell application "System Events"
+                                        tell process procName
+                                            tell menu bar 1
+                                                %s
+                                            end tell
+                                        end tell
+                                    end tell
+                                end try
+                                return attrList
+                            end run
+                            """ % subCmd
+                    # https://stackoverflow.com/questions/69774133/how-to-use-global-variables-inside-of-an-applescript-function-for-a-python-code
+                    # Didn't find a way to get the "injected code" working if passed this way
+                    proc = subprocess.Popen(['osascript', '-s', 's', '-', str(self._parent._app.localizedName())],
+                                            stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
+                    ret, err = proc.communicate(cmd)
+                    itemInfo = self._parseAttr(ret, convert=True)
+
+            return itemInfo
+
+        def getMenuItemRect(self, hSubMenu: int, wID: int) -> Rect:
+            """Returns the Rect occupied by the Menu item
+
+            ''hSubMenu'' is the ID of the parent sub-menu entry (as returned by getMenu() method)
+            ''wID'' is the item ID within menu struct (as returned by getMenu() method)
+            """
+
+            x = y = w = h = 0
+            if self._checkMenuStruct():
+                itemPath = self._getPathFromWid(wID)
+
+                if itemPath and len(itemPath) > 1:
+                    option = self._menuStructure
+                    for item in itemPath[:-1]:
+                        if item in option.keys() and "entries" in option[item].keys():
+                            option = option[item]["entries"]
+                        else:
+                            option = {}
+                            break
+
+                    found = False
+                    itemPos = 0
+                    if option:
+                        for key in option.keys():
+                            if "wID" in option[key].keys() and option[key]["wID"] == wID:
+                                found = True
+                                break
+                            itemPos += 1
+
+                        if found:
+                            part = ""
+                            for i, item in enumerate(itemPath[1:-1]):
+                                if i % 2 == 0:
+                                    part = str(' of menu "%s" of menu item "%s"' % (item, item)) + part
+                                else:
+                                    part = str(' of menu item "%s" of menu "%s"' % (item, item)) + part
+                            subCmd = str('set itemRect to {position, size} of menu item %i' % itemPos) + part + str(' of menu "%s" of menu bar item "%s"' % (itemPath[0], itemPath[0]))
+
+                            cmd = """
+                                    on run arg1
+                                        set procName to arg1 as string
+                                        set itemRect to {{0, 0}, {0, 0}}
+                                        try
+                                            tell application "System Events"
+                                                tell process procName
+                                                    tell menu bar 1
+                                                        %s
+                                                    end tell
+                                                end tell
+                                            end tell
+                                        end try
+                                        return itemRect
+                                    end run
+                                    """ % subCmd
+
+                            proc = subprocess.Popen(['osascript', '-s', 's', '-', str(self._parent._app.localizedName())],
+                                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
+                            ret, err = proc.communicate(cmd)
+                            ret = ret.replace("\n", "").replace("{", "[").replace("}", "]")
+                            rect = ast.literal_eval(ret)
+                            x, y = rect[0]
+                            w, h = rect[1]
 
             return Rect(x, y, x + w, y + h)
 
-        def _getMenuItemWid(self, itemPath: str) -> str:
-            """Returns ID of the menu item within menu struct (as returned by getMenu() method)
-            itemPath is a list with the desired menu item and its predecessors (e.g. ["Menu", "SubMenu", "Item"])
-            """
+        def _isListEmpty(self, inList):
+            # https://stackoverflow.com/questions/1593564/python-how-to-check-if-a-nested-list-is-essentially-empty/51582274
+            if isinstance(inList, list):
+                return all(map(self._isListEmpty, inList))
+            return False
 
+        def _cleanLists(self, i, subNameList, subSizeList, subPosList, subAttrList):
+
+            item = subNameList[i]
+            size = subSizeList[i]
+            pos = subPosList[i]
+            if subAttrList:
+                attr = subAttrList[i]
+            else:
+                attr = []
+
+            while len(item) > 0 and isinstance(item[0], list):
+                item = item[0]
+                size = size[0]
+                pos = pos[0]
+                if attr:
+                    attr = attr[0]
+
+            return item, size, pos, attr
+
+        def _parseAttr(self, ret, convert=False):
+
+            itemInfo = {}
+            while len(ret) > 0 and isinstance(ret, list):
+                ret = ret[0]
+            if convert:
+                ret = ret.replace("\n", "").replace('missing value', '"missing value"') \
+                         .replace("{", "[").replace("}", "]").replace("value:", "'") \
+                         .replace(", class:", "', '").replace(", settable:", "', '").replace(", name:", "', ")
+                ret = ast.literal_eval(ret)
+            for attr in ret:
+                if len(attr) >= 4:
+                    itemInfo[attr[3]] = {"value": attr[0], "class": attr[1], "settable": attr[2]}
+
+            return itemInfo
+
+        def _checkMenuStruct(self):
+            if not self._menuStructure:
+                self.getMenu()
+            return self._menuStructure
+
+        def _getNewWid(self, ref):
+            self.itemList.append(ref)
+            return len(self.itemList)
+
+        def _getPathFromWid(self, wID):
+            itemPath = []
+            if self._checkMenuStruct():
+                if 0 < wID <= len(self.itemList):
+                    itemPath = self.itemList[wID - 1].split(self._sep)
+            return itemPath
+
+        def _getNewHSubMenu(self, ref):
+            self.menuList.append(ref)
+            return len(self.menuList)
+
+        def _getPathFromHSubMenu(self, hSubMenu):
+            menuPath = []
+            if self._checkMenuStruct():
+                if 0 < hSubMenu <= len(self.menuList):
+                    menuPath = self.menuList[hSubMenu - 1].split(self._sep)
+            return menuPath
+
+        def _getMenuItemWid(self, itemPath: str) -> str:
             wID = ""
             if itemPath:
                 option = self._menuStructure
                 for item in itemPath[:-1]:
-                    if item in option.keys() and "items" in option[item].keys():
-                        option = option[item]["items"]
+                    if item in option.keys() and "entries" in option[item].keys():
+                        option = option[item]["entries"]
                     else:
                         option = {}
                         break
 
                 if option and itemPath and itemPath[-1] in option.keys() and "wID" in option[itemPath[-1]]:
                     wID = option[itemPath[-1]]["wID"]
+
             return wID
 
 
@@ -1045,7 +1176,6 @@ class MacOSNSWindow(BaseWindow):
         self._app = app
         self._hWnd = hWnd
         self._setupRectProperties()
-        self.menu = self._Menu(self)
 
     def _getWindowRect(self) -> Rect:
         """Returns a rect of window position and size (left, top, right, bottom).
@@ -1284,77 +1414,6 @@ class MacOSNSWindow(BaseWindow):
         return self._hWnd.isVisible()
 
     isVisible = visible  # isVisible is an alias for the visible property.
-
-    class _Menu:
-        """Does it make sense to get info and control the menu created by yourself?"""
-
-        def __init__(self, parent: BaseWindow):
-            self._parent = parent
-            self._hWnd = parent._hWnd
-            self._hMenu = AppKit.NSApp().mainMenu()
-            self._menuStructure = {}
-
-        def getMenu(self) -> dict:
-            """Loads and returns the Menu structure in a dictionary format, if exists, or empty.
-
-            Format:
-
-                Key: item title (text property)
-                Values:
-                    "wID": Value required to simulate a click on the menu item
-                    "rect": Not all items will have this property
-                        "left":  X coordinate of the item
-                        "top":   Y coordinate of the item
-                        "right":  top right corner of the item (X + Width)
-                        "bottom": bottom right corner of the item (Y + Height)
-                    "items": sub-items within the sub-menu (if any)
-            """
-            raise NotImplementedError
-
-        def clickMenuItem(self, itemPath: list = None, wID: str = "") -> None:
-            """Simulates a click on a menu item
-
-            itemPath is a list with the desired menu item and its predecessors (e.g. ["Menu", "SubMenu", "Item"])
-            wID is the ID within menu struct (as returned by getMenu() method)
-
-            Note it will not work if item is disabled (not clickable) or path/item doesn't exist"""
-            raise NotImplementedError
-
-        def getMenuInfo(self = None, wID: str = "") -> dict:
-            """Returns the existing MENUINFO struct of the main menu.
-            Note "existing" can be outdated or empty. Call getMenu() if you need an updated version.
-            """
-            raise NotImplementedError
-
-        def getMenuItemCount(self, itemPath: list = None, wID: str = "") -> int:
-            """Returns the number of items within a menu (main menu if no sub-menu given)
-
-            itemPath is a list with the desired menu item and its predecessors (e.g. ["Menu", "SubMenu", "Item"])
-            wID is the ID within menu struct (as returned by getMenu() method)
-            """
-            raise NotImplementedError
-
-        def getMenuItemInfo(self, itemPath: list = None, wID: str = "") -> dict:
-            """Returns the ITEMINFO struct for the given menu item
-
-            itemPath is a list with the desired menu item and its predecessors (e.g. ["Menu", "SubMenu", "Item"])
-            wID is the ID within menu struct (as returned by getMenu() method)
-            """
-            raise NotImplementedError
-
-        def getMenuItemRect(self, itemPath: list = None, wID: str = "") -> Rect:
-            """Returns the Rect occupied by the Menu item
-
-            itemPath is a list with the desired menu item and its predecessors (e.g. ["Menu", "SubMenu", "Item"])
-            wID is the ID within menu struct (as returned by getMenu() method)
-            """
-            raise NotImplementedError
-
-        def getMenuItemWid(self, itemPath: str) -> str:
-            """Returns ID of the menu item within menu struct (as returned by getMenu() method)
-            itemPath is a list with the desired menu item and its predecessors (e.g. ["Menu", "SubMenu", "Item"])
-            """
-            raise NotImplementedError
 
 
 def cursor() -> Point:
