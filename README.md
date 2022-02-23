@@ -45,29 +45,17 @@ New menu control functions (pending work from asweigart's original ideas), acces
     else:
         print("Window not found")
 
-Windows: Menu dictionary (returned by getMenu() method) will likely contain all you may need to handle application menu:
+Menu dictionary (returned by getMenu() method) will likely contain all you may need to handle application menu:
 
     Key:            item title (text property)
     Values:
       "parent":     parent sub-menu handle
       "hSubMenu":   item handle (!= 0 for sub-menu items only)
       "wID":        item ID (required for other actions, e.g. clickMenuItem())
-      "item_info":  MENUITEMINFO structure (use item_info.xxx to access individual fields)
-      "shortcut":   shortcut to menu item (if any)
-      "rect":       Rect structure of the menu item. It is relative to window position, so it won't likely change if window is moved or resized
+      "shortcut":   shortcut to menu item (Windows only, by the moment)
+      "rect":       Rect structure of the menu item. (Windows: It is relative to window position, so it won't likely change if window is moved or resized)
+      "item_info":  [Optional] Python dictionary (MacOS) / MENUITEMINFO struct (Windows)
       "entries":    sub-items within the sub-menu (if any)
-
-MacOS: Menu dictionary (returned by getMenu() method). Only for MacOSWindow class (AppleScript-based version):
-
-    Key: item title (text property)
-    Values:
-        "wID":  Reference to the item (useful to invoke other methods to gather info)
-        "rect": Not all items will have this property
-            "left":  X coordinate of the item
-            "top":   Y coordinate of the item
-            "right":  top right corner of the item (X + Width)
-            "bottom": bottom right corner of the item (Y + Height)
-        "items": sub-items within the sub-menu (if any)
 
 Functions included in this subclass:
 
