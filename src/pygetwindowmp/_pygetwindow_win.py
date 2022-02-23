@@ -353,18 +353,27 @@ class Win32Window(BaseWindow):
             """Loads and returns the MENU struct in a dictionary format, if exists, or empty.
 
             Format:
-
+            ------
                 Key:    item title
+
                 Values:
                     "parent":       parent sub-menu handle (main menu handle for level-0 items)
+
                     "hSubMenu":     item handle (!= 0 for sub-menu items only)
-                    "wID": item     ID (required for other actions, e.g. clickMenuItem())
+
+                    "wID":          item ID (required for other actions, e.g. clickMenuItem())
+
+                    "item_info":    (optional) dictionary containing all menu item attributes
+
                     "shortcut":     shortcut to menu item (if any)
-                    "rect": Rect    structure of the menu item (relative to window position)
-                    "item_info":    (optional) MENUITEMINFO struct
+
+                    "rect":         Rect struct of the menu item (relative to window position)
+
                     "entries":      sub-items within the sub-menu (if any)
 
-            set ''addItemInfo'' to ''True'' in case you want/need the MENUITEMINFO struct
+            Notes:
+                "item_info" is extremely huge and slow. Instead use getMenuItemInfo() method individually.
+                if you really want/require item_info data, set ''addItemInfo'' to ''True''
             """
 
             def findit(parent: int, level: str = "", parentRect: Rect = None) -> None:
@@ -393,9 +402,12 @@ class Win32Window(BaseWindow):
         def clickMenuItem(self, itemPath: list = None, wID: int = 0) -> bool:
             """Simulates a click on a menu item
 
+            Args:
+            ----
             Use one of these input parameters to identify desired menu item:
-                ''itemPath'' corresponds to the desired menu option and predecessors as list (e.g. ["Menu", "SubMenu", "Item"])
-                ''wID'' is the item ID within menu struct (as returned by getMenu() method)
+                - ''itemPath'' corresponds to the desired menu option and predecessors as list (e.g. ["Menu", "SubMenu", "Item"])
+
+                - ''wID'' is the item ID within menu struct (as returned by getMenu() method)
 
             Notes:
                 - ''itemPath'' is language-dependent, so it's better not to use it or fulfill it from MENU struct
@@ -429,7 +441,9 @@ class Win32Window(BaseWindow):
         def getMenuInfo(self, hSubMenu: int = 0) -> win32gui_struct.UnpackMENUINFO:
             """Returns the MENUINFO struct of the given sub-menu or main menu if none given
 
-            ''hSubMenu'' is the id of the sub-menu entry (as returned by getMenu() method)
+            Args:
+            ----
+                ''hSubMenu'' is the id of the sub-menu entry (as returned by getMenu() method)
             """
             if not hSubMenu:
                 hSubMenu = self._hMenu
@@ -444,7 +458,9 @@ class Win32Window(BaseWindow):
         def getMenuItemCount(self, hSubMenu: int = 0) -> int:
             """Returns the number of items within a menu (main menu if no sub-menu given)
 
-            ''hSubMenu'' is the id of the sub-menu entry (as returned by getMenu() method)
+            Args:
+            ----
+                ''hSubMenu'' is the id of the sub-menu entry (as returned by getMenu() method)
             """
             if not hSubMenu:
                 hSubMenu = self._hMenu
@@ -453,8 +469,11 @@ class Win32Window(BaseWindow):
         def getMenuItemInfo(self, hSubMenu: int, wID: int) -> win32gui_struct.UnpackMENUITEMINFO:
             """Returns the ITEMINFO struct for the given menu item
 
-            ''hSubMenu'' is the id of the parent sub-menu entry (as returned by getMenu() method)
-            ''wID'' is the item ID within menu struct (as returned by getMenu() method)
+            Args:
+            ----
+                ''hSubMenu'' is the id of the parent sub-menu entry (as returned by getMenu() method)
+
+                ''wID'' is the item ID within menu struct (as returned by getMenu() method)
             """
             item_info = None
             if self._hMenu:
@@ -466,8 +485,11 @@ class Win32Window(BaseWindow):
         def _getMenuItemInfo(self, hSubMenu: int, itemPos: int) -> win32gui_struct.UnpackMENUITEMINFO:
             """Returns the ITEMINFO struct for the given menu item
 
-            ''hSubMenu'' is the id of the parent sub-menu entry (as returned by getMenu() method)
-            ''wID'' is the item ID within menu struct (as returned by getMenu() method)
+            Args:
+            ----
+                ''hSubMenu'' is the id of the parent sub-menu entry (as returned by getMenu() method)
+
+                ''wID'' is the item ID within menu struct (as returned by getMenu() method)
             """
             item_info = None
             if self._hMenu:
@@ -477,10 +499,13 @@ class Win32Window(BaseWindow):
             return item_info
 
         def getMenuItemRect(self, hSubMenu: int, itemPos: int) -> Rect:
-            """Returns the Rect occupied by the Menu option
+            """Returns the Rect struct of the Menu option
 
-            ''hSubMenu'' is the id of the parent sub-menu entry (as returned by getMenu() method)
-            ''itemPos'' is the position (zero-based ordinal) of the item within the sub-menu
+            Args:
+            ----
+                ''hSubMenu'' is the id of the parent sub-menu entry (as returned by getMenu() method)
+
+                ''itemPos'' is the position (zero-based ordinal) of the item within the sub-menu
             """
             ret = None
             if self._hMenu and 0 <= itemPos < self.getMenuItemCount(hSubMenu=hSubMenu):

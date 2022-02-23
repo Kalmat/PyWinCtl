@@ -53,7 +53,7 @@ Menu dictionary (returned by getMenu() method) will likely contain all you may n
       "hSubMenu":   item handle (!= 0 for sub-menu items only)
       "wID":        item ID (required for other actions, e.g. clickMenuItem())
       "shortcut":   shortcut to menu item (Windows only, by the moment)
-      "rect":       Rect structure of the menu item. (Windows: It is relative to window position, so it won't likely change if window is moved or resized)
+      "rect":       Rect struct of the menu item. (Windows: It is relative to window position, so it won't likely change if window is moved or resized)
       "item_info":  [Optional] Python dictionary (MacOS) / MENUITEMINFO struct (Windows)
       "entries":    sub-items within the sub-menu (if any)
 

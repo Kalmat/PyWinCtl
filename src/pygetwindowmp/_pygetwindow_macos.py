@@ -717,15 +717,22 @@ class MacOSWindow(BaseWindow):
             """Loads and returns the MENU struct in a dictionary format, if exists, or empty.
 
             Format:
+            ------
+                Key:    item title
 
-                Key:    item title (text property)
                 Values:
                     "parent":       parent sub-menu handle (main menu handle for level-0 items)
+
                     "hSubMenu":     item handle (!= 0 for sub-menu items only)
+
                     "wID":          item ID (required for other actions, e.g. clickMenuItem())
+
                     "item_info":    (optional) dictionary containing all menu item attributes
+
                     "shortcut":     shortcut to menu item (if any)
+
                     "rect":         Rect struct of the menu item (relative to window position)
+
                     "entries":      sub-items within the sub-menu (if any)
 
             Notes:
@@ -875,9 +882,12 @@ class MacOSWindow(BaseWindow):
         def clickMenuItem(self, itemPath: list = None, wID: int = 0) -> bool:
             """Simulates a click on a menu item
 
+            Args:
+            ----
             Use one of these input parameters to identify desired menu item:
-                ''itemPath'' corresponds to the desired menu option and predecessors as list (e.g. ["Menu", "SubMenu", "Item"])
-                ''wID'' is the item ID within menu struct (as returned by getMenu() method)
+                - ''itemPath'' corresponds to the desired menu option and predecessors as list (e.g. ["Menu", "SubMenu", "Item"])
+
+                - ''wID'' is the item ID within menu struct (as returned by getMenu() method)
 
             Notes:
                 - ''itemPath'' is language-dependent, so it's better not to use it or fulfill it from MENU struct
@@ -919,16 +929,20 @@ class MacOSWindow(BaseWindow):
             return found
 
         def getMenuInfo(self, hSubMenu: int) -> dict:
-            """Returns the MENU dictionary struct of the given sub-menu or main menu if none given
+            """Returns the MENUINFO struct of the given sub-menu or main menu if none given
 
-            ''hSubMenu'' is the id of the sub-menu entry (as returned by getMenu() method)
+            Args:
+            ----
+                ''hSubMenu'' is the id of the sub-menu entry (as returned by getMenu() method)
             """
             return self.getMenuItemInfo(hSubMenu, -1)
 
         def getMenuItemCount(self, hSubMenu: int) -> int:
-            """Returns the number of items within a menu
+            """Returns the number of items within a menu (main menu if no sub-menu given)
 
-            ''hSubMenu'' is the id of the sub-menu entry (as returned by getMenu() method)
+            Args:
+            ----
+                ''hSubMenu'' is the id of the sub-menu entry (as returned by getMenu() method)
             """
             count = 0
             if self._checkMenuStruct():
@@ -969,10 +983,13 @@ class MacOSWindow(BaseWindow):
             return count
 
         def getMenuItemInfo(self, hSubMenu: int, wID: int) -> dict:
-            """Returns the Item Info dictionary for the given menu item (name, wID and rect properties)
+            """Returns the ITEMINFO dictionary for the given menu item
 
-            ''hSubMenu'' is the id of the parent sub-menu entry (as returned by getMenu() method)
-            ''wID'' is the item ID within menu struct (as returned by getMenu() method)
+            Args:
+            ----
+                ''hSubMenu'' is the id of the parent sub-menu entry (as returned by getMenu() method)
+
+                ''wID'' is the item ID within menu struct (as returned by getMenu() method)
             """
             itemInfo = []
             if self._checkMenuStruct():
@@ -1014,10 +1031,13 @@ class MacOSWindow(BaseWindow):
             return itemInfo
 
         def getMenuItemRect(self, hSubMenu: int, itemPos: int) -> Rect:
-            """Returns the Rect occupied by the Menu item
+            """Returns the Rect struct of the Menu option
 
-            ''hSubMenu'' is the ID of the parent sub-menu entry (as returned by getMenu() method)
-            ''itemPos'' is the position (zero-based ordinal) of the item within the sub-menu
+            Args:
+            ----
+                ''hSubMenu'' is the id of the parent sub-menu entry (as returned by getMenu() method)
+
+                ''itemPos'' is the position (zero-based ordinal) of the item within the sub-menu
             """
             x = y = w = h = 0
             if self._checkMenuStruct():
