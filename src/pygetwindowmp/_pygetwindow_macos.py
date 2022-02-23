@@ -714,25 +714,24 @@ class MacOSWindow(BaseWindow):
             self._sep = "|&|"
 
         def getMenu(self, addItemInfo: bool = False) -> dict:
-            """Loads and returns the Menu structure in a dictionary format, if exists, or empty.
+            """Loads and returns the MENU struct in a dictionary format, if exists, or empty.
 
             Format:
 
-                Key: item title (text property)
+                Key:    item title (text property)
                 Values:
-                    "parent": parent sub-menu handle (main menu handle for level-0 items)
-                    "hSubMenu": item handle (!= 0 for sub-menu items only)
-                    "wID": item ID (required for other actions, e.g. clickMenuItem())
-                    "item_info": (optional) dictionary containing all menu item attributes
-                    "shortcut": shortcut to menu item (if any)
-                    "rect": Rect structure of the menu item (relative to window position)
-                    "entries": sub-items within the sub-menu (if any)
+                    "parent":       parent sub-menu handle (main menu handle for level-0 items)
+                    "hSubMenu":     item handle (!= 0 for sub-menu items only)
+                    "wID":          item ID (required for other actions, e.g. clickMenuItem())
+                    "item_info":    (optional) dictionary containing all menu item attributes
+                    "shortcut":     shortcut to menu item (if any)
+                    "rect":         Rect struct of the menu item (relative to window position)
+                    "entries":      sub-items within the sub-menu (if any)
 
             Notes:
                 "item_info" is extremely huge and slow. Instead use getMenuItemInfo() method individually.
                 if you really want/require item_info data, set ''addItemInfo'' to ''True''
             """
-
             nameList = []
             sizeList = []
             posList = []
@@ -762,8 +761,7 @@ class MacOSWindow(BaseWindow):
 
                     if level % 2 == 0:  # Grabbing items only (menus will have non-empty lists on the next level)
 
-                        cmd = """
-                                on run arg1
+                        cmd = """on run arg1
                                     set procName to arg1 as string
                                     set nameList to {}
                                     set sizeList to {}
@@ -881,10 +879,11 @@ class MacOSWindow(BaseWindow):
                 ''itemPath'' corresponds to the desired menu option and predecessors as list (e.g. ["Menu", "SubMenu", "Item"])
                 ''wID'' is the item ID within menu struct (as returned by getMenu() method)
 
-            Note it will not work if item is disabled (not clickable) or path/item doesn't exist"""
-
+            Notes:
+                - ''itemPath'' is language-dependent, so it's better not to use it or fulfill it from MENU struct
+                - Will not work if item is disabled (not clickable) or path/item doesn't exist
+            """
             found = False
-
             if self._checkMenuStruct():
                 if not itemPath and wID > 0:
                     itemPath = self._getPathFromWid(wID)
@@ -899,8 +898,7 @@ class MacOSWindow(BaseWindow):
                             part = str(' of menu item "%s" of menu "%s"' % (item, item)) + part
                     subCmd = str('click menu item "%s"' % itemPath[-1]) + part + str(' of menu "%s" of menu bar item "%s"' % (itemPath[0], itemPath[0]))
 
-                    cmd = """
-                            on run arg1
+                    cmd = """on run arg1
                                 set procName to arg1 as string
                                 try
                                     tell application "System Events"
@@ -921,16 +919,17 @@ class MacOSWindow(BaseWindow):
             return found
 
         def getMenuInfo(self, hSubMenu: int) -> dict:
-            """Returns the Menu Info dictionary for the givenj menu/sub-menu
+            """Returns the MENU dictionary struct of the given sub-menu or main menu if none given
+
+            ''hSubMenu'' is the id of the sub-menu entry (as returned by getMenu() method)
             """
             return self.getMenuItemInfo(hSubMenu, -1)
 
         def getMenuItemCount(self, hSubMenu: int) -> int:
             """Returns the number of items within a menu
 
-            ''hSubMenu'' is the ID within menu struct (as returned by getMenu() method)
+            ''hSubMenu'' is the id of the sub-menu entry (as returned by getMenu() method)
             """
-
             count = 0
             if self._checkMenuStruct():
                 menuPath = self._getPathFromHSubMenu(hSubMenu)
@@ -944,8 +943,7 @@ class MacOSWindow(BaseWindow):
                             part = str(' of menu item "%s"' % item) + part
                     subCmd = 'set itemCount to count of every menu item' + part + str(' of menu bar item "%s"' % menuPath[0])
 
-                    cmd = """
-                            on run arg1
+                    cmd = """on run arg1
                                 set procName to arg1 as string
                                 set itemCount to 0
                                 try
@@ -976,7 +974,6 @@ class MacOSWindow(BaseWindow):
             ''hSubMenu'' is the id of the parent sub-menu entry (as returned by getMenu() method)
             ''wID'' is the item ID within menu struct (as returned by getMenu() method)
             """
-
             itemInfo = []
             if self._checkMenuStruct():
                 if wID == -1:
@@ -994,8 +991,7 @@ class MacOSWindow(BaseWindow):
                     subCmd = str('set attrList to properties of every attribute of menu item "%s"' % itemPath[-1]) + part + str(' of menu bar item "%s"' % itemPath[0])
                     # subCmd2 = str('set propList to properties of menu item "%s"' % itemPath[-1]) + part + str(' of menu bar item "%s"' % itemPath[0])
 
-                    cmd = """
-                            on run arg1
+                    cmd = """on run arg1
                                 set procName to arg1 as string
                                 set attrList to {}
                                     tell application "System Events"
@@ -1017,37 +1013,34 @@ class MacOSWindow(BaseWindow):
 
             return itemInfo
 
-        def getMenuItemRect(self, hSubMenu: int, wID: int) -> Rect:
+        def getMenuItemRect(self, hSubMenu: int, itemPos: int) -> Rect:
             """Returns the Rect occupied by the Menu item
 
             ''hSubMenu'' is the ID of the parent sub-menu entry (as returned by getMenu() method)
-            ''wID'' is the item ID within menu struct (as returned by getMenu() method)
+            ''itemPos'' is the position (zero-based ordinal) of the item within the sub-menu
             """
-
             x = y = w = h = 0
             if self._checkMenuStruct():
-                itemPath = self._getPathFromWid(wID)
+                menuPath = self._getPathFromHSubMenu(hSubMenu)
 
-                if itemPath and len(itemPath) > 1:
+                if menuPath and len(menuPath) > 1:
                     option = self._menuStructure
-                    for item in itemPath[:-1]:
+                    for item in menuPath:
                         if item in option.keys() and "entries" in option[item].keys():
                             option = option[item]["entries"]
                         else:
                             option = {}
                             break
 
-                    found = False
-                    itemPos = 0
                     if option:
-                        for key in option.keys():
-                            if "wID" in option[key].keys() and option[key]["wID"] == wID:
-                                found = True
+                        itemPath = []
+                        for i, key in enumerate(option.keys()):
+                            if i == itemPos:
+                                itemPath = menuPath
+                                itemPath.append(key)
                                 break
-                            else:
-                                itemPos += 1
 
-                        if found:
+                        if itemPath and len(itemPath) > 1:
                             part = ""
                             for i, item in enumerate(itemPath[1:-1]):
                                 if i % 2 == 0:
@@ -1056,8 +1049,7 @@ class MacOSWindow(BaseWindow):
                                     part = str(' of menu item "%s" of menu "%s"' % (item, item)) + part
                             subCmd = str('set itemRect to {position, size} of menu item %i' % itemPos) + part + str(' of menu "%s" of menu bar item "%s"' % (itemPath[0], itemPath[0]))
 
-                            cmd = """
-                                    on run arg1
+                            cmd = """on run arg1
                                         set procName to arg1 as string
                                         set itemRect to {{0, 0}, {0, 0}}
                                         try
@@ -1111,16 +1103,14 @@ class MacOSWindow(BaseWindow):
         def _parseAttr(self, attr, convert=False):
 
             itemInfo = {}
-            # while len(attr) > 0 and isinstance(attr, list):
-            #     attr = attr[0]
             if convert:
                 attr = attr.replace("\n", "").replace('missing value', '"missing value"') \
                          .replace("{", "[").replace("}", "]").replace("value:", "'") \
                          .replace(", class:", "', '").replace(", settable:", "', '").replace(", name:", "', ")
                 attr = ast.literal_eval(attr)
-            for attr in attr:
-                if len(attr) >= 4:
-                    itemInfo[attr[3]] = {"value": attr[0], "class": attr[1], "settable": attr[2]}
+            for item in attr:
+                if len(item) >= 4:
+                    itemInfo[item[3]] = {"value": item[0], "class": item[1], "settable": item[2]}
 
             return itemInfo
 
