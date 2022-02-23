@@ -30,7 +30,7 @@ All these functions are available at the moment, in all three platforms (Windows
 |  |  raiseWindow  |    |  
 |  |  sendBehind  |    |  
 
-##### Only in MS-Windows and macOS (XLib has no standard API to manage menus)
+#### Only in MS-Windows and macOS (XLib has no standard API to manage menus)
 
 New menu control functions (pending work from asweigart's original ideas), accessible through 'menu' submodule. E.g.:
 
@@ -47,7 +47,7 @@ New menu control functions (pending work from asweigart's original ideas), acces
 
 Menu dictionary (returned by getMenu() method) will likely contain all you may need to handle application menu:
 
-    Key:            item title (text property)
+    Key:            item title
     Values:
       "parent":     parent sub-menu handle
       "hSubMenu":   item handle (!= 0 for sub-menu items only)
