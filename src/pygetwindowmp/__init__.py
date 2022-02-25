@@ -405,4 +405,4 @@ elif sys.platform == "linux":
 
     Window = LinuxWindow
 else:
-    raise NotImplementedError('PyGetWindow currently does not support this platform. If you think you can help, please contribute! https://github.com/asweigart/pygetwindow')
+    raise NotImplementedError('PyGetWindowMP currently does not support this platform. If you think you can help, please contribute! https://github.com/Kalmat/PyGetWindow')

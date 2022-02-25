@@ -189,6 +189,32 @@ def basic_win32(npw):
     time.sleep(timelap)
     npw.raiseWindow()
     time.sleep(timelap)
+    npw.alwaysOnTop()
+    time.sleep(timelap)
+    npw.alwaysOnTop(aot=False)
+    time.sleep(timelap)
+    npw.alwaysOnBottom()
+    time.sleep(timelap)
+    npw.alwaysOnBottom(aob=False)
+    time.sleep(timelap)
+    npw.sendBehind()
+    time.sleep(timelap)
+    npw.sendBehind(sb=False)
+    time.sleep(timelap)
+
+    # Test menu options
+    menu = npw.menu.getMenu()
+    submenu = {}
+    for i, key in enumerate(menu.keys()):
+        if i == 4:
+            submenu = menu[key]["entries"]
+    option = {}
+    for i, key in enumerate(submenu.keys()):
+        if i == 3:
+            option = submenu[key]
+    if option:
+        npw.menu.clickMenuItem(wID=option["wID"])
+        time.sleep(5)
 
     # Test closing
     npw.close()
@@ -331,6 +357,18 @@ def basic_linux(npw):
     npw.lowerWindow()
     time.sleep(timelap)
     npw.raiseWindow()
+    time.sleep(timelap)
+    npw.alwaysOnTop()
+    time.sleep(timelap)
+    npw.alwaysOnTop(aot=False)
+    time.sleep(timelap)
+    npw.alwaysOnBottom()
+    time.sleep(timelap)
+    npw.alwaysOnBottom(aob=False)
+    time.sleep(timelap)
+    npw.sendBehind()
+    time.sleep(timelap)
+    npw.sendBehind(sb=False)
     time.sleep(timelap)
 
     # Test closing
@@ -484,6 +522,20 @@ def basic_macOS(npw):
     time.sleep(timelap)
     npw.raiseWindow()
     time.sleep(timelap)
+
+    # Test menu options
+    menu = npw.menu.getMenu()
+    submenu = {}
+    for i, key in enumerate(menu.keys()):
+        if i == 1:
+            submenu = menu[key]["entries"]
+    option = {}
+    for i, key in enumerate(submenu.keys()):
+        if i == 0:
+            option = submenu[key]
+    if option:
+        npw.menu.clickMenuItem(wID=option["wID"])
+        time.sleep(5)
 
     # Test closing
     npw.close()

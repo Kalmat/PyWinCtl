@@ -795,12 +795,12 @@ class MacOSWindow(BaseWindow):
                                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
                         ret, err = proc.communicate(cmd)
                         if addItemInfo:
-                            ret = ret.replace("\n", "").replace('missing value', '"missing value"') \
+                            ret = ret.replace("\n", "").replace("\t", "").replace('missing value', '"missing value"') \
                                      .replace("{", "[").replace("}", "]").replace("value:", "'") \
                                      .replace(", class:", "', '").replace(", settable:", "', '").replace(", name:", "', ")
                         else:
-                            ret = ret.replace("\n", "").replace('missing value', '"missing value"').replace("{", "[") \
-                                     .replace("}", "]")
+                            ret = ret.replace("\n", "").replace("\t", "").replace('missing value', '"missing value"') \
+                                     .replace("{", "[").replace("}", "]")
                         item = ast.literal_eval(ret)
 
                         if err is None and not self._isListEmpty(item[0]):
@@ -817,14 +817,21 @@ class MacOSWindow(BaseWindow):
             def flatenit(inList: list):
 
                 outList = []
-                for i in range(len(inList)):
+                level = len(inList)
+                mainlevel = len(inList[0])
+                for i in range(level):
                     subList = inList[i]
-                    if i == 0:
-                        otherList = subList
-                    else:
-                        otherList = []
-                        for k in range(len(subList)):
-                            otherList.append(subList[k][0])
+                    while len(subList) != mainlevel:
+                        subList = subList[0]
+                    otherList = []
+                    for j in range(len(subList)):
+                        lastList = subList[j]
+                        for k in range(i):
+                            if isinstance(lastList, list) and len(lastList) > 0:
+                                lastList = lastList[0]
+                            else:
+                                break
+                        otherList.append(lastList)
                     outList.append(otherList)
                 return outList
 
@@ -845,6 +852,10 @@ class MacOSWindow(BaseWindow):
                                 item = "separator"
                                 option[item] = {}
                             else:
+                                if isinstance(item, list) and len(item) > 0:
+                                    item = item[0]
+                                    pos = pos[0]
+                                    size = size[0]
                                 ref = section.replace(self._sep + "entries", "") + self._sep + item
                                 option[item] = {"parent": parent, "wID": self._getNewWid(ref)}
                                 if size and pos and size != "missing value" and pos != "missing value":
@@ -871,6 +882,7 @@ class MacOSWindow(BaseWindow):
                               item + self._sep + "entries", level=1, mainlevel=i, parent=hSubMenu)
 
             if findit():
+                # print(list(zip(nameList, sizeList, posList)))
                 flatNameList = flatenit(nameList)
                 flatSizeList = flatenit(sizeList)
                 flatPosList = flatenit(posList)
@@ -1103,20 +1115,29 @@ class MacOSWindow(BaseWindow):
 
         def _cleanLists(self, i, subNameList, subSizeList, subPosList, subAttrList):
 
-            item = subNameList[i]
-            size = subSizeList[i]
-            pos = subPosList[i]
-            if subAttrList:
-                attr = subAttrList[i]
-            else:
-                attr = []
+            if i < len(subNameList):
+                item = subNameList[i]
+                size = subSizeList[i]
+                pos = subPosList[i]
+                if subAttrList:
+                    attr = subAttrList[i]
+                else:
+                    attr = []
 
-            while len(item) > 0 and isinstance(item[0], list):
-                item = item[0]
-                size = size[0]
-                pos = pos[0]
-                if attr:
-                    attr = attr[0]
+                while len(item) > 0 and isinstance(item[0], list):
+                    item = item[0]
+                    size = size[0]
+                    pos = pos[0]
+                    if attr:
+                        attr = attr[0]
+            else:
+                item = subNameList
+                size = subSizeList
+                pos = subPosList
+                if subAttrList:
+                    attr = subAttrList
+                else:
+                    attr = []
 
             return item, size, pos, attr
 

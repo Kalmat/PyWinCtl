@@ -22,6 +22,7 @@ from pygetwindowmp import pointInRect, BaseWindow, Rect, Point, Size
 
 DISP = Xlib.display.Display()
 SCREEN = DISP.screen()
+print(SCREEN)
 ROOT = DISP.screen().root
 EWMH = ewmh.EWMH(_display=DISP, root=ROOT)
 
@@ -397,7 +398,7 @@ class LinuxWindow(BaseWindow):
         if sb:
             # https://stackoverflow.com/questions/58885803/can-i-use-net-wm-window-type-dock-ewhm-extension-in-openbox
             w = DISP.create_resource_object('window', self._hWnd)
-
+            # Place a Window behind desktop icons using PyQt on Ubuntu/GNOME
             # This adds the properties (notice the PropMode options), but with no effect on GNOME
             w.change_property(DISP.intern_atom(WM_STATE, False), Xlib.Xatom.ATOM,
                               32, [DISP.intern_atom(STATE_BELOW, False), ],
@@ -416,15 +417,14 @@ class LinuxWindow(BaseWindow):
                               Xlib.X.PropModeReplace)
             DISP.flush()
 
-            if "GNOME" in os.environ.get('XDG_CURRENT_DESKTOP', ""):
+            if "GNOME" in os.environ.get('XDG_CURRENT_DESKTOP', ''):
                 pass
                 # This sends the window "too far behind" (below all others, including Wallpaper, like unmapped)
                 # Trying to figure out how to raise it on top of wallpaper but behind desktop icons
-                # TODO: Find Wallpaper window to try to reparent our window to it, or to its same parent
+                # TODO: As an idea, find Wallpaper window to try to reparent our window to it, or to its same parent
                 # desktop = _xlibGetAllWindows(title="gnome-shell")  # or "main", not sure...
                 # if desktop:
-                #     w = DISP.create_resource_object('window', hWnd)
-                #     w.reparent(desktop[-1], 0, 0)
+                #     w.reparent(desktop[-1], self.left, self.top)
                 #     DISP.flush()
 
             else:
@@ -544,6 +544,7 @@ def main():
     """Run this script from command-line to get windows under mouse pointer"""
     print("PLATFORM:", sys.platform)
     print("SCREEN SIZE:", resolution())
+    print("ALL WINDOWS", getAllTitles())
     npw = getActiveWindow()
     print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()

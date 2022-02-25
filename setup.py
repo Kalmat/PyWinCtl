@@ -19,10 +19,11 @@ with io.open("README.md", encoding="utf-8") as fileObj:
 setup(
     name='PyGetWindowMP',
     version=version,
-    url='https://github.com/Kalmat/pygetwindow',
+    url='https://github.com/Kalmat/PyGetWindow',
+    download_url='https://github.com/Kalmat/PyGetWindow/archive/refs/tags/v.0.0.11-beta.tar.gz',
     author='Kalmat',
     author_email='palookjones@gmail.com',
-    description=('A simple, cross-platform module to control and obtain GUI information on application\'s windows.'),
+    description=('A cross-platform module to control and obtain GUI information on application\'s windows.'),
     long_description=long_description,
     long_description_content_type="text/markdown",
     license='BSD 3',
@@ -36,7 +37,7 @@ setup(
         "ewmh==0.1.6; sys_platform == 'linux'",
         "pyobjc==8.1; sys_platform == 'darwin'"
     ],
-    keywords="gui window geometry resize minimize maximize close title move size position",
+    keywords="gui window menu title name geometry size position move resize minimize maximize restore hide show activate raise lower close",
     classifiers=[
         'Development Status :: 4 - Beta',
         'Environment :: Win32 (MS Windows)',

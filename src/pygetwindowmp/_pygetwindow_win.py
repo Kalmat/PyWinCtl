@@ -363,9 +363,9 @@ class Win32Window(BaseWindow):
 
                     "wID":          item ID (required for other actions, e.g. clickMenuItem())
 
-                    "item_info":    (optional) dictionary containing all menu item attributes
+                    "item_info":    (optional) MENUITEMINFO struct containing all menu item info
 
-                    "shortcut":     shortcut to menu item (if any)
+                    "shortcut":     shortcut to menu item, if any (MacOS: only if item_info is included)
 
                     "rect":         Rect struct of the menu item (relative to window position)
 
@@ -467,7 +467,7 @@ class Win32Window(BaseWindow):
             return win32gui.GetMenuItemCount(hSubMenu)
 
         def getMenuItemInfo(self, hSubMenu: int, wID: int) -> win32gui_struct.UnpackMENUITEMINFO:
-            """Returns the ITEMINFO struct for the given menu item
+            """Returns the MENUITEMINFO struct for the given menu item
 
             Args:
             ----
@@ -483,14 +483,6 @@ class Win32Window(BaseWindow):
             return item_info
 
         def _getMenuItemInfo(self, hSubMenu: int, itemPos: int) -> win32gui_struct.UnpackMENUITEMINFO:
-            """Returns the ITEMINFO struct for the given menu item
-
-            Args:
-            ----
-                ''hSubMenu'' is the id of the parent sub-menu entry (as returned by getMenu() method)
-
-                ''wID'' is the item ID within menu struct (as returned by getMenu() method)
-            """
             item_info = None
             if self._hMenu:
                 buf, extras = win32gui_struct.EmptyMENUITEMINFO()
@@ -616,6 +608,7 @@ def main():
     """Run this script from command-line to get windows under mouse pointer"""
     print("PLATFORM:", sys.platform)
     print("SCREEN SIZE:", resolution())
+    print("ALL WINDOWS", getAllTitles())
     npw = getActiveWindow()
     print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()

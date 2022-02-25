@@ -52,9 +52,9 @@ Menu dictionary (returned by getMenu() method) will likely contain all you may n
       "parent":     parent sub-menu handle
       "hSubMenu":   item handle (!= 0 for sub-menu items only)
       "wID":        item ID (required for other actions, e.g. clickMenuItem())
-      "shortcut":   shortcut to menu item (Windows only, by the moment)
       "rect":       Rect struct of the menu item. (Windows: It is relative to window position, so it won't likely change if window is moved or resized)
       "item_info":  [Optional] Python dictionary (MacOS) / MENUITEMINFO struct (Windows)
+      "shortcut":   shortcut to menu item, if any (MacOS: only if item_info is included)
       "entries":    sub-items within the sub-menu (if any)
 
 Functions included in this subclass:
@@ -69,6 +69,24 @@ Functions included in this subclass:
 |  clickMenuItem  |
 
 Note not all windows/applications will have a menu accessible by these methods.
+
+### INSTALL
+
+To install this module on your system, you can use pip: 
+
+    python3 -m pip install pygetwindowmp
+
+Alternatively, you can download the wheel file (.whl) located in "dist" folder, and run this (don't forget to replace 'x.x.xx' with proper version number):
+
+    python3 -m pip install PyGetWindowMP-x.x.xx-py3-none-any.whl
+
+You may want to add '--force-reinstall' option to be sure you are installing the right dependencies version.
+
+Then, you can use it on your own projects just importing it:
+
+    import pygetwindowmp
+
+The module has a different name, so you don't need to uninstall previous PyGetWindow versions. Besides, the Windows-part of PyGetWindowMP module is exactly the same as in the original module.
 
 ### USING THIS CODE
 
@@ -86,20 +104,6 @@ In case you have any issues, comments or suggestions, do not hesitate to open an
 To test this module on your own system, cd to "tests" folder and run:
 
     pytest -vv test_pygetwindow.py
-
-### INSTALL
-
-To install this module on your system, download the wheel file (.whl) located in "dist" folder, and run this (don't forget to replace 'x.x.xx' with proper version number):
-
-    python3 -m pip install PyGetWindowMP-x.x.xx-py3-none-any.whl
-
-You may want to add '--force-reinstall' option to be sure you are installing the right dependencies version.
-
-Then, you can use it on your own projects just importing it:
-
-    import pygetwindowmp
-
-The module has a different name, so you don't need to uninstall previous PyGetWindow versions. Besides, the Windows-part of PyGetWindowMP module is exactly the same as in the original module.
 
 ### IMPORTANT MacOS NOTICE:
 
