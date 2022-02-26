@@ -9,7 +9,7 @@ import time
 
 from AppKit import *
 
-import pygetwindowmp
+import pywinctl
 
 
 # Cocoa prefers composition to inheritance. The members of an object's
@@ -39,7 +39,7 @@ class Delegate(NSObject):
         if self.demoMode:
 
             if not self.npw:
-                self.npw = pygetwindowmp.getActiveWindow(NSApp())
+                self.npw = pywinctl.getActiveWindow(NSApp())
 
                 if self.npw:
                     print("ACTIVE WINDOW:", self.npw.title)

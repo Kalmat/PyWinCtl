@@ -7,7 +7,7 @@ scriptFolder = os.path.dirname(os.path.realpath(__file__))
 os.chdir(scriptFolder)
 
 # Find version info from module (without importing the module):
-with open("src/pygetwindowmp/__init__.py", "r") as fileObj:
+with open("src/pywinctl/__init__.py", "r") as fileObj:
     version = re.search(
         r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]', fileObj.read(), re.MULTILINE
     ).group(1)
@@ -17,10 +17,10 @@ with io.open("README.md", encoding="utf-8") as fileObj:
     long_description = fileObj.read()
 
 setup(
-    name='PyGetWindowMP',
+    name='PyWinCtl',
     version=version,
-    url='https://github.com/Kalmat/PyGetWindow',
-    download_url='https://github.com/Kalmat/PyGetWindow/archive/refs/tags/v.0.0.11-beta.tar.gz',
+    url='https://github.com/Kalmat/PyWinCtl',
+    download_url='https://github.com/Kalmat/PyWinCtl/archive/refs/tags/v.0.0.11-beta.tar.gz',
     author='Kalmat',
     author_email='palookjones@gmail.com',
     description=('A cross-platform module to control and obtain GUI information on application\'s windows.'),

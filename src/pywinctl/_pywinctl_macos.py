@@ -11,7 +11,7 @@ from typing import List
 import AppKit
 import Quartz
 
-from pygetwindowmp import pointInRect, BaseWindow, Rect, Point, Size
+from pywinctl import pointInRect, BaseWindow, Rect, Point, Size
 
 """ 
 IMPORTANT NOTICE:
@@ -739,13 +739,15 @@ class MacOSWindow(BaseWindow):
                 "item_info" is extremely huge and slow. Instead use getMenuItemInfo() method individually.
                 if you really want/require item_info data, set ''addItemInfo'' to ''True''
             """
+
+            self._menuStructure = {}
+            self.menuList = []
+            self.itemList = []
+
             nameList = []
             sizeList = []
             posList = []
             attrList = []
-            self._menuStructure = {}
-            self.menuList = []
-            self.itemList = []
 
             def findit():
 
@@ -814,26 +816,50 @@ class MacOSWindow(BaseWindow):
 
                 return nameList != []
 
-            def flatenit(inList: list):
+            flatNameList = []
+            flatSizeList = []
+            flatPosList = []
+            flatAttrList = []
 
-                outList = []
-                level = len(inList)
-                mainlevel = len(inList[0])
+            def flatenit():
+
+                level = len(nameList)
+                mainlevel = len(nameList[0])
                 for i in range(level):
-                    subList = inList[i]
-                    while len(subList) != mainlevel:
-                        subList = subList[0]
-                    otherList = []
-                    for j in range(len(subList)):
-                        lastList = subList[j]
+                    subNameList = nameList[i]
+                    subSizeList = sizeList[i]
+                    subPosList = posList[i]
+                    subAttrList = attrList[i] if addItemInfo else []
+                    while len(subNameList) != mainlevel:
+                        subNameList = subNameList[0]
+                        subSizeList = subSizeList[0]
+                        subPosList = subPosList[0]
+                        subAttrList = subAttrList[0] if addItemInfo else []
+                    otherNameList = []
+                    otherSizeList = []
+                    otherPosList = []
+                    otherAttrList = []
+                    for j in range(len(subNameList)):
+                        lastNameList = subNameList[j]
+                        lastSizeList = subSizeList[j]
+                        lastPosList = subPosList[j]
+                        lastAttrList = subAttrList[j] if addItemInfo else []
                         for k in range(i):
-                            if isinstance(lastList, list) and len(lastList) > 0:
-                                lastList = lastList[0]
+                            if isinstance(lastNameList, list) and len(lastNameList) > 0:
+                                lastNameList = lastNameList[0]
+                                lastSizeList = lastSizeList[0]
+                                lastPosList = lastPosList[0]
+                                lastAttrList = lastAttrList[0] if addItemInfo else []
                             else:
                                 break
-                        otherList.append(lastList)
-                    outList.append(otherList)
-                return outList
+                        otherNameList.append(lastNameList)
+                        otherSizeList.append(lastSizeList)
+                        otherPosList.append(lastPosList)
+                        otherAttrList.append(lastAttrList)
+                    flatNameList.append(otherNameList)
+                    flatSizeList.append(otherSizeList)
+                    flatPosList.append(otherPosList)
+                    if addItemInfo: flatAttrList.append(otherAttrList)
 
             def fillit():
 
@@ -847,33 +873,28 @@ class MacOSWindow(BaseWindow):
 
                     for i, item in enumerate(subNameList):
                         item, size, pos, attr = self._cleanLists(i, subNameList, subSizeList, subPosList, subAttrList)
-                        if item:
-                            if item == "missing value":
-                                item = "separator"
-                                option[item] = {}
-                            else:
-                                if isinstance(item, list) and len(item) > 0:
-                                    item = item[0]
-                                    pos = pos[0]
-                                    size = size[0]
-                                ref = section.replace(self._sep + "entries", "") + self._sep + item
-                                option[item] = {"parent": parent, "wID": self._getNewWid(ref)}
-                                if size and pos and size != "missing value" and pos != "missing value":
-                                    x, y = pos
-                                    w, h = size
-                                    option[item]["rect"] = Rect(x, y, w + x, y + h)
-                                if addItemInfo:
-                                    option[item]["item_info"] = self._parseAttr(attr)
-                                if level+1 < len(flatNameList):
-                                    submenu, subSize, subPos, subAttr = self._cleanLists(i, flatNameList[level + 1][mainlevel], flatSizeList[level + 1][mainlevel], flatPosList[level + 1][mainlevel], flatAttrList[level + 1][mainlevel] if addItemInfo else [])
-                                    if submenu:
-                                        option[item]["hSubMenu"] = self._getNewHSubMenu(ref)
-                                        option[item]["entries"] = {}
-                                        subfillit(submenu, subSize, subPos, subAttr,
-                                                  section + self._sep + item + self._sep + "entries",
-                                                  level=level+1, mainlevel=mainlevel, parent=hSubMenu)
-                                    else:
-                                        option[item]["hSubMenu"] = 0
+                        if item == "missing value":
+                            item = "separator"
+                            option[item] = {}
+                        else:
+                            ref = section.replace(self._sep + "entries", "") + self._sep + item
+                            option[item] = {"parent": parent, "wID": self._getNewWid(ref)}
+                            if size and pos and size != "missing value" and pos != "missing value":
+                                x, y = pos
+                                w, h = size
+                                option[item]["rect"] = Rect(x, y, w + x, y + h)
+                            if addItemInfo:
+                                option[item]["item_info"] = self._parseAttr(attr)
+                            if level+1 < len(flatNameList):
+                                submenu, subSize, subPos, subAttr = self._cleanLists(i, flatNameList[level + 1][mainlevel], flatSizeList[level + 1][mainlevel], flatPosList[level + 1][mainlevel], flatAttrList[level + 1][mainlevel] if addItemInfo else [], subLists=False)
+                                if submenu:
+                                    option[item]["hSubMenu"] = self._getNewHSubMenu(ref)
+                                    option[item]["entries"] = {}
+                                    subfillit(submenu, subSize, subPos, subAttr,
+                                              section + self._sep + item + self._sep + "entries",
+                                              level=level+1, mainlevel=mainlevel, parent=hSubMenu)
+                                else:
+                                    option[item]["hSubMenu"] = 0
 
                 for i, item in enumerate(flatNameList[0]):
                     hSubMenu = self._getNewHSubMenu(item)
@@ -882,11 +903,7 @@ class MacOSWindow(BaseWindow):
                               item + self._sep + "entries", level=1, mainlevel=i, parent=hSubMenu)
 
             if findit():
-                # print(list(zip(nameList, sizeList, posList)))
-                flatNameList = flatenit(nameList)
-                flatSizeList = flatenit(sizeList)
-                flatPosList = flatenit(posList)
-                flatAttrList = flatenit(attrList) if addItemInfo else []
+                flatenit()
                 fillit()
 
             return self._menuStructure
@@ -1113,31 +1130,31 @@ class MacOSWindow(BaseWindow):
                 return all(map(self._isListEmpty, inList))
             return False
 
-        def _cleanLists(self, i, subNameList, subSizeList, subPosList, subAttrList):
+        def _cleanLists(self, i, subNameList, subSizeList, subPosList, subAttrList, subLists=True):
 
-            if i < len(subNameList):
+            if isinstance(subNameList, list) and i < len(subNameList):
                 item = subNameList[i]
                 size = subSizeList[i]
                 pos = subPosList[i]
-                if subAttrList:
-                    attr = subAttrList[i]
-                else:
-                    attr = []
+                attr = subAttrList[i] if subAttrList else []
 
-                while len(item) > 0 and isinstance(item[0], list):
-                    item = item[0]
-                    size = size[0]
-                    pos = pos[0]
-                    if attr:
-                        attr = attr[0]
+                if subLists:
+                    while isinstance(item, list) and len(item) > 0:
+                        item = item[0]
+                        pos = pos[0]
+                        size = size[0]
+                        attr = attr[0] if attr else []
+                else:
+                    while len(item) > 0 and isinstance(item[0], list):
+                        item = item[0]
+                        size = size[0]
+                        pos = pos[0]
+                        attr = attr[0] if attr else []
             else:
                 item = subNameList
                 size = subSizeList
                 pos = subPosList
-                if subAttrList:
-                    attr = subAttrList
-                else:
-                    attr = []
+                attr = subAttrList
 
             return item, size, pos, attr
 
@@ -1503,10 +1520,13 @@ def main():
     print("PLATFORM:", sys.platform)
     print("SCREEN SIZE:", resolution())
     print("ALL WINDOWS", getAllTitles())
+    time.sleep(3)
     npw = getActiveWindow()
     print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print("")
-    displayWindowsUnderMouse(0, 0)
+    # displayWindowsUnderMouse(0, 0)
+    menu = npw.menu.getMenu()
+    print(menu)
 
 
 if __name__ == "__main__":

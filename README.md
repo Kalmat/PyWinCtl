@@ -1,13 +1,13 @@
 First off, my most sincere thanks and acknowledgement to macdeport (https://github.com/macdeport) and holychowders (https://github.com/holychowders) for their help and moral boost.
 
-PyGetWindow-MP (Multi-Platform)
-==============================
+PyWinCtl
+========
 
 This is a fork from asweigart's PyGetWindow module (https://github.com/asweigart/PyGetWindow), intended to obtain GUI information on and control application's windows.
 
 This fork adds Linux and macOS experimental support to the original MS Windows-only original module, in the hope others can use it, test it or contribute
 
-### Features
+### Window Features
 
 All these functions are available at the moment, in all three platforms (Windows, Linux and macOS):
 
@@ -30,12 +30,21 @@ All these functions are available at the moment, in all three platforms (Windows
 |  |  raiseWindow  |    |  
 |  |  sendBehind  |    |  
 
-#### Only in MS-Windows and macOS (XLib has no standard API to manage menus)
+#### IMPORTANT macOS NOTICE:
 
-New menu control functions (pending work from asweigart's original ideas), accessible through 'menu' submodule. E.g.:
+macOS doesn't "like" controlling windows from other apps, so there are two separate classes you can use:
+
+- To control your own application's windows: MacOSNSWindow() is based on NSWindow Objects (you have to pass the NSApp() Object reference).
+- To control other applications' windows: MacOSWindow() is based on Apple Script, so it is slower and, in some cases, tricky (uses window name as reference), but it's working fine in most cases. You will likely need to grant permissions on Settings->Security&Privacy->Accessibility.
+
+### Menu Features
+
+#### Available in: MS-Windows and macOS Apple Script version (MacOSWindow() class)
+
+Menu info and control functions (from asweigart's original ideas), accessible through 'menu' submodule. E.g.:
 
     subprocess.Popen('notepad')
-    windows = pygetwindowmp.getWindowsWithTitle('Untitled - Notepad')
+    windows = pywinctl.getWindowsWithTitle('Untitled - Notepad')
     if windows:
         win = windows[0]
         menu = win.menu.getMenu()
@@ -53,8 +62,8 @@ Menu dictionary (returned by getMenu() method) will likely contain all you may n
       "hSubMenu":   item handle (!= 0 for sub-menu items only)
       "wID":        item ID (required for other actions, e.g. clickMenuItem())
       "rect":       Rect struct of the menu item. (Windows: It is relative to window position, so it won't likely change if window is moved or resized)
-      "item_info":  [Optional] Python dictionary (MacOS) / MENUITEMINFO struct (Windows)
-      "shortcut":   shortcut to menu item, if any (MacOS: only if item_info is included)
+      "item_info":  [Optional] Python dictionary (macOS) / MENUITEMINFO struct (Windows)
+      "shortcut":   shortcut to menu item, if any (macOS: only if item_info is included)
       "entries":    sub-items within the sub-menu (if any)
 
 Functions included in this subclass:
@@ -74,19 +83,17 @@ Note not all windows/applications will have a menu accessible by these methods.
 
 To install this module on your system, you can use pip: 
 
-    python3 -m pip install pygetwindowmp
+    python3 -m pip install pywinctl
 
 Alternatively, you can download the wheel file (.whl) located in "dist" folder, and run this (don't forget to replace 'x.x.xx' with proper version number):
 
-    python3 -m pip install PyGetWindowMP-x.x.xx-py3-none-any.whl
+    python3 -m pip install PyWinCtl-x.x.xx-py3-none-any.whl
 
 You may want to add '--force-reinstall' option to be sure you are installing the right dependencies version.
 
 Then, you can use it on your own projects just importing it:
 
-    import pygetwindowmp
-
-The module has a different name, so you don't need to uninstall previous PyGetWindow versions. Besides, the Windows-part of PyGetWindowMP module is exactly the same as in the original module.
+    import pywinctl
 
 ### USING THIS CODE
 
@@ -103,11 +110,8 @@ In case you have any issues, comments or suggestions, do not hesitate to open an
 
 To test this module on your own system, cd to "tests" folder and run:
 
-    pytest -vv test_pygetwindow.py
+    pytest -vv test_pywinctl.py
 
-### IMPORTANT MacOS NOTICE:
+MacOSNSWindow class and methods can be tested by running this, also on "tests" folder:
 
-macOS doesn't "like" controlling windows from other apps, so there are two separate classes you can use:
-
-- To control your own application's windows: MacOSNSWindow() is based on NSWindow Objects (you have to pass the NSApp() Object reference. It means you have to be the "owner" of the application you want to control). To test macOS NSWindow class, you can run "python3 test_MacNSWindow.py" (also located in "tests" folder)
-- To control other applications' windows: MacOSWindow() is based on Apple Script, so it is not fully trustable, but it's working fine in most cases. This other class can be tested together with the other modules, as described above, using "test_pygetwindow.py" script.
+    python3 test_MacNSWindow.py

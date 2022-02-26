@@ -1,4 +1,11 @@
-Here is an inevitably incomplete list of MUCH-APPRECIATED CONTRIBUTORS --
+PyWinCtl contributors and maintainers:
+
+Kalmat https://github.com/Kalmat
+macdeport https://github.com/macdeport
+holychowders https://github.com/holychowders
+
+
+PyGetWindow (original module): Here is an inevitably incomplete list of MUCH-APPRECIATED CONTRIBUTORS --
 people who have submitted patches, reported bugs, added translations, helped
 answer newbie questions, and generally made PyGetWindow that much better:
 
@@ -14,4 +21,3 @@ lexxish https://github.com/lexxish
 Randall White
 Ronald Oussoren
 Steve Newell https://github.com/newellista
-Angel L. Escribano https://github.com/Kalmat

@@ -18,7 +18,7 @@ from Xlib.xobject.resource import Resource
 import ewmh
 from pynput import mouse
 
-from pygetwindowmp import pointInRect, BaseWindow, Rect, Point, Size
+from pywinctl import pointInRect, BaseWindow, Rect, Point, Size
 
 DISP = Xlib.display.Display()
 SCREEN = DISP.screen()

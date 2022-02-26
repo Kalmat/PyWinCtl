@@ -11,7 +11,7 @@ import win32con
 import win32gui
 import win32gui_struct
 
-from pygetwindowmp import pointInRect, BaseWindow, Rect, Point, Size
+from pywinctl import pointInRect, BaseWindow, Rect, Point, Size
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.

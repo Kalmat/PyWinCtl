@@ -6,7 +6,7 @@ import sys
 import time
 
 import pytest
-import pygetwindowmp
+import pywinctl
 
 
 def test_basic():
@@ -15,8 +15,8 @@ def test_basic():
         subprocess.Popen('notepad')
         time.sleep(0.5)
 
-        testWindows = [pygetwindowmp.getActiveWindow()]
-        # testWindows = pygetwindowmp.getWindowsWithTitle('Untitled - Notepad')   # Not working in other languages
+        testWindows = [pywinctl.getActiveWindow()]
+        # testWindows = pywinctl.getWindowsWithTitle('Untitled - Notepad')   # Not working in other languages
         assert len(testWindows) == 1
 
         npw = testWindows[0]
@@ -27,7 +27,7 @@ def test_basic():
         subprocess.Popen('gedit')
         time.sleep(5)
 
-        testWindows = [pygetwindowmp.getActiveWindow()]
+        testWindows = [pywinctl.getActiveWindow()]
         assert len(testWindows) == 1
 
         npw = testWindows[0]
@@ -40,7 +40,7 @@ def test_basic():
         subprocess.Popen(['open', '-a', 'TextEdit', 'test.txt'])
         time.sleep(5)
 
-        testWindows = pygetwindowmp.getWindowsWithTitle('test.txt')
+        testWindows = pywinctl.getWindowsWithTitle('test.txt')
         assert len(testWindows) == 1
 
         npw = testWindows[0]
@@ -50,7 +50,7 @@ def test_basic():
         subprocess.Popen(['rm', 'test.txt'])
 
     else:
-        raise NotImplementedError('PyGetWindow currently does not support this platform. If you have useful knowledge, please contribute! https://github.com/asweigart/pygetwindow')
+        raise NotImplementedError('PyWinCtl currently does not support this platform. If you have useful knowledge, please contribute! https://github.com/Kalmat/pywinctl')
 
 
 def basic_win32(npw):

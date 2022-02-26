@@ -16,7 +16,7 @@
         ]
     },
     "default": {
-        "pygetwindow": {
+        "pywinctl": {
             "editable": true,
             "path": "."
         },
