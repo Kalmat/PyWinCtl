@@ -1,13 +1,12 @@
 First off, my most sincere thanks and acknowledgement to macdeport (https://github.com/macdeport) and holychowders (https://github.com/holychowders) for their help and moral boost.
 
-PyWinCtl
-========
+# PyWinCtl
 
 This is a fork from asweigart's PyGetWindow module (https://github.com/asweigart/PyGetWindow), intended to obtain GUI information on and control application's windows.
 
-This fork adds Linux and macOS experimental support to the original MS Windows-only original module, in the hope others can use it, test it or contribute
+This fork adds Linux and macOS experimental support to the MS Windows-only original module, in the hope others can use it, test it or contribute
 
-### Window Features
+## Window Features
 
 All these functions are available at the moment, in all three platforms (Windows, Linux and macOS):
 
@@ -37,7 +36,7 @@ macOS doesn't "like" controlling windows from other apps, so there are two separ
 - To control your own application's windows: MacOSNSWindow() is based on NSWindow Objects (you have to pass the NSApp() Object reference).
 - To control other applications' windows: MacOSWindow() is based on Apple Script, so it is slower and, in some cases, tricky (uses window name as reference), but it's working fine in most cases. You will likely need to grant permissions on Settings->Security&Privacy->Accessibility.
 
-### Menu Features
+## Menu Features
 
 #### Available in: MS-Windows and macOS Apple Script version (MacOSWindow() class)
 
@@ -79,7 +78,7 @@ Functions included in this subclass:
 
 Note not all windows/applications will have a menu accessible by these methods.
 
-### INSTALL
+## INSTALL
 
 To install this module on your system, you can use pip: 
 
@@ -95,7 +94,7 @@ Then, you can use it on your own projects just importing it:
 
     import pywinctl
 
-### USING THIS CODE
+## USING THIS CODE
 
 If you want to use this code or contribute, you can either:
 
@@ -106,11 +105,15 @@ Be sure you install all dependencies described on "docs/requirements.txt" by usi
 
 In case you have any issues, comments or suggestions, do not hesitate to open an issue, or contact me (palookjones@gmail.com)
 
-### TEST
+## TEST
 
 To test this module on your own system, cd to "tests" folder and run:
 
     pytest -vv test_pywinctl.py
+
+or, in case you get an import error, try this:
+
+    python3 -m pytest -vv test_pywinctl.py
 
 MacOSNSWindow class and methods can be tested by running this, also on "tests" folder:
 

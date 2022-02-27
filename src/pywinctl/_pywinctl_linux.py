@@ -22,7 +22,6 @@ from pywinctl import pointInRect, BaseWindow, Rect, Point, Size
 
 DISP = Xlib.display.Display()
 SCREEN = DISP.screen()
-print(SCREEN)
 ROOT = DISP.screen().root
 EWMH = ewmh.EWMH(_display=DISP, root=ROOT)
 
@@ -448,6 +447,22 @@ class LinuxWindow(BaseWindow):
             EWMH.setActiveWindow(self._hWnd)
             EWMH.display.flush()
             return WINDOW_NORMAL in EWMH.getWmWindowType(self._hWnd, str=True) and self.isActive
+
+    def getParent(self):
+        """Returns the handle of the window parent"""
+        raise NotImplementedError
+
+    def getHandle(self):
+        """Returns the handle of the window"""
+        raise NotImplementedError
+
+    def isParent(self, hWnd: BaseWindow) -> bool:
+        """Returns True if the window is parent of the given window as input argument"""
+        raise NotImplementedError
+
+    def isChild(self, hWnd: BaseWindow) -> bool:
+        """Returns True if the window is child of the given window as input argument"""
+        raise NotImplementedError
 
     @property
     def isMinimized(self) -> bool:

@@ -568,8 +568,23 @@ class MacOSWindow(BaseWindow):
     def sendBehind(self, sb: bool = True) -> bool:
         """Sends the window to the very bottom, under all other windows, including desktop icons.
         It may also cause that window does not accept focus nor keyboard/mouse events.
+        """
+        raise NotImplementedError
 
-        WARNING: On GNOME it will obscure desktop icons... by the moment"""
+    def getParent(self):
+        """Returns the handle of the window parent"""
+        raise NotImplementedError
+
+    def getHandle(self):
+        """Returns the handle of the window"""
+        raise NotImplementedError
+
+    def isParent(self, hWnd: BaseWindow) -> bool:
+        """Returns True if the window is parent of the given window as input argument"""
+        raise NotImplementedError
+
+    def isChild(self, hWnd: BaseWindow) -> bool:
+        """Returns True if the window is child of the given window as input argument"""
         raise NotImplementedError
 
     @property
@@ -1222,6 +1237,7 @@ class MacOSNSWindow(BaseWindow):
         super().__init__()
         self._app = app
         self._hWnd = hWnd
+        self._parent = hWnd.parentWindow()
         self._setupRectProperties()
 
     def _getWindowRect(self) -> Rect:
@@ -1432,6 +1448,24 @@ class MacOSNSWindow(BaseWindow):
                                                      Quartz.NSWindowCollectionBehaviorManaged)
         return ret1 and ret2
 
+    def getParent(self):
+        """Returns the handle of the window parent"""
+        raise NotImplementedError
+
+    def getHandle(self):
+        """Returns the handle of the window"""
+        raise NotImplementedError
+
+    def isParent(self, hWnd: BaseWindow) -> bool:
+        """Returns True if the window is parent of the given window as input argument
+        """
+        raise NotImplementedError
+
+    def isChild(self, hWnd: BaseWindow) -> bool:
+        """Returns True if the window is child of the given window as input argument
+        """
+        raise NotImplementedError
+
     @property
     def isMinimized(self) -> bool:
         """Returns ``True`` if the window is currently minimized."""
@@ -1520,13 +1554,10 @@ def main():
     print("PLATFORM:", sys.platform)
     print("SCREEN SIZE:", resolution())
     print("ALL WINDOWS", getAllTitles())
-    time.sleep(3)
     npw = getActiveWindow()
     print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print("")
-    # displayWindowsUnderMouse(0, 0)
-    menu = npw.menu.getMenu()
-    print(menu)
+    displayWindowsUnderMouse(0, 0)
 
 
 if __name__ == "__main__":

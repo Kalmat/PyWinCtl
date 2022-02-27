@@ -309,6 +309,22 @@ class Win32Window(BaseWindow):
             result = result | win32gui.ShowWindow(self._hWnd, win32con.SW_RESTORE)
         return result != 0
 
+    def getParent(self):
+        """Returns the handle of the window parent"""
+        return self._parent
+
+    def getHandle(self):
+        """Returns the handle of the window"""
+        return self._hWnd
+
+    def isParent(self, hWnd: BaseWindow) -> bool:
+        """Returns True if the window is parent of the given window as input argument"""
+        return hWnd.getParent() == self._hWnd
+
+    def isChild(self, hWnd: BaseWindow) -> bool:
+        """Returns True if the window is child of the given window as input argument"""
+        return hWnd.getHandle() == self._parent
+
     @property
     def isMinimized(self) -> bool:
         """Returns ``True`` if the window is currently minimized."""

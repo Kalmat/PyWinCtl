@@ -1,12 +1,12 @@
 # PyWinCtl
-# A cross-platform module to find information about the windows on the screen.
+# A cross-platform module to get info and control windows.
 
 # pywin32 on Windows
 # pyobjc (AppKit and Quartz) on macOS
 # Xlib and ewmh on linux
 
 
-__version__ = "0.0.11"
+__version__ = "0.0.12"
 
 import sys, collections, pyrect
 
@@ -139,6 +139,22 @@ class BaseWindow:
         Use sb=False to bring the window back from background
 
         WARNING: On GNOME it will obscure desktop icons... by the moment"""
+        raise NotImplementedError
+
+    def getParent(self):
+        """Returns the handle of the window parent"""
+        raise NotImplementedError
+
+    def getHandle(self):
+        """Returns the handle of the window"""
+        raise NotImplementedError
+
+    def isParent(self, hWnd) -> bool:
+        """Returns True if the window is parent of the given window as input argument"""
+        raise NotImplementedError
+
+    def isChild(self, hWnd) -> bool:
+        """Returns True if the window is child of the given window as input argument"""
         raise NotImplementedError
 
     @property
@@ -394,4 +410,4 @@ elif sys.platform == "linux":
 
     Window = LinuxWindow
 else:
-    raise NotImplementedError('PyWinCtl currently does not support this platform. If you think you can help, please contribute! https://github.com/Kalmat/PyGetWindow')
+    raise NotImplementedError('PyWinCtl currently does not support this platform. If you think you can help, please contribute! https://github.com/Kalmat/PyWinCtl')
