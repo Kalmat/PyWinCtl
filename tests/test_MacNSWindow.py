@@ -234,6 +234,11 @@ class Delegate(NSObject):
             self.npw.sendBehind(sb=False)
             time.sleep(timelap)
 
+            # Test parent methods
+            print("GET PARENT")
+            parent = self.npw.getParent()
+            assert self.npw.isChild(parent)
+
             # Test closing
             self.npw.close()
 

@@ -1,10 +1,10 @@
-First off, my most sincere thanks and acknowledgement to macdeport (https://github.com/macdeport) and holychowders (https://github.com/holychowders) for their help and moral boost.
-
 # PyWinCtl
 
-This is a fork from asweigart's PyGetWindow module (https://github.com/asweigart/PyGetWindow), intended to obtain GUI information on and control application's windows.
+Cross-Platform module to gather information on and control windows opened on screen.
 
-This fork adds Linux and macOS experimental support to the MS Windows-only original module, in the hope others can use it, test it or contribute
+This module is a fork from asweigart's PyGetWindow module (https://github.com/asweigart/PyGetWindow), which adds Linux and macOS experimental support to the MS Windows-only original module, in the hope others can use it, test it or contribute
+
+My most sincere thanks and acknowledgement to macdeport (https://github.com/macdeport) and holychowders (https://github.com/holychowders) for their help and moral boost.
 
 ## Window Features
 
@@ -19,15 +19,18 @@ All these functions are available at the moment, in all three platforms (Windows
 |  getWindowsWithTitle  |  hide  |  isVisible  |
 |  getWindowsAt  |  show  |  | 
 |  cursor (mouse position)  |  activate  |    |  
-|  resolution (screen size)  |  resize / resizeRel  |  |    
+|  resolution (screen size)  |  resize / resizeRel  |  |   
 |  |  resizeTo  |  |  
-|  |  move / moveRel  |  |    
+|  |  move / moveRel  |  |  
 |  |  moveTo  |  |  
 |  |  alwaysOnTop  |    |
 |  |  alwaysOnBottom  |    |  
 |  |  lowerWindow  |    |  
 |  |  raiseWindow  |    |  
-|  |  sendBehind  |    |  
+|  |  getParent  |    |
+|  |  getHandle  |    |  
+|  |  isParent  |    |  
+|  |  isChild  |    |  
 
 #### IMPORTANT macOS NOTICE:
 
@@ -82,11 +85,11 @@ Note not all windows/applications will have a menu accessible by these methods.
 
 To install this module on your system, you can use pip: 
 
-    python3 -m pip install pywinctl
+    pip install pywinctl
 
 Alternatively, you can download the wheel file (.whl) located in "dist" folder, and run this (don't forget to replace 'x.x.xx' with proper version number):
 
-    python3 -m pip install PyWinCtl-x.x.xx-py3-none-any.whl
+    pip install PyWinCtl-x.x.xx-py3-none-any.whl
 
 You may want to add '--force-reinstall' option to be sure you are installing the right dependencies version.
 

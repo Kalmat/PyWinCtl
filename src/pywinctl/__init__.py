@@ -1,12 +1,12 @@
 # PyWinCtl
-# A cross-platform module to get info and control windows.
+# A cross-platform module to get info on and control windows.
 
 # pywin32 on Windows
 # pyobjc (AppKit and Quartz) on macOS
-# Xlib and ewmh on linux
+# Xlib and ewmh on Linux
 
 
-__version__ = "0.0.12"
+__version__ = "0.0.15"
 
 import sys, collections, pyrect
 
@@ -149,11 +149,11 @@ class BaseWindow:
         """Returns the handle of the window"""
         raise NotImplementedError
 
-    def isParent(self, hWnd) -> bool:
+    def isParent(self, child) -> bool:
         """Returns True if the window is parent of the given window as input argument"""
         raise NotImplementedError
 
-    def isChild(self, hWnd) -> bool:
+    def isChild(self, parent) -> bool:
         """Returns True if the window is child of the given window as input argument"""
         raise NotImplementedError
 

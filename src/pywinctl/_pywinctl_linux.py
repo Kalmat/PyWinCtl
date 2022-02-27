@@ -144,6 +144,7 @@ class LinuxWindow(BaseWindow):
     def __init__(self, hWnd: Union[Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]):
         super().__init__()
         self._hWnd = hWnd
+        self._parent = self._hWnd.query_tree().parent
         self._setupRectProperties()
         # self._saveWindowInitValues()  # Store initial Window parameters to allow reset and other actions
 
@@ -428,6 +429,7 @@ class LinuxWindow(BaseWindow):
 
             else:
                 # Mint/Cinnamon: just clicking on the desktop, it raises, sending the window/wallpaper to the bottom!
+                # TODO: Find a smarter way to raise desktop icons instead of a mouse click
                 m = mouse.Controller()
                 m.move(SCREEN.width_in_pixels - 1, 100)
                 m.click(mouse.Button.left, 1)
@@ -448,21 +450,31 @@ class LinuxWindow(BaseWindow):
             EWMH.display.flush()
             return WINDOW_NORMAL in EWMH.getWmWindowType(self._hWnd, str=True) and self.isActive
 
-    def getParent(self):
+    def getParent(self) -> Union[Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]:
         """Returns the handle of the window parent"""
-        raise NotImplementedError
+        return self._hWnd.query_tree().parent
 
-    def getHandle(self):
+    def getHandle(self) -> Union[Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]:
         """Returns the handle of the window"""
-        raise NotImplementedError
+        return self._hWnd
 
-    def isParent(self, hWnd: BaseWindow) -> bool:
-        """Returns True if the window is parent of the given window as input argument"""
-        raise NotImplementedError
+    def isParent(self, child: Union[Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]) -> bool:
+        """Returns True if the window is parent of the given window as input argument
 
-    def isChild(self, hWnd: BaseWindow) -> bool:
-        """Returns True if the window is child of the given window as input argument"""
-        raise NotImplementedError
+        Args:
+        ----
+            ''child'' handle of the window you want to check if the current window is parent of
+        """
+        return child.query_tree().parent == self._hWnd
+
+    def isChild(self, parent: Union[Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]) -> bool:
+        """Returns True if the window is child of the given window as input argument
+
+        Args:
+        ----
+            ''parent'' handle of the window/app you want to check if the current window is child of
+        """
+        return parent == self.getParent()
 
     @property
     def isMinimized(self) -> bool:

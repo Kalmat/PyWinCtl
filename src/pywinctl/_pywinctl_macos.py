@@ -28,6 +28,8 @@ WS = AppKit.NSWorkspace.sharedWorkspace()
 WAIT_ATTEMPTS = 10
 WAIT_DELAY = 0.025  # Will be progressively increased on every retry
 
+SEP = "|&|"
+
 
 def getActiveWindow(app: AppKit.NSApplication = None):
     """Returns a Window object of the currently active Window or None."""
@@ -158,6 +160,7 @@ class MacOSWindow(BaseWindow):
         self._appName = app.localizedName()
         self._appPID = app.processIdentifier()
         self._winTitle = title
+        self._parent = self.getParent()
         self._setupRectProperties()
         v = platform.mac_ver()[0].split(".")
         ver = float(v[0]+"."+v[1])
@@ -516,6 +519,7 @@ class MacOSWindow(BaseWindow):
 
         Use aot=False to deactivate always-on-top behavior
         """
+        # TODO: Is there an attribute or similar to force window always on top?
         raise NotImplementedError
 
     def alwaysOnBottom(self, aob: bool = True) -> bool:
@@ -523,6 +527,7 @@ class MacOSWindow(BaseWindow):
 
         Use aob=False to deactivate always-on-bottom behavior
         """
+        # TODO: Is there an attribute or similar to force window always at bottom?
         raise NotImplementedError
 
     def lowerWindow(self) -> None:
@@ -535,6 +540,7 @@ class MacOSWindow(BaseWindow):
                     try
                         tell application "System Events" to tell application "%s"
                             set winList to every window whose visible is true
+                            set index of winName to (count of winList as integer)
                             if not winList = {} then
                                 repeat with oWin in (items of reverse of winList)
                                     if not name of oWin = winName then
@@ -569,23 +575,70 @@ class MacOSWindow(BaseWindow):
         """Sends the window to the very bottom, under all other windows, including desktop icons.
         It may also cause that window does not accept focus nor keyboard/mouse events.
         """
+        # TODO: Is there an attribute or similar to set window level?
         raise NotImplementedError
 
-    def getParent(self):
-        """Returns the handle of the window parent"""
-        raise NotImplementedError
+    def getParent(self) -> str:
+        """Returns the handle (role:title) of the parent window/app"""
+        cmd = """on run {arg1, arg2}
+                    set appName to arg1 as string
+                    set winName to arg2 as string
+                    set parentRole to ""
+                    set parentName to ""
+                    try
+                        tell application "System Events" to tell application process appName
+                            set parentRole to value of attribute "AXRole" of (get value of attribute "AXParent" of window winName)
+                            set parentName to value of attribute "AXTitle" of (get value of attribute "AXParent" of window winName)
+                        end tell
+                    end try
+                    return {parentRole, parentName}
+               end run"""
+        proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
+                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
+        ret, err = proc.communicate(cmd)
+        ret = ret.replace("\n", "")
+        role, parent = ret.split(", ")
+        result = ""
+        if role and parent:
+            result = role + SEP + parent
+        return result
 
-    def getHandle(self):
-        """Returns the handle of the window"""
-        raise NotImplementedError
+    def getHandle(self) -> str:
+        """Returns the handle (role:title) of the window"""
+        return "AXWindow" + SEP + self.title
 
-    def isParent(self, hWnd: BaseWindow) -> bool:
-        """Returns True if the window is parent of the given window as input argument"""
-        raise NotImplementedError
+    def isParent(self, child: str) -> bool:
+        """Returns True if the window is parent of the given window as input argument
 
-    def isChild(self, hWnd: BaseWindow) -> bool:
-        """Returns True if the window is child of the given window as input argument"""
-        raise NotImplementedError
+        Args:
+        ----
+            ''child'' title/handle (role:title) of the window you want to check if the current window is parent of
+        """
+        if ":" in child:
+            part = child.split(SEP)
+            if len(part) > 1:
+                child = part[1]
+        windows = getWindowsWithTitle(child)
+        found = False
+        for win in windows:
+            if win.getParent() == self.getHandle():
+                found = True
+                break
+        return found
+
+    def isChild(self, parent: str) -> bool:
+        """Returns True if the window is child of the given window as input argument
+
+        Args:
+        ----
+            ''parent'' title/handle (role:title) of the window/app you want to check if the current window is child of
+        """
+        currParent = self.getParent()
+        if ":" not in parent:
+            part = currParent.split(SEP)
+            if len(part) > 1:
+                currParent = part[1]
+        return currParent == parent
 
     @property
     def isMinimized(self) -> bool:
@@ -726,7 +779,6 @@ class MacOSWindow(BaseWindow):
             self._menuStructure = {}
             self.menuList = []
             self.itemList = []
-            self._sep = "|&|"
 
         def getMenu(self, addItemInfo: bool = False) -> dict:
             """Loads and returns the MENU struct in a dictionary format, if exists, or empty.
@@ -882,7 +934,7 @@ class MacOSWindow(BaseWindow):
 
                     option = self._menuStructure
                     if section:
-                        for sec in section.split(self._sep):
+                        for sec in section.split(SEP):
                             if sec:
                                 option = option[sec]
 
@@ -892,7 +944,7 @@ class MacOSWindow(BaseWindow):
                             item = "separator"
                             option[item] = {}
                         else:
-                            ref = section.replace(self._sep + "entries", "") + self._sep + item
+                            ref = section.replace(SEP + "entries", "") + SEP + item
                             option[item] = {"parent": parent, "wID": self._getNewWid(ref)}
                             if size and pos and size != "missing value" and pos != "missing value":
                                 x, y = pos
@@ -906,7 +958,7 @@ class MacOSWindow(BaseWindow):
                                     option[item]["hSubMenu"] = self._getNewHSubMenu(ref)
                                     option[item]["entries"] = {}
                                     subfillit(submenu, subSize, subPos, subAttr,
-                                              section + self._sep + item + self._sep + "entries",
+                                              section + SEP + item + SEP + "entries",
                                               level=level+1, mainlevel=mainlevel, parent=hSubMenu)
                                 else:
                                     option[item]["hSubMenu"] = 0
@@ -915,7 +967,7 @@ class MacOSWindow(BaseWindow):
                     hSubMenu = self._getNewHSubMenu(item)
                     self._menuStructure[item] = {"hSubMenu": hSubMenu, "wID": self._getNewWid(item), "entries": {}}
                     subfillit(flatNameList[1][i], flatSizeList[1][i], flatPosList[1][i], flatAttrList[1][i] if addItemInfo else [],
-                              item + self._sep + "entries", level=1, mainlevel=i, parent=hSubMenu)
+                              item + SEP + "entries", level=1, mainlevel=i, parent=hSubMenu)
 
             if findit():
                 flatenit()
@@ -1200,7 +1252,7 @@ class MacOSWindow(BaseWindow):
             itemPath = []
             if self._checkMenuStruct():
                 if 0 < wID <= len(self.itemList):
-                    itemPath = self.itemList[wID - 1].split(self._sep)
+                    itemPath = self.itemList[wID - 1].split(SEP)
             return itemPath
 
         def _getNewHSubMenu(self, ref):
@@ -1211,7 +1263,7 @@ class MacOSWindow(BaseWindow):
             menuPath = []
             if self._checkMenuStruct():
                 if 0 < hSubMenu <= len(self.menuList):
-                    menuPath = self.menuList[hSubMenu - 1].split(self._sep)
+                    menuPath = self.menuList[hSubMenu - 1].split(SEP)
             return menuPath
 
         def _getMenuItemWid(self, itemPath: str) -> str:
@@ -1450,21 +1502,19 @@ class MacOSNSWindow(BaseWindow):
 
     def getParent(self):
         """Returns the handle of the window parent"""
-        raise NotImplementedError
+        return self._hWnd.hWnd.parentWindow()
 
     def getHandle(self):
         """Returns the handle of the window"""
-        raise NotImplementedError
+        return self._hWnd
 
-    def isParent(self, hWnd: BaseWindow) -> bool:
-        """Returns True if the window is parent of the given window as input argument
-        """
-        raise NotImplementedError
+    def isParent(self, child) -> bool:
+        """Returns True if the window is parent of the given window as input argument"""
+        return child.parentWindow() == self._hWnd
 
-    def isChild(self, hWnd: BaseWindow) -> bool:
-        """Returns True if the window is child of the given window as input argument
-        """
-        raise NotImplementedError
+    def isChild(self, parent) -> bool:
+        """Returns True if the window is child of the given window as input argument"""
+        return parent == self.getParent()
 
     @property
     def isMinimized(self) -> bool:
@@ -1556,7 +1606,7 @@ def main():
     print("ALL WINDOWS", getAllTitles())
     npw = getActiveWindow()
     print("ACTIVE WINDOW:", npw.title, "/", npw.box)
-    print("")
+    print()
     displayWindowsUnderMouse(0, 0)
 
 

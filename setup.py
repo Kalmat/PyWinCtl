@@ -20,7 +20,7 @@ setup(
     name='PyWinCtl',
     version=version,
     url='https://github.com/Kalmat/PyWinCtl',
-    download_url='https://github.com/Kalmat/PyWinCtl/archive/refs/tags/v.0.0.11-beta.tar.gz',
+    # download_url='https://github.com/Kalmat/PyWinCtl/archive/refs/tags/%s.tar.gz' % version,
     author='Kalmat',
     author_email='palookjones@gmail.com',
     description=('A cross-platform module to control and obtain GUI information on application\'s windows.'),

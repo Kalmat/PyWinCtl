@@ -103,7 +103,7 @@ def _findWindowHandles(parent: int = None, window_class: str = None, title: str 
 
 
 class Win32Window(BaseWindow):
-    def __init__(self, hWnd):
+    def __init__(self, hWnd: int):
         super().__init__()
         self._hWnd = hWnd
         self._setupRectProperties()
@@ -243,6 +243,7 @@ class Win32Window(BaseWindow):
                 # There is no HWND_TOPBOTTOM (similar to TOPMOST), so it won't keep window below all others as desired
                 # May be catching WM_WINDOWPOSCHANGING event? Not sure if possible for a "foreign" window, and seems really complex
                 # https://stackoverflow.com/questions/64529896/attach-keyboard-hook-to-specific-window
+                # TODO: Try to find other smarter methods to keep window at the bottom
                 ret = True
                 if self._t is None:
                     self._t = _SendBottom(self._hWnd)
@@ -305,25 +306,36 @@ class Win32Window(BaseWindow):
             # win32gui.SetLayeredWindowAttributes(self._hWnd, win32api.RGB(255, 255, 255), 255, win32con.LWA_COLORKEY)
             # win32gui.UpdateWindow(self._hWnd)
             # Didn't find a better way to update window content by the moment (also tried redraw(), update(), ...)
+            # TODO: Find another way to properly update window
             result = result | win32gui.ShowWindow(self._hWnd, win32con.SW_MINIMIZE)
             result = result | win32gui.ShowWindow(self._hWnd, win32con.SW_RESTORE)
         return result != 0
 
-    def getParent(self):
+    def getParent(self) -> int:
         """Returns the handle of the window parent"""
-        return self._parent
+        return win32gui.GetParent(self._hWnd)
 
-    def getHandle(self):
+    def getHandle(self) -> int:
         """Returns the handle of the window"""
         return self._hWnd
 
-    def isParent(self, hWnd: BaseWindow) -> bool:
-        """Returns True if the window is parent of the given window as input argument"""
-        return hWnd.getParent() == self._hWnd
+    def isParent(self, child: int) -> bool:
+        """Returns True if the window is parent of the given window as input argument
 
-    def isChild(self, hWnd: BaseWindow) -> bool:
-        """Returns True if the window is child of the given window as input argument"""
-        return hWnd.getHandle() == self._parent
+        Args:
+        ----
+            ''child'' handle of the window you want to check if the current window is parent of
+        """
+        return win32gui.GetParent(child) == self._hWnd
+
+    def isChild(self, parent: int) -> bool:
+        """Returns True if the window is child of the given window as input argument
+
+        Args:
+        ----
+            ''parent'' handle of the window/app you want to check if the current window is child of
+        """
+        return parent == self.getParent()
 
     @property
     def isMinimized(self) -> bool:
