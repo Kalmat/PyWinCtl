@@ -2,9 +2,9 @@
 
 Cross-Platform module to gather information on and control windows opened on screen.
 
-This module is a fork from asweigart's PyGetWindow module (https://github.com/asweigart/PyGetWindow), which adds Linux and macOS experimental support to the MS Windows-only original module, in the hope others can use it, test it or contribute
+This module is a Python 3 fork from [asweigart's PyGetWindow module](https://github.com/asweigart/PyGetWindow), which adds Linux and macOS experimental support to the MS Windows-only original module, in the hope others can use it, test it or contribute
 
-My most sincere thanks and acknowledgement to macdeport (https://github.com/macdeport) and holychowders (https://github.com/holychowders) for their help and moral boost.
+My most sincere thanks and acknowledgement to [macdeport](https://github.com/macdeport) and [holychowders](https://github.com/holychowders) for their help and moral boost.
 
 ## Window Features
 
@@ -87,26 +87,28 @@ To install this module on your system, you can use pip:
 
     pip install pywinctl
 
-Alternatively, you can download the wheel file (.whl) located in "dist" folder, and run this (don't forget to replace 'x.x.xx' with proper version number):
+Alternatively, you can download the wheel file (.whl) available in the [Donwnload page](https://pypi.org/project/pywin32/#files) and the [dist folder](https://github.com/Kalmat/PyWinCtl/tree/master/dist), and run this (don't forget to replace 'x.x.xx' with proper version number):
 
     pip install PyWinCtl-x.x.xx-py3-none-any.whl
 
-You may want to add '--force-reinstall' option to be sure you are installing the right dependencies version.
+You may want to add `--force-reinstall` option to be sure you are installing the right dependencies version.
 
 Then, you can use it on your own projects just importing it:
 
     import pywinctl
 
+## SUPPORT
+
+In case you have a problem, comments or suggestions, do not hesitate to [open issues](https://github.com/Kalmat/PyWinCtl/issues) on the [project homepage](https://github.com/Kalmat/PyWinCtl)
+
 ## USING THIS CODE
 
 If you want to use this code or contribute, you can either:
 
-* Create a fork of this repository, or 
-* Download the repository, uncompress, and open it on your IDE of choice (e.g. PyCharm)
+* Create a fork of the [repository](https://github.com/Kalmat/PyWinCtl), or 
+* [Download the repository](https://github.com/Kalmat/PyWinCtl/archive/refs/heads/master.zip), uncompress, and open it on your IDE of choice (e.g. PyCharm)
 
 Be sure you install all dependencies described on "docs/requirements.txt" by using pip
-
-In case you have any issues, comments or suggestions, do not hesitate to open an issue, or contact me (palookjones@gmail.com)
 
 ## TEST
 

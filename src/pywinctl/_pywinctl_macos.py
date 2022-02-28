@@ -634,7 +634,7 @@ class MacOSWindow(BaseWindow):
             ''parent'' title/handle (role:title) of the window/app you want to check if the current window is child of
         """
         currParent = self.getParent()
-        if ":" not in parent:
+        if SEP not in parent:
             part = currParent.split(SEP)
             if len(part) > 1:
                 currParent = part[1]
@@ -1502,7 +1502,7 @@ class MacOSNSWindow(BaseWindow):
 
     def getParent(self):
         """Returns the handle of the window parent"""
-        return self._hWnd.hWnd.parentWindow()
+        return self._hWnd.parentWindow()
 
     def getHandle(self):
         """Returns the handle of the window"""

@@ -205,8 +205,6 @@ def basic_win32(npw):
     # Test parent methods
     parent = npw.getParent()
     assert npw.isChild(parent)
-    parentObj = pywinctl.Win32Window(parent)
-    assert parentObj.isParent(npw.getHandle())
 
     # Test menu options
     menu = npw.menu.getMenu()
@@ -380,8 +378,6 @@ def basic_linux(npw):
     # Test parent methods
     parent = npw.getParent()
     assert npw.isChild(parent)
-    parentObj = pywinctl.LinuxWindow(parent)
-    assert parentObj.isParent(npw.getHandle())
 
     # Test closing
     npw.close()
@@ -538,17 +534,6 @@ def basic_macOS(npw):
     # Test parent methods
     parent = npw.getParent()
     assert parent and npw.isChild(parent)
-    part = parent.split(pywinctl._pywinctl_macos.SEP)
-    parentName = None
-    if len(part) > 1:
-        parentName = part[1]
-    windows = []
-    if parentName:
-        windows = pywinctl.getWindowsWithTitle(parentName)
-    parentObj = None
-    if windows:
-        parentObj = windows[0]
-    assert parentObj and parentObj.isChild(npw.getHandle())
 
     # Test menu options
     menu = npw.menu.getMenu()
