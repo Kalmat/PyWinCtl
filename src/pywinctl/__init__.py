@@ -6,7 +6,7 @@
 # Xlib and ewmh on Linux
 
 
-__version__ = "0.0.17"
+__version__ = "0.0.18"
 
 import sys, collections, pyrect
 
@@ -25,19 +25,22 @@ class BaseWindow:
     def __init__(self):
         pass
 
-    def _setupRectProperties(self) -> None:
+    def _setupRectProperties(self, bounds: Rect = None) -> None:
 
         def _onRead(attrName):
             r = self._getWindowRect()
-            self._rect._left = r.left  # Setting _left directly to skip the onRead.
-            self._rect._top = r.top  # Setting _top directly to skip the onRead.
-            self._rect._width = r.right - r.left  # Setting _width directly to skip the onRead.
-            self._rect._height = r.bottom - r.top  # Setting _height directly to skip the onRead.
+            self._rect._left = r.left               # Setting _left directly to skip the onRead.
+            self._rect._top = r.top                 # Setting _top directly to skip the onRead.
+            self._rect._width = r.right - r.left    # Setting _width directly to skip the onRead.
+            self._rect._height = r.bottom - r.top   # Setting _height directly to skip the onRead.
 
         def _onChange(oldBox, newBox):
             self._moveResizeTo(newBox.left, newBox.top, newBox.width, newBox.height)
 
-        r = self._getWindowRect()
+        if bounds:
+            r = bounds
+        else:
+            r = self._getWindowRect()
         self._rect = pyrect.Rect(r.left, r.top, r.right - r.left, r.bottom - r.top, onChange=_onChange, onRead=_onRead)
 
     def _getWindowRect(self) -> Rect:
@@ -150,26 +153,28 @@ class BaseWindow:
         raise NotImplementedError
 
     def isParent(self, child) -> bool:
-        """Returns True if the window is parent of the given window as input argument"""
+        """Returns ''True'' if the window is parent of the given window as input argument"""
         raise NotImplementedError
+    isParentOf = isParent  # isParentOf is an alias of isParent method
 
     def isChild(self, parent) -> bool:
-        """Returns True if the window is child of the given window as input argument"""
+        """Returns ''True'' if the window is child of the given window as input argument"""
         raise NotImplementedError
+    isChildOf = isChild  # isParentOf is an alias of isParent method
 
     @property
     def isMinimized(self) -> bool:
-        """Returns True if the window is currently minimized."""
+        """Returns ''True'' if the window is currently minimized."""
         raise NotImplementedError
 
     @property
     def isMaximized(self) -> bool:
-        """Returns True if the window is currently maximized."""
+        """Returns ''True'' if the window is currently maximized."""
         raise NotImplementedError
 
     @property
     def isActive(self) -> bool:
-        """Returns True if the window is currently the active, foreground window."""
+        """Returns ''True'' if the window is currently the active, foreground window."""
         raise NotImplementedError
 
     @property
@@ -375,8 +380,9 @@ if sys.platform == "darwin":
         getWindowsWithTitle,
         getAllWindows,
         getAllTitles,
-        cursor,
-        resolution,
+        getMousePos,
+        getScreenSize,
+        getWorkArea,
     )
 
     Window = MacOSWindow
@@ -390,8 +396,9 @@ elif sys.platform == "win32":
         getWindowsWithTitle,
         getAllWindows,
         getAllTitles,
-        cursor,
-        resolution,
+        getMousePos,
+        getScreenSize,
+        getWorkArea,
     )
 
     Window = Win32Window
@@ -404,8 +411,9 @@ elif sys.platform == "linux":
         getWindowsWithTitle,
         getAllWindows,
         getAllTitles,
-        cursor,
-        resolution,
+        getMousePos,
+        getScreenSize,
+        getWorkArea,
     )
 
     Window = LinuxWindow

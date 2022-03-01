@@ -459,22 +459,24 @@ class LinuxWindow(BaseWindow):
         return self._hWnd
 
     def isParent(self, child: Union[Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]) -> bool:
-        """Returns True if the window is parent of the given window as input argument
+        """Returns ''True'' if the window is parent of the given window as input argument
 
         Args:
         ----
             ''child'' handle of the window you want to check if the current window is parent of
         """
         return child.query_tree().parent == self._hWnd
+    isParentOf = isParent  # isParentOf is an alias of isParent method
 
     def isChild(self, parent: Union[Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]) -> bool:
-        """Returns True if the window is child of the given window as input argument
+        """Returns ''True'' if the window is child of the given window as input argument
 
-        Args:
-        ----
-            ''parent'' handle of the window/app you want to check if the current window is child of
-        """
+                Args:
+                ----
+                    ''parent'' handle of the window/app you want to check if the current window is child of
+                """
         return parent == self.getParent()
+    isChildOf = isChild  # isParentOf is an alias of isParent method
 
     @property
     def isMinimized(self) -> bool:
@@ -519,8 +521,8 @@ class LinuxWindow(BaseWindow):
         return state != Xlib.X.IsUnmapped
 
 
-def cursor() -> Point:
-    """Returns the current xy coordinates of the mouse cursor as a two-integer tuple
+def getMousePos() -> Point:
+    """Returns the current xy coordinates of the mouse cursor as a Point struct
 
     Returns:
       (x, y) tuple of the current xy coordinates of the mouse cursor.
@@ -528,15 +530,33 @@ def cursor() -> Point:
     mp = ROOT.query_pointer()
     return Point(mp.root_x, mp.root_y)
 
+cursor = getMousePos  # cursor is an alias for getMousePos
 
-def resolution() -> Size:
-    """Returns the width and height of the screen as a two-integer tuple.
+
+def getScreenSize() -> Size:
+    """Returns the width and height of the screen as Size struct.
 
     Returns:
       (width, height) tuple of the screen size, in pixels.
     """
     res = EWMH.getDesktopGeometry()
     return Size(res[0], res[1])
+
+resolution = getScreenSize  # resolution is an alias for getScreenSize
+
+
+def getWorkArea() -> Rect:
+    """Returns the x, y, width, height of the working area of the screen as a Rect struct.
+
+    Returns:
+      (left, top, right, bottom) tuple of the working area of the screen, in pixels.
+    """
+    work_area = EWMH.getWorkArea()
+    x = work_area[0]
+    y = work_area[1]
+    w = work_area[2]
+    h = work_area[3]
+    return Rect(x, y, x + w, y + h)
 
 
 def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
@@ -547,7 +567,7 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
     try:
         prevWindows = None
         while True:
-            x, y = cursor()
+            x, y = getMousePos()
             positionStr = 'X: ' + str(x - xOffset).rjust(4) + ' Y: ' + str(y - yOffset).rjust(4) + '  (Press Ctrl-C to quit)'
             if prevWindows is not None:
                 sys.stdout.write(positionStr)

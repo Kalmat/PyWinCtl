@@ -1,8 +1,10 @@
 # PyWinCtl
 
-Cross-Platform module to gather information on and control windows opened on screen.
+Cross-Platform module to get info on and control windows on screen.
 
-This module is a Python 3 fork from [asweigart's PyGetWindow module](https://github.com/asweigart/PyGetWindow), which adds Linux and macOS experimental support to the MS Windows-only original module, in the hope others can use it, test it or contribute
+This module is a Python 3 fork from [asweigart's PyGetWindow module](https://github.com/asweigart/PyGetWindow), which adds Linux and macOS experimental support to the MS Windows-only original module, in the hope others can use it, test it or contribute.
+
+With PyWinCtl you can retrieve info or control windows from other open applications, as well as use it as a cross-platform toolkit to manipulate your own application windows.
 
 My most sincere thanks and acknowledgement to [macdeport](https://github.com/macdeport) and [holychowders](https://github.com/holychowders) for their help and moral boost.
 
@@ -18,9 +20,9 @@ All these functions are available at the moment, in all three platforms (Windows
 |  getAllTitles  |  restore  |  isActive  |
 |  getWindowsWithTitle  |  hide  |  isVisible  |
 |  getWindowsAt  |  show  |  | 
-|  cursor (mouse position)  |  activate  |    |  
-|  resolution (screen size)  |  resize / resizeRel  |  |   
-|  |  resizeTo  |  |  
+|  getMousePos  |  activate  |    |  
+|  getScreenSize  |  resize / resizeRel  |  |   
+|  getWorkArea  |  resizeTo  |  |
 |  |  move / moveRel  |  |  
 |  |  moveTo  |  |  
 |  |  alwaysOnTop  |    |
@@ -37,7 +39,7 @@ All these functions are available at the moment, in all three platforms (Windows
 macOS doesn't "like" controlling windows from other apps, so there are two separate classes you can use:
 
 - To control your own application's windows: MacOSNSWindow() is based on NSWindow Objects (you have to pass the NSApp() Object reference).
-- To control other applications' windows: MacOSWindow() is based on Apple Script, so it is slower and, in some cases, tricky (uses window name as reference), but it's working fine in most cases. You will likely need to grant permissions on Settings->Security&Privacy->Accessibility.
+- To control other applications' windows: MacOSWindow() is based on Apple Script, so it is slower and, in some cases, tricky (uses window name as reference), but it's working fine in most cases. You will likely need to grant permissions on Settings -> Security&Privacy -> Accessibility.
 
 ## Menu Features
 

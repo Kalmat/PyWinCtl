@@ -37,7 +37,7 @@ setup(
         "ewmh==0.1.6; sys_platform == 'linux'",
         "pyobjc==8.1; sys_platform == 'darwin'"
     ],
-    keywords="gui window menu title name geometry size position move resize minimize maximize restore hide show activate raise lower close",
+    keywords="gui window control menu title name geometry size position move resize minimize maximize restore hide show activate raise lower close",
     classifiers=[
         'Development Status :: 4 - Beta',
         'Environment :: Win32 (MS Windows)',

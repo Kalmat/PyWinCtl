@@ -7,6 +7,7 @@ import time
 import threading
 from typing import List
 
+import win32api
 import win32con
 import win32gui
 import win32gui_struct
@@ -157,7 +158,7 @@ class Win32Window(BaseWindow):
             retries += 1
             time.sleep(WAIT_DELAY * retries)
         return not self.isMaximized and not self.isMinimized
-        
+
     def show(self, wait: bool = False) -> bool:
         """If hidden or showing, shows the window on screen and in title bar."""
         win32gui.ShowWindow(self._hWnd, win32con.SW_SHOW)
@@ -238,7 +239,7 @@ class Win32Window(BaseWindow):
         ret = False
         if aob:
             result = win32gui.SetWindowPos(self._hWnd, win32con.HWND_BOTTOM, 0, 0, 0, 0,
-                                  win32con.SWP_NOSENDCHANGING | win32con.SWP_NOOWNERZORDER | win32con.SWP_ASYNCWINDOWPOS | win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE | win32con.SWP_NOREDRAW | win32con.SWP_NOCOPYBITS)
+                                           win32con.SWP_NOSENDCHANGING | win32con.SWP_NOOWNERZORDER | win32con.SWP_ASYNCWINDOWPOS | win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE | win32con.SWP_NOREDRAW | win32con.SWP_NOCOPYBITS)
             if result != 0:
                 # There is no HWND_TOPBOTTOM (similar to TOPMOST), so it won't keep window below all others as desired
                 # May be catching WM_WINDOWPOSCHANGING event? Not sure if possible for a "foreign" window, and seems really complex
@@ -320,22 +321,24 @@ class Win32Window(BaseWindow):
         return self._hWnd
 
     def isParent(self, child: int) -> bool:
-        """Returns True if the window is parent of the given window as input argument
+        """Returns ''True'' if the window is parent of the given window as input argument
 
         Args:
         ----
             ''child'' handle of the window you want to check if the current window is parent of
         """
         return win32gui.GetParent(child) == self._hWnd
+    isParentOf = isParent  # isParentOf is an alias of isParent method
 
     def isChild(self, parent: int) -> bool:
-        """Returns True if the window is child of the given window as input argument
+        """Returns ''True'' if the window is child of the given window as input argument
 
-        Args:
-        ----
-            ''parent'' handle of the window/app you want to check if the current window is child of
-        """
+                Args:
+                ----
+                    ''parent'' handle of the window/app you want to check if the current window is child of
+                """
         return parent == self.getParent()
+    isChildOf = isChild  # isParentOf is an alias of isParent method
 
     @property
     def isMinimized(self) -> bool:
@@ -581,25 +584,46 @@ class _SendBottom(threading.Thread):
         self._kill.set()
 
 
-def cursor():
-    """Returns the current xy coordinates of the mouse cursor as a two-integer
+def getMousePos():
+    """Returns the current xy coordinates of the mouse cursor as Point struct
     tuple by calling the GetCursorPos() win32 function.
 
     Returns:
       (x, y) tuple of the current xy coordinates of the mouse cursor.
     """
+    ctypes.windll.user32.SetProcessDPIAware()
+    cursor = win32api.GetCursorPos()
+    return Point(cursor[0], cursor[1])
 
-    cursor = win32gui.GetCursorPos()
-    return Point(x=cursor[0], y=cursor[1])
+cursor = getMousePos  # cursor is an alias for getMousePos
 
 
-def resolution():
-    """Returns the width and height of the screen as a two-integer tuple.
+def getScreenSize() -> Size:
+    """Returns the width and height of the screen as a Size struct.
 
     Returns:
       (width, height) tuple of the screen size, in pixels.
     """
-    return Size(width=ctypes.windll.user32.GetSystemMetrics(0), height=ctypes.windll.user32.GetSystemMetrics(1))
+    ctypes.windll.user32.SetProcessDPIAware()
+    return Size(ctypes.windll.user32.GetSystemMetrics(0), ctypes.windll.user32.GetSystemMetrics(1))
+
+resolution = getScreenSize  # resolution is an alias for getScreenSize
+
+
+def getWorkArea(win32api_struct=None) -> Rect:
+    """Returns the x, y, width, height of the working area of the screen as a Rect struct.
+
+    Returns:
+      (left, top, right, bottom) tuple of the working area of the screen, in pixels.
+    """
+    ctypes.windll.user32.SetProcessDPIAware()
+    monitor_info = win32api.GetMonitorInfo(win32api.MonitorFromPoint((0, 0)))
+    work_area = monitor_info.get("Work")
+    x = work_area[0]
+    y = work_area[1]
+    w = work_area[2]
+    h = work_area[3]
+    return Rect(x, y, x + w, y + h)
 
 
 def displayWindowsUnderMouse(xOffset=0, yOffset=0):
@@ -611,7 +635,7 @@ def displayWindowsUnderMouse(xOffset=0, yOffset=0):
     try:
         prevWindows = None
         while True:
-            x, y = cursor()
+            x, y = getMousePos()
             positionStr = 'X: ' + str(x - xOffset).rjust(4) + ' Y: ' + str(y - yOffset).rjust(
                 4) + '  (Press Ctrl-C to quit)'
             if prevWindows is not None:
