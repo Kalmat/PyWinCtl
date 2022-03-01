@@ -109,15 +109,16 @@ def getAllWindows(app: AppKit.NSApplication = None):
         titleList = _getWindowTitles()
         for item in titleList:
             pID = item[0]
-            title = item[1][0][0]
-            x = int(item[1][1][0][0])
-            y = int(item[1][1][0][1])
-            w = int(item[1][2][0][0])
-            h = int(item[1][2][0][1])
-            rect = Rect(x, y, x + w, y + h)
-            for app in activeApps:
-                if app.processIdentifier() == pID:
-                    windows.append(MacOSWindow(app, title, rect))
+            if len(item[1][0]) > 0:
+                title = item[1][0][0]
+                x = int(item[1][1][0][0])
+                y = int(item[1][1][0][1])
+                w = int(item[1][2][0][0])
+                h = int(item[1][2][0][1])
+                rect = Rect(x, y, x + w, y + h)
+                for app in activeApps:
+                    if app.processIdentifier() == pID:
+                        windows.append(MacOSWindow(app, title, rect))
     else:
         for win in app.orderedWindows():
             windows.append(MacOSNSWindow(app, win))
@@ -135,6 +136,7 @@ def _getWindowTitles() -> List[List[str]]:
                                 end tell
                                 return winNames'"""
     ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("{", "[").replace("}", "]")
+    print(ret)
     res = ast.literal_eval(ret)
     return res
 
