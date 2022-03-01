@@ -136,7 +136,6 @@ def _getWindowTitles() -> List[List[str]]:
                                 end tell
                                 return winNames'"""
     ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("{", "[").replace("}", "]")
-    print(ret)
     res = ast.literal_eval(ret)
     return res
 
