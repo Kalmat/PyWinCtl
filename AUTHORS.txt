@@ -1,4 +1,4 @@
-PyWinCtl contributors and maintainers:
+PyWinCtl authors, contributors and maintainers:
 
 Kalmat https://github.com/Kalmat
 macdeport https://github.com/macdeport

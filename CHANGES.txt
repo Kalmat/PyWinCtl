@@ -1,5 +1,6 @@
 v0.0.19, 2022/03/02 -- Added getWorkArea() and version() methods; and improved performance of macOS Apple Script (MacOSWindow) lists-related methods (getAllTitles() and getAllWindows())
+v0.0.17, 2022/02/28 -- Added parent-related methods tests, and fixed some bugs
 v0.0.15, 2022/02/28 -- Added getParent(), getHandle(), isParent(), isChild() methods
-v0.0.12, 2022/02/27 -- Brown bag version
+v0.0.12, 2022/02/27 -- Brown paper bag version
 v0.0.11, 2022/02/22 -- Added Menu info and methods for Windows and macOS
 v0.0.10, 2021/11/12 -- Added Linux and macOS support

@@ -34,12 +34,12 @@ All these functions are available at the moment, in all three platforms (Windows
 |  |  isParent  |    |  
 |  |  isChild  |    |  
 
-#### IMPORTANT macOS NOTICE:
+#### Important macOS notice:
 
 macOS doesn't "like" controlling windows from other apps, so there are two separate classes you can use:
 
 - To control your own application's windows: MacOSNSWindow() is based on NSWindow Objects (you have to pass the NSApp() Object reference).
-- To control other applications' windows: MacOSWindow() is based on Apple Script, so it is slower and, in some cases, tricky (uses window name as reference), but it's working fine in most cases. You will likely need to grant permissions on Settings -> Security&Privacy -> Accessibility.
+- To control other applications' windows: MacOSWindow() is based on Apple Script, so it is slower and, in some cases, tricky (uses window name as reference, which may change or be duplicate), but it's working fine in most cases. You will likely need to grant permissions on Settings -> Security&Privacy -> Accessibility.
 
 ## Menu Features
 

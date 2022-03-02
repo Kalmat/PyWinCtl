@@ -38,7 +38,7 @@ def getActiveWindow(app: AppKit.NSApplication = None):
                     set winName to ""
                     try
                         tell application "System Events" to tell application process appName
-7                            set winName to name of (first window whose value of attribute "AXMain" is true)
+                            set winName to name of (first window whose value of attribute "AXMain" is true)
                         end tell
                     end try
                     return winName
@@ -132,10 +132,12 @@ def _getWindowTitles() -> List[List[str]]:
     # https://gist.github.com/qur2/5729056 - qur2
     cmd = """osascript -s s -e 'tell application "System Events"
                                     set winNames to {}
-                                    set actP to every process whose background only is false
-                                    repeat with p in actP
-                                        set end of winNames to {unix id of p, {name, position, size} of every window in p}
-                                    end repeat
+                                    try
+                                        set actP to every process whose background only is false
+                                        repeat with p in actP
+                                            set end of winNames to {unix id of p, {name, position, size} of every window in p}
+                                        end repeat
+                                    end try
                                 end tell
                                 return winNames'"""
     ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("{", "[").replace("}", "]")
