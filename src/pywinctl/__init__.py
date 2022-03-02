@@ -6,7 +6,7 @@
 # Xlib and ewmh on Linux
 
 
-__version__ = "0.0.18"
+__version__ = "0.0.19"
 
 import sys, collections, pyrect
 
@@ -19,6 +19,11 @@ def pointInRect(x, y, left, top, width, height):
     """Returns ``True`` if the ``(x, y)`` point is within the box described
     by ``(left, top, width, height)``."""
     return left < x < left + width and top < y < top + height
+
+
+def version():
+    return "PyWinCtl "+__version__
+getVersion = version  # getVersion is an alias for version method
 
 
 class BaseWindow:

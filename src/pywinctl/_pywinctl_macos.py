@@ -38,7 +38,7 @@ def getActiveWindow(app: AppKit.NSApplication = None):
                     set winName to ""
                     try
                         tell application "System Events" to tell application process appName
-                            set winName to name of (first window whose value of attribute "AXMain" is true)
+7                            set winName to name of (first window whose value of attribute "AXMain" is true)
                         end tell
                     end try
                     return winName
@@ -66,10 +66,12 @@ def getActiveWindowTitle(app: AppKit.NSApplication = None) -> str:
         return ""
 
 
-def getWindowsAt(x: int, y: int, app: AppKit.NSApplication = None):
+def getWindowsAt(x: int, y: int, app: AppKit.NSApplication = None, allWindows=None):
     """Returns a list of windows under the mouse pointer or an empty list."""
     matches = []
-    for win in getAllWindows(app):
+    if not allWindows:
+        allWindows = getAllWindows(app)
+    for win in allWindows:
         box = win.box
         if pointInRect(x, y, box.left, box.top, box.width, box.height):
             matches.append(win)
@@ -90,6 +92,7 @@ def getAllTitles(app: AppKit.NSApplication = None) -> List[str]:
     """Returns a list of strings of window titles for all visible windows."""
     if not app:
         cmd = """osascript -e 'tell application "System Events"
+                                    set winNames to {}
                                     try
                                         set winNames to name of (every window of (every process whose background only is false))
                                     end try
@@ -109,7 +112,7 @@ def getAllWindows(app: AppKit.NSApplication = None):
         titleList = _getWindowTitles()
         for item in titleList:
             pID = item[0]
-            if len(item[1][0]) > 0:
+            if len(item[1][0]) > 0 and len(item[1][0][0]) > 0:
                 title = item[1][0][0]
                 x = int(item[1][1][0][0])
                 y = int(item[1][1][0][1])
@@ -1609,6 +1612,7 @@ def displayWindowsUnderMouse(xOffset:int = 0, yOffset: int = 0) -> None:
     if xOffset != 0 or yOffset != 0:
         print('xOffset: %s yOffset: %s' % (xOffset, yOffset))
     try:
+        index = 0
         prevWindows = None
         while True:
             x, y = getMousePos()
@@ -1616,7 +1620,9 @@ def displayWindowsUnderMouse(xOffset:int = 0, yOffset: int = 0) -> None:
             if prevWindows is not None:
                 sys.stdout.write(positionStr)
                 sys.stdout.write('\b' * len(positionStr))
-            windows = getWindowsAt(x, y)
+            if index % 50 == 0:
+                allWindows = getAllWindows()
+            windows = getWindowsAt(x, y, app=None, allWindows=allWindows)
             if windows != prevWindows:
                 prevWindows = windows
                 print('\n')
@@ -1625,7 +1631,8 @@ def displayWindowsUnderMouse(xOffset:int = 0, yOffset: int = 0) -> None:
                     eraser = '' if len(name) >= len(positionStr) else ' ' * (len(positionStr) - len(name))
                     sys.stdout.write(name + eraser + '\n')
             sys.stdout.flush()
-            time.sleep(0.3)
+            index += 1
+            time.sleep(0.1)
     except KeyboardInterrupt:
         sys.stdout.write('\n\n')
         sys.stdout.flush()
