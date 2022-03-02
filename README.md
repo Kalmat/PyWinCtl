@@ -23,7 +23,7 @@ All these functions are available at the moment, in all three platforms (Windows
 |  getMousePos  |  activate  |    |  
 |  getScreenSize  |  resize / resizeRel  |  |   
 |  getWorkArea  |  resizeTo  |  |
-|  |  move / moveRel  |  |  
+|  version  |  move / moveRel  |  |  
 |  |  moveTo  |  |  
 |  |  alwaysOnTop  |    |
 |  |  alwaysOnBottom  |    |  
