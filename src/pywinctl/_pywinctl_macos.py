@@ -1676,8 +1676,6 @@ def main():
     print("PLATFORM:", sys.platform)
     print("SCREEN SIZE:", resolution())
     print("ALL WINDOWS", getAllTitles())
-    print(len(getAllTitles()))
-    print(len(getAllWindows()))
     npw = getActiveWindow()
     print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()
