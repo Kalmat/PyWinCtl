@@ -112,15 +112,16 @@ def getAllTitles(app: AppKit.NSApplication = None) -> List[str]:
         cmd = """osascript -e 'tell application "System Events"
                                     set winNames to {}
                                     try
-                                        set winNames to {name of (every window)} of (every process whose background only is false)
+                                        set winNames to {name of every window} of (every process whose background only is false)
                                     end try
                                 end tell
                                 return winNames'"""
-        ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").strip().split(", ")
+        ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace(",,", ",").split(", ")
         matches = []
         for item in ret:
-            if item:
-                matches.append(item)
+            if not item:
+                item = "<Unnamed>"
+            matches.append(item)
         ret = matches
     else:
         ret = [win.title for win in getAllWindows(app)]
@@ -166,13 +167,15 @@ def _getWindowTitles() -> List[List[str]]:
     result = []
     for i, item in enumerate(res[0]):
         title = res[1][0][i]
-        if isinstance(title, list):  # One-liner script is way faster, but produces weird data structures
-            for part in title:
-                if part:
-                    title = part
-                    break
-        if title:
-            result.append([item, title, res[1][1][i][0], res[1][2][i][0]])
+        j = 0
+        for part in title:  # One-liner script is way faster, but produces weird data structures
+            title = part
+            if not title:
+                title = "<Unnamed>"
+            pos = res[1][1][i][j]
+            size = res[1][2][i][j]
+            result.append([item, title, pos, size])
+            j += 1
     return result
 
 
