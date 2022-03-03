@@ -119,11 +119,11 @@ def getAllWindows(app: AppKit.NSApplication = None):
         for item in titleList:
             pID = item[0]
             if len(item[1][0]) > 0 and len(item[1][0][0]) > 0:
-                title = item[1][0][0]
-                x = int(item[1][1][0][0])
-                y = int(item[1][1][0][1])
-                w = int(item[1][2][0][0])
-                h = int(item[1][2][0][1])
+                title = item[1][0]
+                x = int(item[1][1][0])
+                y = int(item[1][1][1])
+                w = int(item[1][2][0])
+                h = int(item[1][2][1])
                 rect = Rect(x, y, x + w, y + h)
                 for app in activeApps:
                     if app.processIdentifier() == pID:
@@ -141,7 +141,10 @@ def _getWindowTitles() -> List[List[str]]:
                                     try
                                         set actP to every process whose background only is false
                                         repeat with p in actP
-                                            set end of winNames to {unix id of p, {name, position, size} of every window in p}
+                                            set actW to every window of p
+                                            repeat with w in actW 
+                                                set end of winNames to {unix id of p, {name, position, size} of w}
+                                            end repeat
                                         end repeat
                                     end try
                                 end tell
