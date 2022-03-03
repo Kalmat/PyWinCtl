@@ -6,6 +6,7 @@ import platform
 import subprocess
 import sys
 import time
+import timeit
 from typing import List
 
 import AppKit
@@ -99,6 +100,11 @@ def getAllTitles(app: AppKit.NSApplication = None) -> List[str]:
                                 end tell
                                 return winNames'"""
         ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").strip().split(", ")
+        matches = []
+        for item in ret:
+            if item:
+                matches.append(item)
+        ret = matches
     else:
         ret = [win.title for win in getAllWindows(app)]
     return ret
@@ -1645,6 +1651,8 @@ def main():
     print("PLATFORM:", sys.platform)
     print("SCREEN SIZE:", resolution())
     print("ALL WINDOWS", getAllTitles())
+    print(len(getAllTitles()))
+    print(len(getAllWindows()))
     npw = getActiveWindow()
     print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()

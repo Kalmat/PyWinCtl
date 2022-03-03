@@ -6,7 +6,7 @@
 # Xlib and ewmh on Linux
 
 
-__version__ = "0.0.19"
+__version__ = "0.0.20"
 
 import sys, collections, pyrect
 
@@ -22,8 +22,11 @@ def pointInRect(x, y, left, top, width, height):
 
 
 def version():
-    return "PyWinCtl "+__version__
-getVersion = version  # getVersion is an alias for version method
+    return __version__
+
+
+def getVersion():
+    return "PyWinCtl-"+__version__
 
 
 class BaseWindow:
