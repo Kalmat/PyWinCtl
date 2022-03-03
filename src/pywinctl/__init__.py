@@ -22,10 +22,12 @@ def pointInRect(x, y, left, top, width, height):
 
 
 def version():
+    """Returns the current version of PyWinCtl module, in the form ''x.x.xx'' as string"""
     return __version__
 
 
-def getVersion():
+def getNameVersion():
+    """Returns the name and current version of PyWinCtl module, in the form ''PyWinCtl-x.x.xx'' as string"""
     return "PyWinCtl-"+__version__
 
 

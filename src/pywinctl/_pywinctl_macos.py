@@ -82,10 +82,27 @@ def getWindowsAt(x: int, y: int, app: AppKit.NSApplication = None, allWindows=No
 def getWindowsWithTitle(title, app: AppKit.NSApplication = None):
     """Returns a list of window objects matching the given title or an empty list."""
     matches = []
-    windows = getAllWindows(app)
-    for win in windows:
-        if win.title == title:
-            matches.append(win)
+    if not app:
+        activeApps = _getAllApps()
+        titleList = _getWindowTitles()
+        for item in titleList:
+            pID = item[0]
+            winTitle = item[1]
+            if winTitle and winTitle == title:
+                x = int(item[2][0])
+                y = int(item[2][1])
+                w = int(item[3][0])
+                h = int(item[3][1])
+                rect = Rect(x, y, x + w, y + h)
+                for app in activeApps:
+                    if app.processIdentifier() == pID:
+                        matches.append(MacOSWindow(app, title, rect))
+                        break
+    else:
+        windows = getAllWindows(app)
+        for win in windows:
+            if win.title == title:
+                matches.append(win)
     return matches
 
 
@@ -95,7 +112,7 @@ def getAllTitles(app: AppKit.NSApplication = None) -> List[str]:
         cmd = """osascript -e 'tell application "System Events"
                                     set winNames to {}
                                     try
-                                        set winNames to name of (every window of (every process whose background only is false))
+                                        set winNames to {name of (every window)} of (every process whose background only is false)
                                     end try
                                 end tell
                                 return winNames'"""
@@ -118,16 +135,17 @@ def getAllWindows(app: AppKit.NSApplication = None):
         titleList = _getWindowTitles()
         for item in titleList:
             pID = item[0]
-            if len(item[1][0]) > 0 and len(item[1][0][0]) > 0:
-                title = item[1][0]
-                x = int(item[1][1][0])
-                y = int(item[1][1][1])
-                w = int(item[1][2][0])
-                h = int(item[1][2][1])
+            title = item[1]
+            if title:
+                x = int(item[2][0])
+                y = int(item[2][1])
+                w = int(item[3][0])
+                h = int(item[3][1])
                 rect = Rect(x, y, x + w, y + h)
                 for app in activeApps:
                     if app.processIdentifier() == pID:
                         windows.append(MacOSWindow(app, title, rect))
+                        break
     else:
         for win in app.orderedWindows():
             windows.append(MacOSNSWindow(app, win))
@@ -139,19 +157,23 @@ def _getWindowTitles() -> List[List[str]]:
     cmd = """osascript -s s -e 'tell application "System Events"
                                     set winNames to {}
                                     try
-                                        set actP to every process whose background only is false
-                                        repeat with p in actP
-                                            set actW to every window of p
-                                            repeat with w in actW 
-                                                set end of winNames to {unix id of p, {name, position, size} of w}
-                                            end repeat
-                                        end repeat
+                                        set winNames to {unix id, ({name, position, size} of (every window))} of (every process whose background only is false)
                                     end try
                                 end tell
                                 return winNames'"""
     ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("{", "[").replace("}", "]")
     res = ast.literal_eval(ret)
-    return res
+    result = []
+    for i, item in enumerate(res[0]):
+        title = res[1][0][i]
+        if isinstance(title, list):  # One-liner script is way faster, but produces weird data structures
+            for part in title:
+                if part:
+                    title = part
+                    break
+        if title:
+            result.append([item, title, res[1][1][i][0], res[1][2][i][0]])
+    return result
 
 
 def _getAllApps():
