@@ -3,6 +3,7 @@
 
 import os
 import platform
+import subprocess
 import sys
 import time
 from typing import Union, List
@@ -450,6 +451,16 @@ class LinuxWindow(BaseWindow):
             EWMH.display.flush()
             return WINDOW_NORMAL in EWMH.getWmWindowType(self._hWnd, str=True) and self.isActive
 
+    def getAppName(self) -> str:
+        """Returns the name of the app to which current window belongs to, as string"""
+        # https://stackoverflow.com/questions/32295395/how-to-get-the-process-name-by-pid-in-linux-using-python
+        pid = EWMH.getWmPid(self._hWnd)
+        with subprocess.Popen(f"ps -q {pid} -o comm=", shell=True, stdout=subprocess.PIPE) as p:
+            ret = p.communicate()
+        if len(ret) > 0:
+            ret = ret[0].decode(encoding="utf8").replace("\n", "")
+        return ret
+
     def getParent(self) -> Union[Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]:
         """Returns the handle of the window parent"""
         return self._hWnd.query_tree().parent
@@ -499,6 +510,7 @@ class LinuxWindow(BaseWindow):
     @property
     def title(self) -> str:
         """Returns the window title as a string."""
+        # TODO: detect if title changes: https://stackoverflow.com/questions/23786289/how-to-correctly-detect-application-name-when-changing-focus-event-occurs-with
         name = EWMH.getWmName(self._hWnd)
         if isinstance(name, bytes):
             name = name.decode()

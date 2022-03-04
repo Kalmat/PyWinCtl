@@ -109,19 +109,24 @@ def getWindowsWithTitle(title, app: AppKit.NSApplication = None):
 def getAllTitles(app: AppKit.NSApplication = None) -> List[str]:
     """Returns a list of strings of window titles for all visible windows."""
     if not app:
-        cmd = """osascript -e 'tell application "System Events"
+        cmd = """osascript -s 's' -e 'tell application "System Events"
                                     set winNames to {}
                                     try
                                         set winNames to {name of every window} of (every process whose background only is false)
                                     end try
                                 end tell
                                 return winNames'"""
-        ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace(",,", ",").split(", ")
+        ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
+        res = ast.literal_eval(ret)
         matches = []
-        for item in ret:
-            if not item:
-                item = "<Unnamed>"
-            matches.append(item)
+        for title in res[0]:
+            j = 0
+            for part in title:  # One-liner script is way faster, but produces weird data structures
+                title = part
+                if not title:
+                    title = "<Unnamed>"
+                matches.append(title)
+                j += 1
         ret = matches
     else:
         ret = [win.title for win in getAllWindows(app)]
@@ -162,7 +167,7 @@ def _getWindowTitles() -> List[List[str]]:
                                     end try
                                 end tell
                                 return winNames'"""
-    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("{", "[").replace("}", "]")
+    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
     res = ast.literal_eval(ret)
     result = []
     for i, item in enumerate(res[0]):
@@ -627,6 +632,10 @@ class MacOSWindow(BaseWindow):
         """
         # TODO: Is there an attribute or similar to set window level?
         raise NotImplementedError
+
+    def getAppName(self) -> str:
+        """Returns the name of the app to which current window belongs to, as string"""
+        return self._appName
 
     def getParent(self) -> str:
         """Returns the handle (role:title) of the parent window/app"""
@@ -1552,11 +1561,15 @@ class MacOSNSWindow(BaseWindow):
                                                      Quartz.NSWindowCollectionBehaviorManaged)
         return ret1 and ret2
 
-    def getParent(self):
+    def getAppName(self) -> str:
+        """Returns the name of the app to which current window belongs to, as string"""
+        return self._app.localizedName()
+
+    def getParent(self) -> int:
         """Returns the handle of the window parent"""
         return self._hWnd.parentWindow()
 
-    def getHandle(self):
+    def getHandle(self) -> int:
         """Returns the handle of the window"""
         return self._hWnd
 

@@ -8,6 +8,8 @@ import threading
 from typing import List
 
 import win32api
+import win32process
+from win32com.client import GetObject
 import win32con
 import win32gui
 import win32gui_struct
@@ -311,6 +313,21 @@ class Win32Window(BaseWindow):
             result = result | win32gui.ShowWindow(self._hWnd, win32con.SW_MINIMIZE)
             result = result | win32gui.ShowWindow(self._hWnd, win32con.SW_RESTORE)
         return result != 0
+
+    def getAppName(self) -> int:
+        """Returns the name of the app to which current window belongs to, as string"""
+        # https://stackoverflow.com/questions/550653/cross-platform-way-to-get-pids-by-process-name-in-python
+        WMI = GetObject('winmgmts:')
+        processes = WMI.InstancesOf('Win32_Process')
+        process_list = [(p.Properties_("ProcessID").Value, p.Properties_("Name").Value) for p in processes]
+        pID = win32process.GetWindowThreadProcessId(self._hWnd)
+        name = ""
+        if len(pID) > 1:
+            pID = pID[1]
+            for item in process_list:
+                if item[0] == pID:
+                    name = item[1]
+        return name
 
     def getParent(self) -> int:
         """Returns the handle of the window parent"""

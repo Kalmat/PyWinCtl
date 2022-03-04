@@ -6,7 +6,7 @@
 # Xlib and ewmh on Linux
 
 
-__version__ = "0.0.21"
+__version__ = "0.0.22"
 
 import sys, collections, pyrect
 
@@ -147,6 +147,10 @@ class BaseWindow:
         Use sb=False to bring the window back from background
 
         WARNING: On GNOME it will obscure desktop icons... by the moment"""
+        raise NotImplementedError
+
+    def getAppName(self) -> str:
+        """Returns the name of the app to which current window belongs to, as string"""
         raise NotImplementedError
 
     def getParent(self):

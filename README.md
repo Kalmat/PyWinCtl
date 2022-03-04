@@ -29,6 +29,7 @@ All these functions are available at the moment, in all three platforms (Windows
 |  |  alwaysOnBottom  |    |  
 |  |  lowerWindow  |    |  
 |  |  raiseWindow  |    |  
+|  |  getAppName  |    |
 |  |  getParent  |    |
 |  |  getHandle  |    |  
 |  |  isParent  |    |  
