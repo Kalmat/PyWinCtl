@@ -6,7 +6,6 @@ import platform
 import subprocess
 import sys
 import time
-import timeit
 from typing import List
 
 import AppKit
@@ -224,7 +223,7 @@ def _getWindowTitles() -> List[List[str]]:
     return result
 
 
-def getAllApps():
+def getAllApps() -> List[str]:
     """Returns a list of all active apps."""
     cmd = """osascript -e 'tell application "System Events"
                                     set winNames to {}
@@ -237,8 +236,8 @@ def getAllApps():
     return ret
 
 
-def getAllAppsWindows():
-    """Returns a list of all active apps and their open windows."""
+def getAllAppsWindows() -> dict:
+    """Returns a python dictionary of all active apps and their open windows."""
     cmd = """osascript -s s -e 'tell application "System Events"
                                     set winNames to {}
                                     try

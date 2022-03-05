@@ -6,7 +6,6 @@ import platform
 import subprocess
 import sys
 import time
-import timeit
 from typing import Union, List
 
 import Xlib.X
@@ -141,13 +140,13 @@ def _xlibGetAllWindows(parent: int = None, title: str = "") -> List[int]:
     return matches
 
 
-def getAllApps():
+def getAllApps() -> List[str]:
     """Returns a list of all active apps."""
     return list(getAllAppsWindows().keys())
 
 
-def getAllAppsWindows():
-    """Returns a list of all active apps and their open windows."""
+def getAllAppsWindows() -> dict:
+    """Returns a python dictionary of all active apps and their open windows."""
     result = {}
     for win in getAllWindows():
         appName = win.getAppName()

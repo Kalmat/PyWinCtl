@@ -23,7 +23,7 @@ setup(
     # download_url='https://github.com/Kalmat/PyWinCtl/archive/refs/tags/%s.tar.gz' % version,
     author='Kalmat',
     author_email='palookjones@gmail.com',
-    description=('A cross-platform module to control and obtain GUI information on application\'s windows.'),
+    description=('Cross-Platform toolkit to get info on and control windows on screen'),
     long_description=long_description,
     long_description_content_type="text/markdown",
     license='BSD 3',

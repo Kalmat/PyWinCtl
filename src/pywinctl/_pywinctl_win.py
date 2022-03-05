@@ -5,7 +5,6 @@ import ctypes
 import sys
 import time
 import threading
-import timeit
 from typing import List
 
 import win32api
@@ -121,13 +120,13 @@ def _getAllApps(tryToFilter=False):
     return process_list
 
 
-def getAllApps():
+def getAllApps() -> List[str]:
     """Returns a list of all active apps."""
     return list(getAllAppsWindows().keys())
 
 
-def getAllAppsWindows():
-    """Returns a list of all active apps and their open windows."""
+def getAllAppsWindows() -> dict:
+    """Returns a python dictionary of all active apps and their open windows."""
     process_list = _getAllApps(tryToFilter=True)
     result = {}
     for win in getAllWindows():
@@ -622,6 +621,7 @@ class _SendBottom(threading.Thread):
         last = True
         while h != 0 and h != self._hWnd:
             h = win32gui.GetWindow(h, win32con.GW_HWNDPREV)
+            # TODO: Find a way to filter user vs. system apps. It should be doable like in Task Manager!!!
             # not sure if this always guarantees these other windows are "system" windows (not user windows)
             if h != self._hWnd and win32gui.IsWindowVisible(h) and win32gui.GetClassName(h) not in ("WorkerW", "Progman"):
                 last = False
