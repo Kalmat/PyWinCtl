@@ -31,7 +31,12 @@ SEP = "|&|"
 
 
 def getActiveWindow(app: AppKit.NSApplication = None):
-    """Returns a Window object of the currently active Window or None."""
+    """Returns a Window object of the currently active Window or None.
+
+    Args:
+    ----
+        ''app'' - NSApp() Object. If passed, returns the main/key window of the given app
+    """
     if not app:
         app = WS.frontmostApplication()
         cmd = """on run arg1
@@ -59,7 +64,12 @@ def getActiveWindow(app: AppKit.NSApplication = None):
 
 
 def getActiveWindowTitle(app: AppKit.NSApplication = None) -> str:
-    """Returns a Window object of the currently active Window or empty string."""
+    """Returns a Window object of the currently active Window or empty string.
+
+    Args:
+    ----
+        ''app'' - NSApp() Object. If passed, returns the title of the main/key window of the given app
+    """
     win = getActiveWindow(app)
     if win:
         return win.title
@@ -68,7 +78,12 @@ def getActiveWindowTitle(app: AppKit.NSApplication = None) -> str:
 
 
 def getWindowsAt(x: int, y: int, app: AppKit.NSApplication = None, allWindows=None):
-    """Returns a list of windows under the mouse pointer or an empty list."""
+    """Returns a list of windows under the mouse pointer or an empty list.
+
+    Args:
+    ----
+        ''app'' - NSApp() Object. If passed, returns the windows of the given app under the mouse
+    """
     matches = []
     if not allWindows:
         allWindows = getAllWindows(app)
@@ -80,7 +95,12 @@ def getWindowsAt(x: int, y: int, app: AppKit.NSApplication = None, allWindows=No
 
 
 def getWindowsWithTitle(title, app: AppKit.NSApplication = None):
-    """Returns a list of window objects matching the given title or an empty list."""
+    """Returns a list of window objects matching the given title or an empty list.
+
+    Args:
+    ----
+        ''app'' - NSApp() Object. If passed, returns the windows of the given app matching the given title
+    """
     matches = []
     if not app:
         activeApps = _getAllApps()
@@ -106,8 +126,30 @@ def getWindowsWithTitle(title, app: AppKit.NSApplication = None):
     return matches
 
 
+def getAllTitlesB(app: AppKit.NSApplication = None) -> List[str]:
+    # This is a more "canonical" and legible way of getting all titles, but way slower than one-liner version
+    if not app:
+        cmd = """osascript -s 's' -e 'tell application "System Events"
+                                    set winNames to {}
+                                    repeat with p in every process whose background only is false
+                                        repeat with w in every window in p
+                                            set end of winNames to name of w
+                                        end repeat
+                                    end repeat
+                                end tell
+                                return winNames'"""
+        ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
+        res = ast.literal_eval(ret)
+        return res
+
+
 def getAllTitles(app: AppKit.NSApplication = None) -> List[str]:
-    """Returns a list of strings of window titles for all visible windows."""
+    """Returns a list of titles for all visible windows.
+
+    Args:
+    ----
+        ''app'' - NSApp() Object. If passed, returns the list of titles of all windows of the given app
+    """
     if not app:
         cmd = """osascript -s 's' -e 'tell application "System Events"
                                     set winNames to {}
@@ -119,12 +161,9 @@ def getAllTitles(app: AppKit.NSApplication = None) -> List[str]:
         ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
         res = ast.literal_eval(ret)
         matches = []
-        for title in res[0]:
+        for item in res[0]:
             j = 0
-            for part in title:  # One-liner script is way faster, but produces weird data structures
-                title = part
-                if not title:
-                    title = "<Unnamed>"
+            for title in item:  # One-liner script is way faster, but produces weird data structures
                 matches.append(title)
                 j += 1
         ret = matches
@@ -134,7 +173,12 @@ def getAllTitles(app: AppKit.NSApplication = None) -> List[str]:
 
 
 def getAllWindows(app: AppKit.NSApplication = None):
-    """Returns a list of window objects for all visible windows."""
+    """Returns a list of window objects for all visible windows.
+
+    Args:
+    ----
+        ''app'' - NSApp() Object. If passed, returns the list of all windows of given app
+    """
     windows = []
     if not app:
         activeApps = _getAllApps()
@@ -142,16 +186,15 @@ def getAllWindows(app: AppKit.NSApplication = None):
         for item in titleList:
             pID = item[0]
             title = item[1]
-            if title:
-                x = int(item[2][0])
-                y = int(item[2][1])
-                w = int(item[3][0])
-                h = int(item[3][1])
-                rect = Rect(x, y, x + w, y + h)
-                for app in activeApps:
-                    if app.processIdentifier() == pID:
-                        windows.append(MacOSWindow(app, title, rect))
-                        break
+            x = int(item[2][0])
+            y = int(item[2][1])
+            w = int(item[3][0])
+            h = int(item[3][1])
+            rect = Rect(x, y, x + w, y + h)
+            for app in activeApps:
+                if app.processIdentifier() == pID:
+                    windows.append(MacOSWindow(app, title, rect))
+                    break
     else:
         for win in app.orderedWindows():
             windows.append(MacOSNSWindow(app, win))
@@ -170,17 +213,44 @@ def _getWindowTitles() -> List[List[str]]:
     ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
     res = ast.literal_eval(ret)
     result = []
-    for i, item in enumerate(res[0]):
-        title = res[1][0][i]
+    for i, pID in enumerate(res[0]):
+        item = res[1][0][i]
         j = 0
-        for part in title:  # One-liner script is way faster, but produces weird data structures
-            title = part
-            if not title:
-                title = "<Unnamed>"
+        for title in item:  # One-liner script is way faster, but produces weird data structures
             pos = res[1][1][i][j]
             size = res[1][2][i][j]
-            result.append([item, title, pos, size])
+            result.append([pID, title, pos, size])
             j += 1
+    return result
+
+
+def getAllApps():
+    """Returns a list of all active apps."""
+    cmd = """osascript -e 'tell application "System Events"
+                                    set winNames to {}
+                                    try
+                                        set winNames to name of every process whose background only is false
+                                    end try
+                                end tell
+                                return winNames'"""
+    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").split(", ")
+    return ret
+
+
+def getAllAppsWindows():
+    """Returns a list of all active apps and their open windows."""
+    cmd = """osascript -s s -e 'tell application "System Events"
+                                    set winNames to {}
+                                    try
+                                        set winNames to {name, (name of every window)} of (every process whose background only is false)
+                                    end try
+                                end tell
+                                return winNames'"""
+    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
+    res = ast.literal_eval(ret)
+    result = {}
+    for i, item in enumerate(res[0]):
+        result[item] = res[1][i]
     return result
 
 
