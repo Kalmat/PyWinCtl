@@ -5,6 +5,7 @@ import ctypes
 import sys
 import time
 import threading
+import timeit
 from typing import List
 
 import win32api
@@ -103,6 +104,44 @@ def _findWindowHandles(parent: int = None, window_class: str = None, title: str 
         return handle_list
     except:
         return []
+
+
+def _getAllApps(tryToFilter=False):
+    # https://stackoverflow.com/questions/550653/cross-platform-way-to-get-pids-by-process-name-in-python
+    WMI = GetObject('winmgmts:')
+    processes = WMI.InstancesOf('Win32_Process')
+    process_list = [(p.Properties_("ProcessID").Value, p.Properties_("Name").Value, p.Properties_("CommandLine").Value) for p in processes]
+    if tryToFilter:
+        # Trying to figure out how to identify user-apps (non-system apps). Commandline property seems to partially work
+        matches = []
+        for item in process_list:
+            if item[2]:
+                matches.append(item)
+        process_list = matches
+    return process_list
+
+
+def getAllApps():
+    """Returns a list of all active apps."""
+    return list(getAllAppsWindows().keys())
+
+
+def getAllAppsWindows():
+    """Returns a list of all active apps and their open windows."""
+    process_list = _getAllApps(tryToFilter=True)
+    result = {}
+    for win in getAllWindows():
+        pID = win32process.GetWindowThreadProcessId(win.getHandle())
+        for item in process_list:
+            appPID = item[0]
+            appName = item[1]
+            if appPID == pID[1]:
+                if appName in result.keys():
+                    result[appName].append(win.title)
+                else:
+                    result[appName] = [win.title]
+                break
+    return result
 
 
 class Win32Window(BaseWindow):
@@ -321,12 +360,11 @@ class Win32Window(BaseWindow):
         processes = WMI.InstancesOf('Win32_Process')
         process_list = [(p.Properties_("ProcessID").Value, p.Properties_("Name").Value) for p in processes]
         pID = win32process.GetWindowThreadProcessId(self._hWnd)
+        pID = pID[1]
         name = ""
-        if len(pID) > 1:
-            pID = pID[1]
-            for item in process_list:
-                if item[0] == pID:
-                    name = item[1]
+        for item in process_list:
+            if item[0] == pID:
+                name = item[1]
         return name
 
     def getParent(self) -> int:
