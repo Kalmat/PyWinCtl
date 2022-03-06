@@ -86,8 +86,10 @@ def getActiveWindowTitle() -> str:
 def getWindowsAt(x: int, y: int):
     """Returns a list of Window objects whose windows contain the point ``(x, y)``.
 
-    * ``x`` (int): The x position of the window(s).
-    * ``y`` (int): The y position of the window(s)."""
+    Args:
+    ----
+        ``x`` - x screen coordinate of the window(s)
+        ``y`` - y screen coordinate of the window(s)"""
     windowsAtXY = []
     for win in getAllWindows():
         if pointInRect(x, y, win.left, win.top, win.width, win.height):
@@ -140,12 +142,12 @@ def _xlibGetAllWindows(parent: int = None, title: str = "") -> List[int]:
     return matches
 
 
-def getAllApps() -> List[str]:
+def getAllAppsTitles() -> List[str]:
     """Returns a list of all active apps."""
-    return list(getAllAppsWindows().keys())
+    return list(getAllAppsWindowsTitles().keys())
 
 
-def getAllAppsWindows() -> dict:
+def getAllAppsWindowsTitles() -> dict:
     """Returns a python dictionary of all active apps and their open windows."""
     result = {}
     for win in getAllWindows():
@@ -481,6 +483,10 @@ class LinuxWindow(BaseWindow):
     def getParent(self) -> Union[Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]:
         """Returns the handle of the window parent"""
         return self._hWnd.query_tree().parent
+
+    def getChildren(self) -> List[int]:
+        w = DISP.create_resource_object('window', self._hWnd)
+        return w.query_tree().children
 
     def getHandle(self) -> Union[Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]:
         """Returns the handle of the window"""

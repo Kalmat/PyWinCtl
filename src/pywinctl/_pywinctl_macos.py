@@ -79,8 +79,11 @@ def getActiveWindowTitle(app: AppKit.NSApplication = None) -> str:
 def getWindowsAt(x: int, y: int, app: AppKit.NSApplication = None, allWindows=None):
     """Returns a list of windows under the mouse pointer or an empty list.
 
+
     Args:
     ----
+        ``x`` - x screen coordinate of the window(s)
+        ``y`` - y screen coordinate of the window(s)
         ''app'' - NSApp() Object. If passed, returns the windows of the given app under the mouse
     """
     matches = []
@@ -130,13 +133,14 @@ def getAllTitlesB(app: AppKit.NSApplication = None) -> List[str]:
     if not app:
         cmd = """osascript -s 's' -e 'tell application "System Events"
                                     set winNames to {}
+                                    set procIndex to {}
                                     repeat with p in every process whose background only is false
                                         repeat with w in every window in p
                                             set end of winNames to name of w
                                         end repeat
                                     end repeat
                                 end tell
-                                return winNames'"""
+                                return {winNames, procIndex}'"""
         ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
         res = ast.literal_eval(ret)
         return res
@@ -223,7 +227,7 @@ def _getWindowTitles() -> List[List[str]]:
     return result
 
 
-def getAllApps() -> List[str]:
+def getAllAppsTitles() -> List[str]:
     """Returns a list of all active apps."""
     cmd = """osascript -e 'tell application "System Events"
                                     set winNames to {}
@@ -236,7 +240,7 @@ def getAllApps() -> List[str]:
     return ret
 
 
-def getAllAppsWindows() -> dict:
+def getAllAppsWindowsTitles() -> dict:
     """Returns a python dictionary of all active apps and their open windows."""
     cmd = """osascript -s s -e 'tell application "System Events"
                                     set winNames to {}
@@ -729,6 +733,30 @@ class MacOSWindow(BaseWindow):
         result = ""
         if role and parent:
             result = role + SEP + parent
+        return result
+
+    def getChildren(self):
+        # Will "AXChildren" do the trick?
+        # https://macscripter.net/viewtopic.php?id=16778
+        # value of attribute "AXChildren" of UI element 1 of scroll area 1 of group 4 of window 1
+        # UI elements of UI element 1 of scroll area 1 of group 4 of window 1
+        cmd = """on run {arg1, arg2}
+                    set appName to arg1 as string
+                    set winName to arg2 as string
+                    set winChildren to {}
+                    tell application "System Events" to tell application process appName
+                        set winChildren to value of attribute "AXChildren" of window winName
+                    end tell
+                    return winChildren
+               end run"""
+        proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
+                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
+        ret, err = proc.communicate(cmd)
+        ret = ret.replace("\n", "").split(", ")
+        result = []
+        for item in ret:
+            if item.startswith("window"):
+                result.append(item)
         return result
 
     def getHandle(self) -> str:
@@ -1638,6 +1666,9 @@ class MacOSNSWindow(BaseWindow):
         """Returns the handle of the window parent"""
         return self._hWnd.parentWindow()
 
+    def getChildren(self) -> List[int]:
+        return self._hWnd.childWindows()
+
     def getHandle(self) -> int:
         """Returns the handle of the window"""
         return self._hWnd
@@ -1761,6 +1792,7 @@ def main():
     print("PLATFORM:", sys.platform)
     print("SCREEN SIZE:", resolution())
     print("ALL WINDOWS", getAllTitles())
+    time.sleep(3)
     npw = getActiveWindow()
     print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()

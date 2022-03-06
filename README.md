@@ -20,18 +20,19 @@ All these functions are available at the moment, in all three platforms (Windows
 |  getAllTitles  |  restore  |  isActive  |
 |  getWindowsWithTitle  |  hide  |  isVisible  |
 |  getWindowsAt  |  show  |  | 
-|  getMousePos  |  activate  |    |  
-|  getScreenSize  |  resize / resizeRel  |  |   
-|  getWorkArea  |  resizeTo  |  |
-|  getAllApps  |  move / moveRel  |  |  
-|  getAllAppsWindows |  moveTo  |  |  
-|  version  |  alwaysOnTop  |    |
-|  |  alwaysOnBottom  |    |  
+|  getAllAppsTitles  |  activate  |    |  
+|  getAllAppsWindowsTitles  |  resize / resizeRel  |  |   
+|  getMousePos  |  resizeTo  |  |
+|  getScreenSize  |  move / moveRel  |  |  
+|  getWorkArea |  moveTo  |  |  
+|  version  |  raiseWindow  |    |
 |  |  lowerWindow  |    |  
-|  |  raiseWindow  |    |  
+|  |  alwaysOnTop  |    |  
+|  |  alwaysOnBottom  |    |  
 |  |  getAppName  |    |
+|  |  getHandle  |    |
 |  |  getParent  |    |
-|  |  getHandle  |    |  
+|  |  getChildren  |    |  
 |  |  isParent  |    |  
 |  |  isChild  |    |  
 

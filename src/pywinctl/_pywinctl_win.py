@@ -3,16 +3,16 @@
 
 import ctypes
 import sys
-import time
 import threading
+import time
 from typing import List
 
 import win32api
-import win32process
-from win32com.client import GetObject
 import win32con
 import win32gui
 import win32gui_struct
+import win32process
+from win32com.client import GetObject
 
 from pywinctl import pointInRect, BaseWindow, Rect, Point, Size
 
@@ -43,8 +43,10 @@ def getActiveWindowTitle() -> str:
 def getWindowsAt(x: int, y: int):
     """Returns a list of Window objects whose windows contain the point ``(x, y)``.
 
-    * ``x`` (int, optional): The x position of the window(s).
-    * ``y`` (int, optional): The y position of the window(s)."""
+    Args:
+    ----
+        ``x`` - x screen coordinate of the window(s)
+        ``y`` - y screen coordinate of the window(s)"""
     windowsAtXY = []
     for win in getAllWindows():
         if pointInRect(x, y, win.left, win.top, win.width, win.height):
@@ -120,12 +122,12 @@ def _getAllApps(tryToFilter=False):
     return process_list
 
 
-def getAllApps() -> List[str]:
+def getAllAppsTitles() -> List[str]:
     """Returns a list of all active apps."""
-    return list(getAllAppsWindows().keys())
+    return list(getAllAppsWindowsTitles().keys())
 
 
-def getAllAppsWindows() -> dict:
+def getAllAppsWindowsTitles() -> dict:
     """Returns a python dictionary of all active apps and their open windows."""
     process_list = _getAllApps(tryToFilter=True)
     result = {}
@@ -369,6 +371,9 @@ class Win32Window(BaseWindow):
     def getParent(self) -> int:
         """Returns the handle of the window parent"""
         return win32gui.GetParent(self._hWnd)
+
+    def getChildren(self) -> List[int]:
+        return _findWindowHandles(parent=self._hWnd)
 
     def getHandle(self) -> int:
         """Returns the handle of the window"""

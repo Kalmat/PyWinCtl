@@ -6,7 +6,7 @@
 # Xlib and ewmh on Linux
 
 
-__version__ = "0.0.23"
+__version__ = "0.0.24"
 
 import sys, collections, pyrect
 
@@ -389,8 +389,8 @@ if sys.platform == "darwin":
         getWindowsWithTitle,
         getAllWindows,
         getAllTitles,
-        getAllApps,
-        getAllAppsWindows,
+        getAllAppsTitles,
+        getAllAppsWindowsTitles,
         getMousePos,
         getScreenSize,
         getWorkArea,
@@ -407,8 +407,8 @@ elif sys.platform == "win32":
         getWindowsWithTitle,
         getAllWindows,
         getAllTitles,
-        getAllApps,
-        getAllAppsWindows,
+        getAllAppsTitles,
+        getAllAppsWindowsTitles,
         getMousePos,
         getScreenSize,
         getWorkArea,
@@ -424,8 +424,8 @@ elif sys.platform == "linux":
         getWindowsWithTitle,
         getAllWindows,
         getAllTitles,
-        getAllApps,
-        getAllAppsWindows,
+        getAllAppsTitles,
+        getAllAppsWindowsTitles,
         getMousePos,
         getScreenSize,
         getWorkArea,
