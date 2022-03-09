@@ -23,7 +23,11 @@ WAIT_DELAY = 0.025  # Will be progressively increased on every retry
 
 
 def getActiveWindow():
-    """Returns a Window object of the currently active (focused) Window."""
+    """
+    Get the currently active (focused) Window
+
+    :return: Window object or None
+    """
     hWnd = win32gui.GetForegroundWindow()
     if hWnd:
         return Win32Window(hWnd)
@@ -32,7 +36,11 @@ def getActiveWindow():
 
 
 def getActiveWindowTitle() -> str:
-    """Returns a string of the title text of the currently active (focused) Window."""
+    """
+    Get the title of the currently active (focused) Window
+
+    :return: window title as string or empty
+    """
     hWnd = getActiveWindow()
     if hWnd:
         return hWnd.title
@@ -41,12 +49,13 @@ def getActiveWindowTitle() -> str:
 
 
 def getWindowsAt(x: int, y: int):
-    """Returns a list of Window objects whose windows contain the point ``(x, y)``.
+    """
+    Get the list of Window objects whose windows contain the point ``(x, y)`` on screen
 
-    Args:
-    ----
-        ``x`` - x screen coordinate of the window(s)
-        ``y`` - y screen coordinate of the window(s)"""
+    :param x: X screen coordinate of the window(s)
+    :param y: Y screen coordinate of the window(s)
+    :return: list of Window objects
+    """
     windowsAtXY = []
     for win in getAllWindows():
         if pointInRect(x, y, win.left, win.top, win.width, win.height):
@@ -55,7 +64,12 @@ def getWindowsAt(x: int, y: int):
 
 
 def getWindowsWithTitle(title: str):
-    """Returns a Window object list with the given name."""
+    """
+    Get the list of Window objects whose title match the given string
+
+    :param title: title of the desired windows as string
+    :return: list of Window objects
+    """
     matches = []
     for win in getAllWindows():
         if win.title == title:
@@ -64,12 +78,19 @@ def getWindowsWithTitle(title: str):
 
 
 def getAllTitles() -> List[str]:
-    """Returns a list of strings of window titles for all visible windows."""
+    """
+    Get the list of titles of all visible windows
+
+    :return: list of titles as strings
+    """
     return [window.title for window in getAllWindows()]
 
 
 def getAllWindows():
-    """Returns a list of Window objects for all visible windows.
+    """
+    Get the list of Window objects for all visible windows
+
+    :return: list of Window objects
     """
     matches = []
     windowObjs = _findWindowHandles(onlyVisible=True)
@@ -123,12 +144,25 @@ def _getAllApps(tryToFilter=False):
 
 
 def getAllAppsTitles() -> List[str]:
-    """Returns a list of all active apps."""
+    """
+    Get the list of names of all visible apps
+
+    :return: list of names as strings
+    """
     return list(getAllAppsWindowsTitles().keys())
 
 
 def getAllAppsWindowsTitles() -> dict:
-    """Returns a python dictionary of all active apps and their open windows."""
+    """
+    Get all visible apps names and their open windows titles
+
+    Format:
+        Key: app name
+
+        Values: list of window titles as strings
+
+    :return: python dictionary
+    """
     process_list = _getAllApps(tryToFilter=True)
     result = {}
     for win in getAllWindows():
@@ -165,15 +199,24 @@ class Win32Window(BaseWindow):
         return isinstance(other, Win32Window) and self._hWnd == other._hWnd
 
     def close(self) -> bool:
-        """Closes this window. This may trigger "Are you sure you want to
+        """
+        Closes this window. This may trigger "Are you sure you want to
         quit?" dialogs or other actions that prevent the window from
         actually closing. This is identical to clicking the X button on the
-        window."""
+        window.
+
+        :return: ''True'' if window is closed
+        """
         win32gui.PostMessage(self._hWnd, win32con.WM_CLOSE, 0, 0)
         return win32gui.IsWindow(self._hWnd)
 
     def minimize(self, wait: bool = False) -> bool:
-        """Minimizes this window."""
+        """
+        Minimizes this window
+
+        :param wait: set to ''True'' to confirm action requested (in a reasonable time)
+        :return: ''True'' if window minimized
+        """
         if not self.isMinimized:
             win32gui.ShowWindow(self._hWnd, win32con.SW_MINIMIZE)
             retries = 0
@@ -183,7 +226,12 @@ class Win32Window(BaseWindow):
         return self.isMinimized
 
     def maximize(self, wait: bool = False) -> bool:
-        """Maximizes this window."""
+        """
+        Maximizes this window
+
+        :param wait: set to ''True'' to confirm action requested (in a reasonable time)
+        :return: ''True'' if window maximized
+        """
         if not self.isMaximized:
             win32gui.ShowWindow(self._hWnd, win32con.SW_MAXIMIZE)
             retries = 0
@@ -193,7 +241,12 @@ class Win32Window(BaseWindow):
         return self.isMaximized
 
     def restore(self, wait: bool = False) -> bool:
-        """If maximized or minimized, restores the window to it's normal size."""
+        """
+        If maximized or minimized, restores the window to it's normal size
+
+        :param wait: set to ''True'' to confirm action requested (in a reasonable time)
+        :return: ''True'' if window restored
+        """
         win32gui.ShowWindow(self._hWnd, win32con.SW_RESTORE)
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and (self.isMaximized or self.isMinimized):
@@ -202,7 +255,12 @@ class Win32Window(BaseWindow):
         return not self.isMaximized and not self.isMinimized
 
     def show(self, wait: bool = False) -> bool:
-        """If hidden or showing, shows the window on screen and in title bar."""
+        """
+        If hidden or showing, shows the window on screen and in title bar
+
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window showed
+        """
         win32gui.ShowWindow(self._hWnd, win32con.SW_SHOW)
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and not self.isVisible:
@@ -211,7 +269,12 @@ class Win32Window(BaseWindow):
         return self.isVisible
 
     def hide(self, wait: bool = False) -> bool:
-        """If hidden or showing, hides the window from screen and title bar."""
+        """
+        If hidden or showing, hides the window from screen and title bar
+
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window hidden
+        """
         win32gui.ShowWindow(self._hWnd, win32con.SW_HIDE)
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and self.isVisible:
@@ -220,18 +283,33 @@ class Win32Window(BaseWindow):
         return not self.isVisible
 
     def activate(self, wait: bool = False) -> bool:
-        """Activate this window and make it the foreground (focused) window."""
+        """
+        Activate this window and make it the foreground (focused) window
+
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window activated
+        """
         win32gui.SetForegroundWindow(self._hWnd)
         return self.isActive
 
     def resize(self, widthOffset: int, heightOffset: int, wait: bool = False) -> bool:
-        """Resizes the window relative to its current size."""
+        """
+        Resizes the window relative to its current size
+
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window resized to the given size
+        """
         return self.resizeTo(self.width + widthOffset, self.height + heightOffset, wait)
 
     resizeRel = resize  # resizeRel is an alias for the resize() method.
 
     def resizeTo(self, newWidth: int, newHeight: int, wait: bool = False) -> bool:
-        """Resizes the window to a new width and height."""
+        """
+        Resizes the window to a new width and height
+
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window resized to the given size
+        """
         result = win32gui.SetWindowPos(self._hWnd, win32con.HWND_TOP, self.left, self.top, newWidth, newHeight, 0)
         retries = 0
         while result != 0 and wait and retries < WAIT_ATTEMPTS and (self.width != newWidth or self.height != newHeight):
@@ -240,13 +318,23 @@ class Win32Window(BaseWindow):
         return self.width == newWidth and self.height == newHeight
 
     def move(self, xOffset: int, yOffset: int, wait: bool = False) -> bool:
-        """Moves the window relative to its current position."""
+        """
+        Moves the window relative to its current position
+
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window moved to the given position
+        """
         return self.moveTo(self.left + xOffset, self.top + yOffset, wait)
 
     moveRel = move  # moveRel is an alias for the move() method.
 
     def moveTo(self, newLeft:int, newTop: int, wait: bool = False) -> bool:
-        """Moves the window to new coordinates on the screen."""
+        """
+        Moves the window to new coordinates on the screen
+
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window moved to the given position
+        """
         result = win32gui.SetWindowPos(self._hWnd, win32con.HWND_TOP, newLeft, newTop, self.width, self.height, 0)
         retries = 0
         while result != 0 and wait and retries < WAIT_ATTEMPTS and (self.left != newLeft or self.top != newTop):
@@ -263,9 +351,11 @@ class Win32Window(BaseWindow):
         return newLeft == self.left and newTop == self.top and newWidth == self.width and newHeight == self.height
 
     def alwaysOnTop(self, aot: bool = True) -> bool:
-        """Keeps window on top of all others.
+        """
+        Keeps window on top of all others.
 
-        Use aot=False to deactivate always-on-top behavior
+        :param aot: set to ''False'' to deactivate always-on-top behavior
+        :return: ''True'' if command succeeded
         """
         # https://stackoverflow.com/questions/25381589/pygame-set-window-on-top-without-changing-its-position/49482325 (kmaork)
         zorder = win32con.HWND_TOPMOST if aot else win32con.HWND_NOTOPMOST
@@ -273,11 +363,12 @@ class Win32Window(BaseWindow):
         return result != 0
 
     def alwaysOnBottom(self, aob: bool = True) -> bool:
-        """Keeps window below of all others, but on top of desktop icons and keeping all window properties
-
-        Use aob=False to deactivate always-on-bottom behavior
         """
+        Keeps window below of all others, but on top of desktop icons and keeping all window properties
 
+        :param aob: set to ''False'' to deactivate always-on-bottom behavior
+        :return: ''True'' if command succeeded
+        """
         ret = False
         if aob:
             result = win32gui.SetWindowPos(self._hWnd, win32con.HWND_BOTTOM, 0, 0, 0, 0,
@@ -301,26 +392,34 @@ class Win32Window(BaseWindow):
         return ret
 
     def lowerWindow(self) -> bool:
-        """Lowers the window to the bottom so that it does not obscure any sibling windows.
+        """
+        Lowers the window to the bottom so that it does not obscure any sibling windows
+
+        :return: ''True'' if window lowered
         """
         result = win32gui.SetWindowPos(self._hWnd, win32con.HWND_BOTTOM, 0, 0, 0, 0,
                                        win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE)
         return result != 0
 
     def raiseWindow(self) -> bool:
-        """Raises the window to top so that it is not obscured by any sibling windows.
+        """
+        Raises the window to top so that it is not obscured by any sibling windows.
+
+        :return: ''True'' if window raised
         """
         result = win32gui.SetWindowPos(self._hWnd, win32con.HWND_TOP, 0, 0, 0, 0,
                                        win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE)
         return result != 0
 
     def sendBehind(self, sb: bool = True) -> bool:
-        """Sends the window to the very bottom, below all other windows, including desktop icons.
-        It may also cause that the window does not accept focus nor keyboard/mouse events.
+        """
+        Sends the window to the very bottom, below all other windows, including desktop icons.
+        It may also cause that the window does not accept focus nor keyboard/mouse events as well as
+        make the window disappear from taskbar and/or pager.
 
-        Use sb=False to bring the window back from background
-
-        WARNING: On GNOME it will obscure desktop icons... by the moment"""
+        :param sb: set to ''False'' to bring the window back to front
+        :return: ''True'' if window sent behind desktop icons
+        """
         if sb:
             def getWorkerW():
 
@@ -354,8 +453,12 @@ class Win32Window(BaseWindow):
             result = result | win32gui.ShowWindow(self._hWnd, win32con.SW_RESTORE)
         return result != 0
 
-    def getAppName(self) -> int:
-        """Returns the name of the app to which current window belongs to, as string"""
+    def getAppName(self) -> str:
+        """
+        Get the name of the app current window belongs to
+
+        :return: name of the app as string
+        """
         # https://stackoverflow.com/questions/550653/cross-platform-way-to-get-pids-by-process-name-in-python
         WMI = GetObject('winmgmts:')
         processes = WMI.InstancesOf('Win32_Process')
@@ -369,55 +472,84 @@ class Win32Window(BaseWindow):
         return name
 
     def getParent(self) -> int:
-        """Returns the handle of the window parent"""
+        """
+        Get the handle of the current window parent. It can be another window or an application
+
+        :return: handle of the window parent
+        """
         return win32gui.GetParent(self._hWnd)
 
     def getChildren(self) -> List[int]:
+        """
+        Get the children handles of current window
+
+        :return: list of handles
+        """
         return _findWindowHandles(parent=self._hWnd)
 
     def getHandle(self) -> int:
-        """Returns the handle of the window"""
+        """
+        Get the current window handle
+
+        :return: window handle
+        """
         return self._hWnd
 
     def isParent(self, child: int) -> bool:
-        """Returns ''True'' if the window is parent of the given window as input argument
+        """
+        Check if current window is parent of given window (handle)
 
-        Args:
-        ----
-            ''child'' handle of the window you want to check if the current window is parent of
+        :param child: handle of the window you want to check if the current window is parent of
+        :return: ''True'' if current window is parent of the given window
         """
         return win32gui.GetParent(child) == self._hWnd
     isParentOf = isParent  # isParentOf is an alias of isParent method
 
     def isChild(self, parent: int) -> bool:
-        """Returns ''True'' if the window is child of the given window as input argument
+        """
+        Check if current window is child of given window/app (handle)
 
-                Args:
-                ----
-                    ''parent'' handle of the window/app you want to check if the current window is child of
-                """
+        :param parent: handle of the window/app you want to check if the current window is child of
+        :return: ''True'' if current window is child of the given window
+        """
         return parent == self.getParent()
     isChildOf = isChild  # isParentOf is an alias of isParent method
 
     @property
     def isMinimized(self) -> bool:
-        """Returns ``True`` if the window is currently minimized."""
+        """
+        Check if current window is currently minimized
+
+        :return: ``True`` if the window is minimized
+        """
         return win32gui.IsIconic(self._hWnd) != 0
 
     @property
     def isMaximized(self) -> bool:
-        """Returns ``True`` if the window is currently maximized."""
+        """
+        Check if current window is currently maximized
+
+        :return: ``True`` if the window is maximized
+        """
         state = win32gui.GetWindowPlacement(self._hWnd)
         return state[1] == win32con.SW_SHOWMAXIMIZED
 
     @property
     def isActive(self) -> bool:
-        """Returns ``True`` if the window is currently the active, foreground window."""
+        """
+        Check if current window is currently the active, foreground window
+
+        :return: ``True`` if the window is the active, foreground window
+        """
         return win32gui.GetForegroundWindow() == self._hWnd
 
     @property
     def title(self) -> str:
-        """Returns the window title as a string."""
+        """
+        Get the current window title, as string
+
+        :return: title as a string
+        """
         name = win32gui.GetWindowText(self._hWnd)
         if isinstance(name, bytes):
             name = name.decode()
@@ -425,7 +557,11 @@ class Win32Window(BaseWindow):
 
     @property
     def visible(self) -> bool:
-        """Returns ``True`` if the window is currently visible."""
+        """
+        Check if current window is visible (minimized windows are also visible)
+
+        :return: ``True`` if the window is currently visible
+        """
         return win32gui.IsWindowVisible(self._hWnd)
 
     isVisible = visible  # isVisible is an alias for the visible property.
@@ -440,30 +576,34 @@ class Win32Window(BaseWindow):
             self._sep = "|&|"
 
         def getMenu(self, addItemInfo: bool = False) -> dict:
-            """Loads and returns the MENU struct in a dictionary format, if exists, or empty.
+            """
+            Loads and returns Menu options, sub-menus and related information, as dictionary.
 
-            Format:
-            ------
-                Key:    item title
+            It is HIGHLY RECOMMENDED you pre-load the Menu struct by explicitly calling getMenu()
+            before invoking any other action.
+
+            :param addItemInfo: if ''True'', adds win32 MENUITEMINFO struct to the output
+            :return: python dictionary with MENU struct
+
+            Output Format:
+                Key:
+                    item (option or sub-menu) title
 
                 Values:
-                    "parent":       parent sub-menu handle (main menu handle for level-0 items)
-
-                    "hSubMenu":     item handle (!= 0 for sub-menu items only)
-
-                    "wID":          item ID (required for other actions, e.g. clickMenuItem())
-
-                    "item_info":    (optional) MENUITEMINFO struct containing all menu item info
-
-                    "shortcut":     shortcut to menu item, if any (MacOS: only if item_info is included)
-
-                    "rect":         Rect struct of the menu item (relative to window position)
-
-                    "entries":      sub-items within the sub-menu (if any)
-
-            Notes:
-                "item_info" is extremely huge and slow. Instead use getMenuItemInfo() method individually.
-                if you really want/require item_info data, set ''addItemInfo'' to ''True''
+                    "parent":
+                        parent sub-menu handle (main menu handle for level-0 items)
+                    "hSubMenu":
+                        item handle (!= 0 for sub-menu items only)
+                    "wID":
+                        item ID (required for other actions, e.g. clickMenuItem())
+                    "rect":
+                        Rect struct of the menu item (relative to window position)
+                    "item_info" (optional):
+                        win32 MENUITEMINFO struct containing all available menu item info
+                    "shortcut":
+                        shortcut to menu item, if any
+                    "entries":
+                        sub-items within the sub-menu (if any)
             """
 
             def findit(parent: int, level: str = "", parentRect: Rect = None) -> None:
@@ -490,18 +630,18 @@ class Win32Window(BaseWindow):
             return self._menuStructure
 
         def clickMenuItem(self, itemPath: list = None, wID: int = 0) -> bool:
-            """Simulates a click on a menu item
-
-            Args:
-            ----
-            Use one of these input parameters to identify desired menu item:
-                - ''itemPath'' corresponds to the desired menu option and predecessors as list (e.g. ["Menu", "SubMenu", "Item"])
-
-                - ''wID'' is the item ID within menu struct (as returned by getMenu() method)
+            """
+            Simulates a click on a menu item
 
             Notes:
-                - ''itemPath'' is language-dependent, so it's better not to use it or fulfill it from MENU struct
-                - Will not work if item is disabled (not clickable) or path/item doesn't exist
+                - It will not work for men/sub-menu entries
+                - It will not work if selected option is disabled
+
+            Use one of these input parameters to identify desired menu item:
+
+            :param itemPath: desired menu option and predecessors as list (e.g. ["Menu", "SubMenu", "Item"]). Notice it is language-dependent, so it's better to fulfill it from MENU struct as returned by :meth: getMenu()
+            :param wID: item ID within menu struct (as returned by getMenu() method)
+            :return: ''True'' if menu item to click is correct and exists (not if it has already been clicked or it had any effect)
             """
             found = False
             itemID = 0
@@ -529,11 +669,11 @@ class Win32Window(BaseWindow):
             return found
 
         def getMenuInfo(self, hSubMenu: int = 0) -> win32gui_struct.UnpackMENUINFO:
-            """Returns the MENUINFO struct of the given sub-menu or main menu if none given
+            """
+            Returns the MENUINFO struct of the given sub-menu or main menu if none given
 
-            Args:
-            ----
-                ''hSubMenu'' is the id of the sub-menu entry (as returned by getMenu() method)
+            :param hSubMenu: id of the sub-menu entry (as returned by getMenu() method)
+            :return: win32 MENUINFO struct
             """
             if not hSubMenu:
                 hSubMenu = self._hMenu
@@ -546,24 +686,23 @@ class Win32Window(BaseWindow):
             return menu_info
 
         def getMenuItemCount(self, hSubMenu: int = 0) -> int:
-            """Returns the number of items within a menu (main menu if no sub-menu given)
+            """
+            Returns the number of items within a menu (main menu if no sub-menu given)
 
-            Args:
-            ----
-                ''hSubMenu'' is the id of the sub-menu entry (as returned by getMenu() method)
+            :param hSubMenu: id of the sub-menu entry (as returned by getMenu() method)
+            :return: number of items as int
             """
             if not hSubMenu:
                 hSubMenu = self._hMenu
             return win32gui.GetMenuItemCount(hSubMenu)
 
         def getMenuItemInfo(self, hSubMenu: int, wID: int) -> win32gui_struct.UnpackMENUITEMINFO:
-            """Returns the MENUITEMINFO struct for the given menu item
+            """
+            Returns the MENUITEMINFO struct for the given menu item
 
-            Args:
-            ----
-                ''hSubMenu'' is the id of the parent sub-menu entry (as returned by getMenu() method)
-
-                ''wID'' is the item ID within menu struct (as returned by getMenu() method)
+            :param hSubMenu: id of the sub-menu entry (as returned by :meth: getMenu())
+            :param wID: id of the window within menu struct (as returned by :meth: getMenu())
+            :return: win32 MENUITEMINFO struct
             """
             item_info = None
             if self._hMenu:
@@ -580,16 +719,42 @@ class Win32Window(BaseWindow):
                 item_info = win32gui_struct.UnpackMENUITEMINFO(buf)
             return item_info
 
-        def getMenuItemRect(self, hSubMenu: int, itemPos: int) -> Rect:
-            """Returns the Rect struct of the Menu option
-
-            Args:
-            ----
-                ''hSubMenu'' is the id of the parent sub-menu entry (as returned by getMenu() method)
-
-                ''itemPos'' is the position (zero-based ordinal) of the item within the sub-menu
+        def getMenuItemRect(self, hSubMenu: int, wID: int) -> Rect:
             """
-            ret = None
+            Get the Rect struct (left, top, right, bottom) of the given Menu option
+
+            :param hSubMenu: id of the sub-menu entry (as returned by :meth: getMenu())
+            :param wID: id of the window within menu struct (as returned by :meth: getMenu())
+            :return: Rect struct
+            """
+
+            def findit(menu, hSubMenu, wID):
+
+                menuFound = [{}]
+
+                def findMenu(inMenu, hSubMenu):
+
+                    for key in inMenu.keys():
+                        if inMenu[key]["hSubMenu"] == hSubMenu:
+                            menuFound[0] = inMenu[key]["entries"]
+                            break
+                        elif "entries" in inMenu[key].keys():
+                            findMenu(inMenu[key]["entries"], hSubMenu)
+
+                findMenu(menu, hSubMenu)
+                subMenu = menuFound[0]
+                itemPos = -1
+                for key in subMenu.keys():
+                    itemPos += 1
+                    if subMenu[key]["wID"] == wID:
+                        return itemPos
+                return itemPos
+
+            if not self._menuStructure and self._hMenu:
+                self.getMenu()
+
+            itemPos = findit(self._menuStructure, hSubMenu, wID)
+            ret = Rect(0, 0, 0, 0)
             if self._hMenu and 0 <= itemPos < self.getMenuItemCount(hSubMenu=hSubMenu):
                 [result, (x, y, r, b)] = win32gui.GetMenuItemRect(self._hWnd, hSubMenu, itemPos)
                 if result != 0:
@@ -645,11 +810,10 @@ class _SendBottom(threading.Thread):
 
 
 def getMousePos():
-    """Returns the current xy coordinates of the mouse cursor as Point struct
-    tuple by calling the GetCursorPos() win32 function.
+    """
+    Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
 
-    Returns:
-      (x, y) tuple of the current xy coordinates of the mouse cursor.
+    :return: Point struct
     """
     ctypes.windll.user32.SetProcessDPIAware()
     cursor = win32api.GetCursorPos()
@@ -659,10 +823,10 @@ cursor = getMousePos  # cursor is an alias for getMousePos
 
 
 def getScreenSize() -> Size:
-    """Returns the width and height of the screen as a Size struct.
+    """
+    Get the width and height of the screen, in pixels
 
-    Returns:
-      (width, height) tuple of the screen size, in pixels.
+    :return: Size struct
     """
     ctypes.windll.user32.SetProcessDPIAware()
     return Size(ctypes.windll.user32.GetSystemMetrics(0), ctypes.windll.user32.GetSystemMetrics(1))
@@ -670,11 +834,11 @@ def getScreenSize() -> Size:
 resolution = getScreenSize  # resolution is an alias for getScreenSize
 
 
-def getWorkArea(win32api_struct=None) -> Rect:
-    """Returns the x, y, width, height of the working area of the screen as a Rect struct.
+def getWorkArea() -> Rect:
+    """
+    Get the Rect struct (left, top, right, bottom) of the working (usable by windows) area of the screen, in pixels
 
-    Returns:
-      (left, top, right, bottom) tuple of the working area of the screen, in pixels.
+    :return: Rect struct
     """
     ctypes.windll.user32.SetProcessDPIAware()
     monitor_info = win32api.GetMonitorInfo(win32api.MonitorFromPoint((0, 0)))
@@ -686,9 +850,12 @@ def getWorkArea(win32api_struct=None) -> Rect:
     return Rect(x, y, x + w, y + h)
 
 
-def displayWindowsUnderMouse(xOffset=0, yOffset=0):
-    """This function is meant to be run from the command line. It will
-    automatically display the location and RGB of the mouse cursor."""
+def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0):
+    """
+    This function is meant to be run from the command line. It will
+    automatically display the position of mouse pointer and the titles
+    of the windows under it
+    """
     print('Press Ctrl-C to quit.')
     if xOffset != 0 or yOffset != 0:
         print('xOffset: %s yOffset: %s' % (xOffset, yOffset))
@@ -696,11 +863,7 @@ def displayWindowsUnderMouse(xOffset=0, yOffset=0):
         prevWindows = None
         while True:
             x, y = getMousePos()
-            positionStr = 'X: ' + str(x - xOffset).rjust(4) + ' Y: ' + str(y - yOffset).rjust(
-                4) + '  (Press Ctrl-C to quit)'
-            if prevWindows is not None:
-                sys.stdout.write(positionStr)
-                sys.stdout.write('\b' * len(positionStr))
+            positionStr = 'X: ' + str(x - xOffset).rjust(4) + ' Y: ' + str(y - yOffset).rjust(4) + '  (Press Ctrl-C to quit)'
             windows = getWindowsAt(x, y)
             if windows != prevWindows:
                 print('\n')
@@ -709,6 +872,8 @@ def displayWindowsUnderMouse(xOffset=0, yOffset=0):
                     name = win.title
                     eraser = '' if len(name) >= len(positionStr) else ' ' * (len(positionStr) - len(name))
                     sys.stdout.write((name or ("<No Name> ID: " + str(win._hWnd))) + eraser + '\n')
+            sys.stdout.write(positionStr)
+            sys.stdout.write('\b' * len(positionStr))
             sys.stdout.flush()
             time.sleep(0.3)
     except KeyboardInterrupt:
@@ -721,6 +886,7 @@ def main():
     print("PLATFORM:", sys.platform)
     print("SCREEN SIZE:", resolution())
     print("ALL WINDOWS", getAllTitles())
+    time.sleep(3)
     npw = getActiveWindow()
     print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()

@@ -47,7 +47,7 @@ macOS doesn't "like" controlling windows from other apps, so there are two separ
 
 #### Available in: MS-Windows and macOS Apple Script version (MacOSWindow() class)
 
-Menu info and control functions (from asweigart's original ideas), accessible through 'menu' submodule. E.g.:
+Menu info and control methods (from asweigart's original ideas), accessible through 'menu' submodule. E.g.:
 
     subprocess.Popen('notepad')
     windows = pywinctl.getWindowsWithTitle('Untitled - Notepad')

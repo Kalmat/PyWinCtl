@@ -6,6 +6,7 @@ import platform
 import subprocess
 import sys
 import time
+import timeit
 from typing import List
 
 import AppKit
@@ -30,11 +31,11 @@ SEP = "|&|"
 
 
 def getActiveWindow(app: AppKit.NSApplication = None):
-    """Returns a Window object of the currently active Window or None.
+    """
+    Get the currently active (focused) Window
 
-    Args:
-    ----
-        ''app'' - NSApp() Object. If passed, returns the main/key window of the given app
+    :param app: (optional) NSApp() object. If passed, returns the active (main/key) window of given app
+    :return: Window object or None
     """
     if not app:
         app = WS.frontmostApplication()
@@ -57,17 +58,17 @@ def getActiveWindow(app: AppKit.NSApplication = None):
         else:
             return None
     else:
-        for win in getAllWindows(app):  # .keyWindow() / .mainWindow() not working?!?!?!
-            return win
+        for win in app.orderedWindows():  # .keyWindow() / .mainWindow() not working?!?!?!
+            return MacOSNSWindow(app, win)
     return None
 
 
 def getActiveWindowTitle(app: AppKit.NSApplication = None) -> str:
-    """Returns a Window object of the currently active Window or empty string.
+    """
+    Get the title of the currently active (focused) Window
 
-    Args:
-    ----
-        ''app'' - NSApp() Object. If passed, returns the title of the main/key window of the given app
+    :param app: (optional) NSApp() object. If passed, returns the title of the main/key window of given app
+    :return: window title as string or empty
     """
     win = getActiveWindow(app)
     if win:
@@ -77,14 +78,14 @@ def getActiveWindowTitle(app: AppKit.NSApplication = None) -> str:
 
 
 def getWindowsAt(x: int, y: int, app: AppKit.NSApplication = None, allWindows=None):
-    """Returns a list of windows under the mouse pointer or an empty list.
+    """
+    Get the list of Window objects whose windows contain the point ``(x, y)`` on screen
 
-
-    Args:
-    ----
-        ``x`` - x screen coordinate of the window(s)
-        ``y`` - y screen coordinate of the window(s)
-        ''app'' - NSApp() Object. If passed, returns the windows of the given app under the mouse
+    :param x: X screen coordinate of the window(s)
+    :param y: Y screen coordinate of the window(s)
+    :param app: (optional) NSApp() object. If passed, returns the list of window at (x, y) position of given app
+    :param allWindows: (optional) list of window objects (required to improve performance in Apple Script version)
+    :return: list of Window objects
     """
     matches = []
     if not allWindows:
@@ -97,11 +98,12 @@ def getWindowsAt(x: int, y: int, app: AppKit.NSApplication = None, allWindows=No
 
 
 def getWindowsWithTitle(title, app: AppKit.NSApplication = None):
-    """Returns a list of window objects matching the given title or an empty list.
+    """
+    Get the list of Window objects whose title match the given string
 
-    Args:
-    ----
-        ''app'' - NSApp() Object. If passed, returns the windows of the given app matching the given title
+    :param title: title of the desired windows as string
+    :param app: (optional) NSApp() object. If passed, returns the list of windows which match title of given app
+    :return: list of Window objects
     """
     matches = []
     if not app:
@@ -133,25 +135,26 @@ def getAllTitlesB(app: AppKit.NSApplication = None) -> List[str]:
     if not app:
         cmd = """osascript -s 's' -e 'tell application "System Events"
                                     set winNames to {}
-                                    set procIndex to {}
-                                    repeat with p in every process whose background only is false
-                                        repeat with w in every window in p
-                                            set end of winNames to name of w
+                                    set actP to every process whose background only is false
+                                    repeat with p in actP
+                                        set actW to every window in p
+                                        repeat with w in actW
+                                            set end of winNames to (get every attribute of w)
                                         end repeat
                                     end repeat
                                 end tell
-                                return {winNames, procIndex}'"""
+                                return winNames'"""
         ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
         res = ast.literal_eval(ret)
         return res
 
 
 def getAllTitles(app: AppKit.NSApplication = None) -> List[str]:
-    """Returns a list of titles for all visible windows.
+    """
+    Get the list of titles of all visible windows
 
-    Args:
-    ----
-        ''app'' - NSApp() Object. If passed, returns the list of titles of all windows of the given app
+    :param app: (optional) NSApp() object. If passed, returns the titles of the windows of given app
+    :return: list of titles as strings
     """
     if not app:
         cmd = """osascript -s 's' -e 'tell application "System Events"
@@ -176,11 +179,11 @@ def getAllTitles(app: AppKit.NSApplication = None) -> List[str]:
 
 
 def getAllWindows(app: AppKit.NSApplication = None):
-    """Returns a list of window objects for all visible windows.
+    """
+    Get the list of Window objects for all visible windows
 
-    Args:
-    ----
-        ''app'' - NSApp() Object. If passed, returns the list of all windows of given app
+    :param app: (optional) NSApp() object. If passed, returns the Window objects of all windows of given app
+    :return: list of Window objects
     """
     windows = []
     if not app:
@@ -228,7 +231,11 @@ def _getWindowTitles() -> List[List[str]]:
 
 
 def getAllAppsTitles() -> List[str]:
-    """Returns a list of all active apps."""
+    """
+    Get the list of names of all visible apps
+
+    :return: list of names as strings
+    """
     cmd = """osascript -e 'tell application "System Events"
                                     set winNames to {}
                                     try
@@ -241,7 +248,16 @@ def getAllAppsTitles() -> List[str]:
 
 
 def getAllAppsWindowsTitles() -> dict:
-    """Returns a python dictionary of all active apps and their open windows."""
+    """
+    Get all visible apps names and their open windows titles
+
+    Format:
+        Key: app name
+
+        Values: list of window titles as strings
+
+    :return: python dictionary
+    """
     cmd = """osascript -s s -e 'tell application "System Events"
                                     set winNames to {}
                                     try
@@ -257,28 +273,35 @@ def getAllAppsWindowsTitles() -> dict:
     return result
 
 
-def _getAllApps():
+def _getAllApps(userOnly: bool = True):
     matches = []
     for app in WS.runningApplications():
-        if app.activationPolicy() == Quartz.NSApplicationActivationPolicyRegular:
+        if not userOnly or (userOnly and app.activationPolicy() == Quartz.NSApplicationActivationPolicyRegular):
             matches.append(app)
     return matches
 
 
-def _getAllWindows(excludeDesktop: bool = True, screenOnly: bool = True):
+def _getAllWindows(excludeDesktop: bool = True, screenOnly: bool = True, userOnly: bool = False):
     # Source: https://stackoverflow.com/questions/53237278/obtain-list-of-all-window-titles-on-macos-from-a-python-script/53985082#53985082
     # This returns a list of window info objects, which is static, so needs to be refreshed and takes some time to the OS to refresh it
     # Besides, since it may not have kCGWindowName value and the kCGWindowNumber can't be accessed from Apple Script, it's useless
     flags = Quartz.kCGWindowListExcludeDesktopElements if excludeDesktop else 0 | \
             Quartz.kCGWindowListOptionOnScreenOnly if screenOnly else 0
-    return Quartz.CGWindowListCopyWindowInfo(flags, Quartz.kCGNullWindowID)
+    ret = Quartz.CGWindowListCopyWindowInfo(flags, Quartz.kCGNullWindowID)
+    if userOnly:
+        matches = []
+        for win in ret:
+            if win[Quartz.kCGWindowLayer] != 0:
+                matches.append(win)
+        ret = matches
+    return ret
 
 
-def _getAllAppWindows(app: AppKit.NSApplication):
+def _getAllAppWindows(app: AppKit.NSApplication, userOnly: bool = False):
     windows = _getAllWindows()
     windowsInApp = []
     for win in windows:
-        if win[Quartz.kCGWindowLayer] == 0 and win[Quartz.kCGWindowOwnerPID] == app.processIdentifier():
+        if (not userOnly or (userOnly and win[Quartz.kCGWindowLayer] == 0)) and win[Quartz.kCGWindowOwnerPID] == app.processIdentifier():
             windowsInApp.append(win)
     return windowsInApp
 
@@ -300,8 +323,6 @@ class MacOSWindow(BaseWindow):
         self.menu = self._Menu(self)
 
     def _getWindowRect(self) -> Rect:
-        """Returns a rect of window position and size (left, top, right, bottom).
-        It follows ctypes format for compatibility"""
         cmd = """on run {arg1, arg2}
                     set procName to arg1
                     set winName to arg2
@@ -326,11 +347,14 @@ class MacOSWindow(BaseWindow):
         return isinstance(other, MacOSWindow) and self._app == other._app
 
     def close(self, force: bool = False) -> bool:
-        """Closes this window or app. This may trigger "Are you sure you want to
-        quit?" dialogs or other actions that prevent the window from actually
-        closing. This is identical to clicking the X button on the window.
+        """
+        Closes this window. This may trigger "Are you sure you want to
+        quit?" dialogs or other actions that prevent the window from
+        actually closing. This is identical to clicking the X button on the
+        window.
 
-        Use 'force' option to close the entire app in case window can't be closed"""
+        :return: ''True'' if window is closed
+        """
         self.show()
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
@@ -349,10 +373,12 @@ class MacOSWindow(BaseWindow):
         return not self._exists()
 
     def minimize(self, wait: bool = False) -> bool:
-        """Minimizes this window.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+        """
+        Minimizes this window
 
-        Returns ''True'' if window was minimized"""
+        :param wait: set to ''True'' to confirm action requested (in a reasonable time)
+        :return: ''True'' if window minimized
+        """
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
@@ -372,10 +398,12 @@ class MacOSWindow(BaseWindow):
         return self.isMinimized
 
     def maximize(self, wait: bool = False) -> bool:
-        """Maximizes this window.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+        """
+        Maximizes this window
 
-        Returns ''True'' if window was maximized"""
+        :param wait: set to ''True'' to confirm action requested (in a reasonable time)
+        :return: ''True'' if window maximized
+        """
         # Thanks to: macdeport (for this piece of code, his help, and the moral support!!!)
         if not self.isMaximized:
             if self._use_zoom:
@@ -406,10 +434,12 @@ class MacOSWindow(BaseWindow):
         return self.isMaximized
 
     def restore(self, wait: bool = False) -> bool:
-        """If maximized or minimized, restores the window to it's normal size.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+        """
+        If maximized or minimized, restores the window to it's normal size
 
-        Returns ''True'' if window was restored"""
+        :param wait: set to ''True'' to confirm action requested (in a reasonable time)
+        :return: ''True'' if window restored
+        """
         if self.isMaximized:
             if self._use_zoom:
                 cmd = """on run {arg1, arg2}
@@ -455,11 +485,46 @@ class MacOSWindow(BaseWindow):
             time.sleep(WAIT_DELAY * retries)
         return not self.isMaximized and not self.isMinimized
 
-    def hide(self, wait: bool = False) -> bool:
-        """If hidden or showing, hides the app from screen and title bar.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+    def show(self, wait: bool = False) -> bool:
+        """
+        If hidden or showing, shows the window on screen and in title bar
 
-        Returns ''True'' if window was hidden (unmapped)"""
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window showed
+        """
+        cmd = """on run {arg1, arg2}
+                    set appName to arg1 as string
+                    set winName to arg2 as string
+                    set isPossible to false
+                    try
+                        tell application "System Events" to tell application "%s"
+                            set isPossible to exists visible of window winName
+                            if isPossible then
+                                tell window winName to set visible to true
+                            end if
+                        end tell
+                    end try
+                    return (isPossible as string)
+               end run""" % self._appName
+        proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
+                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
+        ret, err = proc.communicate(cmd)
+        ret = ret.replace("\n", "")
+        if ret == "false":
+            self._app.unhide()
+        retries = 0
+        while wait and retries < WAIT_ATTEMPTS and not self.visible:
+            retries += 1
+            time.sleep(WAIT_DELAY * retries)
+        return self.visible
+
+    def hide(self, wait: bool = False) -> bool:
+        """
+        If hidden or showing, hides the window from screen and title bar
+
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window hidden
+        """
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
@@ -487,42 +552,13 @@ class MacOSWindow(BaseWindow):
             time.sleep(WAIT_DELAY * retries)
         return not self.visible
 
-    def show(self, wait: bool = False) -> bool:
-        """If hidden or showing, shows the window on screen and in title bar.
-        Use 'wait' option to confirm action requested (in a reasonable time).
-
-        Returns ''True'' if window is showing (mapped)"""
-        cmd = """on run {arg1, arg2}
-                    set appName to arg1 as string
-                    set winName to arg2 as string
-                    set isPossible to false
-                    try
-                        tell application "System Events" to tell application "%s"
-                            set isPossible to exists visible of window winName
-                            if isPossible then
-                                tell window winName to set visible to true
-                            end if
-                        end tell
-                    end try
-                    return (isPossible as string)
-               end run""" % self._appName
-        proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
-        ret = ret.replace("\n", "")
-        if ret == "false":
-            self._app.unhide()
-        retries = 0
-        while wait and retries < WAIT_ATTEMPTS and not self.visible:
-            retries += 1
-            time.sleep(WAIT_DELAY * retries)
-        return self.visible
-
     def activate(self, wait: bool = False) -> bool:
-        """Activate this window and make it the foreground (focused) window.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+        """
+        Activate this window and make it the foreground (focused) window
 
-        Returns ''True'' if window was activated"""
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window activated
+        """
         # self._app.activateWithOptions_(NSApplicationActivateIgnoringOtherApps)
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
@@ -531,7 +567,6 @@ class MacOSWindow(BaseWindow):
                         tell application "System Events" to tell application process appName
                             set visible to true
                             activate
-                            set winName to winName
                             tell window winName to set visible to true 
                             tell window winName to set index to 1
                         end tell
@@ -547,19 +582,23 @@ class MacOSWindow(BaseWindow):
         return self.isActive
 
     def resize(self, widthOffset: int, heightOffset: int, wait: bool = False) -> bool:
-        """Resizes the window relative to its current size.
-        Use 'wait' option to confirm action requested (in a reasonable time)
+        """
+        Resizes the window relative to its current size
 
-        Returns ''True'' if window was resized to the given size"""
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window resized to the given size
+        """
         return self.resizeTo(self.width + widthOffset, self.height + heightOffset, wait)
 
     resizeRel = resize  # resizeRel is an alias for the resize() method.
 
     def resizeTo(self, newWidth: int, newHeight: int, wait: bool = False) -> bool:
-        """Resizes the window to a new width and height.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+        """
+        Resizes the window to a new width and height
 
-        Returns ''True'' if window was resized to the given size"""
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window resized to the given size
+        """
         # https://apple.stackexchange.com/questions/350256/how-to-move-mac-os-application-to-specific-display-and-also-resize-automatically
         cmd = """on run {arg1, arg2, arg3, arg4}
                     set appName to arg1 as string
@@ -582,19 +621,23 @@ class MacOSWindow(BaseWindow):
         return self.width == newWidth and self.height == newHeight
 
     def move(self, xOffset: int, yOffset: int, wait: bool = False) -> bool:
-        """Moves the window relative to its current position.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+        """
+        Moves the window relative to its current position
 
-        Returns ''True'' if window was moved to the given position"""
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window moved to the given position
+        """
         return self.moveTo(self.left + xOffset, self.top + yOffset, wait)
 
     moveRel = move  # moveRel is an alias for the move() method.
 
     def moveTo(self, newLeft:int, newTop: int, wait: bool = False) -> bool:
-        """Moves the window to new coordinates on the screen.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+        """
+        Moves the window to new coordinates on the screen
 
-        Returns ''True'' if window was moved to the given position"""
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window moved to the given position
+        """
         # https://apple.stackexchange.com/questions/350256/how-to-move-mac-os-application-to-specific-display-and-also-resize-automatically
         cmd = """on run {arg1, arg2, arg3, arg4}
                     set appName to arg1 as string
@@ -643,23 +686,30 @@ class MacOSWindow(BaseWindow):
         return newLeft == self.left and newTop == self.top and newWidth == self.width and newHeight == self.height
 
     def alwaysOnTop(self, aot: bool = True) -> bool:
-        """Keeps window on top of all others.
+        """
+        Keeps window on top of all others.
 
-        Use aot=False to deactivate always-on-top behavior
+        :param aot: set to ''False'' to deactivate always-on-top behavior
+        :return: ''True'' if command succeeded
         """
         # TODO: Is there an attribute or similar to force window always on top?
         raise NotImplementedError
 
     def alwaysOnBottom(self, aob: bool = True) -> bool:
-        """Keeps window below of all others, but on top of desktop icons and keeping all window properties
+        """
+        Keeps window below of all others, but on top of desktop icons and keeping all window properties
 
-        Use aob=False to deactivate always-on-bottom behavior
+        :param aob: set to ''False'' to deactivate always-on-bottom behavior
+        :return: ''True'' if command succeeded
         """
         # TODO: Is there an attribute or similar to force window always at bottom?
         raise NotImplementedError
 
     def lowerWindow(self) -> None:
-        """Lowers the window to the bottom so that it does not obscure any sibling windows.
+        """
+        Lowers the window to the bottom so that it does not obscure any sibling windows
+
+        :return: ''True'' if window lowered
         """
         # https://apple.stackexchange.com/questions/233687/how-can-i-send-the-currently-active-window-to-the-back
         cmd = """on run {arg1, arg2}
@@ -684,7 +734,10 @@ class MacOSWindow(BaseWindow):
         ret, err = proc.communicate(cmd)
 
     def raiseWindow(self) -> None:
-        """Raises the window to top so that it is not obscured by any sibling windows.
+        """
+        Raises the window to top so that it is not obscured by any sibling windows.
+
+        :return: ''True'' if window raised
         """
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
@@ -700,18 +753,31 @@ class MacOSWindow(BaseWindow):
         ret, err = proc.communicate(cmd)
 
     def sendBehind(self, sb: bool = True) -> bool:
-        """Sends the window to the very bottom, under all other windows, including desktop icons.
-        It may also cause that window does not accept focus nor keyboard/mouse events.
+        """
+        Sends the window to the very bottom, below all other windows, including desktop icons.
+        It may also cause that the window does not accept focus nor keyboard/mouse events as well as
+        make the window disappear from taskbar and/or pager.
+
+        :param sb: set to ''False'' to bring the window back to front
+        :return: ''True'' if window sent behind desktop icons
         """
         # TODO: Is there an attribute or similar to set window level?
         raise NotImplementedError
 
     def getAppName(self) -> str:
-        """Returns the name of the app to which current window belongs to, as string"""
+        """
+        Get the name of the app current window belongs to
+
+        :return: name of the app as string
+        """
         return self._appName
 
     def getParent(self) -> str:
-        """Returns the handle (role:title) of the parent window/app"""
+        """
+        Get the handle of the current window parent. It can be another window or an application
+
+        :return: handle (role:name) of the window parent as string. Role can take "AXApplication" or "AXWindow" values according to its type
+        """
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
@@ -736,6 +802,11 @@ class MacOSWindow(BaseWindow):
         return result
 
     def getChildren(self):
+        """
+        Get the children handles of current window
+
+        :return: list of handles (role:name) as string. Role can only be "AXWindow" in this case
+        """
         # Will "AXChildren" do the trick?
         # https://macscripter.net/viewtopic.php?id=16778
         # value of attribute "AXChildren" of UI element 1 of scroll area 1 of group 4 of window 1
@@ -760,15 +831,19 @@ class MacOSWindow(BaseWindow):
         return result
 
     def getHandle(self) -> str:
-        """Returns the handle (role:title) of the window"""
+        """
+        Get the current window handle
+
+        :return: window handle (role:name) as string. Role can only be "AXWindow" in this case
+        """
         return "AXWindow" + SEP + self.title
 
     def isParent(self, child: str) -> bool:
-        """Returns ''True'' if the window is parent of the given window as input argument
+        """
+        Check if current window is parent of given window (handle)
 
-        Args:
-        ----
-            ''child'' title/handle (role:title) of the window you want to check if the current window is parent of
+        :param child: handle of the window you want to check if the current window is parent of
+        :return: ''True'' if current window is parent of the given window
         """
         if SEP in child:
             part = child.split(SEP)
@@ -784,12 +859,12 @@ class MacOSWindow(BaseWindow):
     isParentOf = isParent  # isParentOf is an alias of isParent method
 
     def isChild(self, parent: str) -> bool:
-        """Returns ''True'' if the window is child of the given window as input argument
+        """
+        Check if current window is child of given window/app (handle)
 
-                Args:
-                ----
-                    ''parent'' title/handle (role:title) of the window/app you want to check if the current window is child of
-                """
+        :param parent: handle of the window/app you want to check if the current window is child of
+        :return: ''True'' if current window is child of the given window
+        """
         currParent = self.getParent()
         if SEP not in parent:
             part = currParent.split(SEP)
@@ -800,7 +875,11 @@ class MacOSWindow(BaseWindow):
 
     @property
     def isMinimized(self) -> bool:
-        """Returns ``True`` if the window is currently minimized."""
+        """
+        Check if current window is currently minimized
+
+        :return: ``True`` if the window is minimized
+        """
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
@@ -820,7 +899,11 @@ class MacOSWindow(BaseWindow):
 
     @property
     def isMaximized(self) -> bool:
-        """Returns ``True`` if the window is currently maximized (full screen)."""
+        """
+        Check if current window is currently maximized
+
+        :return: ``True`` if the window is maximized
+        """
         if self._use_zoom:
             cmd = """on run {arg1, arg2}
                         set appName to arg1 as string
@@ -853,7 +936,11 @@ class MacOSWindow(BaseWindow):
 
     @property
     def isActive(self) -> bool:
-        """Returns ``True`` if the window is currently the active, foreground window."""
+        """
+        Check if current window is currently the active, foreground window
+
+        :return: ``True`` if the window is the active, foreground window
+        """
         ret = "false"
         if self._app.isActive():
             cmd = """on run {arg1, arg2}
@@ -875,13 +962,20 @@ class MacOSWindow(BaseWindow):
 
     @property
     def title(self) -> str:
+        """
+        Get the current window title, as string
+
+        :return: title as a string
+        """
         return self._winTitle
 
     @property
     def visible(self) -> bool:
-        """Returns ``True`` if the window is currently visible.
+        """
+        Check if current window is visible (minimized windows are also visible)
 
-        Non-existing and Hidden windows are not visible"""
+        :return: ``True`` if the window is currently visible
+        """
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
@@ -939,30 +1033,35 @@ class MacOSWindow(BaseWindow):
             self.itemList = []
 
         def getMenu(self, addItemInfo: bool = False) -> dict:
-            """Loads and returns the MENU struct in a dictionary format, if exists, or empty.
+            """
+            Loads and returns Menu options, sub-menus and related information, as dictionary.
 
-            Format:
-            ------
-                Key:    item title
+            It is HIGHLY RECOMMENDED to pre-load the Menu struct by explicitly calling getMenu()
+            before invoking any other method.
+
+            :param addItemInfo: if ''True'', adds "item_info" struct and "shortcut" to the output.
+                                "item_info" is extremely huge and slow. Instead use getMenuItemInfo() method individually.
+            :return: python dictionary with MENU struct
+
+            Output Format:
+                Key:
+                    item (option or sub-menu) title
 
                 Values:
-                    "parent":       parent sub-menu handle (main menu handle for level-0 items)
-
-                    "hSubMenu":     item handle (!= 0 for sub-menu items only)
-
-                    "wID":          item ID (required for other actions, e.g. clickMenuItem())
-
-                    "item_info":    (optional) dictionary containing all menu item attributes
-
-                    "shortcut":     shortcut to menu item (if any)
-
-                    "rect":         Rect struct of the menu item (relative to window position)
-
-                    "entries":      sub-items within the sub-menu (if any)
-
-            Notes:
-                "item_info" is extremely huge and slow. Instead use getMenuItemInfo() method individually.
-                if you really want/require item_info data, set ''addItemInfo'' to ''True''
+                    "parent":
+                        parent sub-menu handle (main menu handle for level-0 items)
+                    "hSubMenu":
+                        item handle (!= 0 for sub-menu items only)
+                    "wID":
+                        item ID (required for other actions, e.g. clickMenuItem())
+                    "rect":
+                        Rect struct of the menu item (relative to window position)
+                    "item_info" (optional):
+                        MENUITEMINFO struct containing all avialable menu item info
+                    "shortcut" (optional):
+                        shortcut to menu item, if any. Included only if item_info is included as well (addItemInfo=True)
+                    "entries":
+                        sub-items within the sub-menu (if any)
             """
 
             self._menuStructure = {}
@@ -1041,54 +1140,9 @@ class MacOSWindow(BaseWindow):
 
                 return nameList != []
 
-            flatNameList = []
-            flatSizeList = []
-            flatPosList = []
-            flatAttrList = []
-
-            def flatenit():
-
-                level = len(nameList)
-                mainlevel = len(nameList[0])
-                for i in range(level):
-                    subNameList = nameList[i]
-                    subSizeList = sizeList[i]
-                    subPosList = posList[i]
-                    subAttrList = attrList[i] if addItemInfo else []
-                    while len(subNameList) != mainlevel:
-                        subNameList = subNameList[0]
-                        subSizeList = subSizeList[0]
-                        subPosList = subPosList[0]
-                        subAttrList = subAttrList[0] if addItemInfo else []
-                    otherNameList = []
-                    otherSizeList = []
-                    otherPosList = []
-                    otherAttrList = []
-                    for j in range(len(subNameList)):
-                        lastNameList = subNameList[j]
-                        lastSizeList = subSizeList[j]
-                        lastPosList = subPosList[j]
-                        lastAttrList = subAttrList[j] if addItemInfo else []
-                        for k in range(i):
-                            if isinstance(lastNameList, list) and len(lastNameList) > 0:
-                                lastNameList = lastNameList[0]
-                                lastSizeList = lastSizeList[0]
-                                lastPosList = lastPosList[0]
-                                lastAttrList = lastAttrList[0] if addItemInfo else []
-                            else:
-                                break
-                        otherNameList.append(lastNameList)
-                        otherSizeList.append(lastSizeList)
-                        otherPosList.append(lastPosList)
-                        otherAttrList.append(lastAttrList)
-                    flatNameList.append(otherNameList)
-                    flatSizeList.append(otherSizeList)
-                    flatPosList.append(otherPosList)
-                    if addItemInfo: flatAttrList.append(otherAttrList)
-
             def fillit():
 
-                def subfillit(subNameList, subSizeList, subPosList, subAttrList, section="", level=0, mainlevel=0, parent=0):
+                def subfillit(subNameList, subSizeList, subPosList, subAttrList, section="", level=0, mainlevel=0, path=[], parent=0):
 
                     option = self._menuStructure
                     if section:
@@ -1097,8 +1151,12 @@ class MacOSWindow(BaseWindow):
                                 option = option[sec]
 
                     for i, item in enumerate(subNameList):
-                        item, size, pos, attr = self._cleanLists(i, subNameList, subSizeList, subPosList, subAttrList)
-                        if item == "missing value":
+                        pos = subPosList[i]
+                        size = subSizeList[i]
+                        attr = subAttrList if addItemInfo else []
+                        if not item or isinstance(item, list):
+                            continue
+                        elif item == "missing value":
                             item = "separator"
                             option[item] = {}
                         else:
@@ -1110,42 +1168,54 @@ class MacOSWindow(BaseWindow):
                                 option[item]["rect"] = Rect(x, y, w + x, y + h)
                             if addItemInfo:
                                 option[item]["item_info"] = self._parseAttr(attr)
-                            if level+1 < len(flatNameList):
-                                submenu, subSize, subPos, subAttr = self._cleanLists(i, flatNameList[level + 1][mainlevel], flatSizeList[level + 1][mainlevel], flatPosList[level + 1][mainlevel], flatAttrList[level + 1][mainlevel] if addItemInfo else [], subLists=False)
-                                if submenu:
+                            if level+1 < len(nameList):
+                                submenu = nameList[level + 1][mainlevel][0]
+                                subPos = posList[level + 1][mainlevel][0]
+                                subSize = sizeList[level + 1][mainlevel][0]
+                                subAttr = attrList[level + 1][mainlevel][0] if addItemInfo else []
+                                subPath = path[3:] + [i, 0]
+                                for j in subPath:
+                                    if len(submenu) > j and isinstance(submenu[j], list):
+                                        submenu = submenu[j]
+                                        if not submenu:
+                                            break
+                                        subPos = subPos[j]
+                                        subSize = subSize[j]
+                                        subAttr = subAttr[j] if addItemInfo else []
+                                    else:
+                                        break
+                                if submenu and len(submenu) > 0:
                                     option[item]["hSubMenu"] = self._getNewHSubMenu(ref)
                                     option[item]["entries"] = {}
                                     subfillit(submenu, subSize, subPos, subAttr,
                                               section + SEP + item + SEP + "entries",
-                                              level=level+1, mainlevel=mainlevel, parent=hSubMenu)
+                                              level=level+1, mainlevel=mainlevel, path=path+subPath, parent=hSubMenu)
                                 else:
                                     option[item]["hSubMenu"] = 0
 
-                for i, item in enumerate(flatNameList[0]):
+                for i, item in enumerate(nameList[0]):
                     hSubMenu = self._getNewHSubMenu(item)
                     self._menuStructure[item] = {"hSubMenu": hSubMenu, "wID": self._getNewWid(item), "entries": {}}
-                    subfillit(flatNameList[1][i], flatSizeList[1][i], flatPosList[1][i], flatAttrList[1][i] if addItemInfo else [],
-                              item + SEP + "entries", level=1, mainlevel=i, parent=hSubMenu)
+                    subfillit(nameList[1][i][0], sizeList[1][i][0], posList[1][i][0], attrList[1][i][0] if addItemInfo else [],
+                              item + SEP + "entries", level=1, mainlevel=i, path=[1, i, 0], parent=hSubMenu)
 
-            if findit():
-                flatenit()
-                fillit()
+            if findit(): fillit()
 
             return self._menuStructure
 
         def clickMenuItem(self, itemPath: list = None, wID: int = 0) -> bool:
-            """Simulates a click on a menu item
-
-            Args:
-            ----
-            Use one of these input parameters to identify desired menu item:
-                - ''itemPath'' corresponds to the desired menu option and predecessors as list (e.g. ["Menu", "SubMenu", "Item"])
-
-                - ''wID'' is the item ID within menu struct (as returned by getMenu() method)
+            """
+            Simulates a click on a menu item
 
             Notes:
-                - ''itemPath'' is language-dependent, so it's better not to use it or fulfill it from MENU struct
-                - Will not work if item is disabled (not clickable) or path/item doesn't exist
+                - It will not work for men/sub-menu entries
+                - It will not work if selected option is disabled
+
+            Use one of these input parameters to identify desired menu item:
+
+            :param itemPath: desired menu option and predecessors as list (e.g. ["Menu", "SubMenu", "Item"]). Notice it is language-dependent, so it's better to fulfill it from MENU struct as returned by :meth: getMenu()
+            :param wID: item ID within menu struct (as returned by getMenu() method)
+            :return: ''True'' if menu item to click is correct and exists (not if it has already been clicked or it had any effect)
             """
             found = False
             if self._checkMenuStruct():
@@ -1183,20 +1253,32 @@ class MacOSWindow(BaseWindow):
             return found
 
         def getMenuInfo(self, hSubMenu: int) -> dict:
-            """Returns the MENUINFO struct of the given sub-menu or main menu if none given
+            """
+            Returns the MENUINFO struct of the given sub-menu or main menu if none given
 
-            Args:
-            ----
-                ''hSubMenu'' is the id of the sub-menu entry (as returned by getMenu() method)
+            Format:
+                Key:
+                    attribute name
+
+                Values:
+                    "value":"
+                        value of attribute
+                    "class":
+                        class of attribute
+                    "settable":
+                        indicates if attribute can be modified (true/false)
+
+            :param hSubMenu: id of the sub-menu entry (as returned by getMenu() method)
+            :return: MENUINFO struct
             """
             return self.getMenuItemInfo(hSubMenu, -1)
 
         def getMenuItemCount(self, hSubMenu: int) -> int:
-            """Returns the number of items within a menu (main menu if no sub-menu given)
+            """
+            Returns the number of items within a menu (main menu if no sub-menu given)
 
-            Args:
-            ----
-                ''hSubMenu'' is the id of the sub-menu entry (as returned by getMenu() method)
+            :param hSubMenu: id of the sub-menu entry (as returned by getMenu() method)
+            :return: number of items as int
             """
             count = 0
             if self._checkMenuStruct():
@@ -1237,13 +1319,24 @@ class MacOSWindow(BaseWindow):
             return count
 
         def getMenuItemInfo(self, hSubMenu: int, wID: int) -> dict:
-            """Returns the ITEMINFO dictionary for the given menu item
+            """
+            Returns the MENUITEMINFO struct for the given menu item
 
-            Args:
-            ----
-                ''hSubMenu'' is the id of the parent sub-menu entry (as returned by getMenu() method)
+            Format:
+                Key:
+                    attribute name
 
-                ''wID'' is the item ID within menu struct (as returned by getMenu() method)
+                Values:
+                    "value":"
+                        value of attribute
+                    "class":
+                        class of attribute
+                    "settable":
+                        indicates if attribute can be modified (true/false)
+
+            :param hSubMenu: id of the sub-menu entry (as returned by :meth: getMenu())
+            :param wID: id of the window within menu struct (as returned by :meth: getMenu())
+            :return: MENUITEMINFO struct
             """
             itemInfo = []
             if self._checkMenuStruct():
@@ -1284,68 +1377,51 @@ class MacOSWindow(BaseWindow):
 
             return itemInfo
 
-        def getMenuItemRect(self, hSubMenu: int, itemPos: int) -> Rect:
-            """Returns the Rect struct of the Menu option
+        def getMenuItemRect(self, hSubMenu: int, wID: int) -> Rect:
+            """
+            Get the Rect struct (left, top, right, bottom) of the given Menu option
 
-            Args:
-            ----
-                ''hSubMenu'' is the id of the parent sub-menu entry (as returned by getMenu() method)
-
-                ''itemPos'' is the position (zero-based ordinal) of the item within the sub-menu
+            :param hSubMenu: id of the sub-menu entry (as returned by :meth: getMenu())
+            :param wID: id of the window within menu struct (as returned by :meth: getMenu())
+            :return: Rect struct
             """
             x = y = w = h = 0
             if self._checkMenuStruct():
                 menuPath = self._getPathFromHSubMenu(hSubMenu)
+                itemPath = self._getPathFromWid(wID)
 
-                if menuPath and len(menuPath) > 1:
-                    option = self._menuStructure
-                    for item in menuPath:
-                        if item in option.keys() and "entries" in option[item].keys():
-                            option = option[item]["entries"]
+                if itemPath and menuPath and len(itemPath) > 1 and itemPath[:-1] == menuPath:
+                    part = ""
+                    for i, item in enumerate(itemPath[1:-1]):
+                        if i % 2 == 0:
+                            part = str(' of menu "%s" of menu item "%s"' % (item, item)) + part
                         else:
-                            option = {}
-                            break
+                            part = str(' of menu item "%s" of menu "%s"' % (item, item)) + part
+                    subCmd = str('set itemRect to {position, size} of menu item "%s"' % itemPath[-1]) + part + str(' of menu "%s" of menu bar item "%s"' % (itemPath[0], itemPath[0]))
 
-                    if option:
-                        itemPath = []
-                        for i, key in enumerate(option.keys()):
-                            if i == itemPos:
-                                itemPath = menuPath
-                                itemPath.append(key)
-                                break
-
-                        if itemPath and len(itemPath) > 1:
-                            part = ""
-                            for i, item in enumerate(itemPath[1:-1]):
-                                if i % 2 == 0:
-                                    part = str(' of menu "%s" of menu item "%s"' % (item, item)) + part
-                                else:
-                                    part = str(' of menu item "%s" of menu "%s"' % (item, item)) + part
-                            subCmd = str('set itemRect to {position, size} of menu item %i' % itemPos) + part + str(' of menu "%s" of menu bar item "%s"' % (itemPath[0], itemPath[0]))
-
-                            cmd = """on run arg1
-                                        set procName to arg1 as string
-                                        set itemRect to {{0, 0}, {0, 0}}
-                                        try
-                                            tell application "System Events"
-                                                tell process procName
-                                                    tell menu bar 1
-                                                        %s
-                                                    end tell
-                                                end tell
+                    cmd = """on run arg1
+                                set procName to arg1 as string
+                                set itemRect to {{0, 0}, {0, 0}}
+                                try
+                                    tell application "System Events"
+                                        tell process procName
+                                            tell menu bar 1
+                                                %s
                                             end tell
-                                        end try
-                                        return itemRect
-                                    end run
-                                    """ % subCmd
+                                        end tell
+                                    end tell
+                                end try
+                                return itemRect
+                            end run
+                            """ % subCmd
 
-                            proc = subprocess.Popen(['osascript', '-s', 's', '-', str(self._parent._app.localizedName())],
-                                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-                            ret, err = proc.communicate(cmd)
-                            ret = ret.replace("\n", "").replace("{", "[").replace("}", "]")
-                            rect = ast.literal_eval(ret)
-                            x, y = rect[0]
-                            w, h = rect[1]
+                    proc = subprocess.Popen(['osascript', '-s', 's', '-', str(self._parent._app.localizedName())],
+                                            stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
+                    ret, err = proc.communicate(cmd)
+                    ret = ret.replace("\n", "").replace("{", "[").replace("}", "]")
+                    rect = ast.literal_eval(ret)
+                    x, y = rect[0]
+                    w, h = rect[1]
 
             return Rect(x, y, x + w, y + h)
 
@@ -1451,8 +1527,6 @@ class MacOSNSWindow(BaseWindow):
         self._setupRectProperties()
 
     def _getWindowRect(self) -> Rect:
-        """Returns a rect of window position and size (left, top, right, bottom).
-        It follows ctypes format for compatibility"""
         frame = self._hWnd.frame()
         res = resolution()
         x = int(frame.origin.x)
@@ -1468,16 +1542,23 @@ class MacOSNSWindow(BaseWindow):
         return isinstance(other, MacOSNSWindow) and self._hWnd == other._hWnd
 
     def close(self) -> bool:
-        """Closes this window. This may trigger "Are you sure you want to
-        quit?" dialogs or other actions that prevent the window from actually
-        closing. This is identical to clicking the X button on the window."""
+        """
+        Closes this window. This may trigger "Are you sure you want to
+        quit?" dialogs or other actions that prevent the window from
+        actually closing. This is identical to clicking the X button on the
+        window.
+
+        :return: ''True'' if window is closed
+        """
         return self._hWnd.performClose_(self._app)
 
     def minimize(self, wait: bool = False) -> bool:
-        """Minimizes this window.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+        """
+        Minimizes this window
 
-        Returns ''True'' if window was minimized"""
+        :param wait: set to ''True'' to confirm action requested (in a reasonable time)
+        :return: ''True'' if window minimized
+        """
         if not self.isMinimized:
             self._hWnd.performMiniaturize_(self._app)
             retries = 0
@@ -1487,10 +1568,12 @@ class MacOSNSWindow(BaseWindow):
         return self.isMinimized
 
     def maximize(self, wait: bool = False) -> bool:
-        """Maximizes this window.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+        """
+        Maximizes this window
 
-        Returns ''True'' if window was maximized"""
+        :param wait: set to ''True'' to confirm action requested (in a reasonable time)
+        :return: ''True'' if window maximized
+        """
         if not self.isMaximized:
             self._hWnd.performZoom_(self._app)
             retries = 0
@@ -1500,10 +1583,12 @@ class MacOSNSWindow(BaseWindow):
         return self.isMaximized
 
     def restore(self, wait: bool = False) -> bool:
-        """If maximized or minimized, restores the window to it's normal size.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+        """
+        If maximized or minimized, restores the window to it's normal size
 
-        Returns ''True'' if window was restored"""
+        :param wait: set to ''True'' to confirm action requested (in a reasonable time)
+        :return: ''True'' if window restored
+        """
         self.activate(wait=True)
         if self.isMaximized:
             self._hWnd.performZoom_(self._app)
@@ -1516,10 +1601,12 @@ class MacOSNSWindow(BaseWindow):
         return not self.isMaximized and not self.isMinimized
 
     def show(self, wait: bool = False) -> bool:
-        """If hidden or showing, shows the window on screen and in title bar.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+        """
+        If hidden or showing, shows the window on screen and in title bar
 
-        Returns ''True'' if window is showing (mapped)"""
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window showed
+        """
         self.activate(wait=wait)
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and not self.visible:
@@ -1528,10 +1615,12 @@ class MacOSNSWindow(BaseWindow):
         return self.visible
 
     def hide(self, wait: bool = False) -> bool:
-        """If hidden or showing, hides the app from screen and title bar.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+        """
+        If hidden or showing, hides the window from screen and title bar
 
-        Returns ''True'' if window was hidden (unmapped)"""
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window hidden
+        """
         self._hWnd.orderOut_(self._app)
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and self.visible:
@@ -1540,10 +1629,12 @@ class MacOSNSWindow(BaseWindow):
         return not self.visible
 
     def activate(self, wait: bool = False) -> bool:
-        """Activate this window and make it the foreground (focused) window.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+        """
+        Activate this window and make it the foreground (focused) window
 
-        Returns ''True'' if window was activated"""
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window activated
+        """
         self._app.activateIgnoringOtherApps_(True)
         self._hWnd.makeKeyAndOrderFront_(self._app)
         retries = 0
@@ -1553,19 +1644,23 @@ class MacOSNSWindow(BaseWindow):
         return self.isActive
 
     def resize(self, widthOffset: int, heightOffset: int, wait: bool = False) -> bool:
-        """Resizes the window relative to its current size.
-        Use 'wait' option to confirm action requested (in a reasonable time)
+        """
+        Resizes the window relative to its current size
 
-        Returns ''True'' if window was resized to the given size"""
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window resized to the given size
+        """
         return self.resizeTo(self.width + widthOffset, self.height + heightOffset, wait)
 
     resizeRel = resize  # resizeRel is an alias for the resize() method.
 
     def resizeTo(self, newWidth: int, newHeight: int, wait: bool = False) -> bool:
-        """Resizes the window to a new width and height.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+        """
+        Resizes the window to a new width and height
 
-        Returns ''True'' if window was resized to the given size"""
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window resized to the given size
+        """
         self._hWnd.setFrame_display_animate_(AppKit.NSMakeRect(self.bottomleft.x, self.bottomleft.y, newWidth, newHeight), True, True)
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and self.width != newWidth and self.height != newHeight:
@@ -1574,19 +1669,23 @@ class MacOSNSWindow(BaseWindow):
         return self.width == newWidth and self.height == newHeight
 
     def move(self, xOffset: int, yOffset: int, wait: bool = False) -> bool:
-        """Moves the window relative to its current position.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+        """
+        Moves the window relative to its current position
 
-        Returns ''True'' if window was moved to the given position"""
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window moved to the given position
+        """
         return self.moveTo(self.left + xOffset, self.top + yOffset, wait)
 
     moveRel = move  # moveRel is an alias for the move() method.
 
     def moveTo(self, newLeft:int, newTop: int, wait: bool = False) -> bool:
-        """Moves the window to new coordinates on the screen.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+        """
+        Moves the window to new coordinates on the screen
 
-        Returns ''True'' if window was moved to the given position"""
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window moved to the given position
+        """
         self._hWnd.setFrame_display_animate_(AppKit.NSMakeRect(newLeft, resolution().height - newTop - self.height, self.width, self.height), True, True)
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and self.left != newLeft and self.top != newTop:
@@ -1599,9 +1698,11 @@ class MacOSNSWindow(BaseWindow):
         return self.left == newLeft and self.top == newTop and self.width == newWidth and self.height == newHeight
 
     def alwaysOnTop(self, aot: bool = True) -> bool:
-        """Keeps window on top of all others.
+        """
+        Keeps window on top of all others.
 
-        Use aot=False to deactivate always-on-top behavior
+        :param aot: set to ''False'' to deactivate always-on-top behavior
+        :return: ''True'' if command succeeded
         """
         if aot:
             ret = self._hWnd.setLevel_(Quartz.kCGScreenSaverWindowLevel)
@@ -1610,9 +1711,11 @@ class MacOSNSWindow(BaseWindow):
         return ret
 
     def alwaysOnBottom(self, aob: bool = True) -> bool:
-        """Keeps window below of all others, but on top of desktop icons and keeping all window properties
+        """
+        Keeps window below of all others, but on top of desktop icons and keeping all window properties
 
-        Use aob=False to deactivate always-on-bottom behavior
+        :param aob: set to ''False'' to deactivate always-on-bottom behavior
+        :return: ''True'' if command succeeded
         """
         if aob:
             ret = self._hWnd.setLevel_(Quartz.kCGDesktopWindowLevel)
@@ -1621,7 +1724,10 @@ class MacOSNSWindow(BaseWindow):
         return ret
 
     def lowerWindow(self) -> bool:
-        """Lowers the window to the bottom so that it does not obscure any sibling windows.
+        """
+        Lowers the window to the bottom so that it does not obscure any sibling windows
+
+        :return: ''True'' if window lowered
         """
         # self._hWnd.orderBack_(self._app)  # Not working or using it wrong???
         windows = self._app.orderedWindows()
@@ -1634,17 +1740,22 @@ class MacOSNSWindow(BaseWindow):
         return ret
 
     def raiseWindow(self, sb: bool = True) -> bool:
-        """Raises the window to top so that it is not obscured by any sibling windows.
+        """
+        Raises the window to top so that it is not obscured by any sibling windows.
+
+        :return: ''True'' if window raised
         """
         return self._hWnd.makeKeyAndOrderFront_(self._app)
 
     def sendBehind(self, sb: bool = True) -> bool:
-        """Sends the window to the very bottom, below all other windows, including desktop icons.
-        It may also cause that the window does not accept focus nor keyboard/mouse events.
+        """
+        Sends the window to the very bottom, below all other windows, including desktop icons.
+        It may also cause that the window does not accept focus nor keyboard/mouse events as well as
+        make the window disappear from taskbar and/or pager.
 
-        Use sb=False to bring the window back from background
-
-        WARNING: On GNOME it will obscure desktop icons... by the moment"""
+        :param sb: set to ''False'' to bring the window back to front
+        :return: ''True'' if window sent behind desktop icons
+        """
         # https://stackoverflow.com/questions/4982584/how-do-i-draw-the-desktop-on-mac-os-x
         if sb:
             ret1 = self._hWnd.setLevel_(Quartz.kCGDesktopWindowLevel - 1)
@@ -1659,43 +1770,82 @@ class MacOSNSWindow(BaseWindow):
         return ret1 and ret2
 
     def getAppName(self) -> str:
-        """Returns the name of the app to which current window belongs to, as string"""
+        """
+        Get the name of the app current window belongs to
+
+        :return: name of the app as string
+        """
         return self._app.localizedName()
 
     def getParent(self) -> int:
-        """Returns the handle of the window parent"""
+        """
+        Get the handle of the current window parent. It can be another window or an application
+
+        :return: handle of the window parent
+        """
         return self._hWnd.parentWindow()
 
     def getChildren(self) -> List[int]:
+        """
+        Get the children handles of current window
+
+        :return: list of handles
+        """
         return self._hWnd.childWindows()
 
     def getHandle(self) -> int:
-        """Returns the handle of the window"""
+        """
+        Get the current window handle
+
+        :return: window handle
+        """
         return self._hWnd
 
     def isParent(self, child) -> bool:
-        """Returns True if the window is parent of the given window as input argument"""
+        """
+        Check if current window is parent of given window (handle)
+
+        :param child: handle of the window you want to check if the current window is parent of
+        :return: ''True'' if current window is parent of the given window
+        """
         return child.parentWindow() == self._hWnd
     isParentOf = isParent  # isParentOf is an alias of isParent method
 
     def isChild(self, parent) -> bool:
-        """Returns True if the window is child of the given window as input argument"""
+        """
+        Check if current window is child of given window/app (handle)
+
+        :param parent: handle of the window/app you want to check if the current window is child of
+        :return: ''True'' if current window is child of the given window
+        """
         return parent == self.getParent()
     isChildOf = isChild  # isParentOf is an alias of isParent method
 
     @property
     def isMinimized(self) -> bool:
-        """Returns ``True`` if the window is currently minimized."""
+        """
+        Check if current window is currently minimized
+
+        :return: ``True`` if the window is minimized
+        """
         return self._hWnd.isMiniaturized()
 
     @property
     def isMaximized(self) -> bool:
-        """Returns ``True`` if the window is currently maximized (fullscreen)."""
+        """
+        Check if current window is currently maximized
+
+        :return: ``True`` if the window is maximized
+        """
         return self._hWnd.isZoomed()
 
     @property
     def isActive(self) -> bool:
-        """Returns ``True`` if the window is currently the active, foreground window."""
+        """
+        Check if current window is currently the active, foreground window
+
+        :return: ``True`` if the window is the active, foreground window
+        """
         windows = getAllWindows(self._app)
         for win in windows:
             return self._hWnd == win
@@ -1703,22 +1853,30 @@ class MacOSNSWindow(BaseWindow):
 
     @property
     def title(self) -> str:
-        """Returns the window title as a string."""
+        """
+        Get the current window title, as string
+
+        :return: title as a string
+        """
         return self._hWnd.title()
 
     @property
     def visible(self) -> bool:
-        """Returns ``True`` if the window is currently visible."""
+        """
+        Check if current window is visible (minimized windows are also visible)
+
+        :return: ``True`` if the window is currently visible
+        """
         return self._hWnd.isVisible()
 
     isVisible = visible  # isVisible is an alias for the visible property.
 
 
 def getMousePos() -> Point:
-    """Returns the current xy coordinates of the mouse cursor as Point struct
+    """
+    Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
 
-    Returns:
-      (x, y) tuple of the current xy coordinates of the mouse cursor.
+    :return: Point struct
     """
     # https://stackoverflow.com/questions/3698635/getting-cursor-position-in-python/24567802
     mp = Quartz.NSEvent.mouseLocation()
@@ -1730,10 +1888,10 @@ cursor = getMousePos  # cursor is an alias for getMousePos
 
 
 def getScreenSize() -> Size:
-    """Returns the width and height of the screen as a Size struct.
+    """
+    Get the width and height of the screen, in pixels
 
-    Returns:
-      (width, height) tuple of the screen size, in pixels.
+    :return: Size struct
     """
     screen_area = AppKit.NSScreen.mainScreen().frame()
     return Size(int(screen_area.size.width), int(screen_area.size.height))
@@ -1742,10 +1900,10 @@ resolution = getScreenSize  # resolution is an alias for getScreenSize
 
 
 def getWorkArea() -> Rect:
-    """Returns the x, y, width, height of the working area of the screen as a Rect struct.
+    """
+    Get the Rect struct (left, top, right, bottom) of the working (usable by windows) area of the screen, in pixels
 
-    Returns:
-      (left, top, right, bottom) tuple of the working area of the screen, in pixels.
+    :return: Rect struct
     """
     work_area = AppKit.NSScreen.mainScreen().visibleFrame()
     x = int(work_area.origin.x)
@@ -1756,8 +1914,11 @@ def getWorkArea() -> Rect:
 
 
 def displayWindowsUnderMouse(xOffset:int = 0, yOffset: int = 0) -> None:
-    """This function is meant to be run from the command line. It will
-    automatically show mouse pointer position and windows names under it"""
+    """
+    This function is meant to be run from the command line. It will
+    automatically display the position of mouse pointer and the titles
+    of the windows under it
+    """
     if xOffset != 0 or yOffset != 0:
         print('xOffset: %s yOffset: %s' % (xOffset, yOffset))
     try:
@@ -1766,10 +1927,7 @@ def displayWindowsUnderMouse(xOffset:int = 0, yOffset: int = 0) -> None:
         while True:
             x, y = getMousePos()
             positionStr = 'X: ' + str(x - xOffset).rjust(4) + ' Y: ' + str(y - yOffset).rjust(4) + '  (Press Ctrl-C to quit)'
-            if prevWindows is not None:
-                sys.stdout.write(positionStr)
-                sys.stdout.write('\b' * len(positionStr))
-            if index % 50 == 0:
+            if index % 20 == 0:
                 allWindows = getAllWindows()
             windows = getWindowsAt(x, y, app=None, allWindows=allWindows)
             if windows != prevWindows:
@@ -1779,6 +1937,8 @@ def displayWindowsUnderMouse(xOffset:int = 0, yOffset: int = 0) -> None:
                     name = win.title
                     eraser = '' if len(name) >= len(positionStr) else ' ' * (len(positionStr) - len(name))
                     sys.stdout.write(name + eraser + '\n')
+            sys.stdout.write(positionStr)
+            sys.stdout.write('\b' * len(positionStr))
             sys.stdout.flush()
             index += 1
             time.sleep(0.1)

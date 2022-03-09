@@ -1,12 +1,12 @@
 # PyWinCtl
-# A cross-platform module to get info on and control windows.
+# A cross-platform module to get info on and control windows on screen
 
 # pywin32 on Windows
 # pyobjc (AppKit and Quartz) on macOS
 # Xlib and ewmh on Linux
 
 
-__version__ = "0.0.24"
+__version__ = "0.0.25"
 
 import sys, collections, pyrect
 

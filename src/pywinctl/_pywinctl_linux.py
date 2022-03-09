@@ -67,7 +67,11 @@ HINT_STATE_ICONIC = 3
 
 
 def getActiveWindow():
-    """Returns a Window object of the currently active Window or None."""
+    """
+    Get the currently active (focused) Window
+
+    :return: Window object or None
+    """
     win_id = EWMH.getActiveWindow()
     if win_id:
         return LinuxWindow(win_id)
@@ -75,7 +79,11 @@ def getActiveWindow():
 
 
 def getActiveWindowTitle() -> str:
-    """Returns a string of the title text of the currently active (focused) Window."""
+    """
+    Get the title of the currently active (focused) Window
+
+    :return: window title as string or empty
+    """
     win = getActiveWindow()
     if win:
         return win.title
@@ -84,12 +92,13 @@ def getActiveWindowTitle() -> str:
 
 
 def getWindowsAt(x: int, y: int):
-    """Returns a list of Window objects whose windows contain the point ``(x, y)``.
+    """
+    Get the list of Window objects whose windows contain the point ``(x, y)`` on screen
 
-    Args:
-    ----
-        ``x`` - x screen coordinate of the window(s)
-        ``y`` - y screen coordinate of the window(s)"""
+    :param x: X screen coordinate of the window(s)
+    :param y: Y screen coordinate of the window(s)
+    :return: list of Window objects
+    """
     windowsAtXY = []
     for win in getAllWindows():
         if pointInRect(x, y, win.left, win.top, win.width, win.height):
@@ -98,7 +107,12 @@ def getWindowsAt(x: int, y: int):
 
 
 def getWindowsWithTitle(title: str):
-    """Returns a Window object list with the given name."""
+    """
+    Get the list of Window objects whose title match the given string
+
+    :param title: title of the desired windows as string
+    :return: list of Window objects
+    """
     matches = []
     for win in getAllWindows():
         if win.title == title:
@@ -108,12 +122,20 @@ def getWindowsWithTitle(title: str):
 
 
 def getAllTitles() -> List[str]:
-    """Returns a list of strings of window titles for all visible windows."""
+    """
+    Get the list of titles of all visible windows
+
+    :return: list of titles as strings
+    """
     return [window.title for window in getAllWindows()]
 
 
 def getAllWindows():
-    """Returns a list of strings of window titles for all visible windows."""
+    """
+    Get the list of Window objects for all visible windows
+
+    :return: list of Window objects
+    """
     windows = EWMH.getClientList()
     return [LinuxWindow(window) for window in windows]
 
@@ -143,12 +165,25 @@ def _xlibGetAllWindows(parent: int = None, title: str = "") -> List[int]:
 
 
 def getAllAppsTitles() -> List[str]:
-    """Returns a list of all active apps."""
+    """
+    Get the list of names of all visible apps
+
+    :return: list of names as strings
+    """
     return list(getAllAppsWindowsTitles().keys())
 
 
 def getAllAppsWindowsTitles() -> dict:
-    """Returns a python dictionary of all active apps and their open windows."""
+    """
+    Get all visible apps names and their open windows titles
+
+    Format:
+        Key: app name
+
+        Values: list of window titles as strings
+
+    :return: python dictionary
+    """
     result = {}
     for win in getAllWindows():
         appName = win.getAppName()
@@ -169,8 +204,6 @@ class LinuxWindow(BaseWindow):
         # self._saveWindowInitValues()  # Store initial Window parameters to allow reset and other actions
 
     def _getWindowRect(self) -> Rect:
-        """Returns a rect of window position and size (left, top, right, bottom).
-        It follows ctypes format for compatibility"""
         # https://stackoverflow.com/questions/12775136/get-window-position-and-size-in-python-with-xlib - mgalgs
         win = self._hWnd
         geom = win.get_geometry()
@@ -206,18 +239,25 @@ class LinuxWindow(BaseWindow):
         return isinstance(other, LinuxWindow) and self._hWnd == other._hWnd
 
     def close(self) -> bool:
-        """Closes this window. This may trigger "Are you sure you want to
-        quit?" dialogs or other actions that prevent the window from actually
-        closing. This is identical to clicking the X button on the window."""
+        """
+        Closes this window. This may trigger "Are you sure you want to
+        quit?" dialogs or other actions that prevent the window from
+        actually closing. This is identical to clicking the X button on the
+        window.
+
+        :return: ''True'' if window is closed
+        """
         EWMH.setCloseWindow(self._hWnd)
         EWMH.display.flush()
         return self._hWnd not in EWMH.getClientList()
 
     def minimize(self, wait: bool = False) -> bool:
-        """Minimizes this window.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+        """
+        Minimizes this window
 
-        Returns ''True'' if window was minimized"""
+        :param wait: set to ''True'' to confirm action requested (in a reasonable time)
+        :return: ''True'' if window minimized
+        """
         if not self.isMinimized:
             prop = DISP.intern_atom(WM_CHANGE_STATE, False)
             data = (32, [Xlib.Xutil.IconicState, 0, 0, 0, 0])
@@ -236,10 +276,12 @@ class LinuxWindow(BaseWindow):
         return self.isMinimized
 
     def maximize(self, wait: bool = False) -> bool:
-        """Maximizes this window.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+        """
+        Maximizes this window
 
-        Returns ''True'' if window was maximized"""
+        :param wait: set to ''True'' to confirm action requested (in a reasonable time)
+        :return: ''True'' if window maximized
+        """
         if not self.isMaximized:
             EWMH.setWmState(self._hWnd, ACTION_SET, STATE_MAX_VERT, STATE_MAX_HORZ)
             EWMH.display.flush()
@@ -250,11 +292,12 @@ class LinuxWindow(BaseWindow):
         return self.isMaximized
 
     def restore(self, wait: bool = False) -> bool:
-        """If maximized or minimized, restores the window to it's normal size.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+        """
+        If maximized or minimized, restores the window to it's normal size
 
-        Returns ''True'' if window was restored"""
-        # Activation seems to be enough to restore a minimized window in GNOME, CINNAMON and LXDE
+        :param wait: set to ''True'' to confirm action requested (in a reasonable time)
+        :return: ''True'' if window restored
+        """
         self.activate(wait=wait)
         if self.isMaximized:
             EWMH.setWmState(self._hWnd, ACTION_UNSET, STATE_MAX_VERT, STATE_MAX_HORZ)
@@ -265,27 +308,13 @@ class LinuxWindow(BaseWindow):
             time.sleep(WAIT_DELAY * retries)
         return not self.isMaximized and not self.isMinimized
 
-    def hide(self, wait: bool = False) -> bool:
-        """If hidden or showing, hides the window from screen and title bar.
-        Use 'wait' option to confirm action requested (in a reasonable time).
-
-        Returns ''True'' if window was hidden (unmapped)"""
-        win = DISP.create_resource_object('window', self._hWnd)
-        win.unmap_sub_windows()
-        DISP.flush()
-        win.unmap()
-        DISP.flush()
-        retries = 0
-        while wait and retries < WAIT_ATTEMPTS and self._isMapped:
-            retries += 1
-            time.sleep(WAIT_DELAY * retries)
-        return not self._isMapped
-
     def show(self, wait: bool = False) -> bool:
-        """If hidden or showing, shows the window on screen and in title bar.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+        """
+        If hidden or showing, shows the window on screen and in title bar
 
-        Returns ''True'' if window is showing (mapped)"""
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window showed
+        """
         win = DISP.create_resource_object('window', self._hWnd)
         win.map()
         DISP.flush()
@@ -297,11 +326,31 @@ class LinuxWindow(BaseWindow):
             time.sleep(WAIT_DELAY * retries)
         return self._isMapped
 
-    def activate(self, wait: bool = False) -> bool:
-        """Activate this window and make it the foreground (focused) window.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+    def hide(self, wait: bool = False) -> bool:
+        """
+        If hidden or showing, hides the window from screen and title bar
 
-        Returns ''True'' if window was activated"""
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window hidden
+        """
+        win = DISP.create_resource_object('window', self._hWnd)
+        win.unmap_sub_windows()
+        DISP.flush()
+        win.unmap()
+        DISP.flush()
+        retries = 0
+        while wait and retries < WAIT_ATTEMPTS and self._isMapped:
+            retries += 1
+            time.sleep(WAIT_DELAY * retries)
+        return not self._isMapped
+
+    def activate(self, wait: bool = False) -> bool:
+        """
+        Activate this window and make it the foreground (focused) window
+
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window activated
+        """
         if "arm" in platform.platform():
             EWMH.setWmState(self._hWnd, ACTION_UNSET, STATE_BELOW, STATE_NULL)
             EWMH.display.flush()
@@ -316,19 +365,23 @@ class LinuxWindow(BaseWindow):
         return self.isActive
 
     def resize(self, widthOffset: int, heightOffset: int, wait: bool = False) -> bool:
-        """Resizes the window relative to its current size.
-        Use 'wait' option to confirm action requested (in a reasonable time)
+        """
+        Resizes the window relative to its current size
 
-        Returns ''True'' if window was resized to the given size"""
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window resized to the given size
+        """
         return self.resizeTo(self.width + widthOffset, self.height + heightOffset, wait)
 
     resizeRel = resize  # resizeRel is an alias for the resize() method.
 
     def resizeTo(self, newWidth: int, newHeight: int, wait: bool = False) -> bool:
-        """Resizes the window to a new width and height.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+        """
+        Resizes the window to a new width and height
 
-        Returns ''True'' if window was resized to the given size"""
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window resized to the given size
+        """
         EWMH.setMoveResizeWindow(self._hWnd, x=self.left, y=self.top, w=newWidth, h=newHeight)
         EWMH.display.flush()
         retries = 0
@@ -338,10 +391,12 @@ class LinuxWindow(BaseWindow):
         return self.width == newWidth and self.height == newHeight
 
     def move(self, xOffset: int, yOffset: int, wait: bool = False) -> bool:
-        """Moves the window relative to its current position.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+        """
+        Moves the window relative to its current position
 
-        Returns ''True'' if window was moved to the given position"""
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window moved to the given position
+        """
         newLeft = max(0, self.left + xOffset)  # Xlib/EWMH won't accept negative positions
         newTop = max(0, self.top + yOffset)
         return self.moveTo(newLeft, newTop, wait)
@@ -349,10 +404,12 @@ class LinuxWindow(BaseWindow):
     moveRel = move  # moveRel is an alias for the move() method.
 
     def moveTo(self, newLeft:int, newTop: int, wait: bool = False) -> bool:
-        """Moves the window to new coordinates on the screen.
-        Use 'wait' option to confirm action requested (in a reasonable time).
+        """
+        Moves the window to new coordinates on the screen
 
-        Returns ''True'' if window was moved to the given position"""
+        :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :return: ''True'' if window moved to the given position
+        """
         newLeft = max(0, newLeft)  # Xlib/EWMH won't accept negative positions
         newTop = max(0, newTop)
         EWMH.setMoveResizeWindow(self._hWnd, x=newLeft, y=newTop, w=self.width, h=self.height)
@@ -371,9 +428,11 @@ class LinuxWindow(BaseWindow):
         return newLeft == self.left and newTop == self.top and newWidth == self.width and newHeight == self.height
 
     def alwaysOnTop(self, aot: bool = True) -> bool:
-        """Keeps window on top of all others.
+        """
+        Keeps window on top of all others.
 
-        Use aot=False to deactivate always-on-top behavior
+        :param aot: set to ''False'' to deactivate always-on-top behavior
+        :return: ''True'' if command succeeded
         """
         action = ACTION_SET if aot else ACTION_UNSET
         EWMH.setWmState(self._hWnd, action, STATE_ABOVE)
@@ -381,9 +440,11 @@ class LinuxWindow(BaseWindow):
         return STATE_ABOVE in EWMH.getWmState(self._hWnd, str=True)
 
     def alwaysOnBottom(self, aob: bool = True) -> bool:
-        """Keeps window below of all others, but on top of desktop icons and keeping all window properties
+        """
+        Keeps window below of all others, but on top of desktop icons and keeping all window properties
 
-        Use aob=False to deactivate always-on-bottom behavior
+        :param aob: set to ''False'' to deactivate always-on-bottom behavior
+        :return: ''True'' if command succeeded
         """
         action = ACTION_SET if aob else ACTION_UNSET
         EWMH.setWmState(self._hWnd, action, STATE_BELOW)
@@ -391,7 +452,10 @@ class LinuxWindow(BaseWindow):
         return STATE_BELOW in EWMH.getWmState(self._hWnd, str=True)
 
     def lowerWindow(self) -> bool:
-        """Lowers the window to the bottom so that it does not obscure any sibling windows.
+        """
+        Lowers the window to the bottom so that it does not obscure any sibling windows
+
+        :return: ''True'' if window lowered
         """
         w = DISP.create_resource_object('window', self._hWnd)
         w.configure(stack_mode=Xlib.X.Below)
@@ -400,7 +464,10 @@ class LinuxWindow(BaseWindow):
         return windows and self._hWnd == windows[-1]
 
     def raiseWindow(self) -> bool:
-        """Raises the window to top so that it is not obscured by any sibling windows.
+        """
+        Raises the window to top so that it is not obscured by any sibling windows.
+
+        :return: ''True'' if window raised
         """
         w = DISP.create_resource_object('window', self._hWnd)
         w.configure(stack_mode=Xlib.X.Above)
@@ -409,12 +476,17 @@ class LinuxWindow(BaseWindow):
         return windows and self._hWnd == windows[0]
 
     def sendBehind(self, sb: bool = True) -> bool:
-        """Sends the window to the very bottom, below all other windows, including desktop icons.
-        It may also cause that the window does not accept focus nor keyboard/mouse events.
+        """
+        Sends the window to the very bottom, below all other windows, including desktop icons.
+        It may also cause that the window does not accept focus nor keyboard/mouse events as well as
+        make the window disappear from taskbar and/or pager.
 
-        Use sb=False to bring the window back from background
+        :param sb: set to ''False'' to bring the window back to front
+        :return: ''True'' if window sent behind desktop icons
 
-        WARNING: On GNOME it will obscure desktop icons... by the moment"""
+        Notes:
+            - On GNOME it will obscure desktop icons... by the moment
+        """
         if sb:
             # https://stackoverflow.com/questions/58885803/can-i-use-net-wm-window-type-dock-ewhm-extension-in-openbox
             w = DISP.create_resource_object('window', self._hWnd)
@@ -471,7 +543,11 @@ class LinuxWindow(BaseWindow):
             return WINDOW_NORMAL in EWMH.getWmWindowType(self._hWnd, str=True) and self.isActive
 
     def getAppName(self) -> str:
-        """Returns the name of the app to which current window belongs to, as string"""
+        """
+        Get the name of the app current window belongs to
+
+        :return: name of the app as string
+        """
         # https://stackoverflow.com/questions/32295395/how-to-get-the-process-name-by-pid-in-linux-using-python
         pid = EWMH.getWmPid(self._hWnd)
         with subprocess.Popen(f"ps -q {pid} -o comm=", shell=True, stdout=subprocess.PIPE) as p:
@@ -481,15 +557,28 @@ class LinuxWindow(BaseWindow):
         return ret
 
     def getParent(self) -> Union[Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]:
-        """Returns the handle of the window parent"""
+        """
+        Get the handle of the current window parent. It can be another window or an application
+
+        :return: handle of the window parent
+        """
         return self._hWnd.query_tree().parent
 
     def getChildren(self) -> List[int]:
+        """
+        Get the children handles of current window
+
+        :return: list of handles
+        """
         w = DISP.create_resource_object('window', self._hWnd)
         return w.query_tree().children
 
     def getHandle(self) -> Union[Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]:
-        """Returns the handle of the window"""
+        """
+        Get the current window handle
+
+        :return: window handle
+        """
         return self._hWnd
 
     def isParent(self, child: Union[Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]) -> bool:
@@ -503,36 +592,52 @@ class LinuxWindow(BaseWindow):
     isParentOf = isParent  # isParentOf is an alias of isParent method
 
     def isChild(self, parent: Union[Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]) -> bool:
-        """Returns ''True'' if the window is child of the given window as input argument
+        """
+        Check if current window is child of given window/app (handle)
 
-                Args:
-                ----
-                    ''parent'' handle of the window/app you want to check if the current window is child of
-                """
+        :param parent: handle of the window/app you want to check if the current window is child of
+        :return: ''True'' if current window is child of the given window
+        """
         return parent == self.getParent()
     isChildOf = isChild  # isParentOf is an alias of isParent method
 
     @property
     def isMinimized(self) -> bool:
-        """Returns ``True`` if the window is currently minimized."""
+        """
+        Check if current window is currently minimized
+
+        :return: ``True`` if the window is minimized
+        """
         state = EWMH.getWmState(self._hWnd, str=True)
         return STATE_HIDDEN in state
 
     @property
     def isMaximized(self) -> bool:
-        """Returns ``True`` if the window is currently maximized."""
+        """
+        Check if current window is currently maximized
+
+        :return: ``True`` if the window is maximized
+        """
         state = EWMH.getWmState(self._hWnd, str=True)
         return STATE_MAX_VERT in state and STATE_MAX_HORZ in state
 
     @property
     def isActive(self) -> bool:
-        """Returns ``True`` if the window is currently the active, foreground window."""
+        """
+        Check if current window is currently the active, foreground window
+
+        :return: ``True`` if the window is the active, foreground window
+        """
         win = EWMH.getActiveWindow()
         return win == self._hWnd
 
     @property
     def title(self) -> str:
-        """Returns the window title as a string."""
+        """
+        Get the current window title, as string
+
+        :return: title as a string
+        """
         # TODO: detect if title changes: https://stackoverflow.com/questions/23786289/how-to-correctly-detect-application-name-when-changing-focus-event-occurs-with
         name = EWMH.getWmName(self._hWnd)
         if isinstance(name, bytes):
@@ -541,7 +646,11 @@ class LinuxWindow(BaseWindow):
 
     @property
     def visible(self) -> bool:
-        """Returns ``True`` if the window is currently visible."""
+        """
+        Check if current window is visible (minimized windows are also visible)
+
+        :return: ``True`` if the window is currently visible
+        """
         win = DISP.create_resource_object('window', self._hWnd)
         state = win.get_attributes().map_state
         return state == Xlib.X.IsViewable
@@ -557,10 +666,10 @@ class LinuxWindow(BaseWindow):
 
 
 def getMousePos() -> Point:
-    """Returns the current xy coordinates of the mouse cursor as a Point struct
+    """
+    Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
 
-    Returns:
-      (x, y) tuple of the current xy coordinates of the mouse cursor.
+    :return: Point struct
     """
     mp = ROOT.query_pointer()
     return Point(mp.root_x, mp.root_y)
@@ -569,10 +678,10 @@ cursor = getMousePos  # cursor is an alias for getMousePos
 
 
 def getScreenSize() -> Size:
-    """Returns the width and height of the screen as Size struct.
+    """
+    Get the width and height of the screen, in pixels
 
-    Returns:
-      (width, height) tuple of the screen size, in pixels.
+    :return: Size struct
     """
     res = EWMH.getDesktopGeometry()
     return Size(res[0], res[1])
@@ -581,10 +690,10 @@ resolution = getScreenSize  # resolution is an alias for getScreenSize
 
 
 def getWorkArea() -> Rect:
-    """Returns the x, y, width, height of the working area of the screen as a Rect struct.
+    """
+    Get the Rect struct (left, top, right, bottom) of the working (usable by windows) area of the screen, in pixels
 
-    Returns:
-      (left, top, right, bottom) tuple of the working area of the screen, in pixels.
+    :return: Rect struct
     """
     work_area = EWMH.getWorkArea()
     x = work_area[0]
@@ -595,8 +704,11 @@ def getWorkArea() -> Rect:
 
 
 def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
-    """This function is meant to be run from the command line. It will
-    automatically show mouse pointer position and windows names under it"""
+    """
+    This function is meant to be run from the command line. It will
+    automatically display the position of mouse pointer and the titles
+    of the windows under it
+    """
     if xOffset != 0 or yOffset != 0:
         print('xOffset: %s yOffset: %s' % (xOffset, yOffset))
     try:
@@ -604,9 +716,6 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
         while True:
             x, y = getMousePos()
             positionStr = 'X: ' + str(x - xOffset).rjust(4) + ' Y: ' + str(y - yOffset).rjust(4) + '  (Press Ctrl-C to quit)'
-            if prevWindows is not None:
-                sys.stdout.write(positionStr)
-                sys.stdout.write('\b' * len(positionStr))
             windows = getWindowsAt(x, y)
             if windows != prevWindows:
                 print('\n')
@@ -615,6 +724,8 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
                     name = win.title
                     eraser = '' if len(name) >= len(positionStr) else ' ' * (len(positionStr) - len(name))
                     sys.stdout.write(name + eraser + '\n')
+            sys.stdout.write(positionStr)
+            sys.stdout.write('\b' * len(positionStr))
             sys.stdout.flush()
             time.sleep(0.3)
     except KeyboardInterrupt:
