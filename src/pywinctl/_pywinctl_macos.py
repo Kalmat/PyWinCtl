@@ -6,7 +6,6 @@ import platform
 import subprocess
 import sys
 import time
-import timeit
 from typing import List
 
 import AppKit
@@ -1039,8 +1038,13 @@ class MacOSWindow(BaseWindow):
             It is HIGHLY RECOMMENDED to pre-load the Menu struct by explicitly calling getMenu()
             before invoking any other method.
 
-            :param addItemInfo: if ''True'', adds "item_info" struct and "shortcut" to the output.
-                                "item_info" is extremely huge and slow. Instead use getMenuItemInfo() method individually.
+            WARNING: "item_info" is extremely huge and slow. Instead use getMenuItemInfo() method individually
+
+            WARNING: Notice there are "hidden" menu entries which are not visible, but are returned
+            when querying menu. These entries do not have position nor size.
+
+            :param addItemInfo: if ''True'', adds "item_info" struct and "shortcut" to the output
+                                "item_info" is extremely huge and slow. Instead use getMenuItemInfo() method individually
             :return: python dictionary with MENU struct
 
             Output Format:
@@ -1150,24 +1154,26 @@ class MacOSWindow(BaseWindow):
                             if sec:
                                 option = option[sec]
 
-                    for i, item in enumerate(subNameList):
+                    for i, name in enumerate(subNameList):
                         pos = subPosList[i]
                         size = subSizeList[i]
-                        attr = subAttrList if addItemInfo else []
-                        if not item or isinstance(item, list):
+                        attr = subAttrList[i] if addItemInfo else []
+                        if not name:
                             continue
-                        elif item == "missing value":
-                            item = "separator"
-                            option[item] = {}
+                        elif name == "missing value":
+                            name = "separator"
+                            option[name] = {}
                         else:
-                            ref = section.replace(SEP + "entries", "") + SEP + item
-                            option[item] = {"parent": parent, "wID": self._getNewWid(ref)}
+                            ref = section.replace(SEP + "entries", "") + SEP + name
+                            option[name] = {"parent": parent, "wID": self._getNewWid(ref)}
                             if size and pos and size != "missing value" and pos != "missing value":
                                 x, y = pos
                                 w, h = size
-                                option[item]["rect"] = Rect(x, y, w + x, y + h)
+                                option[name]["rect"] = Rect(x, y, x + w, y + h)
                             if addItemInfo:
-                                option[item]["item_info"] = self._parseAttr(attr)
+                                item_info = self._parseAttr(attr)
+                                option[name]["item_info"] = item_info
+                                option[name]["shortcut"] = self._getaccesskey(item_info)
                             if level+1 < len(nameList):
                                 submenu = nameList[level + 1][mainlevel][0]
                                 subPos = posList[level + 1][mainlevel][0]
@@ -1175,7 +1181,7 @@ class MacOSWindow(BaseWindow):
                                 subAttr = attrList[level + 1][mainlevel][0] if addItemInfo else []
                                 subPath = path[3:] + [i, 0]
                                 for j in subPath:
-                                    if len(submenu) > j and isinstance(submenu[j], list):
+                                    if len(submenu) > j:
                                         submenu = submenu[j]
                                         if not submenu:
                                             break
@@ -1185,13 +1191,13 @@ class MacOSWindow(BaseWindow):
                                     else:
                                         break
                                 if submenu and len(submenu) > 0:
-                                    option[item]["hSubMenu"] = self._getNewHSubMenu(ref)
-                                    option[item]["entries"] = {}
+                                    option[name]["hSubMenu"] = self._getNewHSubMenu(ref)
+                                    option[name]["entries"] = {}
                                     subfillit(submenu, subSize, subPos, subAttr,
-                                              section + SEP + item + SEP + "entries",
+                                              section + SEP + name + SEP + "entries",
                                               level=level+1, mainlevel=mainlevel, path=path+subPath, parent=hSubMenu)
                                 else:
-                                    option[item]["hSubMenu"] = 0
+                                    option[name]["hSubMenu"] = 0
 
                 for i, item in enumerate(nameList[0]):
                     hSubMenu = self._getNewHSubMenu(item)
@@ -1431,34 +1437,6 @@ class MacOSWindow(BaseWindow):
                 return all(map(self._isListEmpty, inList))
             return False
 
-        def _cleanLists(self, i, subNameList, subSizeList, subPosList, subAttrList, subLists=True):
-
-            if isinstance(subNameList, list) and i < len(subNameList):
-                item = subNameList[i]
-                size = subSizeList[i]
-                pos = subPosList[i]
-                attr = subAttrList[i] if subAttrList else []
-
-                if subLists:
-                    while isinstance(item, list) and len(item) > 0:
-                        item = item[0]
-                        pos = pos[0]
-                        size = size[0]
-                        attr = attr[0] if attr else []
-                else:
-                    while len(item) > 0 and isinstance(item[0], list):
-                        item = item[0]
-                        size = size[0]
-                        pos = pos[0]
-                        attr = attr[0] if attr else []
-            else:
-                item = subNameList
-                size = subSizeList
-                pos = subPosList
-                attr = subAttrList
-
-            return item, size, pos, attr
-
         def _parseAttr(self, attr, convert=False):
 
             itemInfo = {}
@@ -1515,6 +1493,78 @@ class MacOSWindow(BaseWindow):
                     wID = option[itemPath[-1]]["wID"]
 
             return wID
+
+        def _getaccesskey(self, item_info):
+            # https://github.com/babarrett/hammerspoon/blob/master/cheatsheets.lua
+            # https://github.com/pyatom/pyatom/blob/master/atomac/ldtpd/core.py
+
+            mods = ["<command", "<shift><command", "<option><command>", "<option><shift><command>",
+                    "<control><command>", "<control><option><command>", "", "<tab>", "", "<option>",
+                    "<option><shift>", "<control>", "<control><shift>", "<control><option>"]
+
+            try:
+                key = item_info["AXMenuItemCmdChar"]["value"]
+            except:
+                key = ""
+            try:
+                modifiers = item_info["AXMenuItemCmdModifiers"]["value"]
+                if modifiers.isnumeric():
+                    modifiers = int(modifiers)
+            except:
+                modifiers = -1
+            try:
+                glyph = item_info["AXMenuItemCmdGlyph"]["value"]
+                if glyph.isnumeric():
+                    glyph = int(glyph)
+            except:
+                glyph = -1
+            try:
+                virtual_key = item_info["AXMenuItemCmdVirtualKey"]["value"]
+                if virtual_key.isnumeric():
+                    virtual_key = int(virtual_key)
+            except:
+                virtual_key = -1
+
+            modifiers_type = ""
+            if modifiers < len(mods):
+                modifiers_type = mods[modifiers]
+
+            # Scroll up
+            if virtual_key == 115 and glyph == 102:
+                modifiers_type = "<option>"
+                key = "<cursor_left>"
+            # Scroll down
+            elif virtual_key == 119 and glyph == 105:
+                modifiers_type = "<option>"
+                key = "<right>"
+            # Page up
+            elif virtual_key == 116 and glyph == 98:
+                modifiers_type = "<option>"
+                key = "<up>"
+            # Page down
+            elif virtual_key == 121 and glyph == 107:
+                modifiers_type = "<option>"
+                key = "<down>"
+            # Line up
+            elif virtual_key == 126 and glyph == 104:
+                key = "<up>"
+            # Line down
+            elif virtual_key == 125 and glyph == 106:
+                key = "<down>"
+            # Noticed in  Google Chrome navigating next tab
+            elif virtual_key == 124 and glyph == 101:
+                key = "<right>"
+            # Noticed in  Google Chrome navigating previous tab
+            elif virtual_key == 123 and glyph == 100:
+                key = "<left>"
+            # List application in a window to Force Quit
+            elif virtual_key == 53 and glyph == 27:
+                key = "<escape>"
+
+            if not key:
+                modifiers_type = ""
+
+            return modifiers_type + key
 
 
 class MacOSNSWindow(BaseWindow):
@@ -1952,7 +2002,6 @@ def main():
     print("PLATFORM:", sys.platform)
     print("SCREEN SIZE:", resolution())
     print("ALL WINDOWS", getAllTitles())
-    time.sleep(3)
     npw = getActiveWindow()
     print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()
