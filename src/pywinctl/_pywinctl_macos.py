@@ -1529,10 +1529,11 @@ class MacOSWindow(BaseWindow):
             if modifiers < len(mods):
                 modifiers_type = mods[modifiers]
 
+            # Probably, this is not exhaustive
             # Scroll up
             if virtual_key == 115 and glyph == 102:
                 modifiers_type = "<option>"
-                key = "<cursor_left>"
+                key = "<left>"
             # Scroll down
             elif virtual_key == 119 and glyph == 105:
                 modifiers_type = "<option>"
