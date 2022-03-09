@@ -515,7 +515,7 @@ class MacOSWindow(BaseWindow):
         while wait and retries < WAIT_ATTEMPTS and not self.visible:
             retries += 1
             time.sleep(WAIT_DELAY * retries)
-        return self.visible
+        return self.visible and self.isActive
 
     def hide(self, wait: bool = False) -> bool:
         """
@@ -529,7 +529,7 @@ class MacOSWindow(BaseWindow):
                     set winName to arg2 as string
                     set isPossible to false
                     try
-                        tell application "System Events" to tell application "%s""
+                        tell application "System Events" to tell application "%s"
                             set isPossible to exists visible of window winName
                             if isPossible then
                                 tell window winName to set visible to false
@@ -558,18 +558,17 @@ class MacOSWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window activated
         """
-        # self._app.activateWithOptions_(NSApplicationActivateIgnoringOtherApps)
+        if not self.isVisible:
+            self.show(wait=wait)
+        if self.isMinimized or self.isMaximized:
+            self.restore(wait=wait)
+        self._app.activateWithOptions_(Quartz.NSApplicationActivateIgnoringOtherApps)
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
-                    try
-                        tell application "System Events" to tell application process appName
-                            set visible to true
-                            activate
-                            tell window winName to set visible to true 
-                            tell window winName to set index to 1
-                        end tell
-                    end try
+                    tell application "System Events" to tell application process appName
+                        tell window winName to set value of attribute "AXMain" to true 
+                    end tell
                 end run"""
         proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
@@ -1183,14 +1182,12 @@ class MacOSWindow(BaseWindow):
                                 for j in subPath:
                                     if len(submenu) > j:
                                         submenu = submenu[j]
-                                        if not submenu:
-                                            break
                                         subPos = subPos[j]
                                         subSize = subSize[j]
                                         subAttr = subAttr[j] if addItemInfo else []
                                     else:
                                         break
-                                if submenu and len(submenu) > 0:
+                                if submenu:
                                     option[name]["hSubMenu"] = self._getNewHSubMenu(ref)
                                     option[name]["entries"] = {}
                                     subfillit(submenu, subSize, subPos, subAttr,
