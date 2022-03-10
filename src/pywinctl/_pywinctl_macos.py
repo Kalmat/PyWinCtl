@@ -17,6 +17,7 @@ from pywinctl import pointInRect, BaseWindow, Rect, Point, Size
 IMPORTANT NOTICE:
     This script uses NSWindow objects, so you have to pass the app object (NSApp()) when instantiating the class.
     To manage other apps windows, this script uses Apple Script. Bear this in mind:
+        - Apple Script compatibility is not standard, can be limited in some apps or even not be available at all
         - You need to grant permissions on Settings Security & Privacy -> Accessibility
         - It uses the name of the window to address it, which is not always reliable (e.g. Terminal changes its name when changes size)
         - Changes are not immediately applied nor updated, activate wait option if you need to effectively know if/when action has been performed
@@ -37,29 +38,52 @@ def getActiveWindow(app: AppKit.NSApplication = None):
     :return: Window object or None
     """
     if not app:
-        app = WS.frontmostApplication()
-        cmd = """on run arg1
-                    set appName to arg1 as string
-                    set winName to ""
-                    try
-                        tell application "System Events" to tell application process appName
-                            set winName to name of (first window whose value of attribute "AXMain" is true)
-                        end tell
-                    end try
-                    return winName
-                end run"""
-        proc = subprocess.Popen(['osascript', '-', app.localizedName()],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
-        title = ret.replace("\n", "")
-        if title:
+        # app = WS.frontmostApplication()   # This fails after using .activateWithOptions_()?!?!?!
+        app = _getActiveApp()
+        if app:
+            cmd = """on run arg1
+                        set appName to arg1 as string
+                        set winName to ""
+                        try
+                            tell application "System Events" to tell application process appName
+                                set winName to name of (first window whose value of attribute "AXMain" is true)
+                            end tell
+                        end try
+                        return winName
+                    end run"""
+            proc = subprocess.Popen(['osascript', '-', app.localizedName()],
+                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
+            ret, err = proc.communicate(cmd)
+            title = ret.replace("\n", "")
             return MacOSWindow(app, title)
-        else:
-            return None
     else:
         for win in app.orderedWindows():  # .keyWindow() / .mainWindow() not working?!?!?!
             return MacOSNSWindow(app, win)
     return None
+
+
+def _getActiveApp():
+    cmd = """on run
+                set appName to ""
+                try
+                    tell application "System Events"
+                        set appName to name of first application process whose frontmost is true
+                    end tell
+                end try
+                return appName
+            end run"""
+    proc = subprocess.Popen(['osascript', '-'],
+                            stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
+    ret, err = proc.communicate(cmd)
+    ret = ret.replace("\n", "")
+    outApp = None
+    if ret:
+        apps = _getAllApps()
+        for app in apps:
+            if app.localizedName() == ret:
+                outApp = app
+                break
+    return outApp
 
 
 def getActiveWindowTitle(app: AppKit.NSApplication = None) -> str:
@@ -563,9 +587,12 @@ class MacOSWindow(BaseWindow):
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
-                    tell application "System Events" to tell application process appName
-                        tell window winName to set value of attribute "AXMain" to true 
-                    end tell
+                    try
+                        tell application "System Events" to tell application process appName
+                            set frontmost to true
+                            tell window winName to set value of attribute "AXMain" to true 
+                        end tell
+                    end try
                 end run"""
         proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
@@ -936,26 +963,8 @@ class MacOSWindow(BaseWindow):
 
         :return: ``True`` if the window is the active, foreground window
         """
-        cmd = """on run {arg1, arg2}
-                    set appName to arg1 as string
-                    set activeAppName to ""
-                    tell application "System Events"
-                        set activeAppName to name of first application process whose frontmost is true
-                    end tell
-                    set winName to arg2 as string
-                    set isFront to false
-                    if appName is equal to activeAppName then
-                        tell application "System Events" to tell application process appName
-                            set isFront to value of attribute "AXMain" of window winName
-                        end tell
-                    end if
-                    return (isFront as string)
-                end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
-        ret = ret.replace("\n", "")
-        return ret == "true" or self.isMaximized
+        active = getActiveWindow()
+        return (active._app == self._app and active.title == self.title) or self.isMaximized
 
     @property
     def title(self) -> str:
