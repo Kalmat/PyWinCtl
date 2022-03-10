@@ -6,7 +6,7 @@
 # Xlib and ewmh on Linux
 
 
-__version__ = "0.0.27"
+__version__ = "0.0.28"
 
 import sys, collections, pyrect
 

@@ -495,21 +495,20 @@ class MacOSWindow(BaseWindow):
                     set appName to arg1 as string
                     set winName to arg2 as string
                     set isPossible to false
+                    set isDone to false
                     try
                         tell application "System Events" to tell application "%s"
-                            set isPossible to exists visible of window winName
-                            if isPossible then
-                                tell window winName to set visible to true
-                            end if
+                            tell window winName to set visible to true
+                            set isDone to true
                         end tell
                     end try
-                    return (isPossible as string)
+                    return (isDone as string)
                end run""" % self._appName
         proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
         ret = ret.replace("\n", "")
-        if ret == "false":
+        if ret != "true":
             self._app.unhide()
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and not self.visible:
@@ -528,22 +527,20 @@ class MacOSWindow(BaseWindow):
                     set appName to arg1 as string
                     set winName to arg2 as string
                     set isPossible to false
+                    set isDone to false
                     try
                         tell application "System Events" to tell application "%s"
-                            set isPossible to exists visible of window winName
-                            if isPossible then
-                                tell window winName to set visible to false
-                                set isPossible to true
-                            end if
+                            tell window winName to set visible to false
+                            set isDone to true
                          end tell
                     end try
-                    return (isPossible as string)
+                    return (isDone as string)
                 end run""" % self._appName
         proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
         ret = ret.replace("\n", "")
-        if ret == "false":
+        if ret != "true":
             self._app.hide()
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and self.visible:
@@ -939,23 +936,25 @@ class MacOSWindow(BaseWindow):
 
         :return: ``True`` if the window is the active, foreground window
         """
-        ret = "false"
-        if self._app.isActive():
-            cmd = """on run {arg1, arg2}
-                        set appName to arg1 as string
-                        set winName to arg2 as string
-                        set isFront to false
-                        try
-                            tell application "System Events" to tell application process appName
-                                set isFront to value of attribute "AXMain" of window winName
-                            end tell
-                        end try
-                        return (isFront as string)
-                    end run"""
-            proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
-                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-            ret, err = proc.communicate(cmd)
-            ret = ret.replace("\n", "")
+        cmd = """on run {arg1, arg2}
+                    set appName to arg1 as string
+                    set activeAppName to ""
+                    tell application "System Events"
+                        set activeAppName to name of first application process whose frontmost is true
+                    end tell
+                    set winName to arg2 as string
+                    set isFront to false
+                    if appName is equal to activeAppName then
+                        tell application "System Events" to tell application process appName
+                            set isFront to value of attribute "AXMain" of window winName
+                        end tell
+                    end if
+                    return (isFront as string)
+                end run"""
+        proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
+                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
+        ret, err = proc.communicate(cmd)
+        ret = ret.replace("\n", "")
         return ret == "true" or self.isMaximized
 
     @property
@@ -981,10 +980,8 @@ class MacOSWindow(BaseWindow):
                     set isMapped to false
                     try
                         tell application "System Events" to tell application "%s"
-                            set isPossible to exists visible of window winName
-                            if isPossible then
-                                tell window winName to set isMapped to visible
-                            end if
+                            tell window winName to set isMapped to visible
+                            set isPossible to true
                         end tell
                     end try
                     if not isPossible then
@@ -1000,7 +997,7 @@ class MacOSWindow(BaseWindow):
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
         ret = ret.replace("\n", "")
-        return (ret == "true") or self.isMaximized
+        return ret == "true" or self.isMaximized
 
     isVisible = visible  # isVisible is an alias for the visible property.
 
