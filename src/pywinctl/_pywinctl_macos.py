@@ -153,25 +153,6 @@ def getWindowsWithTitle(title, app: AppKit.NSApplication = None):
     return matches
 
 
-def getAllTitlesB(app: AppKit.NSApplication = None) -> List[str]:
-    # This is a more "canonical" and legible way of getting all titles, but way slower than one-liner version
-    if not app:
-        cmd = """osascript -s 's' -e 'tell application "System Events"
-                                    set winNames to {}
-                                    set actP to every process whose background only is false
-                                    repeat with p in actP
-                                        set actW to every window in p
-                                        repeat with w in actW
-                                            set end of winNames to (get every attribute of w)
-                                        end repeat
-                                    end repeat
-                                end tell
-                                return winNames'"""
-        ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
-        res = ast.literal_eval(ret)
-        return res
-
-
 def getAllTitles(app: AppKit.NSApplication = None) -> List[str]:
     """
     Get the list of titles of all visible windows
@@ -192,7 +173,7 @@ def getAllTitles(app: AppKit.NSApplication = None) -> List[str]:
         matches = []
         for item in res[0]:
             j = 0
-            for title in item:  # One-liner script is way faster, but produces weird data structures
+            for title in item:  # One-liner script is way faster, but produces complex data structures
                 matches.append(title)
                 j += 1
         ret = matches
@@ -304,14 +285,14 @@ def _getAllApps(userOnly: bool = True):
     return matches
 
 
-def _getAllWindows(excludeDesktop: bool = True, screenOnly: bool = True, userOnly: bool = False):
+def _getAllWindows(excludeDesktop: bool = True, screenOnly: bool = True, userLayer: bool = False):
     # Source: https://stackoverflow.com/questions/53237278/obtain-list-of-all-window-titles-on-macos-from-a-python-script/53985082#53985082
     # This returns a list of window info objects, which is static, so needs to be refreshed and takes some time to the OS to refresh it
     # Besides, since it may not have kCGWindowName value and the kCGWindowNumber can't be accessed from Apple Script, it's useless
     flags = Quartz.kCGWindowListExcludeDesktopElements if excludeDesktop else 0 | \
             Quartz.kCGWindowListOptionOnScreenOnly if screenOnly else 0
     ret = Quartz.CGWindowListCopyWindowInfo(flags, Quartz.kCGNullWindowID)
-    if userOnly:
+    if userLayer:
         matches = []
         for win in ret:
             if win[Quartz.kCGWindowLayer] != 0:
@@ -320,11 +301,11 @@ def _getAllWindows(excludeDesktop: bool = True, screenOnly: bool = True, userOnl
     return ret
 
 
-def _getAllAppWindows(app: AppKit.NSApplication, userOnly: bool = False):
+def _getAllAppWindows(app: AppKit.NSApplication, userLayer: bool = True):
     windows = _getAllWindows()
     windowsInApp = []
     for win in windows:
-        if (not userOnly or (userOnly and win[Quartz.kCGWindowLayer] == 0)) and win[Quartz.kCGWindowOwnerPID] == app.processIdentifier():
+        if (not userLayer or (userLayer and win[Quartz.kCGWindowLayer] == 0)) and win[Quartz.kCGWindowOwnerPID] == app.processIdentifier():
             windowsInApp.append(win)
     return windowsInApp
 
@@ -433,9 +414,11 @@ class MacOSWindow(BaseWindow):
                 cmd = """on run {arg1, arg2}
                         set appName to arg1 as string
                         set winName to arg2 as string
+                        try
                             tell application "System Events" to tell application "%s"
                                 tell window winName to set zoomed to true
                             end tell
+                        end try
                         end run""" % self._appName
             else:
                 cmd = """on run {arg1, arg2}
@@ -829,17 +812,15 @@ class MacOSWindow(BaseWindow):
 
         :return: list of handles (role:name) as string. Role can only be "AXWindow" in this case
         """
-        # Will "AXChildren" do the trick?
-        # https://macscripter.net/viewtopic.php?id=16778
-        # value of attribute "AXChildren" of UI element 1 of scroll area 1 of group 4 of window 1
-        # UI elements of UI element 1 of scroll area 1 of group 4 of window 1
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
                     set winChildren to {}
-                    tell application "System Events" to tell application process appName
-                        set winChildren to value of attribute "AXChildren" of window winName
-                    end tell
+                    try
+                        tell application "System Events" to tell application process appName
+                            set winChildren to value of attribute "AXChildren" of window winName
+                        end tell
+                    end try
                     return winChildren
                end run"""
         proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
@@ -849,7 +830,9 @@ class MacOSWindow(BaseWindow):
         result = []
         for item in ret:
             if item.startswith("window"):
-                result.append(item)
+                res = item[item.find("window ")+len("window "):item.rfind(" of window "+self.title)]
+                if res:
+                    result.append("AXWindow" + SEP + res)
         return result
 
     def getHandle(self) -> str:
@@ -864,27 +847,20 @@ class MacOSWindow(BaseWindow):
         """
         Check if current window is parent of given window (handle)
 
-        :param child: handle of the window you want to check if the current window is parent of
+        :param child: handle or name of the window you want to check if the current window is parent of
         :return: ''True'' if current window is parent of the given window
         """
-        if SEP in child:
-            part = child.split(SEP)
-            if len(part) > 1:
-                child = part[1]
-        windows = getWindowsWithTitle(child)
-        found = False
-        for win in windows:
-            if win.getParent() == self.getHandle():
-                found = True
-                break
-        return found
+        children = self.getChildren()
+        if SEP not in child:
+            child = "AXWindow" + SEP + child
+        return child in children
     isParentOf = isParent  # isParentOf is an alias of isParent method
 
     def isChild(self, parent: str) -> bool:
         """
         Check if current window is child of given window/app (handle)
 
-        :param parent: handle of the window/app you want to check if the current window is child of
+        :param parent: handle or name of the window/app you want to check if the current window is child of
         :return: ''True'' if current window is child of the given window
         """
         currParent = self.getParent()
