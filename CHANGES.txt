@@ -1,4 +1,4 @@
-0.0.28, 2022/03/10 -- macOS (Apple Script version): fixed isActive() method for apps with limited AppScript support
+0.0.28, 2022/03/10 -- macOS (Apple Script version): fixed isActive() (for apps with limited AppScript support) and getChildren() methods
 0.0.27, 2022/03/09 -- macOS (Apple Script version): fixed activate() method
 0.0.26, 2022/03/09 -- macOS (Apple Script version): Added legible "shortcut" entry in MENU struct (only if addItemInfo enabled)
 0.0.25, 2022/03/09 -- Improved methods documentation, homogenized getMenuItemRect() args, and fixed macOS (Apple Script version) getMenu() method
