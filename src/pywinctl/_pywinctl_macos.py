@@ -1952,7 +1952,7 @@ def getAllScreens():
     screens = AppKit.NSScreen.screens()
     for screen in screens:
         desc = screen.deviceDescription()
-        display = desc['NSScreenNumber']
+        display = desc['NSScreenNumber']  # Quartz.NSScreenNumber seems to be wrong
         wa = screen.visibleFrame()
         dpi = desc[Quartz.NSDeviceResolution].sizeValue()
         result[screen.localizedName()] = {
@@ -1961,9 +1961,9 @@ def getAllScreens():
             'pos': Point(int(screen.frame().origin.x), int(screen.frame().origin.y)),
             'size': Size(int(screen.frame().size.width), int(screen.frame().size.height)),
             'workarea': Rect(int(wa.origin.x), int(wa.origin.y), int(wa.size.width), int(wa.size.height)),
-            'scale': screen.backingScaleFactor() * 100,
+            'scale': int(screen.backingScaleFactor() * 100),
             'dpi': (int(dpi.width), int(dpi.height)),
-            'orientation': Quartz.CGDisplayRotation(display),
+            'orientation': int(Quartz.CGDisplayRotation(display)),
             'frequency': Quartz.CGDisplayModeGetRefreshRate(Quartz.CGDisplayCopyDisplayMode(display)),
             'colordepth': Quartz.CGDisplayBitsPerPixel(display)
         }
@@ -1973,13 +1973,19 @@ def getAllScreens():
 def getMousePos() -> Point:
     """
     Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
+    Notice in macOS the origin is bottom left, so the Y value is flipped for compatibility with the rest of platforms
 
     :return: Point struct
     """
     # https://stackoverflow.com/questions/3698635/getting-cursor-position-in-python/24567802
     mp = Quartz.NSEvent.mouseLocation()
-    x = int(mp.x)
-    y = int(getScreenSize().height) - int(mp.y)
+    screens = getAllScreens()
+    x = y = 0
+    for key in screens.keys():
+        if pointInRect(mp.x, mp.y, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
+            x = int(mp.x)
+            y = int(screens[key]["size"].height) - abs(int(mp.y))
+            break
     return Point(x, y)
 cursor = getMousePos  # cursor is an alias for getMousePos
 
