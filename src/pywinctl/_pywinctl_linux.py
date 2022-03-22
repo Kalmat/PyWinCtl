@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-
+import math
 import os
 import platform
 import subprocess
@@ -23,7 +23,7 @@ from pywinctl import pointInRect, BaseWindow, Rect, Point, Size
 
 DISP = Xlib.display.Display()
 SCREEN = DISP.screen()
-ROOT = DISP.screen().root
+ROOT = SCREEN.root
 EWMH = ewmh.EWMH(_display=DISP, root=ROOT)
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
@@ -601,6 +601,20 @@ class LinuxWindow(BaseWindow):
         return parent == self.getParent()
     isChildOf = isChild  # isParentOf is an alias of isParent method
 
+    def getDisplay(self):
+        """
+        Get display name in which current window space is mostly visible
+
+        :return: display name as string
+        """
+        screens = getAllScreens()
+        name = ""
+        for key in screens.keys():
+            if pointInRect(self.centerx, self.centery, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
+                name = key
+                break
+        return name
+
     @property
     def isMinimized(self) -> bool:
         """
@@ -638,7 +652,6 @@ class LinuxWindow(BaseWindow):
 
         :return: title as a string
         """
-        # TODO: detect if title changes: https://stackoverflow.com/questions/23786289/how-to-correctly-detect-application-name-when-changing-focus-event-occurs-with
         name = EWMH.getWmName(self._hWnd)
         if isinstance(name, bytes):
             name = name.decode()
@@ -665,6 +678,79 @@ class LinuxWindow(BaseWindow):
         return state != Xlib.X.IsUnmapped
 
 
+def getAllScreens():
+    """
+    load all monitors plugged to the pc, as a dict
+
+    :return: Monitors info as python dictionary
+
+    Output Format:
+        Key:
+            Display name
+
+        Values:
+            "id":
+                display sequence_number as identified by Xlib.Display()
+            "is_primary":
+                ''True'' if monitor is primary (shows clock and notification area, sign in, lock, CTRL+ALT+DELETE screens...)
+            "pos":
+                Point(x, y) struct containing the display position ((0, 0) for the primary screen)
+            "size":
+                Size(width, height) struct containing the display size, in pixels
+            "workarea":
+                Rect(left, top, right, bottom) struct with the screen workarea, in pixels
+            "scale":
+                Scale ratio, as a percentage
+            "dpi":
+                Dots per inch, as a tuple of (x, y) dpi values
+            "orientation":
+                Display orientation: 0 - Landscape / 1 - Portrait / 2 - Landscape (reversed) / 3 - Portrait (reversed) / 4 - Reflect X / 5 - Reflect Y
+            "frequency":
+                Refresh rate of the display, in Hz
+            "colordepth":
+                Bits per pixel referred to the display color depth
+    """
+    # https://stackoverflow.com/questions/8705814/get-display-count-and-resolution-for-each-display-in-python-without-xrandr
+    # https://www.x.org/releases/X11R7.7/doc/libX11/libX11/libX11.html#Obtaining_Information_about_the_Display_Image_Formats_or_Screens
+    result = {}
+    res = ROOT.xrandr_get_screen_resources()
+    modes = res.modes
+    for output in res.outputs:
+        try:
+            params = DISP.xrandr_get_output_info(output, res.config_timestamp)
+            crtc = DISP.xrandr_get_crtc_info(params.crtc, res.config_timestamp)
+        except:
+            continue
+        # Check if this all also applies to physical monitors and check differences
+        wa = EWMH.getWorkArea()
+        mode = None
+        for item in modes:
+            if crtc and crtc.mode and crtc.mode == item.id:
+                mode = item
+                break
+        if not params or not crtc or not mode:
+            continue
+        result[params.name] = {
+            'id': crtc.sequence_number,
+            'is_primary': (crtc.x, crtc.y) == (0, 0),
+            'pos': Point(crtc.x, crtc.y),
+            'size': Size(crtc.width, crtc.height),
+            'workarea': Rect(crtc.x + wa[0], crtc.y + wa[1], crtc.x + crtc.width - (SCREEN.width_in_pixels - wa[2] - wa[0]), crtc.y + crtc.height - (SCREEN.height_in_pixels - wa[3] - wa[1])),
+            'scale': -1,  # check with physical monitors using dpi, mms or other possible values or props
+            'dpi': (round(SCREEN.width_in_pixels * 25.4 / SCREEN.width_in_mms), round(SCREEN.height_in_pixels * 25.4 / SCREEN.height_in_mms)),
+            # 'dpi': (round(crtc.width * 25.4 / SCREEN.width_in_mms), round(crtc.height * 25.4 / SCREEN.height_in_mms)),
+            # 'dpi': (round(crtc.width * 25.4 / params.mm_width), round(crtc.height * 25.4 / params.mm_height)),
+            'orientation': int(math.log(crtc.rotation, 2)),  # 4 - Reflect X / 5 - Reflect Y,
+            'frequency': mode.dot_clock / (mode.h_total * mode.v_total),
+            'colordepth': SCREEN.root_depth
+        }
+        # props = DISP.xrandr_list_output_properties(output)
+        # for atom in props.atoms:
+        #     print(atom, DISP.get_atom_name(atom))
+        #     print(DISP.xrandr_get_output_property(output, atom, 0, 0, 1000)._data['value'])
+    return result
+
+
 def getMousePos() -> Point:
     """
     Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
@@ -673,34 +759,40 @@ def getMousePos() -> Point:
     """
     mp = ROOT.query_pointer()
     return Point(mp.root_x, mp.root_y)
-
 cursor = getMousePos  # cursor is an alias for getMousePos
 
 
-def getScreenSize() -> Size:
+def getScreenSize(name: str = "") -> Size:
     """
-    Get the width and height of the screen, in pixels
+    Get the width and height, in pixels, of the given screen, or main screen if no screen given or not found
 
-    :return: Size struct
+    :param name: name of screen as returned by getAllScreens() and getDisplay()
+    :return: Size struct or None
     """
-    res = EWMH.getDesktopGeometry()
-    return Size(res[0], res[1])
-
+    screens = getAllScreens()
+    res = None
+    for key in screens.keys():
+        if (name and key == name) or (not name):
+            res = screens[key]["size"]
+            break
+    return res
 resolution = getScreenSize  # resolution is an alias for getScreenSize
 
 
-def getWorkArea() -> Rect:
+def getWorkArea(name: str = "") -> Rect:
     """
     Get the Rect struct (left, top, right, bottom) of the working (usable by windows) area of the screen, in pixels
 
-    :return: Rect struct
+    :param name: name of screen as returned by getAllScreens() and getDisplay()
+    :return: Rect struct or None
     """
-    work_area = EWMH.getWorkArea()
-    x = work_area[0]
-    y = work_area[1]
-    w = work_area[2]
-    h = work_area[3]
-    return Rect(x, y, x + w, y + h)
+    screens = getAllScreens()
+    res = None
+    for key in screens.keys():
+        if (name and key == name) or (not name):
+            res = screens[key]["workarea"]
+            break
+    return res
 
 
 def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:

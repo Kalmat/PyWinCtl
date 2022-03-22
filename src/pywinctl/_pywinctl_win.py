@@ -5,7 +5,7 @@ import ctypes
 import sys
 import threading
 import time
-from typing import List
+from typing import List, Tuple
 
 import win32api
 import win32con
@@ -189,8 +189,78 @@ class Win32Window(BaseWindow):
         self.menu = self._Menu(self)
 
     def _getWindowRect(self) -> Rect:
+        ctypes.windll.user32.SetProcessDPIAware()
         x, y, r, b = win32gui.GetWindowRect(self._hWnd)
         return Rect(x, y, r, b)
+
+    def _getWindowInfo(self):
+
+        from ctypes.wintypes import (
+            DWORD,
+            LONG,
+            WORD,
+            BYTE,
+            RECT,
+            UINT,
+            ATOM
+        )
+
+        class tagWINDOWINFO(ctypes.Structure):
+            _fields_ = [
+                ('cbSize', DWORD),
+                ('rcWindow', RECT),
+                ('rcClient', RECT),
+                ('dwStyle', DWORD),
+                ('dwExStyle', DWORD),
+                ('dwWindowStatus', DWORD),
+                ('cxWindowBorders', UINT),
+                ('cyWindowBorders', UINT),
+                ('atomWindowType', ATOM),
+                ('wCreatorVersion', WORD)
+            ]
+
+        PWINDOWINFO = ctypes.POINTER(tagWINDOWINFO)
+        LPWINDOWINFO = ctypes.POINTER(tagWINDOWINFO)
+        WINDOWINFO = tagWINDOWINFO
+        wi = tagWINDOWINFO()
+        wi.cbSize = ctypes.sizeof(wi)
+        try:
+            ctypes.windll.user32.GetWindowInfo(self._hWnd, ctypes.byref(wi))
+        except:
+            wi = None
+
+        # None of these seem to return the right value, at least not in my system
+        # xBorder = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CXBORDER)
+        # xEdge = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CXEDGE)
+        # xSFrame = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CXSIZEFRAME)
+        # xFFrame = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CXFIXEDFRAME)
+        return wi
+
+    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int]:
+        """
+        Get the invisible space, in pixels, around the window, including or not the visible resize border (usually 1px)
+        This can be useful to effectively adjust window position and size to the desired visible space
+        WARNING: OS seems to only use this space offset in the X coordinates, but not in the Y ones
+
+        :param includeBorder: set to ''False'' to avoid including resize border (usually 1px) as part of frame size
+        :return: x, y frame size as a tuple of int
+        """
+        wi = self._getWindowInfo()
+        xOffset = 0
+        yOffset = 0
+        if wi:
+            xOffset = wi.cxWindowBorders
+            yOffset = wi.cyWindowBorders
+        if not includeBorder:
+            try:
+                xBorder = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CXBORDER)
+                yBorder = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CYBORDER)
+            except:
+                xBorder = 1
+                yBorder = 1
+            xOffset -= xBorder
+            yOffset -= yBorder
+        return xOffset, yOffset
 
     def __repr__(self):
         return '%s(hWnd=%s)' % (self.__class__.__name__, self._hWnd)
@@ -208,7 +278,7 @@ class Win32Window(BaseWindow):
         :return: ''True'' if window is closed
         """
         win32gui.PostMessage(self._hWnd, win32con.WM_CLOSE, 0, 0)
-        return win32gui.IsWindow(self._hWnd)
+        return not win32gui.IsWindow(self._hWnd)
 
     def minimize(self, wait: bool = False) -> bool:
         """
@@ -296,6 +366,8 @@ class Win32Window(BaseWindow):
         """
         Resizes the window relative to its current size
 
+        :param widthOffset: offset to add to current window width as target width
+        :param heightOffset: offset to add to current window height as target height
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
@@ -307,10 +379,12 @@ class Win32Window(BaseWindow):
         """
         Resizes the window to a new width and height
 
+        :param newWidth: target window width
+        :param newHeight: target window height
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
-        result = win32gui.SetWindowPos(self._hWnd, win32con.HWND_TOP, self.left, self.top, newWidth, newHeight, 0)
+        result = win32gui.MoveWindow(self._hWnd, self.left, self.top, newWidth, newHeight, True)
         retries = 0
         while result != 0 and wait and retries < WAIT_ATTEMPTS and (self.width != newWidth or self.height != newHeight):
             retries += 1
@@ -321,6 +395,8 @@ class Win32Window(BaseWindow):
         """
         Moves the window relative to its current position
 
+        :param xOffset: offset relative to current X coordinate to move the window to
+        :param yOffset: offset relative to current Y coordinate to move the window to
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
@@ -330,12 +406,16 @@ class Win32Window(BaseWindow):
 
     def moveTo(self, newLeft:int, newTop: int, wait: bool = False) -> bool:
         """
-        Moves the window to new coordinates on the screen
+        Moves the window to new coordinates on the screen.
+        In a multi-display environment, you can move the window to a different monitor using the coordinates
+        returned by getAllScreens()
 
+        :param newLeft: target X coordinate to move the window to
+        :param newLeft: target Y coordinate to move the window to
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
-        result = win32gui.SetWindowPos(self._hWnd, win32con.HWND_TOP, newLeft, newTop, self.width, self.height, 0)
+        result = win32gui.MoveWindow(self._hWnd, newLeft, newTop, self.width, self.height, True)
         retries = 0
         while result != 0 and wait and retries < WAIT_ATTEMPTS and (self.left != newLeft or self.top != newTop):
             retries += 1
@@ -343,11 +423,7 @@ class Win32Window(BaseWindow):
         return self.left == newLeft and self.top == newTop
 
     def _moveResizeTo(self, newLeft: int, newTop: int, newWidth: int, newHeight: int) -> bool:
-        result = win32gui.SetWindowPos(self._hWnd, win32con.HWND_TOP, newLeft, newTop, newWidth, newHeight, 0)
-        retries = 0
-        while result != 0 and retries < WAIT_ATTEMPTS and (self.left != newLeft or self.top != newTop):
-            retries += 1
-            time.sleep(WAIT_DELAY * retries)
+        win32gui.MoveWindow(self._hWnd, newLeft, newTop, newWidth, newHeight, True)
         return newLeft == self.left and newTop == self.top and newWidth == self.width and newHeight == self.height
 
     def alwaysOnTop(self, aot: bool = True) -> bool:
@@ -514,6 +590,21 @@ class Win32Window(BaseWindow):
         """
         return parent == self.getParent()
     isChildOf = isChild  # isParentOf is an alias of isParent method
+
+    def getDisplay(self) -> str:
+        """
+        Get display name in which current window space is mostly visible
+
+        :return: display name as string
+        """
+        name = ""
+        try:
+            hDpy = win32api.MonitorFromRect(self._getWindowRect())
+            wInfo = win32api.GetMonitorInfo(hDpy)
+            name = wInfo.get("Device", "")
+        except:
+            pass
+        return name
 
     @property
     def isMinimized(self) -> bool:
@@ -822,32 +913,136 @@ def getMousePos():
 cursor = getMousePos  # cursor is an alias for getMousePos
 
 
-def getScreenSize() -> Size:
+def getAllScreens() -> dict:
     """
-    Get the width and height of the screen, in pixels
+    load all monitors plugged to the pc, as a dict
 
-    :return: Size struct
+    :return: Monitors info as python dictionary
+
+    Output Format:
+        Key:
+            Display name
+
+        Values:
+            "id":
+                display index as returned by EnumDisplayDevices()
+            "is_primary":
+                ''True'' if monitor is primary (shows clock and notification area, sign in, lock, CTRL+ALT+DELETE screens...)
+            "pos":
+                Point(x, y) struct containing the display position ((0, 0) for the primary screen)
+            "size":
+                Size(width, height) struct containing the display size, in pixels
+            "workarea":
+                Rect(left, top, right, bottom) struct with the screen workarea, in pixels
+            "scale":
+                Scale ratio, as a percentage
+            "dpi":
+                Dots per inch, as a tuple of (x, y) dpi values
+            "orientation":
+                Display orientation: 0 - Landscape / 1 - Portrait / 2 - Landscape (reversed) / 3 - Portrait (reversed)
+            "frequency":
+                Refresh rate of the display, in Hz
+            "colordepth":
+                Bits per pixel referred to the display color depth
     """
+    # https://stackoverflow.com/questions/35814309/winapi-changedisplaysettingsex-does-not-work
     ctypes.windll.user32.SetProcessDPIAware()
-    return Size(ctypes.windll.user32.GetSystemMetrics(0), ctypes.windll.user32.GetSystemMetrics(1))
+    result = {}
+    i = 0
+    monitors = win32api.EnumDisplayMonitors()
+    while True:
+        dev = None
+        try:
+            dev = win32api.EnumDisplayDevices(None, i, 0)
+        except:
+            break
+
+        if dev and dev.StateFlags & win32con.DISPLAY_DEVICE_ATTACHED_TO_DESKTOP:
+            # Device content: http://timgolden.me.uk/pywin32-docs/PyDISPLAY_DEVICE.html
+            # Settings content: http://timgolden.me.uk/pywin32-docs/PyDEVMODE.html
+            result[dev.DeviceName] = {}
+
+            try:
+                settings = win32api.EnumDisplaySettings(dev.DeviceName, win32con.ENUM_CURRENT_SETTINGS)
+            except:
+                continue
+
+            found = False
+            monitor_info = None
+            for mon in monitors:
+                monitor_info = None
+                try:
+                    monitor_info = win32api.GetMonitorInfo(mon[0].handle)
+                    name = monitor_info.get("Device")
+                    x, y, r, b = monitor_info.get("Monitor")
+                    wx, wy, wr, wb = monitor_info.get("Work")
+                    # values seem to be affected by the scale factor of the first display
+                    wr, wb = wx + settings.PelsWidth + (wr - r), wy + settings.PelsHeight + (wb - b)
+                    r, b = x + settings.PelsWidth, y + settings.PelsHeight
+                    pScale = ctypes.c_uint()
+                    ctypes.windll.shcore.GetScaleFactorForMonitor(mon[0].handle, ctypes.byref(pScale))
+                    scale = pScale.value
+                    dpiX = ctypes.c_uint()
+                    dpiY = ctypes.c_uint()
+                    ctypes.windll.shcore.GetDpiForMonitor(mon[0].handle, 0, ctypes.byref(dpiX), ctypes.byref(dpiY))
+                    is_primary = ((x, y) == (0, 0))
+                except:
+                    continue
+                if monitor_info and name == dev.DeviceName:
+                    found = True
+                    break
+
+            if found and settings and monitor_info:
+                result[name] = {
+                    "id": i,
+                    # "is_primary": monitor_info.get("Flags", 0) & win32con.MONITORINFOF_PRIMARY == 1,
+                    "is_primary": is_primary,
+                    "pos": Point(x, y),
+                    "size": Size(r - x, b - y),
+                    "workarea": Rect(wx, wy, wr, wb),
+                    "scale": scale,
+                    "dpi": (dpiX.value, dpiY.value),
+                    "orientation": settings.DisplayOrientation,
+                    "frequency": settings.DisplayFrequency,
+                    "colordepth": settings.BitsPerPel
+                }
+        i += 1
+    return result
+
+
+def getScreenSize(name: str = "") -> Size:
+    """
+    Get the width and height, in pixels, of the given screen, or main screen if no screen name provided or not found
+
+    :param name: name of the screen as returned by getAllScreens() and getDisplay() methods.
+    :return: Size struct or None
+    """
+    size = None
+    screens = getAllScreens()
+    for key in screens.keys():
+        if (name and key == name) or (not name and screens[key]["is_primary"]):
+            size = screens[key]["size"]
+            break
+    return size
 
 resolution = getScreenSize  # resolution is an alias for getScreenSize
 
 
-def getWorkArea() -> Rect:
+def getWorkArea(name: str = "") -> Rect:
     """
-    Get the Rect struct (left, top, right, bottom) of the working (usable by windows) area of the screen, in pixels
+    Get the Rect struct (left, top, right, bottom), in pixels, of the working (usable by windows) area
+    of the given screen,  or main screen if no screen name provided or not found
 
-    :return: Rect struct
+    :param name: name of the screen as returned by getAllScreens() and getDisplay() methods.
+    :return: Rect struct or None
     """
-    ctypes.windll.user32.SetProcessDPIAware()
-    monitor_info = win32api.GetMonitorInfo(win32api.MonitorFromPoint((0, 0)))
-    work_area = monitor_info.get("Work")
-    x = work_area[0]
-    y = work_area[1]
-    w = work_area[2]
-    h = work_area[3]
-    return Rect(x, y, x + w, y + h)
+    screens = getAllScreens()
+    workarea = None
+    for key in screens.keys():
+        if (name and key == name) or (not name and screens[key]["is_primary"]):
+            workarea = screens[key]["workarea"]
+            break
+    return workarea
 
 
 def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0):
@@ -879,6 +1074,56 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0):
     except KeyboardInterrupt:
         sys.stdout.write('\n\n')
         sys.stdout.flush()
+
+
+def load_device_list():
+    """loads all Monitor which are plugged into the pc
+    The list is needed to use setPrimary
+    """
+    workingDevices = []
+    i = 0
+    while True:
+        try:
+            Device = win32api.EnumDisplayDevices(None, i, 0)
+            if Device.StateFlags & win32con.DISPLAY_DEVICE_ATTACHED_TO_DESKTOP: #Attached to desktop
+                workingDevices.append(Device)
+
+            i += 1
+        except:
+            return workingDevices
+
+
+def _setPrimary(id, workingDevices, MonitorPositions):
+    """
+    param id: index in the workingDevices list.
+              Designates which display should be the new primary one
+
+    param workingDevices: List of Monitors returned by load_device_list()
+
+    param MonitorPositions: dictionary of form {id: (x_position, y_position)}
+                            specifies the monitor positions
+
+    """
+    # https://stackoverflow.com/questions/35814309/winapi-changedisplaysettingsex-does-not-work
+
+
+    FlagForPrimary = win32con.CDS_SET_PRIMARY | win32con.CDS_UPDATEREGISTRY | win32con.CDS_NORESET
+    FlagForSec = win32con.CDS_UPDATEREGISTRY | win32con.CDS_NORESET
+    offset_X = - MonitorPositions[id][0]
+    offset_Y = - MonitorPositions[id][1]
+    numDevs = len(workingDevices)
+
+    #get devmodes, correct positions, and update registry
+    for i in range(numDevs):
+        devmode = win32api.EnumDisplaySettings(workingDevices[i].DeviceName, win32con.ENUM_CURRENT_SETTINGS)
+        devmode.Position_x = MonitorPositions[i][0] + offset_X
+        devmode.Position_y = MonitorPositions[i][1] + offset_Y
+        if (win32api.ChangeDisplaySettingsEx(workingDevices[i].DeviceName, devmode,
+            FlagForSec if i != id else FlagForPrimary)
+            != win32con.DISP_CHANGE_SUCCESSFUL): return False
+
+    #apply Registry updates once all settings are complete
+    return win32api.ChangeDisplaySettingsEx() == win32con.DISP_CHANGE_SUCCESSFUL
 
 
 def main():

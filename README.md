@@ -22,11 +22,11 @@ All these functions are available at the moment, in all three platforms (Windows
 |  getWindowsAt  |  show  |  | 
 |  getAllAppsTitles  |  activate  |    |  
 |  getAllAppsWindowsTitles  |  resize / resizeRel  |  |   
-|  getMousePos  |  resizeTo  |  |
-|  getScreenSize  |  move / moveRel  |  |  
-|  getWorkArea |  moveTo  |  |  
-|  version  |  raiseWindow  |    |
-|  |  lowerWindow  |    |  
+|  getAllScreens  |  resizeTo  |  |
+|  getMousePos  |  move / moveRel  |  |  
+|  getScreenSize |  moveTo  |  |  
+|  getWorkArea  |  raiseWindow  |    |
+|  version  |  lowerWindow  |    |  
 |  |  alwaysOnTop  |    |  
 |  |  alwaysOnBottom  |    |  
 |  |  getAppName  |    |
@@ -35,6 +35,7 @@ All these functions are available at the moment, in all three platforms (Windows
 |  |  getChildren  |    |  
 |  |  isParent  |    |  
 |  |  isChild  |    |  
+|  |  getDisplay  |    | 
 
 #### Important macOS notice:
 

@@ -1,3 +1,4 @@
+0.0.29, 2022/03/22 -- Added getAllScreens() function and getDisplay() method. Still very experimental (not tested) in Linux and macOS
 0.0.28, 2022/03/10 -- macOS (Apple Script version): fixed isActive() (for apps with limited AppScript support) and getChildren() methods
 0.0.27, 2022/03/09 -- macOS (Apple Script version): fixed activate() method
 0.0.26, 2022/03/09 -- macOS (Apple Script version): Added legible "shortcut" entry in MENU struct (only if addItemInfo enabled)
@@ -10,4 +11,4 @@
 0.0.12, 2022/02/27 -- Brown paper bag version
 0.0.11, 2022/02/22 -- Added Menu info and methods for Windows and macOS
 0.0.10, 2021/11/12 -- Added Linux and macOS support
-0.0.9, 2021/09/14 -- Forked from PyGetWindow
+0.0.9,  2021/09/14 -- Forked from PyGetWindow

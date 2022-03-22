@@ -1851,6 +1851,20 @@ class MacOSNSWindow(BaseWindow):
         return parent == self.getParent()
     isChildOf = isChild  # isParentOf is an alias of isParent method
 
+    def getDisplay(self):
+        """
+        Get display name in which current window space is mostly visible
+
+        :return: display name as string
+        """
+        screens = getAllScreens()
+        name = ""
+        for key in screens.keys():
+            if pointInRect(self.centerx, self.centery, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
+                name = key
+                break
+        return name
+
     @property
     def isMinimized(self) -> bool:
         """
@@ -1902,6 +1916,60 @@ class MacOSNSWindow(BaseWindow):
     isVisible = visible  # isVisible is an alias for the visible property.
 
 
+def getAllScreens():
+    """
+    load all monitors plugged to the pc, as a dict
+
+    :return: Monitors info as python dictionary
+
+    Output Format:
+        Key:
+            Display name
+
+        Values:
+            "id":
+                display id as returned by AppKit.NSScreen.screens() and Quartz.CGGetOnlineDisplayList()
+            "is_primary":
+                ''True'' if monitor is primary (shows clock and notification area, sign in, lock, CTRL+ALT+DELETE screens...)
+            "pos":
+                Point(x, y) struct containing the display position ((0, 0) for the primary screen)
+            "size":
+                Size(width, height) struct containing the display size, in pixels
+            "workarea":
+                Rect(left, top, right, bottom) struct with the screen workarea, in pixels
+            "scale":
+                Scale ratio, as a percentage
+            "dpi":
+                Dots per inch, as a tuple of (x, y) dpi values
+            "orientation":
+                Display orientation: 0 - Landscape / 1 - Portrait / 2 - Landscape (reversed) / 3 - Portrait (reversed)
+            "frequency":
+                Refresh rate of the display, in Hz
+            "colordepth":
+                Bits per pixel referred to the display color depth
+    """
+    result = {}
+    screens = AppKit.NSScreen.screens()
+    for screen in screens:
+        desc = screen.deviceDescription()
+        display = desc['NSScreenNumber']
+        wa = screen.visibleFrame()
+        dpi = desc[Quartz.NSDeviceResolution].sizeValue()
+        result[screen.localizedName()] = {
+            'id': display,
+            'is_primary': Quartz.CGDisplayIsMain(display) == 1,
+            'pos': Point(int(screen.frame().origin.x), int(screen.frame().origin.y)),
+            'size': Size(int(screen.frame().size.width), int(screen.frame().size.height)),
+            'workarea': Rect(int(wa.origin.x), int(wa.origin.y), int(wa.size.width), int(wa.size.height)),
+            'scale': screen.backingScaleFactor() * 100,
+            'dpi': (int(dpi.width), int(dpi.height)),
+            'orientation': Quartz.CGDisplayRotation(display),
+            'frequency': Quartz.CGDisplayModeGetRefreshRate(Quartz.CGDisplayCopyDisplayMode(display)),
+            'colordepth': Quartz.CGDisplayBitsPerPixel(display)
+        }
+    return result
+
+
 def getMousePos() -> Point:
     """
     Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
@@ -1913,34 +1981,38 @@ def getMousePos() -> Point:
     x = int(mp.x)
     y = int(getScreenSize().height) - int(mp.y)
     return Point(x, y)
-
 cursor = getMousePos  # cursor is an alias for getMousePos
 
 
-def getScreenSize() -> Size:
+def getScreenSize(name: str = "") -> Size:
     """
     Get the width and height of the screen, in pixels
 
     :return: Size struct
     """
-    screen_area = AppKit.NSScreen.mainScreen().frame()
-    return Size(int(screen_area.size.width), int(screen_area.size.height))
-
+    screens = getAllScreens()
+    res = None
+    for key in screens.keys():
+        if (name and key == name) or (not name):
+            res = screens[key]["size"]
+            break
+    return res
 resolution = getScreenSize  # resolution is an alias for getScreenSize
 
 
-def getWorkArea() -> Rect:
+def getWorkArea(name: str = "") -> Rect:
     """
     Get the Rect struct (left, top, right, bottom) of the working (usable by windows) area of the screen, in pixels
 
     :return: Rect struct
     """
-    work_area = AppKit.NSScreen.mainScreen().visibleFrame()
-    x = int(work_area.origin.x)
-    y = 0
-    w = int(work_area.size.width)
-    h = int(work_area.size.height)
-    return Rect(x, y, x + w, y + h)
+    screens = getAllScreens()
+    res = None
+    for key in screens.keys():
+        if (name and key == name) or (not name):
+            res = screens[key]["workarea"]
+            break
+    return res
 
 
 def displayWindowsUnderMouse(xOffset:int = 0, yOffset: int = 0) -> None:

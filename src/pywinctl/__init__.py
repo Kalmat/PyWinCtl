@@ -6,7 +6,7 @@
 # Xlib and ewmh on Linux
 
 
-__version__ = "0.0.28"
+__version__ = "0.0.29"
 
 import sys, collections, pyrect
 
@@ -391,6 +391,7 @@ if sys.platform == "darwin":
         getAllTitles,
         getAllAppsTitles,
         getAllAppsWindowsTitles,
+        getAllScreens,
         getMousePos,
         getScreenSize,
         getWorkArea,
@@ -398,6 +399,7 @@ if sys.platform == "darwin":
 
     Window = MacOSWindow
     NSWindow = MacOSNSWindow
+
 elif sys.platform == "win32":
     from ._pywinctl_win import (
         Win32Window,
@@ -409,12 +411,14 @@ elif sys.platform == "win32":
         getAllTitles,
         getAllAppsTitles,
         getAllAppsWindowsTitles,
+        getAllScreens,
         getMousePos,
         getScreenSize,
         getWorkArea,
     )
 
     Window = Win32Window
+
 elif sys.platform == "linux":
     from ._pywinctl_linux import (
         LinuxWindow,
@@ -426,11 +430,13 @@ elif sys.platform == "linux":
         getAllTitles,
         getAllAppsTitles,
         getAllAppsWindowsTitles,
+        getAllScreens,
         getMousePos,
         getScreenSize,
         getWorkArea,
     )
 
     Window = LinuxWindow
+
 else:
     raise NotImplementedError('PyWinCtl currently does not support this platform. If you think you can help, please contribute! https://github.com/Kalmat/PyWinCtl')
