@@ -36,6 +36,8 @@ All these functions are available at the moment, in all three platforms (Windows
 |  |  isParent  |    |  
 |  |  isChild  |    |  
 |  |  getDisplay  |    | 
+|  |  getExtraFrame  |    | 
+|  |  getClientFrame  |    | 
 
 #### Important macOS notice:
 
