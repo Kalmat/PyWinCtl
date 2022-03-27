@@ -6,7 +6,7 @@ import platform
 import subprocess
 import sys
 import time
-from typing import List
+from typing import List, Tuple
 
 import AppKit
 import Quartz
@@ -310,10 +310,20 @@ def _getAllAppWindows(app: AppKit.NSApplication, userLayer: bool = True):
     return windowsInApp
 
 
+def _getTitlebarHeight():
+    a = AppKit.NSApplication.sharedApplication()
+    frame = AppKit.NSMakeRect(400, 800, 250, 100)
+    mask = AppKit.NSWindowStyleMaskTitled | AppKit.NSWindowStyleMaskClosable | AppKit.NSWindowStyleMaskMiniaturizable | AppKit.NSWindowStyleMaskResizable
+    w = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(frame, mask, AppKit.NSBackingStoreBuffered, False)
+    # w.display()
+    # a.run()
+    return w.titlebarHeight()
+
+
 class MacOSWindow(BaseWindow):
 
     def __init__(self, app: AppKit.NSRunningApplication, title: str, bounds: Rect = None):
-        # super().__init__()
+        super().__init__()
         self._app = app
         self._appName = app.localizedName()
         self._appPID = app.processIdentifier()
@@ -344,6 +354,27 @@ class MacOSWindow(BaseWindow):
         w = ret.replace("\n", "").strip().split(", ")
         return Rect(int(w[0]), int(w[1]), int(w[0]) + int(w[2]), int(w[1]) + int(w[3]))
 
+    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int]:
+        """
+        Get the invisible space, in pixels, around the window, including or not the visible resize border
+
+        :param includeBorder: set to ''False'' to avoid including window border
+        :return: x, y frame size as a tuple of int
+        """
+        return 0, 0
+
+    def getClientFrame(self):
+        """
+        Get the client area of window, as a Rect (x, y, right, bottom)
+        Notice that scroll bars will be included within this area
+
+        :return: Rect struct
+        """
+        # Didn't find a way to get menu bar height using Apple Script
+        titleHeight = _getTitlebarHeight()
+        res = Rect(self.left, self.top + int(titleHeight), self.right, self.bottom)
+        return res
+
     def __repr__(self):
         return '%s(hWnd=%s)' % (self.__class__.__name__, self._app)
 
@@ -364,11 +395,11 @@ class MacOSWindow(BaseWindow):
                     set appName to arg1 as string
                     set winName to arg2 as string
                     try
-                        tell application "%s"
+                        tell application appName
                             tell window winName to close
                         end tell
                     end try
-                end run""" % self._appName
+                end run"""
         proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
@@ -1558,6 +1589,34 @@ class MacOSNSWindow(BaseWindow):
 
     def _getWindowRect(self) -> Rect:
         frame = self._hWnd.frame()
+        res = resolution()
+        x = int(frame.origin.x)
+        y = int(res.height) - int(frame.origin.y) - int(frame.size.height)
+        w = x + int(frame.size.width)
+        h = y + int(frame.size.height)
+        return Rect(x, y, w, h)
+
+    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int]:
+        """
+        Get the invisible space, in pixels, around the window, including or not the visible resize border
+
+        :param includeBorder: set to ''False'' to avoid including borders
+        :return: x, y frame size as a tuple of int
+        """
+        borderWidth = 0
+        if includeBorder:
+            frame = self._hWnd.contentRectForFrameRect_(self._hWnd.frame())
+            borderWidth = frame.left - self.left
+        return borderWidth, borderWidth
+
+    def getClientFrame(self):
+        """
+        Get the client area of window, as a Rect (x, y, right, bottom)
+        Notice that scroll bars will be included within this area
+
+        :return: Rect struct
+        """
+        frame = self._hWnd.contentRectForFrameRect_(self._hWnd.frame())
         res = resolution()
         x = int(frame.origin.x)
         y = int(res.height) - int(frame.origin.y) - int(frame.size.height)

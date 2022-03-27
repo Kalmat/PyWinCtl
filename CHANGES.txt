@@ -1,3 +1,4 @@
+0.0.30, 2022/03/27 -- Added getExtraFrame() and getClientFrame() methods
 0.0.29, 2022/03/22 -- Added getAllScreens() function and getDisplay() method. Still very experimental (not tested) in Linux and macOS
 0.0.28, 2022/03/10 -- macOS (Apple Script version): fixed isActive() (for apps with limited AppScript support) and getChildren() methods
 0.0.27, 2022/03/09 -- macOS (Apple Script version): fixed activate() method

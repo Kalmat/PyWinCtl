@@ -1,22 +1,25 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+import ctypes
+
 import math
 import os
 import platform
 import subprocess
 import sys
 import time
-from typing import Union, List
+import tkinter as tk
+from typing import Union, List, Tuple
 
 import Xlib.X
 import Xlib.display
 import Xlib.protocol
+import ewmh
 from Xlib.xobject.colormap import Colormap
 from Xlib.xobject.cursor import Cursor
 from Xlib.xobject.drawable import Drawable, Pixmap, Window
 from Xlib.xobject.fontable import Fontable, GC, Font
 from Xlib.xobject.resource import Resource
-import ewmh
 from pynput import mouse
 
 from pywinctl import pointInRect, BaseWindow, Rect, Point, Size
@@ -194,6 +197,34 @@ def getAllAppsWindowsTitles() -> dict:
     return result
 
 
+def _getBorderSizes():
+
+    class App(tk.Tk):
+
+        def __init__(self):
+            super().__init__()
+            tk.Frame(self).update_idletasks()
+            self.geometry('350x200+200+200')
+            self.update_idletasks()
+
+            pos = self.geometry().split('+')
+            offset_x = int(pos[1])
+            offset_y = int(pos[2])
+            self.border_width = self.winfo_rootx() - offset_x
+            self.bar_height = self.winfo_rooty() - offset_y
+            self.destroy()
+
+        def getTitlebarHeight(self):
+            return self.bar_height
+
+        def getBorderWidth(self):
+            return self.border_width
+
+    app = App()
+    # app.mainloop()
+    return app.getTitlebarHeight(), app.getBorderWidth()
+
+
 class LinuxWindow(BaseWindow):
 
     def __init__(self, hWnd: Union[Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]):
@@ -220,13 +251,91 @@ class LinuxWindow(BaseWindow):
         w = geom.width
         h = geom.height
 
+        """
+        https://stackoverflow.com/questions/14374857/x11-getting-bogus-window-size-and-position
+        XTranslateCoordinates(dpy,
+                      wnd,         // get position for this window
+                      root_window, // something like macro: DefaultRootWindow(dpy)
+                      0, 0,        // local left top coordinates of the wnd
+                      &dest_x,     // these is position of wnd in root_window
+                      &dest_y,     // ...
+                      &unused);
+        """
+
         return Rect(x, y, x + w, y + h)
+
+    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int]:
+        """
+        Get the invisible space, in pixels, around the window, including or not the visible resize border
+
+        :param includeBorder: set to ''False'' to avoid including borders
+        :return: x, y frame size as a tuple of int
+        """
+        borderWidth = 0
+        if includeBorder:
+            titleHeight, borderWidth = _getBorderSizes()
+        return borderWidth, borderWidth
+
+    def getClientFrame(self):
+        """
+        Get the client area of window, as a Rect (x, y, right, bottom)
+        Notice that scroll bars will be included within this area
+
+        :return: Rect struct
+        """
+        # https://github.com/evocount/display-management/blob/c4f58f6653f3457396e44b8c6dc97636b18e8d8a/displaymanagement/rotation.py
+        # https://github.com/nathanlopez/Stitch/blob/master/Configuration/mss/linux.py
+        # https://gist.github.com/ssokolow/e7c9aae63fb7973e4d64cff969a78ae8
+        # https://stackoverflow.com/questions/36188154/get-x11-window-caption-height
+
+        # from ctypes.util import find_library
+        # from ctypes import (
+        #     POINTER, Structure, byref, c_char_p, c_int, c_int32, c_long, c_uint,
+        #     c_uint32, c_ulong, c_ushort, c_void_p, cast, cdll, create_string_buffer)
+        #
+        # x11 = find_library('X11')
+        # self.xlib = ctypes.cdll.LoadLibrary(x11)
+        #
+        # class XWindowAttributes(Structure):
+        #
+        #     _fields_ = [('x', c_int32), ('y', c_int32),
+        #                 ('width', c_int32), ('height', c_int32), ('border_width', c_int32),
+        #                 ('depth', c_int32), ('visual', c_ulong), ('root', c_ulong),
+        #                 ('class', c_int32), ('bit_gravity', c_int32),
+        #                 ('win_gravity', c_int32), ('backing_store', c_int32),
+        #                 ('backing_planes', c_ulong), ('backing_pixel', c_ulong),
+        #                 ('save_under', c_int32), ('colourmap', c_ulong),
+        #                 ('mapinstalled', c_uint32), ('map_state', c_uint32),
+        #                 ('all_event_masks', c_ulong), ('your_event_mask', c_ulong),
+        #                 ('do_not_propagate_mask', c_ulong), ('override_redirect', c_int32), ('screen', c_ulong)]
+        #
+        # attr = XWindowAttributes()
+        # d = self.xlib.XOpenDisplay(0)
+        # s = self.xlib.XDefaultScreen(d)
+        # root = self.xlib.XDefaultRootWindow(d)
+        # fg = self.xlib.XBlackPixel(d, s)
+        # bg = self.xlib.XWhitePixel(d, s)
+        # w = self.xlib.XCreateSimpleWindow(d, root, 0, 0, 200, 200, 0, fg, bg)
+        # self.xlib.XMapWindow(d, w)
+        # a = self.xlib.XInternAtom(d, "_NET_FRAME_EXTENTS", True)
+        # self.xlib.XGetWindowProperty(d, w, a, 0, 4, False, Xlib.X.AnyPropertyType, ctypes.byref(attr))
+        # self.xlib.XGetWindowAttributes(d, w, ctypes.byref(attr))
+        # print(attr.x, attr.y, attr.width, attr.height, attr.depth, attr.border_width)
+        # self.xlib.XCloseDisplay(d)
+        #
+        # atom = DISP.intern_atom('_NET_FRAME_EXTENTS', True)
+        # w = DISP.create_resource_object('window', self._hWnd)
+        # attr = w.get_full_text_property(atom, Xlib.Xatom.ATOM)
+        # attr2 = w.get_attributes()
+
+        # Didn't find a way to get menu bar height using Xlib
+        titleHeight, borderWidth = _getBorderSizes()
+        res = Rect(self.left + borderWidth, self.top + titleHeight + borderWidth, self.right - borderWidth, self.bottom - borderWidth)
+        return res
 
     def _saveWindowInitValues(self) -> None:
         # Saves initial rect values to allow reset to original position, size, state and hints.
-        self._init_left, self._init_top, self._init_right, self._init_bottom = self._getWindowRect()
-        self._init_width = self._init_right - self._init_left
-        self._init_height = self._init_bottom - self._init_top
+        self._init_rect = self._getWindowRect()
         self._init_state = self._hWnd.get_wm_state()
         self._init_hints = self._hWnd.get_wm_hints()
         self._init_normal_hints = self._hWnd.get_wm_normal_hints()

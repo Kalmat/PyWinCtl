@@ -63,7 +63,7 @@ def getWindowsAt(x: int, y: int):
     return windowsAtXY
 
 
-def getWindowsWithTitle(title: str):
+def getWindowsWithTitle(title: str, fuzzy: bool = False):
     """
     Get the list of Window objects whose title match the given string
 
@@ -179,6 +179,56 @@ def getAllAppsWindowsTitles() -> dict:
     return result
 
 
+def _getWindowInfo(hWnd):
+
+    from ctypes.wintypes import (
+        DWORD,
+        LONG,
+        WORD,
+        BYTE,
+        RECT,
+        UINT,
+        ATOM
+    )
+
+    class tagWINDOWINFO(ctypes.Structure):
+        _fields_ = [
+            ('cbSize', DWORD),
+            ('rcWindow', RECT),
+            ('rcClient', RECT),
+            ('dwStyle', DWORD),
+            ('dwExStyle', DWORD),
+            ('dwWindowStatus', DWORD),
+            ('cxWindowBorders', UINT),
+            ('cyWindowBorders', UINT),
+            ('atomWindowType', ATOM),
+            ('wCreatorVersion', WORD)
+        ]
+
+    PWINDOWINFO = ctypes.POINTER(tagWINDOWINFO)
+    LPWINDOWINFO = ctypes.POINTER(tagWINDOWINFO)
+    WINDOWINFO = tagWINDOWINFO
+    wi = tagWINDOWINFO()
+    wi.cbSize = ctypes.sizeof(wi)
+    try:
+        ctypes.windll.user32.GetWindowInfo(hWnd, ctypes.byref(wi))
+    except:
+        wi = None
+
+    # None of these seem to return the right value, at least not in my system, but might be useful for other metrics
+    # xBorder = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CXBORDER)
+    # xEdge = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CXEDGE)
+    # xSFrame = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CXSIZEFRAME)
+    # xFFrame = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CXFIXEDFRAME)
+    # hSscrollXSize = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CXHSCROLL)
+    # hscrollYSize = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CYHSCROLL)
+    # vScrollXSize = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CXVSCROLL)
+    # vScrollYSize = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CYVSCROLL)
+    # menuSize = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CYMENUSIZE)
+    # titleSize = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CYCAPTION)
+    return wi
+
+
 class Win32Window(BaseWindow):
     def __init__(self, hWnd: int):
         super().__init__()
@@ -193,59 +243,16 @@ class Win32Window(BaseWindow):
         x, y, r, b = win32gui.GetWindowRect(self._hWnd)
         return Rect(x, y, r, b)
 
-    def _getWindowInfo(self):
-
-        from ctypes.wintypes import (
-            DWORD,
-            LONG,
-            WORD,
-            BYTE,
-            RECT,
-            UINT,
-            ATOM
-        )
-
-        class tagWINDOWINFO(ctypes.Structure):
-            _fields_ = [
-                ('cbSize', DWORD),
-                ('rcWindow', RECT),
-                ('rcClient', RECT),
-                ('dwStyle', DWORD),
-                ('dwExStyle', DWORD),
-                ('dwWindowStatus', DWORD),
-                ('cxWindowBorders', UINT),
-                ('cyWindowBorders', UINT),
-                ('atomWindowType', ATOM),
-                ('wCreatorVersion', WORD)
-            ]
-
-        PWINDOWINFO = ctypes.POINTER(tagWINDOWINFO)
-        LPWINDOWINFO = ctypes.POINTER(tagWINDOWINFO)
-        WINDOWINFO = tagWINDOWINFO
-        wi = tagWINDOWINFO()
-        wi.cbSize = ctypes.sizeof(wi)
-        try:
-            ctypes.windll.user32.GetWindowInfo(self._hWnd, ctypes.byref(wi))
-        except:
-            wi = None
-
-        # None of these seem to return the right value, at least not in my system
-        # xBorder = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CXBORDER)
-        # xEdge = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CXEDGE)
-        # xSFrame = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CXSIZEFRAME)
-        # xFFrame = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CXFIXEDFRAME)
-        return wi
-
     def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int]:
         """
         Get the invisible space, in pixels, around the window, including or not the visible resize border (usually 1px)
-        This can be useful to effectively adjust window position and size to the desired visible space
-        WARNING: OS seems to only use this space offset in the X coordinates, but not in the Y ones
+        This can be useful to accurately adjust window position and size to the desired visible space
+        WARNING: OS seems to only use this offset in the X coordinates, but not in the Y ones
 
         :param includeBorder: set to ''False'' to avoid including resize border (usually 1px) as part of frame size
         :return: x, y frame size as a tuple of int
         """
-        wi = self._getWindowInfo()
+        wi = _getWindowInfo(self._hWnd)
         xOffset = 0
         yOffset = 0
         if wi:
@@ -260,7 +267,21 @@ class Win32Window(BaseWindow):
                 yBorder = 1
             xOffset -= xBorder
             yOffset -= yBorder
+
         return xOffset, yOffset
+
+    def getClientFrame(self):
+        """
+        Get the client area of window, as a Rect (x, y, right, bottom)
+        Notice that scroll and status bars might be included, or not, depending on the application
+
+        :return: Rect struct
+        """
+        wi = _getWindowInfo(self._hWnd)
+        rcClient = self._rect
+        if wi:
+            rcClient = wi.rcClient
+        return Rect(rcClient.left, rcClient.top, rcClient.right, rcClient.bottom)
 
     def __repr__(self):
         return '%s(hWnd=%s)' % (self.__class__.__name__, self._hWnd)
@@ -518,15 +539,19 @@ class Win32Window(BaseWindow):
                 result = win32gui.SetParent(self._hWnd, workerw[0])
         else:
             result = win32gui.SetParent(self._hWnd, self._parent)
+            win32gui.DefWindowProc(self._hWnd, 0x0128, 3 | 0x4, 0)
             # Window raises, but completely transparent
             # Sometimes this fixes it, but not always
-            # result = result | win32gui.ShowWindow(self._hWnd, win32con.SW_SHOW)
+            # result = result | win32gui.ShowWindow(self._hWnd, win32con.SW_SHOWNORMAL)
             # win32gui.SetLayeredWindowAttributes(self._hWnd, win32api.RGB(255, 255, 255), 255, win32con.LWA_COLORKEY)
+            # win32gui.SetWindowPos(self._hWnd, win32con.HWND_TOP, self.left, self.top, self.width, self.height, False)
             # win32gui.UpdateWindow(self._hWnd)
             # Didn't find a better way to update window content by the moment (also tried redraw(), update(), ...)
             # TODO: Find another way to properly update window
+            self.hide()
             result = result | win32gui.ShowWindow(self._hWnd, win32con.SW_MINIMIZE)
             result = result | win32gui.ShowWindow(self._hWnd, win32con.SW_RESTORE)
+            self.show()
         return result != 0
 
     def getAppName(self) -> str:
@@ -909,7 +934,6 @@ def getMousePos():
     ctypes.windll.user32.SetProcessDPIAware()
     cursor = win32api.GetCursorPos()
     return Point(cursor[0], cursor[1])
-
 cursor = getMousePos  # cursor is an alias for getMousePos
 
 
@@ -1024,7 +1048,6 @@ def getScreenSize(name: str = "") -> Size:
             size = screens[key]["size"]
             break
     return size
-
 resolution = getScreenSize  # resolution is an alias for getScreenSize
 
 
@@ -1076,61 +1099,12 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0):
         sys.stdout.flush()
 
 
-def load_device_list():
-    """loads all Monitor which are plugged into the pc
-    The list is needed to use setPrimary
-    """
-    workingDevices = []
-    i = 0
-    while True:
-        try:
-            Device = win32api.EnumDisplayDevices(None, i, 0)
-            if Device.StateFlags & win32con.DISPLAY_DEVICE_ATTACHED_TO_DESKTOP: #Attached to desktop
-                workingDevices.append(Device)
-
-            i += 1
-        except:
-            return workingDevices
-
-
-def _setPrimary(id, workingDevices, MonitorPositions):
-    """
-    param id: index in the workingDevices list.
-              Designates which display should be the new primary one
-
-    param workingDevices: List of Monitors returned by load_device_list()
-
-    param MonitorPositions: dictionary of form {id: (x_position, y_position)}
-                            specifies the monitor positions
-
-    """
-    # https://stackoverflow.com/questions/35814309/winapi-changedisplaysettingsex-does-not-work
-
-
-    FlagForPrimary = win32con.CDS_SET_PRIMARY | win32con.CDS_UPDATEREGISTRY | win32con.CDS_NORESET
-    FlagForSec = win32con.CDS_UPDATEREGISTRY | win32con.CDS_NORESET
-    offset_X = - MonitorPositions[id][0]
-    offset_Y = - MonitorPositions[id][1]
-    numDevs = len(workingDevices)
-
-    #get devmodes, correct positions, and update registry
-    for i in range(numDevs):
-        devmode = win32api.EnumDisplaySettings(workingDevices[i].DeviceName, win32con.ENUM_CURRENT_SETTINGS)
-        devmode.Position_x = MonitorPositions[i][0] + offset_X
-        devmode.Position_y = MonitorPositions[i][1] + offset_Y
-        if (win32api.ChangeDisplaySettingsEx(workingDevices[i].DeviceName, devmode,
-            FlagForSec if i != id else FlagForPrimary)
-            != win32con.DISP_CHANGE_SUCCESSFUL): return False
-
-    #apply Registry updates once all settings are complete
-    return win32api.ChangeDisplaySettingsEx() == win32con.DISP_CHANGE_SUCCESSFUL
-
-
 def main():
     """Run this script from command-line to get windows under mouse pointer"""
-    print("PLATFORM:", sys.platform)
-    print("SCREEN SIZE:", resolution())
-    print("ALL WINDOWS", getAllTitles())
+    # print("PLATFORM:", sys.platform)
+    # print("SCREEN SIZE:", resolution())
+    # print("ALL WINDOWS", getAllTitles())
+    time.sleep(2)
     npw = getActiveWindow()
     print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()
