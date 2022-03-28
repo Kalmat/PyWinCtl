@@ -1990,12 +1990,16 @@ def getAllScreens():
     """
     result = {}
     screens = AppKit.NSScreen.screens()
-    for screen in screens:
+    for i, screen in enumerate(screens):
         desc = screen.deviceDescription()
         display = desc['NSScreenNumber']  # Quartz.NSScreenNumber seems to be wrong
         wa = screen.visibleFrame()
         dpi = desc[Quartz.NSDeviceResolution].sizeValue()
-        result[screen.localizedName()] = {
+        try:
+            name = screen.localizedName()
+        except:
+            name = "Display" + str(i)
+        result[name] = {
             'id': display,
             'is_primary': Quartz.CGDisplayIsMain(display) == 1,
             'pos': Point(int(screen.frame().origin.x), int(screen.frame().origin.y)),
