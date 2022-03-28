@@ -7,7 +7,7 @@ import platform
 import subprocess
 import sys
 import time
-from tkinter import *
+import tkinter as tk
 from typing import Union, List, Tuple
 
 import Xlib.X
@@ -198,7 +198,7 @@ def getAllAppsWindowsTitles() -> dict:
 
 def _getBorderSizes():
 
-    class App(Tk):
+    class App(tk.Tk):
 
         def __init__(self):
             super().__init__()
@@ -221,7 +221,7 @@ def _getBorderSizes():
     return app.getTitlebarHeight(), app.getBorderWidth()
 
 
-def _getWindowAttributes():
+def _getWindowAttributes(hWnd = None):
     # Leaving this as reference of using X11 library
     # https://github.com/evocount/display-management/blob/c4f58f6653f3457396e44b8c6dc97636b18e8d8a/displaymanagement/rotation.py
     # https://github.com/nathanlopez/Stitch/blob/master/Configuration/mss/linux.py
@@ -251,20 +251,31 @@ def _getWindowAttributes():
 
     attr = XWindowAttributes()
     d = xlib.XOpenDisplay(0)
-    s = xlib.XDefaultScreen(d)
-    root = xlib.XDefaultRootWindow(d)
-    fg = xlib.XBlackPixel(d, s)
-    bg = xlib.XWhitePixel(d, s)
-    w = xlib.XCreateSimpleWindow(d, root, 0, 0, 200, 200, 0, fg, bg)
-    xlib.XMapWindow(d, w)
-    a = xlib.XInternAtom(d, "_NET_FRAME_EXTENTS", False)
-    t = c_int()
-    f = c_int()
-    n = c_ulong()
-    b = c_ulong()
-    time.sleep(4)
-    xlib.XGetWindowProperty(d, w, a, 0, 4, False, Xlib.X.AnyPropertyType, byref(t), byref(f), byref(n), byref(b), byref(attr))
-    xlib.XGetWindowAttributes(d, w, byref(attr))
+    # s = xlib.XDefaultScreen(d)
+    # root = xlib.XDefaultRootWindow(d)
+    # fg = xlib.XBlackPixel(d, s)
+    # bg = xlib.XWhitePixel(d, s)
+    # w = xlib.XCreateSimpleWindow(d, root, 600, 300, 400, 200, 0, fg, bg)
+    # xlib.XMapWindow(d, w)
+    # time.sleep(4)
+    # a = xlib.XInternAtom(d, "_GTK_FRAME_EXTENTS", True)
+    # if not a:
+    #     a = xlib.XInternAtom(d, "_NET_FRAME_EXTENTS", True)
+    # t = c_int()
+    # f = c_int()
+    # n = c_ulong()
+    # b = c_ulong()
+    # xlib.XGetWindowProperty(d, w, a, 0, 4, False, Xlib.X.AnyPropertyType, byref(t), byref(f), byref(n), byref(b), byref(attr))
+    xlib.XGetWindowAttributes(d, hWnd.id, byref(attr))
+    # r = c_ulong()
+    # x = c_int()
+    # y = c_int()
+    # w = c_uint()
+    # h = c_uint()
+    # b = c_uint()
+    # d = c_uint()
+    # xlib.XGetGeometry(d, hWnd.id, byref(r), byref(x), byref(y), byref(w), byref(h), byref(b), byref(d))
+    # print(x, y, w, h)
     xlib.XCloseDisplay(d)
 
     # Other references (send_event and setProperty):
@@ -276,7 +287,8 @@ def _getWindowAttributes():
     # data = [Xlib.Xutil.IconicState, 0, 0, 0, 0]
     # EWMH._setProperty(_type="WM_CHANGE_STATE", data=data, mask=mask)
     # for atom in w.list_properties():
-    #   print(DISP.atom_name(atom))
+    #     print(DISP.atom_name(atom))
+    return attr
 
 
 class LinuxWindow(BaseWindow):
@@ -331,7 +343,7 @@ class LinuxWindow(BaseWindow):
         borderWidth = geom.border_width
         # Didn't find a way to get title bar height using Xlib
         titleHeight, borderWidth = _getBorderSizes()
-        res = Rect(self.left + borderWidth, self.top + titleHeight + borderWidth, self.right - borderWidth, self.bottom - borderWidth)
+        res = Rect(self.left + borderWidth, self.top + titleHeight, self.right - borderWidth, self.bottom - borderWidth)
         return res
 
     def _saveWindowInitValues(self) -> None:

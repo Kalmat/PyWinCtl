@@ -994,31 +994,7 @@ class MacOSWindow(BaseWindow):
 
         :return: ``True`` if the window is currently visible
         """
-        cmd = """on run {arg1, arg2}
-                    set appName to arg1 as string
-                    set winName to arg2 as string
-                    set isPossible to false
-                    set isMapped to false
-                    try
-                        tell application "System Events" to tell application "%s"
-                            tell window winName to set isMapped to visible
-                            set isPossible to true
-                        end tell
-                    end try
-                    if not isPossible then
-                        try
-                            tell application "System Events" to tell application process appName
-                                set isMapped to visible
-                            end tell
-                        end try
-                    end if
-                    return (isMapped as string)
-                end run""" % self._appName
-        proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
-        ret = ret.replace("\n", "")
-        return ret == "true" or self.isMaximized
+        return self.title in getAllTitles()
 
     isVisible = visible  # isVisible is an alias for the visible property.
 
