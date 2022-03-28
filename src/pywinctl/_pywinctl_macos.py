@@ -310,14 +310,18 @@ def _getAllAppWindows(app: AppKit.NSApplication, userLayer: bool = True):
     return windowsInApp
 
 
-def _getTitlebarHeight():
+def _getBorderSizes():
     a = AppKit.NSApplication.sharedApplication()
     frame = AppKit.NSMakeRect(400, 800, 250, 100)
     mask = AppKit.NSWindowStyleMaskTitled | AppKit.NSWindowStyleMaskClosable | AppKit.NSWindowStyleMaskMiniaturizable | AppKit.NSWindowStyleMaskResizable
     w = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(frame, mask, AppKit.NSBackingStoreBuffered, False)
+    titlebarHeight = w.titlebarHeight()
+    borderWidth = int(w.frame().size.width - w.contentRectForFrameRect_(frame).size.width)
     # w.display()
     # a.run()
-    return w.titlebarHeight()
+    # w.releasedWhenClosed = True  # Method not found (?)
+    w.close()
+    return int(titlebarHeight), int(borderWidth)
 
 
 class MacOSWindow(BaseWindow):
@@ -365,14 +369,15 @@ class MacOSWindow(BaseWindow):
 
     def getClientFrame(self):
         """
-        Get the client area of window, as a Rect (x, y, right, bottom)
-        Notice that scroll bars will be included within this area
+        Get the client area of window including scroll, menu and status bars, as a Rect (x, y, right, bottom)
+        Notice that this method won't match non-standard window decoration style sizes
 
         :return: Rect struct
         """
+        # https://www.macscripter.net/viewtopic.php?id=46336 --> Won't allow access to NSWindow objects, but interesting
         # Didn't find a way to get menu bar height using Apple Script
-        titleHeight = _getTitlebarHeight()
-        res = Rect(self.left, self.top + int(titleHeight), self.right, self.bottom)
+        titleHeight, borderWidth = _getBorderSizes()
+        res = Rect(self.left + borderWidth, self.top + titleHeight, self.right - borderWidth, self.bottom - borderWidth)
         return res
 
     def __repr__(self):
@@ -1620,9 +1625,9 @@ class MacOSNSWindow(BaseWindow):
         res = resolution()
         x = int(frame.origin.x)
         y = int(res.height) - int(frame.origin.y) - int(frame.size.height)
-        w = x + int(frame.size.width)
-        h = y + int(frame.size.height)
-        return Rect(x, y, w, h)
+        r = x + int(frame.size.width)
+        b = y + int(frame.size.height)
+        return Rect(x, y, r, b)
 
     def __repr__(self):
         return '%s(hWnd=%s)' % (self.__class__.__name__, self._hWnd)

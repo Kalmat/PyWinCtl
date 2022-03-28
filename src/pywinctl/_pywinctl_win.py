@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import ctypes
+from ctypes import wintypes
 import sys
 import threading
 import time
@@ -181,28 +182,18 @@ def getAllAppsWindowsTitles() -> dict:
 
 def _getWindowInfo(hWnd):
 
-    from ctypes.wintypes import (
-        DWORD,
-        LONG,
-        WORD,
-        BYTE,
-        RECT,
-        UINT,
-        ATOM
-    )
-
     class tagWINDOWINFO(ctypes.Structure):
         _fields_ = [
-            ('cbSize', DWORD),
-            ('rcWindow', RECT),
-            ('rcClient', RECT),
-            ('dwStyle', DWORD),
-            ('dwExStyle', DWORD),
-            ('dwWindowStatus', DWORD),
-            ('cxWindowBorders', UINT),
-            ('cyWindowBorders', UINT),
-            ('atomWindowType', ATOM),
-            ('wCreatorVersion', WORD)
+            ('cbSize', wintypes.DWORD),
+            ('rcWindow', wintypes.RECT),
+            ('rcClient', wintypes.RECT),
+            ('dwStyle', wintypes.DWORD),
+            ('dwExStyle', wintypes.DWORD),
+            ('dwWindowStatus', wintypes.DWORD),
+            ('cxWindowBorders', wintypes.UINT),
+            ('cyWindowBorders', wintypes.UINT),
+            ('atomWindowType', wintypes.ATOM),
+            ('wCreatorVersion', wintypes.WORD)
         ]
 
     PWINDOWINFO = ctypes.POINTER(tagWINDOWINFO)
@@ -1101,10 +1092,9 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0):
 
 def main():
     """Run this script from command-line to get windows under mouse pointer"""
-    # print("PLATFORM:", sys.platform)
-    # print("SCREEN SIZE:", resolution())
-    # print("ALL WINDOWS", getAllTitles())
-    time.sleep(2)
+    print("PLATFORM:", sys.platform)
+    print("SCREEN SIZE:", resolution())
+    print("ALL WINDOWS", getAllTitles())
     npw = getActiveWindow()
     print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()
