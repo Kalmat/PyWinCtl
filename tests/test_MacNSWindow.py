@@ -239,8 +239,23 @@ class Delegate(NSObject):
             parent = self.npw.getParent()
             assert self.npw.isChild(parent)
 
+            # Test visibility
+            print("HIDE")
+            self.npw.hide()
+            time.sleep(timelap)
+            assert not self.npw.isVisible
+            assert self.npw.isAlive
+            print("SHOW")
+            self.npw.show()
+            time.sleep(timelap)
+            assert self.npw.isVisible
+            assert self.npw.isAlive
+
             # Test closing
+            print("CLOSE")
             self.npw.close()
+            assert not self.npw.isVisible
+            assert not self.npw.isAlive
 
     def windowWillClose_(self, aNotification):
         '''Called automatically when the window is closed'''

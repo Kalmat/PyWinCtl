@@ -234,14 +234,14 @@ class Win32Window(BaseWindow):
         x, y, r, b = win32gui.GetWindowRect(self._hWnd)
         return Rect(x, y, r, b)
 
-    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int]:
+    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
         """
         Get the invisible space, in pixels, around the window, including or not the visible resize border (usually 1px)
         This can be useful to accurately adjust window position and size to the desired visible space
-        WARNING: OS seems to only use this offset in the X coordinates, but not in the Y ones
+        WARNING: Windows seems to only use this offset in the X coordinates, but not in the Y ones
 
         :param includeBorder: set to ''False'' to avoid including resize border (usually 1px) as part of frame size
-        :return: x, y frame size as a tuple of int
+        :return: (left, top, right, bottom) frame size as a tuple of int
         """
         wi = _getWindowInfo(self._hWnd)
         xOffset = 0
@@ -259,7 +259,7 @@ class Win32Window(BaseWindow):
             xOffset -= xBorder
             yOffset -= yBorder
 
-        return xOffset, yOffset
+        return xOffset, yOffset, xOffset, yOffset
 
     def getClientFrame(self):
         """
@@ -669,9 +669,18 @@ class Win32Window(BaseWindow):
 
         :return: ``True`` if the window is currently visible
         """
-        return win32gui.IsWindowVisible(self._hWnd)
+        return win32gui.IsWindowVisible(self._hWnd) != 0
 
     isVisible = visible  # isVisible is an alias for the visible property.
+
+    @property
+    def isAlive(self) -> bool:
+        """
+        Check if window (and application) still exists (minimized and hidden windows are included as existing)
+
+        :return: ''True'' if window exists
+        """
+        return win32gui.IsWindow(self._hWnd) != 0
 
     class _Menu:
 

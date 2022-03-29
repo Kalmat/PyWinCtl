@@ -320,17 +320,27 @@ class LinuxWindow(BaseWindow):
         # ret = ww.translate_coords(self._hWnd, x, y)
         return Rect(x, y, x + w, y + h)
 
-    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int]:
+    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
         """
-        Get the invisible space, in pixels, around the window, including or not the visible resize border
+        Get the extra space, in pixels, around the window, including or not the border.
+        Notice not all applications/windows will use this property values
 
         :param includeBorder: set to ''False'' to avoid including borders
-        :return: x, y frame size as a tuple of int
+        :return: (left, top, right, bottom) frame size as a tuple of int
         """
+        a = DISP.intern_atom("_GTK_FRAME_EXTENTS", True)
+        if not a:
+            a = DISP.intern_atom("_NET_FRAME_EXTENTS", True)
+        ret = self._hWnd.get_property(a, Xlib.X.AnyPropertyType, 0, 32)
+        if ret:
+            ret = ret.value
+        else:
+            ret = (0, 0, 0, 0)
         borderWidth = 0
         if includeBorder:
             titleHeight, borderWidth = _getBorderSizes()
-        return borderWidth, borderWidth
+        frame = (ret[0] + borderWidth, ret[2] + borderWidth, ret[1] + borderWidth, ret[3] + borderWidth)
+        return frame
 
     def getClientFrame(self):
         """
@@ -787,6 +797,21 @@ class LinuxWindow(BaseWindow):
         return state == Xlib.X.IsViewable
 
     isVisible = visible  # isVisible is an alias for the visible property.
+
+    @property
+    def isAlive(self) -> bool:
+        """
+        Check if window (and application) still exists (minimized and hidden windows are included as existing)
+
+        :return: ''True'' if window exists
+        """
+        ret = True
+        try:
+            win = DISP.create_resource_object('window', self._hWnd)
+            state = win.get_attributes().map_state
+        except Xlib.error.BadWindow:
+            ret = False
+        return ret
 
     @property
     def _isMapped(self) -> bool:

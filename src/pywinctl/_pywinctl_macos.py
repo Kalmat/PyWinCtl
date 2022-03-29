@@ -358,14 +358,14 @@ class MacOSWindow(BaseWindow):
         w = ret.replace("\n", "").strip().split(", ")
         return Rect(int(w[0]), int(w[1]), int(w[0]) + int(w[2]), int(w[1]) + int(w[3]))
 
-    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int]:
+    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
         """
         Get the invisible space, in pixels, around the window, including or not the visible resize border
 
         :param includeBorder: set to ''False'' to avoid including window border
-        :return: x, y frame size as a tuple of int
+        :return: (left, top, right, bottom) frame size as a tuple of int
         """
-        return 0, 0
+        return 0, 0, 0, 0
 
     def getClientFrame(self):
         """
@@ -408,9 +408,9 @@ class MacOSWindow(BaseWindow):
         proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
-        if force and self._exists():
+        if force and self.isAlive:
             self._app.terminate()
-        return not self._exists()
+        return not self.isAlive
 
     def minimize(self, wait: bool = False) -> bool:
         """
@@ -998,16 +998,41 @@ class MacOSWindow(BaseWindow):
 
     isVisible = visible  # isVisible is an alias for the visible property.
 
+    @property
+    def isAlive(self) -> bool:
+        """
+        Check if window (and application) still exists (minimized and hidden windows are included as existing)
+
+        :return: ''True'' if window exists
+        """
+        ret = False
+        if self._app in WS.runningApplications():
+            cmd = """on run {arg1, arg2}
+                        set appName to arg1 as string
+                        set winName to arg2 as string
+                        set isDone to false
+                        try
+                            tell application "System Events" to tell application "%s"
+                                tell window winName to set prevIndex to index
+                                set isDone to true
+                            end tell
+                        end try
+                        return (isDone as string)
+                   end run""" % self._appName
+            proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
+                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
+            ret, err = proc.communicate(cmd)
+            ret = ret.replace("\n", "")
+        return ret
+
     def _exists(self) -> bool:
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
                     set isAlive to "false"
-                    try
-                        tell application "System Events" to tell application process appName
-                            set isAlive to exists window winName
-                        end tell
-                    end try
+                    tell application "System Events" to tell application process appName
+                        set isAlive to exists window winName
+                    end tell
                     return (isAlive as string)
                 end run"""
         proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
@@ -1577,18 +1602,19 @@ class MacOSNSWindow(BaseWindow):
         h = y + int(frame.size.height)
         return Rect(x, y, w, h)
 
-    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int]:
+    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
         """
-        Get the invisible space, in pixels, around the window, including or not the visible resize border
+        Get the extra space, in pixels, around the window, including or not the border
 
         :param includeBorder: set to ''False'' to avoid including borders
-        :return: x, y frame size as a tuple of int
+        :return: (left, top, right, bottom) frame size as a tuple of int
         """
         borderWidth = 0
         if includeBorder:
-            frame = self._hWnd.contentRectForFrameRect_(self._hWnd.frame())
-            borderWidth = frame.left - self.left
-        return borderWidth, borderWidth
+            ret = self._hWnd.contentRectForFrameRect_(self._hWnd.frame())
+            borderWidth = ret.left - self.left
+        frame = (borderWidth, borderWidth, borderWidth, borderWidth)
+        return frame
 
     def getClientFrame(self):
         """
@@ -1954,6 +1980,18 @@ class MacOSNSWindow(BaseWindow):
         return self._hWnd.isVisible()
 
     isVisible = visible  # isVisible is an alias for the visible property.
+
+    @property
+    def isAlive(self) -> bool:
+        """
+        Check if window (and application) still exists (minimized and hidden windows are included as existing)
+
+        :return: ''True'' if window exists
+        """
+        ret = False
+        if self._hWnd in self._app.orderedWindows():
+            ret = True
+        return ret
 
 
 def getAllScreens():

@@ -19,7 +19,7 @@ All these functions are available at the moment, in all three platforms (Windows
 |  getAllWindows  |  maximize  |  isMaximized  |
 |  getAllTitles  |  restore  |  isActive  |
 |  getWindowsWithTitle  |  hide  |  isVisible  |
-|  getWindowsAt  |  show  |  | 
+|  getWindowsAt  |  show  |  isAlive  | 
 |  getAllAppsTitles  |  activate  |    |  
 |  getAllAppsWindowsTitles  |  resize / resizeRel  |  |   
 |  getAllScreens  |  resizeTo  |  |
