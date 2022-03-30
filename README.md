@@ -96,17 +96,22 @@ Example:
     def movedCB(pos):
         print("NEW POS", pos)
 
-    wd = pywinctl.WinWatchDog(pywinctl.getActiveWIndow(), isActiveCB=activeCB, movedCB=movedCB)
-    wd.setDaemon(True)
-    wd.start()
+    npw = getActiveWindow()
+    npw.watchdog.start(isActiveCB=activeCB)
     print("toggle focus and move active window")
     print("Press Ctl-C to Quit")
+    i = 0
     while True:
         try:
+            if i = 300000:
+                npw.watchdog.updateCallbacks(isActiveCB=activeCB, movedCB=movedCB)
+            if i = 400000:
+                npw.watchdog.updateInterval(0.2)
             time.sleep(0.1)
         except KeyboardInterrupt:
             break
-    wd.kill()
+        i += 1
+    npw.watchdog.stop()
 
 
 ***Important comments***

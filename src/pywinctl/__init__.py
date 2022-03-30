@@ -11,12 +11,24 @@ __version__ = "0.0.32"
 import collections
 import sys
 import threading
+from typing import Tuple, List
 
 import pyrect
 
 Rect = collections.namedtuple("Rect", "left top right bottom")
 Point = collections.namedtuple("Point", "x y")
 Size = collections.namedtuple("Size", "width height")
+
+
+def pointInRect(x, y, left, top, width, height):
+    """Returns ``True`` if the ``(x, y)`` point is within the box described
+    by ``(left, top, width, height)``."""
+    return left < x < left + width and top < y < top + height
+
+
+def version(numberOnly=True):
+    """Returns the current version of PyWinCtl module, in the form ''x.x.xx'' as string"""
+    return ("" if numberOnly else "PyWinCtl-")+__version__
 
 
 class Re:
@@ -30,17 +42,6 @@ class Re:
     NotEndsWith = -4
     RegExMatch = 10
     RegExSearch = 11
-
-
-def pointInRect(x, y, left, top, width, height):
-    """Returns ``True`` if the ``(x, y)`` point is within the box described
-    by ``(left, top, width, height)``."""
-    return left < x < left + width and top < y < top + height
-
-
-def version(numberOnly=True):
-    """Returns the current version of PyWinCtl module, in the form ''x.x.xx'' as string"""
-    return ("" if numberOnly else "PyWinCtl-")+__version__
 
 
 class BaseWindow:
@@ -80,6 +81,25 @@ class BaseWindow:
             height,
             self.title,
         )
+
+    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
+        """
+        Get the extra space, in pixels, around the window, including or not the border.
+        Notice not all applications/windows will use this property values
+
+        :param includeBorder: set to ''False'' to avoid including borders
+        :return: (left, top, right, bottom) frame size as a tuple of int
+        """
+        raise NotImplementedError
+
+    def getClientFrame(self):
+        """
+        Get the client area of window, as a Rect (x, y, right, bottom)
+        Notice that scroll and status bars might be included, or not, depending on the application
+
+        :return: Rect struct
+        """
+        raise NotImplementedError
 
     def close(self) -> bool:
         """Closes this window. This may trigger "Are you sure you want to
@@ -174,6 +194,14 @@ class BaseWindow:
         """Returns the handle of the window parent"""
         raise NotImplementedError
 
+    def getChildren(self) -> List[int]:
+        """
+        Get the children handles of current window
+
+        :return: list of handles
+        """
+        raise NotImplementedError
+
     def getHandle(self):
         """Returns the handle of the window"""
         raise NotImplementedError
@@ -187,6 +215,10 @@ class BaseWindow:
         """Returns ''True'' if the window is child of the given window as input argument"""
         raise NotImplementedError
     isChildOf = isChild  # isParentOf is an alias of isParent method
+
+    def getDisplay(self) -> str:
+        """Returns the name of the current window display (monitor)"""
+        raise NotImplementedError
 
     @property
     def isMinimized(self) -> bool:
@@ -212,6 +244,10 @@ class BaseWindow:
     def visible(self) -> bool:
         raise NotImplementedError
     isVisible = visible  # isVisible is an alias for the visible property.
+
+    @property
+    def isAlive(self) -> bool:
+        raise NotImplementedError
 
     # Wrappers for pyrect.Rect object's properties:
     @property
@@ -396,48 +432,9 @@ class BaseWindow:
         self._rect.box = value
 
 
-class WinWatchDog(threading.Thread):
-    """
-    Set a watchdog, in a separate Thread, to be notified when some window states change.
-    Notice that changes will be notified according to the window status at the very moment of instantiating this class
-
-    IMPORTANT: This can be extremely slow in macOS Apple Script version
-
-     Available methods:
-    :meth updateCallbacks: Change the states this watchdog is hooked to
-    :meth updateInterval: Change the interval to check changes
-    :meth kill: Stop the entire watchdog and all its hooks
-    """
+class _WinWatchDog(threading.Thread):
 
     def __init__(self, win: BaseWindow, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None, isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None, changedDisplayCB=None, interval=0.3):
-        """
-        Initialize watchdog and hooks (callbacks to be invoked when desired window states change).
-        The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
-
-        IMPORTANT: This can be extremely slow in macOS Apple Script version
-
-        :param win: window object to watch
-        :param isAliveCB: callback to call if window is not alive. Set to None to not to watch this
-                        Returns the new alive status value (False)
-        :param isActiveCB: callback to invoke if window changes its active status. Set to None to not to watch this
-                        Returns the new active status value (True/False)
-        :param isVisibleCB: callback to invoke if window changes its visible status. Set to None to not to watch this
-                        Returns the new visible status value (True/False)
-        :param isMinimizedCB: callback to invoke if window changes its minimized status. Set to None to not to watch this
-                        Returns the new minimized status value (True/False)
-        :param isMaximizedCB: callback to invoke if window changes its maximized status. Set to None to not to watch this
-                        Returns the new maximized status value (True/False)
-        :param resizedCB: callback to invoke if window changes its size. Set to None to not to watch this
-                        Returns the new size (width, height)
-        :param movedCB: callback to invoke if window changes its position. Set to None to not to watch this
-                        Returns the new position (x, y)
-        :param changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
-                        Returns the new title (as string)
-                        IMPORTANT: This will not work in MacOS Apple Script version
-        :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
-                        Returns the new display name (as string)
-        :param interval: set the interval to watch window changes. Default is 0.3 seconds
-        """
         threading.Thread.__init__(self)
         self._win = win
         self._hWnd = win.getHandle()
@@ -445,35 +442,49 @@ class WinWatchDog(threading.Thread):
         self._kill = threading.Event()
 
         self._isAliveCB = isAliveCB
-        self._isAlive = win.isAlive
-
         self._isActiveCB = isActiveCB
-        self._isActive = win.isActive
-
         self._isVisibleCB = isVisibleCB
-        self._isVisible = win.isVisible
-
         self._isMinimizedCB = isMinimizedCB
-        self._isMinimized = win.isMinimized
-
         self._isMaximizedCB = isMaximizedCB
-        self._isMaximized = win.isMaximized
-
         self._resizedCB = resizedCB
-        self._size = (win.width, win.height)
-
         self._movedCB = movedCB
-        self._pos = (win.left, win.top)
-
         self._changedTitleCB = changedTitleCB
-        self._title = win.title
-
         self._changedDisplayCB = changedDisplayCB
-        self._display = win.getDisplay()
+
+    def _getInitialValues(self):
+
+        if self._isAliveCB:
+            self._isAlive = self._win.isAlive
+
+        if self._isActiveCB:
+            self._isActive = self._win.isActive
+
+        if self._isVisibleCB:
+            self._isVisible = self._win.isVisible
+
+        if self._isMinimizedCB:
+            self._isMinimized = self._win.isMinimized
+
+        if self._isMaximizedCB:
+            self._isMaximized = self._win.isMaximized
+
+        if self._resizedCB:
+            self._size = (self._win.width, self._win.height)
+
+        if self._movedCB:
+            self._pos = (self._win.left, self._win.top)
+
+        if self._changedTitleCB:
+            self._title = self._win.title
+
+        if self._changedDisplayCB:
+            self._display = self._win.getDisplay()
 
     def run(self):
 
-        while not self._kill.is_set() and self._isAlive:
+        self._getInitialValues()
+
+        while not self._kill.is_set():
 
             alive = self._win.isAlive
             if alive:
@@ -534,32 +545,7 @@ class WinWatchDog(threading.Thread):
                     self._changedDisplayCB(display)
 
     def updateCallbacks(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None, isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None, changedDisplayCB=None):
-        """
-        Change the states this watchdog is hooked to.
-        The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
 
-        IMPORTANT: Remember to set ALL desired callbacks every time, or they will be defaulted to None (and unhooked)
-
-        :param isAliveCB: callback to call if window is not alive. Set to None to not to watch this
-                        Returns the new alive status value (False)
-        :param isActiveCB: callback to invoke if window changes its active status. Set to None to not to watch this
-                        Returns the new active status value (True/False)
-        :param isVisibleCB: callback to invoke if window changes its visible status. Set to None to not to watch this
-                        Returns the new visible status value (True/False)
-        :param isMinimizedCB: callback to invoke if window changes its minimized status. Set to None to not to watch this
-                        Returns the new minimized status value (True/False)
-        :param isMaximizedCB: callback to invoke if window changes its maximized status. Set to None to not to watch this
-                        Returns the new maximized status value (True/False)
-        :param resizedCB: callback to invoke if window changes its size. Set to None to not to watch this
-                        Returns the new size (width, height)
-        :param movedCB: callback to invoke if window changes its position. Set to None to not to watch this
-                        Returns the new position (x, y)
-        :param changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
-                        Returns the new title (as string)
-                        IMPORTANT: This will not work in MacOS Apple Script version
-        :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
-                        Returns the new display name (as string)
-        """
         self._isAliveCB = isAliveCB
         self._isActiveCB = isActiveCB
         self._isVisibleCB = isVisibleCB
@@ -570,18 +556,12 @@ class WinWatchDog(threading.Thread):
         self._changedTitleCB = changedTitleCB
         self._changedDisplayCB = changedDisplayCB
 
-    def updateInterval(self, interval=0.3):
-        """
-        Change the interval to check changes
+        self._getInitialValues()
 
-        :param interval: set the interval to watch window changes. Default is 0.3 seconds
-        """
+    def updateInterval(self, interval=0.3):
         self._interval = interval
 
     def kill(self):
-        """
-        Stop the entire WatchDog and all its hooks
-        """
         self._kill.set()
 
 
