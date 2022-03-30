@@ -4,6 +4,7 @@
 import ctypes
 from ctypes import wintypes
 import sys
+import re
 import threading
 import time
 from typing import List, Tuple
@@ -15,7 +16,7 @@ import win32gui_struct
 import win32process
 from win32com.client import GetObject
 
-from pywinctl import pointInRect, BaseWindow, Rect, Point, Size
+from pywinctl import pointInRect, BaseWindow, Rect, Point, Size, Re
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -64,17 +65,65 @@ def getWindowsAt(x: int, y: int):
     return windowsAtXY
 
 
-def getWindowsWithTitle(title: str, fuzzy: bool = False):
+def getWindowsWithTitle(title: str, caseSensitive: bool = True, condition=Re.Is, regex_flags=0):
     """
     Get the list of Window objects whose title match the given string
+    Use condition to delimit the search. Allowed values are stored in pywinctl.Re sub-class (e.g. pywinctl.Re.Contains):
 
-    :param title: title of the desired windows as string
+        - Is -- window title is equal to given title
+        - Contains -- window title contains given string
+        - StartsWith -- window title starts by give string
+        - EndsWith -- window title ends by given string
+        - NotIs -- window title is not equal to given title
+        - NotContains -- window title does NOT contains given string
+        - NotStartsWith -- window title does NOT starts by given string
+        - NotEndsWith -- window title does NOT ends by given string
+        - RegexMatch -- This means ''title'' param contains a regex pattern (as per re.match() rules at https://docs.python.org/3/library/re.html). Use it in combination with regex_flags
+        - RegexSearch -- This means ''title'' param contains a regex pattern (as per re.search() rules at https://docs.python.org/3/library/re.html). Use it in combination with regex_flags
+
+    :param title: title or regex pattern to match, as string
+    :param caseSensitive: (optional) set to ''False'' for non case sensitive comparison
+    :param condition: (optional) condition to apply when searching the window. Defaults to ''Re.Is'' (is equal to)
+    :param regex_flags: (optional) additional ''re'' module flags. Defaults to 0 (no flags)
     :return: list of Window objects
     """
     matches = []
-    for win in getAllWindows():
-        if win.title == title:
-            matches.append(win)
+    if title:
+        if not caseSensitive:
+            title = title.lower()
+        for win in getAllWindows():
+            if win.title:
+                winTitle = win.title
+                if not caseSensitive:
+                    winTitle = winTitle.lower()
+                addWin = False
+                if condition == Re.RegExMatch:
+                    addWin = re.match(title, winTitle, regex_flags) is not None
+                elif condition == Re.RegExSearch:
+                    addWin = re.search(title, winTitle, regex_flags) is not None
+                elif condition == Re.Contains:
+                    if title in winTitle:
+                        addWin = True
+                elif condition == Re.EndsWith:
+                    if winTitle.endswith(title):
+                        addWin = True
+                elif condition == Re.StartsWith:
+                    if winTitle.startswith(title):
+                        addWin = True
+                elif condition in (Re.NotContains, Re.NotIs):
+                    if title not in winTitle:
+                        addWin = True
+                elif condition == Re.NotEndsWith:
+                    if not winTitle.endswith(title):
+                        addWin = True
+                elif condition == Re.NotStartsWith:
+                    if not winTitle.startswith(title):
+                        addWin = True
+                else:   # condition == Re.Is
+                    if winTitle == title:
+                        addWin = True
+                if addWin:
+                    matches.append(win)
     return matches
 
 
@@ -925,18 +974,6 @@ class _SendBottom(threading.Thread):
         self._kill.set()
 
 
-def getMousePos():
-    """
-    Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
-
-    :return: Point struct
-    """
-    ctypes.windll.user32.SetProcessDPIAware()
-    cursor = win32api.GetCursorPos()
-    return Point(cursor[0], cursor[1])
-cursor = getMousePos  # cursor is an alias for getMousePos
-
-
 def getAllScreens() -> dict:
     """
     load all monitors plugged to the pc, as a dict
@@ -1032,6 +1069,18 @@ def getAllScreens() -> dict:
                 }
         i += 1
     return result
+
+
+def getMousePos():
+    """
+    Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
+
+    :return: Point struct
+    """
+    ctypes.windll.user32.SetProcessDPIAware()
+    cursor = win32api.GetCursorPos()
+    return Point(cursor[0], cursor[1])
+cursor = getMousePos  # cursor is an alias for getMousePos
 
 
 def getScreenSize(name: str = "") -> Size:

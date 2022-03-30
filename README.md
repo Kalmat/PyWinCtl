@@ -2,7 +2,7 @@
 
 Cross-Platform module to get info on and control windows on screen.
 
-This module is a Python 3 fork from [asweigart's PyGetWindow module](https://github.com/asweigart/PyGetWindow), which adds Linux and macOS experimental support to the MS Windows-only original module, in the hope others can use it, test it or contribute.
+This module is a Python 3 fork from [asweigart's PyGetWindow module](https://github.com/asweigart/PyGetWindow), which adds Linux and macOS support to the MS Windows-only original module, in the hope others can use it, test it or contribute.
 
 With PyWinCtl you can retrieve info or control windows from other open applications, as well as use it as a cross-platform toolkit to manipulate your own application windows.
 
@@ -42,9 +42,79 @@ All these functions are available at the moment, in all three platforms (Windows
 #### Important macOS notice:
 
 macOS doesn't "like" controlling windows from other apps, so there are two separate classes you can use:
-
 - To control your own application's windows: MacOSNSWindow() is based on NSWindow Objects (you have to pass the NSApp() Object reference).
-- To control other applications' windows: MacOSWindow() is based on Apple Script, so it is not standard, slower and, in some cases, tricky (uses window name as reference, which may change or be duplicate), but it's working fine in most cases. You will likely need to grant permissions on Settings -> Security&Privacy -> Accessibility. ***Notice some applications will have limited Apple Script support or no support at all, so some or even all methods may fail!***
+- To control other applications' windows: MacOSWindow() is based on Apple Script, so it is non-standard, slower and, in some cases, tricky (uses window name as reference, which may change or be duplicate), but it's working fine in most cases. You will likely need to grant permissions on Settings -> Security&Privacy -> Accessibility. ***Notice some applications will have limited Apple Script support or no support at all, so some or even all methods may fail!***
+
+
+## Window Change Notifications
+
+WinWatchDog class, running in a separate Thread, will allow you to define hooks and its callbacks to be notified when some window states change.
+
+    isAliveCB:      callback to invoke when window is not alive anymore. Set to None to not to watch this
+                    Passes the new alive status value (False)
+    
+    isActiveCB:     callback to invoke if window changes its active status. Set to None to not to watch this
+                    Passes the new active status value (True/False)
+    
+    isVisibleCB:    callback to invoke if window changes its visible status. Set to None to not to watch this
+                    Passes the new visible status value (True/False)
+
+    isMinimizedCB:  callback to invoke if window changes its minimized status. Set to None to not to watch this
+                    Passes the new minimized status value (True/False)
+
+    isMaximizedCB:  callback to invoke if window changes its maximized status. Set to None to not to watch this
+                    Passes the new maximized status value (True/False)
+    
+    resizedCB:      callback to invoke if window changes its size. Set to None to not to watch this
+                    Passes the new size (width, height)
+    
+    movedCB:        callback to invoke if window changes its position. Set to None to not to watch this
+                    Passes the new position (x, y)
+    
+    changedTitleCB: callback to invoke if wind~~~~ow changes its title. Set to None to not to watch this
+                    Passes the new title (as string)
+                    IMPORTANT: This will not work in MacOS Apple Script version
+
+    changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
+                      Passes the new display name (as string)
+
+
+The watchdog will automatically stop when window doesn't exist anymore.
+
+You can update the defined hooks (callbacks) invoking 'updateCallbacks()' method, as well as the interval to check changes by invoking 'updateInterval()' method.
+
+Invoke 'kill()' method to stop the watchdog and all its hooks.
+
+Example:
+
+    import pywinctl
+    import time
+
+    def activeCB(active):
+        print("NEW ACTIVE STATUS", active)
+
+    def movedCB(pos):
+        print("NEW POS", pos)
+
+    wd = pywinctl.WinWatchDog(pywinctl.getActiveWIndow(), isActiveCB=activeCB, movedCB=movedCB)
+    wd.setDaemon(True)
+    wd.start()
+    print("toggle focus and move active window")
+    print("Press Ctl-C to Quit")
+    while True:
+        try:
+            time.sleep(0.1)
+        except KeyboardInterrupt:
+            break
+    wd.kill()
+
+
+***Important comments***
+
+- The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
+- When updating callbacks, remember to set ALL desired callbacks. Non-present (None) callbacks will be deactivated
+- macOS Apple Script version might be very slow
+
 
 ## Menu Features
 
@@ -52,12 +122,17 @@ macOS doesn't "like" controlling windows from other apps, so there are two separ
 
 Menu info and control methods (from asweigart's original ideas), accessible through 'menu' submodule. E.g.:
 
+    import pywinctl
+    import subprocess
+    # import json
+
     subprocess.Popen('notepad')
     windows = pywinctl.getWindowsWithTitle('Untitled - Notepad')
     if windows:
         win = windows[0]
         menu = win.menu.getMenu()
-        ret = win.menu.clickMenuItem(["File", "Exit"])   # Exit program
+        # print(json.dumps(menu, indent=4, ensure_ascii=False))  # Prints menu dict in legible format
+        ret = win.menu.clickMenuItem(["File", "Exit"])           # Exit program
         if not ret:
             print("Option not found")
     else:
@@ -73,7 +148,8 @@ Menu dictionary (returned by getMenu() method) will likely contain all you may n
       "rect":       Rect struct of the menu item. (Windows: It is relative to window position, so it won't likely change if window is moved or resized)
       "item_info":  [Optional] Python dictionary (macOS) / MENUITEMINFO struct (Windows)
       "shortcut":   shortcut to menu item, if any (macOS: only if item_info is included)
-      "entries":    sub-items within the sub-menu (if any)
+      "entries":    sub-items within the sub-menu (or not present otherwise)
+                    these sub-items will have this very same format, in a nested struct.
 
 Functions included in this subclass:
 

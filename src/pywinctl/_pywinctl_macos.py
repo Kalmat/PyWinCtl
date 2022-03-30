@@ -4,6 +4,7 @@
 import ast
 import platform
 import subprocess
+import re
 import sys
 import time
 from typing import List, Tuple
@@ -11,7 +12,7 @@ from typing import List, Tuple
 import AppKit
 import Quartz
 
-from pywinctl import pointInRect, BaseWindow, Rect, Point, Size
+from pywinctl import pointInRect, BaseWindow, Rect, Point, Size, Re
 
 """ 
 IMPORTANT NOTICE:
@@ -106,7 +107,7 @@ def getWindowsAt(x: int, y: int, app: AppKit.NSApplication = None, allWindows=No
 
     :param x: X screen coordinate of the window(s)
     :param y: Y screen coordinate of the window(s)
-    :param app: (optional) NSApp() object. If passed, returns the list of window at (x, y) position of given app
+    :param app: (optional) NSApp() object. If passed, returns the list of windows at (x, y) position of given app
     :param allWindows: (optional) list of window objects (required to improve performance in Apple Script version)
     :return: list of Window objects
     """
@@ -120,37 +121,88 @@ def getWindowsAt(x: int, y: int, app: AppKit.NSApplication = None, allWindows=No
     return matches
 
 
-def getWindowsWithTitle(title, app: AppKit.NSApplication = None):
+def getWindowsWithTitle(title: str, app: AppKit.NSApplication = None, caseSensitive: bool = True, condition=Re.Is, regex_flags=0):
     """
     Get the list of Window objects whose title match the given string
+    Use condition to delimit the search. Allowed values are stored in pywinctl.Re sub-class (e.g. pywinctl.Re.Contains):
 
-    :param title: title of the desired windows as string
-    :param app: (optional) NSApp() object. If passed, returns the list of windows which match title of given app
+        - Is -- window title is equal to given title
+        - Contains -- window title contains given string
+        - StartsWith -- window title starts by give string
+        - EndsWith -- window title ends by given string
+        - NotIs -- window title is not equal to given title
+        - NotContains -- window title does NOT contains given string
+        - NotStartsWith -- window title does NOT starts by given string
+        - NotEndsWith -- window title does NOT ends by given string
+        - RegexMatch -- This means ''title'' param contains a regex pattern (as per re.match() rules at https://docs.python.org/3/library/re.html). Use it in combination with regex_flags
+        - RegexSearch -- This means ''title'' param contains a regex pattern (as per re.search() rules at https://docs.python.org/3/library/re.html). Use it in combination with regex_flags
+
+    :param title: title or regex pattern to match, as string
+    :param caseSensitive: (optional) set to ''False'' for non case sensitive comparison
+    :param condition: (optional) condition to apply when searching the window. Defaults to ''Re.Is'' (is equal to)
+    :param regex_flags: (optional) additional ''re'' module flags. Defaults to 0 (no flags)
     :return: list of Window objects
     """
     matches = []
-    if not app:
-        activeApps = _getAllApps()
-        titleList = _getWindowTitles()
-        for item in titleList:
-            pID = item[0]
-            winTitle = item[1]
-            if winTitle and winTitle == title:
-                x = int(item[2][0])
-                y = int(item[2][1])
-                w = int(item[3][0])
-                h = int(item[3][1])
-                rect = Rect(x, y, x + w, y + h)
-                for app in activeApps:
-                    if app.processIdentifier() == pID:
-                        matches.append(MacOSWindow(app, title, rect))
-                        break
-    else:
-        windows = getAllWindows(app)
-        for win in windows:
-            if win.title == title:
-                matches.append(win)
+    if title:
+        if not caseSensitive:
+            title = title.lower()
+        if not app:
+            activeApps = _getAllApps()
+            titleList = _getWindowTitles()
+            for item in titleList:
+                pID = item[0]
+                winTitle = item[1]
+                if winTitle:
+                    if not caseSensitive:
+                        winTitle = winTitle.lower()
+                    if _addWin(winTitle, title, condition, regex_flags):
+                        x, y, w, h = int(item[2][0]), int(item[2][1]), int(item[3][0]), int(item[3][1])
+                        rect = Rect(x, y, x + w, y + h)
+                        for app in activeApps:
+                            if app.processIdentifier() == pID:
+                                matches.append(MacOSWindow(app, item[1], rect))
+                                break
+        else:
+            windows = getAllWindows(app)
+            for win in windows:
+                winTitle = win.title
+                if winTitle:
+                    if not caseSensitive:
+                        winTitle = winTitle.lower()
+                    if _addWin(winTitle, title, condition, regex_flags):
+                        matches.append(win)
     return matches
+
+
+def _addWin(winTitle, title, condition, regex_flags):
+    addWin = False
+    if condition == Re.RegExMatch:
+        addWin = re.search(title, winTitle, regex_flags) is not None
+    elif condition == Re.RegExSearch:
+        addWin = re.search(title, winTitle, regex_flags) is not None
+    elif condition == Re.Contains:
+        if title in winTitle:
+            addWin = True
+    elif condition == Re.EndsWith:
+        if winTitle.endswith(title):
+            addWin = True
+    elif condition == Re.StartsWith:
+        if winTitle.startswith(title):
+            addWin = True
+    elif condition in (Re.NotContains, Re.NotIs):
+        if title not in winTitle:
+            addWin = True
+    elif condition == Re.NotEndsWith:
+        if not winTitle.endswith(title):
+            addWin = True
+    elif condition == Re.NotStartsWith:
+        if not winTitle.startswith(title):
+            addWin = True
+    else:  # condition == Re.Is
+        if winTitle == title:
+            addWin = True
+    return addWin
 
 
 def getAllTitles(app: AppKit.NSApplication = None) -> List[str]:
@@ -1994,6 +2046,26 @@ class MacOSNSWindow(BaseWindow):
         return ret
 
 
+def getMousePos() -> Point:
+    """
+    Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
+    Notice in macOS the origin is bottom left, so the Y value is flipped for compatibility with the rest of platforms
+
+    :return: Point struct
+    """
+    # https://stackoverflow.com/questions/3698635/getting-cursor-position-in-python/24567802
+    mp = Quartz.NSEvent.mouseLocation()
+    screens = getAllScreens()
+    x = y = 0
+    for key in screens.keys():
+        if pointInRect(mp.x, mp.y, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
+            x = int(mp.x)
+            y = int(screens[key]["size"].height) - abs(int(mp.y))
+            break
+    return Point(x, y)
+cursor = getMousePos  # cursor is an alias for getMousePos
+
+
 def getAllScreens():
     """
     load all monitors plugged to the pc, as a dict
@@ -2050,26 +2122,6 @@ def getAllScreens():
             'colordepth': Quartz.CGDisplayBitsPerPixel(display)
         }
     return result
-
-
-def getMousePos() -> Point:
-    """
-    Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
-    Notice in macOS the origin is bottom left, so the Y value is flipped for compatibility with the rest of platforms
-
-    :return: Point struct
-    """
-    # https://stackoverflow.com/questions/3698635/getting-cursor-position-in-python/24567802
-    mp = Quartz.NSEvent.mouseLocation()
-    screens = getAllScreens()
-    x = y = 0
-    for key in screens.keys():
-        if pointInRect(mp.x, mp.y, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
-            x = int(mp.x)
-            y = int(screens[key]["size"].height) - abs(int(mp.y))
-            break
-    return Point(x, y)
-cursor = getMousePos  # cursor is an alias for getMousePos
 
 
 def getScreenSize(name: str = "") -> Size:
@@ -2139,7 +2191,6 @@ def displayWindowsUnderMouse(xOffset:int = 0, yOffset: int = 0) -> None:
 
 def main():
     """Run this script from command-line to get windows under mouse pointer"""
-    print("PLATFORM:", sys.platform)
     print("SCREEN SIZE:", resolution())
     print("ALL WINDOWS", getAllTitles())
     npw = getActiveWindow()
@@ -2150,3 +2201,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
