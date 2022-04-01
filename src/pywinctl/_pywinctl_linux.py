@@ -109,64 +109,41 @@ def getWindowsAt(x: int, y: int):
     return windowsAtXY
 
 
-def getWindowsWithTitle(title: str, caseSensitive: bool = True, condition=Re.Is, regex_flags=0):
+def getWindowsWithTitle(title, app=None, condition=Re.IS, caseSensitive: bool = True, regex_flags=0):
     """
     Get the list of Window objects whose title match the given string
     Use ''condition'' to delimit the search. Allowed values are stored in pywinctl.Re sub-class (e.g. pywinctl.Re.Contains):
 
-        - Is -- window title is equal to given title
-        - Contains -- window title contains given string
-        - StartsWith -- window title starts by give string
-        - EndsWith -- window title ends by given string
-        - NotIs -- window title is not equal to given title
-        - NotContains -- window title does NOT contains given string
-        - NotStartsWith -- window title does NOT starts by given string
-        - NotEndsWith -- window title does NOT ends by given string
-        - RegExMatch -- This means ''title'' param contains a regex pattern (as per re.match() rules at https://docs.python.org/3/library/re.html). Use it in combination with regex_flags
-        - RegExSearch -- This means ''title'' param contains a regex pattern (as per re.search() rules at https://docs.python.org/3/library/re.html). Use it in combination with regex_flags
+        - IS -- window title is equal to given title
+        - CONTAINS -- window title contains given string
+        - STARTSWITH -- window title starts by given string
+        - ENDSWITH -- window title ends by given string
+        - NOTIS -- window title is not equal to given title
+        - NOTCONTAINS -- window title does NOT contains given string
+        - NOTSTARTSWITH -- window title does NOT starts by given string
+        - NOTENDSWITH -- window title does NOT ends by given string
+        - REGEXSEARCH -- This means ''title'' param contains a regex pattern (as per ''re.search()'' rules at https://docs.python.org/3/library/re.html). Use it in combination with additional regex_flags if needed
 
     :param title: title or regex pattern to match, as string
-    :param caseSensitive: (optional) set to ''False'' for non case sensitive comparison
-    :param condition: (optional) condition to apply when searching the window. Defaults to ''Re.Is'' (is equal to)
-    :param regex_flags: (optional) additional ''re'' module flags. Defaults to 0 (no flags)
+    :param app: used ONLY in macOS platform
+    :param condition: (optional) condition to apply when searching the window. Defaults to ''Re.IS'' (is equal to)
+    :param caseSensitive: (optional) set to ''False'' for non case sensitive comparison. Not used with ''Re.REGEXSEARCH'' (use ''regex_flags=re.IGNORECASE'' instead)
+    :param regex_flags: (optional) additional ''re'' module flags. Only applies to Re.REGEXSEARCH condition mode. Defaults to 0 (no flags)
     :return: list of Window objects
     """
     matches = []
-    if title:
-        if not caseSensitive:
+    if title and condition in Re._cond_dic.keys():
+        if condition == Re.REGEXSEARCH:
+            title = re.compile(title, regex_flags)
+        elif not caseSensitive:
             title = title.lower()
+
         for win in getAllWindows():
             if win.title:
                 winTitle = win.title
-                if not caseSensitive:
+                if condition != Re.REGEXSEARCH and not caseSensitive:
                     winTitle = winTitle.lower()
-                addWin = False
-                if condition == Re.RegExMatch:
-                    addWin = re.match(title, winTitle, regex_flags) is not None
-                elif condition == Re.RegExSearch:
-                    addWin = re.search(title, winTitle, regex_flags) is not None
-                elif condition == Re.Contains:
-                    if title in winTitle:
-                        addWin = True
-                elif condition == Re.EndsWith:
-                    if winTitle.endswith(title):
-                        addWin = True
-                elif condition == Re.StartsWith:
-                    if winTitle.startswith(title):
-                        addWin = True
-                elif condition in (Re.NotContains, Re.NotIs):
-                    if title not in winTitle:
-                        addWin = True
-                elif condition == Re.NotEndsWith:
-                    if not winTitle.endswith(title):
-                        addWin = True
-                elif condition == Re.NotStartsWith:
-                    if not winTitle.startswith(title):
-                        addWin = True
-                else:   # condition == Re.Is
-                    if winTitle == title:
-                        addWin = True
-                if addWin:
+                if Re._cond_dic[condition](title, winTitle):
                     matches.append(win)
     return matches
 
@@ -897,16 +874,19 @@ class LinuxWindow(BaseWindow):
         :meth updateCallbacks: Change the states this watchdog is hooked to
         :meth updateInterval: Change the interval to check changes
         :meth kill: Stop the entire watchdog and all its hooks
-        :meth isAlive: Checks if watchdog is running
+        :meth isAlive: Check if watchdog is running
         """
         def __init__(self, parent):
-            self.watchdog = _WinWatchDog(parent)
+            self.watchdog = None
+            self._parent = parent
 
         def start(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None,
                           isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None, changedDisplayCB=None,
                           interval=0.3):
             """
             Initialize and start watchdog and hooks (callbacks to be invoked when desired window states change).
+            Notice that changes will be notified according to the window status at the very moment of execute start()
+            The watchdog is asynchronous, so notifications will not be immediate (adjust interval value to your needs)
             The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
 
             IMPORTANT: This can be extremely slow in macOS Apple Script version
@@ -933,12 +913,12 @@ class LinuxWindow(BaseWindow):
                             Returns the new display name (as string)
             :param interval: set the interval to watch window changes. Default is 0.3 seconds
             """
-            if not self.isAlive():
+            if not self.watchdog:
+                self.watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB, resizedCB,
+                                             movedCB, changedTitleCB, changedDisplayCB, interval)
                 self.watchdog.setDaemon(True)
+            if not self.isAlive():
                 self.watchdog.start()
-            self.watchdog.updateCallbacks(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB, resizedCB,
-                                          movedCB, changedTitleCB, changedDisplayCB)
-            self.watchdog.updateInterval(interval)
 
         def updateCallbacks(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None,
                                     isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None,
@@ -946,6 +926,7 @@ class LinuxWindow(BaseWindow):
             """
             Change the states this watchdog is hooked to.
             The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
+            IMPORTANT: When updating callbacks, remember to set ALL desired callbacks or they will be deactivated
 
             IMPORTANT: Remember to set ALL desired callbacks every time, or they will be defaulted to None (and unhooked)
 
@@ -995,7 +976,7 @@ class LinuxWindow(BaseWindow):
             """
             alive = False
             try:
-                alive = self.watchdog.isAlive()
+                alive = self.watchdog.is_alive()
             except:
                 pass
             return alive

@@ -32,16 +32,28 @@ def version(numberOnly=True):
 
 
 class Re:
-    Is = 1
-    Contains = 2
-    StartsWith = 3
-    EndsWith = 4
-    NotIs = -1
-    NotContains = -2
-    NotStartsWith = -3
-    NotEndsWith = -4
-    RegExMatch = 10
-    RegExSearch = 11
+    # Thanks to macdeport for this nice piece of code
+    IS = 1
+    CONTAINS = 2
+    STARTSWITH = 3
+    ENDSWITH = 4
+    NOTIS = -1
+    NOTCONTAINS = -2
+    NOTSTARTSWITH = -3
+    NOTENDSWITH = -4
+    REGEXSEARCH = 10
+
+    _cond_dic = {
+        IS: lambda s1, s2: s1 == s2,
+        CONTAINS: lambda s1, s2: s1 in s2,
+        STARTSWITH: lambda s1, s2: s2.startswith(s1),
+        ENDSWITH: lambda s1, s2: s2.endswith(s1),
+        NOTIS: lambda s1, s2: s1 != s2,
+        NOTCONTAINS: lambda s1, s2: s1 not in s2,
+        NOTSTARTSWITH: lambda s1, s2: not s2.startswith(s1),
+        NOTENDSWITH: lambda s1, s2: not s2.endswith(s1),
+        REGEXSEARCH: lambda s1, s2: bool(s1.search(s2))
+    }
 
 
 class BaseWindow:
@@ -450,6 +462,16 @@ class _WinWatchDog(threading.Thread):
         self._movedCB = movedCB
         self._changedTitleCB = changedTitleCB
         self._changedDisplayCB = changedDisplayCB
+
+        self._isAlive = False
+        self._isActive = False
+        self._isVisible = False
+        self._isMinimized = False
+        self._isMaximized = False
+        self._size = False
+        self._pos = False
+        self._title = False
+        self._display = False
 
     def _getInitialValues(self):
 

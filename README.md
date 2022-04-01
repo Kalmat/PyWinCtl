@@ -103,9 +103,9 @@ Example:
     i = 0
     while True:
         try:
-            if i = 500:
+            if i == 50:
                 npw.watchdog.updateCallbacks(isActiveCB=activeCB, movedCB=movedCB)
-            if i = 1000:
+            if i == 100:
                 npw.watchdog.updateInterval(0.1)
             time.sleep(0.1)
         except KeyboardInterrupt:
@@ -116,8 +116,9 @@ Example:
 
 ***Important comments***
 
-- The watchdog is asynchronous, so it will take a while to notify the changes (adjust interval value to your needs)
 - The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
+- The watchdog is asynchronous, so it will take a while to notify the changes (adjust interval value to your needs)
+- Position and size notifications will trigger several times between initial and final values
 - When updating callbacks, remember to set ALL desired callbacks. Non-present (None) callbacks will be deactivated
 - macOS Apple Script version might be very slow
 
