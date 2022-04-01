@@ -813,7 +813,10 @@ class Win32Window(BaseWindow):
             """
             Stop the entire WatchDog and all its hooks
             """
-            self.watchdog.kill()
+            if self.watchdog:
+                self.watchdog.kill()
+                self.watchdog.join()
+            self.watchdog = None
 
         def isAlive(self):
             """Check if watchdog is running
@@ -822,7 +825,7 @@ class Win32Window(BaseWindow):
             """
             alive = False
             try:
-                alive = self.watchdog.is_alive()
+                alive = bool(self.watchdog and self.watchdog.is_alive())
             except:
                 pass
             return alive
@@ -1242,6 +1245,14 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0):
     except KeyboardInterrupt:
         sys.stdout.write('\n\n')
         sys.stdout.flush()
+
+
+def activeCB(active):
+    print("NEW ACTIVE STATUS", active)
+
+
+def movedCB(pos):
+    print("NEW POS", pos)
 
 
 def main():

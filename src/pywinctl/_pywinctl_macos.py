@@ -1163,7 +1163,10 @@ class MacOSWindow(BaseWindow):
             """
             Stop the entire WatchDog and all its hooks
             """
-            self.watchdog.kill()
+            if self.watchdog:
+                self.watchdog.kill()
+                self.watchdog.join()
+            self.watchdog = None
 
         def isAlive(self):
             """Check if watchdog is running
@@ -2234,7 +2237,10 @@ class MacOSNSWindow(BaseWindow):
             """
             Stop the entire WatchDog and all its hooks
             """
-            self.watchdog.kill()
+            if self.watchdog:
+                self.watchdog.kill()
+                self.watchdog.join()
+            self.watchdog = None
 
         def isAlive(self):
             """Check if watchdog is running
