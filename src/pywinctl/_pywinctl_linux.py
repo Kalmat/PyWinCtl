@@ -769,23 +769,6 @@ class LinuxWindow(BaseWindow):
                 break
         return name
 
-    def startWatchdog(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None, isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None, changedDisplayCB=None, interval=0.3):
-        self.watchdog.setDaemon(True)
-        if self.watchdog and self.watchdog.isAlive():
-            self.watchdog.updateCallbacks(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB)
-            self.watchdog.updateInterval(interval=interval)
-        else:
-            self.watchdog.start()
-
-    def updateWatchdogCallbacks(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None, isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None, changedDisplayCB=None):
-        self.watchdog.updateCallbacks(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB)
-
-    def updateWatchdogInterval(self, interval=0.3):
-        self.watchdog.updateInterval(interval=interval)
-
-    def stopWatchdog(self):
-        self.watchdog.kill()
-
     @property
     def isMinimized(self) -> bool:
         """
@@ -979,7 +962,7 @@ class LinuxWindow(BaseWindow):
             """
             alive = False
             try:
-                alive = self.watchdog.is_alive()
+                alive = bool(self.watchdog and self.watchdog.is_alive())
             except:
                 pass
             return alive

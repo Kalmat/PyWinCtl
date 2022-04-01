@@ -1175,7 +1175,7 @@ class MacOSWindow(BaseWindow):
             """
             alive = False
             try:
-                alive = self.watchdog.is_alive()
+                alive = bool(self.watchdog and self.watchdog.is_alive())
             except:
                 pass
             return alive
@@ -2249,7 +2249,7 @@ class MacOSNSWindow(BaseWindow):
             """
             alive = False
             try:
-                alive = self.watchdog.is_alive()
+                alive = bool(self.watchdog and self.watchdog.is_alive())
             except:
                 pass
             return alive
