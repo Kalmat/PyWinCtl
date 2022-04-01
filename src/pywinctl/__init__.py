@@ -516,6 +516,7 @@ class _WinWatchDog(threading.Thread):
                 if self._isAliveCB:
                     self._isAliveCB(alive)
                 self.kill()
+                self.join()
                 break
 
             if self._isActiveCB:
@@ -561,7 +562,7 @@ class _WinWatchDog(threading.Thread):
                     self._changedTitleCB(title)
 
             if self._changedDisplayCB:
-                display = self._win.getDisplay
+                display = self._win.getDisplay()
                 if self._display != display:
                     self._display = display
                     self._changedDisplayCB(display)
