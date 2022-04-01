@@ -50,7 +50,7 @@ macOS doesn't "like" controlling windows from other apps, so there are two separ
 
 watchdog sub-class, running in a separate Thread, will allow you to define hooks and its callbacks to be notified when some window states change.
 
-The watchdog will automatically stop when window doesn't exist anymore.
+The watchdog will automatically stop when window doesn't exist anymore or program exits.
 
     isAliveCB:      callback to invoke when window is not alive anymore. Set to None to not to watch this
                     Passes the new alive status value (False)
