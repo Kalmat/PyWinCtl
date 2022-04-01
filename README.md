@@ -48,7 +48,9 @@ macOS doesn't "like" controlling windows from other apps, so there are two separ
 
 ## Window Change Notifications
 
-WinWatchDog class, running in a separate Thread, will allow you to define hooks and its callbacks to be notified when some window states change.
+watchdog sub-class, running in a separate Thread, will allow you to define hooks and its callbacks to be notified when some window states change.
+
+The watchdog will automatically stop when window doesn't exist anymore.
 
     isAliveCB:      callback to invoke when window is not alive anymore. Set to None to not to watch this
                     Passes the new alive status value (False)
@@ -78,12 +80,15 @@ WinWatchDog class, running in a separate Thread, will allow you to define hooks 
     changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
                       Passes the new display name (as string)
 
+Functions included in this subclass:
 
-The watchdog will automatically stop when window doesn't exist anymore.
-
-You can update the defined hooks (callbacks) invoking 'updateCallbacks()' method, as well as the interval to check changes by invoking 'updateInterval()' method.
-
-Invoke 'kill()' method to stop the watchdog and all its hooks.
+|  watchdog sub-module functions:  |
+|  :---:  |
+|  start  |
+|  updateCallbacks  |
+|  updateInterval  |
+|  isAlive  |
+|  stop  |
 
 Example:
 
@@ -127,7 +132,7 @@ Example:
 
 #### Available in: MS-Windows and macOS Apple Script version (MacOSWindow() class)
 
-Menu info and control methods (from asweigart's original ideas), accessible through 'menu' submodule. E.g.:
+menu sub-class for Menu info and control methods (from asweigart's original ideas), accessible through 'menu' submodule. E.g.:
 
     import pywinctl
     import subprocess
@@ -160,7 +165,7 @@ Menu dictionary (returned by getMenu() method) will likely contain all you may n
 
 Functions included in this subclass:
 
-|  Menu sub-module functions:  |
+|  menu sub-module functions:  |
 |  :---:  |
 |  getMenu  |
 |  getMenuInfo  |

@@ -2358,7 +2358,7 @@ def getWorkArea(name: str = "") -> Rect:
     return res
 
 
-def displayWindowsUnderMouse(xOffset:int = 0, yOffset: int = 0) -> None:
+def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
     """
     This function is meant to be run from the command line. It will
     automatically display the position of mouse pointer and the titles
