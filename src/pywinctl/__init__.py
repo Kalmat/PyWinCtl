@@ -449,7 +449,6 @@ class _WinWatchDog(threading.Thread):
     def __init__(self, win: BaseWindow, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None, isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None, changedDisplayCB=None, interval=0.3):
         threading.Thread.__init__(self)
         self._win = win
-        self._hWnd = win.getHandle()
         self._interval = interval
         self._kill = threading.Event()
 

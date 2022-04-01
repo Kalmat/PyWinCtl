@@ -1073,7 +1073,7 @@ class MacOSWindow(BaseWindow):
         :meth isAlive: Check if watchdog is running
         """
         def __init__(self, parent):
-            self.watchdog = None
+            self._watchdog = None
             self._parent = parent
 
         def start(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None,
@@ -1109,12 +1109,12 @@ class MacOSWindow(BaseWindow):
                             Returns the new display name (as string)
             :param interval: set the interval to watch window changes. Default is 0.3 seconds
             """
-            if not self.watchdog:
-                self.watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB, resizedCB,
-                                             movedCB, changedTitleCB, changedDisplayCB, interval)
-                self.watchdog.setDaemon(True)
+            if not self._watchdog:
+                self._watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB, resizedCB,
+                                              movedCB, changedTitleCB, changedDisplayCB, interval)
+                self._watchdog.setDaemon(True)
             if not self.isAlive():
-                self.watchdog.start()
+                self._watchdog.start()
 
         def updateCallbacks(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None,
                                     isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None,
@@ -1147,8 +1147,8 @@ class MacOSWindow(BaseWindow):
                             Returns the new display name (as string)
             """
             if self.isAlive():
-                self.watchdog.updateCallbacks(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB,
-                                              resizedCB, movedCB, changedTitleCB, changedDisplayCB)
+                self._watchdog.updateCallbacks(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB,
+                                               resizedCB, movedCB, changedTitleCB, changedDisplayCB)
 
         def updateInterval(self, interval=0.3):
             """
@@ -1157,16 +1157,16 @@ class MacOSWindow(BaseWindow):
             :param interval: set the interval to watch window changes. Default is 0.3 seconds
             """
             if self.isAlive():
-                self.watchdog.updateInterval(interval)
+                self._watchdog.updateInterval(interval)
 
         def stop(self):
             """
             Stop the entire WatchDog and all its hooks
             """
-            if self.watchdog:
-                self.watchdog.kill()
-                self.watchdog.join()
-            self.watchdog = None
+            if self._watchdog:
+                self._watchdog.kill()
+                self._watchdog.join()
+            self._watchdog = None
 
         def isAlive(self):
             """Check if watchdog is running
@@ -1175,7 +1175,7 @@ class MacOSWindow(BaseWindow):
             """
             alive = False
             try:
-                alive = bool(self.watchdog and self.watchdog.is_alive())
+                alive = bool(self._watchdog and self._watchdog.is_alive())
             except:
                 pass
             return alive
@@ -2147,7 +2147,7 @@ class MacOSNSWindow(BaseWindow):
         :meth isAlive: Check if watchdog is running
         """
         def __init__(self, parent):
-            self.watchdog = None
+            self._watchdog = None
             self._parent = parent
 
         def start(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None,
@@ -2183,12 +2183,12 @@ class MacOSNSWindow(BaseWindow):
                             Returns the new display name (as string)
             :param interval: set the interval to watch window changes. Default is 0.3 seconds
             """
-            if not self.watchdog:
-                self.watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB, resizedCB,
-                                             movedCB, changedTitleCB, changedDisplayCB, interval)
-                self.watchdog.setDaemon(True)
+            if not self._watchdog:
+                self._watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB, resizedCB,
+                                              movedCB, changedTitleCB, changedDisplayCB, interval)
+                self._watchdog.setDaemon(True)
             if not self.isAlive():
-                self.watchdog.start()
+                self._watchdog.start()
 
         def updateCallbacks(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None,
                                     isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None,
@@ -2221,8 +2221,8 @@ class MacOSNSWindow(BaseWindow):
                             Returns the new display name (as string)
             """
             if self.isAlive():
-                self.watchdog.updateCallbacks(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB,
-                                              resizedCB, movedCB, changedTitleCB, changedDisplayCB)
+                self._watchdog.updateCallbacks(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB,
+                                               resizedCB, movedCB, changedTitleCB, changedDisplayCB)
 
         def updateInterval(self, interval=0.3):
             """
@@ -2231,16 +2231,16 @@ class MacOSNSWindow(BaseWindow):
             :param interval: set the interval to watch window changes. Default is 0.3 seconds
             """
             if self.isAlive():
-                self.watchdog.updateInterval(interval)
+                self._watchdog.updateInterval(interval)
 
         def stop(self):
             """
             Stop the entire WatchDog and all its hooks
             """
-            if self.watchdog:
-                self.watchdog.kill()
-                self.watchdog.join()
-            self.watchdog = None
+            if self._watchdog:
+                self._watchdog.kill()
+                self._watchdog.join()
+            self._watchdog = None
 
         def isAlive(self):
             """Check if watchdog is running
@@ -2249,7 +2249,7 @@ class MacOSNSWindow(BaseWindow):
             """
             alive = False
             try:
-                alive = bool(self.watchdog and self.watchdog.is_alive())
+                alive = bool(self._watchdog and self._watchdog.is_alive())
             except:
                 pass
             return alive
