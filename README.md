@@ -73,7 +73,7 @@ The watchdog will automatically stop when window doesn't exist anymore or progra
     movedCB:        callback to invoke if window changes its position. Set to None to not to watch this
                     Passes the new position (x, y)
     
-    changedTitleCB: callback to invoke if wind~~~~ow changes its title. Set to None to not to watch this
+    changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
                     Passes the new title (as string)
                     IMPORTANT: This will not work in MacOS Apple Script version
 
@@ -121,8 +121,8 @@ Example:
 
 ***Important comments***
 
-- The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
-- The watchdog is asynchronous, so it will take a while to notify the changes (adjust interval value to your needs)
+- The callbacks definition MUST MATCH their invocation params (boolean, string or (int, int))
+- The watchdog is asynchronous, so notifications won't be immediate (adjust interval value to your needs). Use window object properties instead (e.g. isAlive)
 - Position and size notifications will trigger several times between initial and final values
 - When updating callbacks, remember to set ALL desired callbacks. Non-present (None) callbacks will be deactivated
 - macOS Apple Script version might be very slow

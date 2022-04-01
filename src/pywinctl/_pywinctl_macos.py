@@ -2183,12 +2183,13 @@ class MacOSNSWindow(BaseWindow):
                             Returns the new display name (as string)
             :param interval: set the interval to watch window changes. Default is 0.3 seconds
             """
-            if not self._watchdog:
-                self._watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB, resizedCB,
-                                              movedCB, changedTitleCB, changedDisplayCB, interval)
-                self._watchdog.setDaemon(True)
-            if not self.isAlive():
-                self._watchdog.start()
+            if self._parent.isAlive:
+                if not self._watchdog:
+                    self._watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB, resizedCB,
+                                                  movedCB, changedTitleCB, changedDisplayCB, interval)
+                    self._watchdog.setDaemon(True)
+                if not self.isAlive():
+                    self._watchdog.start()
 
         def updateCallbacks(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None,
                                     isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None,
