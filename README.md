@@ -92,7 +92,7 @@ Functions included in this subclass:
 
 Example:
 
-    import pywinctl
+    import pywinctl as pwc
     import time
 
     def activeCB(active):
@@ -101,7 +101,7 @@ Example:
     def movedCB(pos):
         print("NEW POS", pos)
 
-    npw = getActiveWindow()
+    npw = pwc.getActiveWindow()
     npw.watchdog.start(isActiveCB=activeCB)
     print("toggle focus and move active window")
     print("Press Ctl-C to Quit")
@@ -130,16 +130,16 @@ Example:
 
 ## Menu Features
 
-#### Available in: MS-Windows and macOS Apple Script version (MacOSWindow() class)
+#### Available in: MS-Windows and macOS Apple Script version (Win32Window() and MacOSWindow() classes)
 
 menu sub-class for Menu info and control methods (from asweigart's original ideas), accessible through 'menu' submodule. E.g.:
 
-    import pywinctl
+    import pywinctl as pwc
     import subprocess
     # import json
 
     subprocess.Popen('notepad')
-    windows = pywinctl.getWindowsWithTitle('Untitled - Notepad')
+    windows = pwc.getWindowsWithTitle('notepad', condition=pwc.Re.CONTAINS, caseSensitive=False)
     if windows:
         win = windows[0]
         menu = win.menu.getMenu()
@@ -155,7 +155,7 @@ Menu dictionary (returned by getMenu() method) will likely contain all you may n
     Key:            item title
     Values:
       "parent":     parent sub-menu handle
-      "hSubMenu":   item handle (!= 0 for sub-menu items only)
+      "hSubMenu":   item handle (!= 0 for sub-menus only)
       "wID":        item ID (required for other actions, e.g. clickMenuItem())
       "rect":       Rect struct of the menu item. (Windows: It is relative to window position, so it won't likely change if window is moved or resized)
       "item_info":  [Optional] Python dictionary (macOS) / MENUITEMINFO struct (Windows)
