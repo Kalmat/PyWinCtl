@@ -9,6 +9,7 @@
 __version__ = "0.0.32"
 
 import collections
+import re
 import sys
 import threading
 from typing import Tuple, List
@@ -41,19 +42,56 @@ class Re:
     NOTCONTAINS = -2
     NOTSTARTSWITH = -3
     NOTENDSWITH = -4
-    REGEXSEARCH = 10
+    MATCH = 10
+    NOTMATCH = -10
+    LEVDISTANCE = 20
+
+    IGNORECASE = re.IGNORECASE
 
     _cond_dic = {
-        IS: lambda s1, s2: s1 == s2,
-        CONTAINS: lambda s1, s2: s1 in s2,
-        STARTSWITH: lambda s1, s2: s2.startswith(s1),
-        ENDSWITH: lambda s1, s2: s2.endswith(s1),
-        NOTIS: lambda s1, s2: s1 != s2,
-        NOTCONTAINS: lambda s1, s2: s1 not in s2,
-        NOTSTARTSWITH: lambda s1, s2: not s2.startswith(s1),
-        NOTENDSWITH: lambda s1, s2: not s2.endswith(s1),
-        REGEXSEARCH: lambda s1, s2: bool(s1.search(s2))
+        IS: lambda s1, s2, fl: s1 == s2,
+        CONTAINS: lambda s1, s2, fl: s1 in s2,
+        STARTSWITH: lambda s1, s2, fl: s2.startswith(s1),
+        ENDSWITH: lambda s1, s2, fl: s2.endswith(s1),
+        NOTIS: lambda s1, s2, fl: s1 != s2,
+        NOTCONTAINS: lambda s1, s2, fl: s1 not in s2,
+        NOTSTARTSWITH: lambda s1, s2, fl: not s2.startswith(s1),
+        NOTENDSWITH: lambda s1, s2, fl: not s2.endswith(s1),
+        MATCH: lambda s1, s2, fl: bool(s1.search(s2)),
+        NOTMATCH: lambda s1, s2, fl: not (bool(s1.search(s2))),
+        LEVDISTANCE: lambda s1, s2, fl: _levenshtein(s1, s2, fl)
     }
+
+
+def _levenshtein(seq1: str, seq2: str, similarity: int = 90) -> bool:
+    # https://stackabuse.com/levenshtein-distance-and-text-similarity-in-python/
+    # Adapted to return a similarity percentage, which is easier to define
+    import numpy as np
+
+    size_x = len(seq1) + 1
+    size_y = len(seq2) + 1
+    matrix = np.zeros((size_x, size_y))
+    for x in range(size_x):
+        matrix[x, 0] = x
+    for y in range(size_y):
+        matrix[0, y] = y
+
+    for x in range(1, size_x):
+        for y in range(1, size_y):
+            if seq1[x - 1] == seq2[y - 1]:
+                matrix[x, y] = min(
+                    matrix[x - 1, y] + 1,
+                    matrix[x - 1, y - 1],
+                    matrix[x, y - 1] + 1
+                )
+            else:
+                matrix[x, y] = min(
+                    matrix[x - 1, y] + 1,
+                    matrix[x - 1, y - 1] + 1,
+                    matrix[x, y - 1] + 1
+                )
+    dist = matrix[size_x - 1, size_y - 1]
+    return ((1 - dist / max(len(seq1), len(seq2))) * 100) >= similarity
 
 
 class BaseWindow:
@@ -462,7 +500,6 @@ class _WinWatchDog(threading.Thread):
         self._changedTitleCB = changedTitleCB
         self._changedDisplayCB = changedDisplayCB
 
-        self._isAlive = False
         self._isActive = False
         self._isVisible = False
         self._isMinimized = False
@@ -473,9 +510,6 @@ class _WinWatchDog(threading.Thread):
         self._display = False
 
     def _getInitialValues(self):
-
-        if self._isAliveCB:
-            self._isAlive = self._win.isAlive
 
         if self._isActiveCB:
             self._isActive = self._win.isActive
@@ -507,64 +541,67 @@ class _WinWatchDog(threading.Thread):
 
         while not self._kill.is_set():
 
-            alive = self._win.isAlive
-            if alive:
-                self._kill.wait(self._interval)
-            else:
-                self._isAlive = alive
+            self._kill.wait(self._interval)
+
+            try:
                 if self._isAliveCB:
-                    self._isAliveCB(alive)
+                    if not self._win.isAlive:
+                        self._isAliveCB(False)
+                        break
+
+                if self._isActiveCB:
+                    active = self._win.isActive
+                    if self._isActive != active:
+                        self._isActive = active
+                        self._isActiveCB(active)
+
+                if self._isVisibleCB:
+                    visible = self._win.isVisible
+                    if self._isVisible != visible:
+                        self._isVisible = visible
+                        self._isVisibleCB(visible)
+
+                if self._isMinimizedCB:
+                    minimized = self._win.isMinimized
+                    if self._isMinimized != minimized:
+                        self._isMinimized = minimized
+                        self._isMinimizedCB(minimized)
+
+                if self._isMaximizedCB:
+                    maximized = self._win.isMaximized
+                    if self._isMaximized != maximized:
+                        self._isMaximized = maximized
+                        self._isMaximizedCB(maximized)
+
+                if self._resizedCB:
+                    size = (self._win.width, self._win.height)
+                    if self._size != size:
+                        self._size = size
+                        self._resizedCB(size)
+
+                if self._movedCB:
+                    pos = (self._win.left, self._win.top)
+                    if self._pos != pos:
+                        self._pos = pos
+                        self._movedCB(pos)
+
+                if self._changedTitleCB:
+                    title = self._win.title
+                    if self._title != title:
+                        self._title = title
+                        self._changedTitleCB(title)
+
+                if self._changedDisplayCB:
+                    display = self._win.getDisplay()
+                    if self._display != display:
+                        self._display = display
+                        self._changedDisplayCB(display)
+            except:
                 self.kill()
-                self.join()
+                if self._isAliveCB:
+                    if not self._win.isAlive:
+                        self._isAliveCB(False)
                 break
-
-            if self._isActiveCB:
-                active = self._win.isActive
-                if self._isActive != active:
-                    self._isActive = active
-                    self._isActiveCB(active)
-
-            if self._isVisibleCB:
-                visible = self._win.isVisible
-                if self._isVisible != visible:
-                    self._isVisible = visible
-                    self._isVisibleCB(visible)
-
-            if self._isMinimizedCB:
-                minimized = self._win.isMinimized
-                if self._isMinimized != minimized:
-                    self._isMinimized = minimized
-                    self._isMinimizedCB(minimized)
-
-            if self._isMaximizedCB:
-                maximized = self._win.isMaximized
-                if self._isMaximized != maximized:
-                    self._isMaximized = maximized
-                    self._isMaximizedCB(maximized)
-
-            if self._resizedCB:
-                size = (self._win.width, self._win.height)
-                if self._size != size:
-                    self._size = size
-                    self._resizedCB(size)
-
-            if self._movedCB:
-                pos = (self._win.left, self._win.top)
-                if self._pos != pos:
-                    self._pos = pos
-                    self._movedCB(pos)
-
-            if self._changedTitleCB:
-                title = self._win.title
-                if self._title != title:
-                    self._title = title
-                    self._changedTitleCB(title)
-
-            if self._changedDisplayCB:
-                display = self._win.getDisplay()
-                if self._display != display:
-                    self._display = display
-                    self._changedDisplayCB(display)
 
     def updateCallbacks(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None, isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None, changedDisplayCB=None):
 

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import ast
+import json
 import platform
 import subprocess
 import re
@@ -100,59 +101,59 @@ def getWindowsAt(x: int, y: int, app: AppKit.NSApplication = None, allWindows=No
     return matches
 
 
-def getWindowsWithTitle(title: str, app: AppKit.NSApplication = None, condition=Re.IS, caseSensitive: bool = True, regex_flags=0):
+def getWindowsWithTitle(title, app=None, condition=Re.IS, flags=0):
     """
-    Get the list of Window objects whose title match the given string
-    Use ''condition'' to delimit the search. Allowed values are stored in pywinctl.Re sub-class (e.g. pywinctl.Re.Contains):
+    Get the list of Window objects whose title match the given string using the give condition and flags.
+    Use ''condition'' to delimit the search. Allowed values are stored in pywinctl.Re sub-class (e.g. pywinctl.Re.Contains)
+    Use ''flags'' to define additional values according to each condition type:
 
-        - IS -- window title is equal to given title
-        - CONTAINS -- window title contains given string
-        - STARTSWITH -- window title starts by given string
-        - ENDSWITH -- window title ends by given string
-        - NOTIS -- window title is not equal to given title
-        - NOTCONTAINS -- window title does NOT contains given string
-        - NOTSTARTSWITH -- window title does NOT starts by given string
-        - NOTENDSWITH -- window title does NOT ends by given string
-        - REGEXSEARCH -- This means ''title'' param contains a regex pattern (as per ''re.search()'' rules at https://docs.python.org/3/library/re.html). Use it in combination with additional regex_flags if needed
+        - IS -- window title is equal to given title (allowed flags: Re.IGNORECASE)
+        - CONTAINS -- window title contains given string (allowed flags: Re.IGNORECASE)
+        - STARTSWITH -- window title starts by given string (allowed flags: Re.IGNORECASE)
+        - ENDSWITH -- window title ends by given string (allowed flags: Re.IGNORECASE)
+        - NOTIS -- window title is not equal to given title (allowed flags: Re.IGNORECASE)
+        - NOTCONTAINS -- window title does NOT contains given string (allowed flags: Re.IGNORECASE)
+        - NOTSTARTSWITH -- window title does NOT starts by given string (allowed flags: Re.IGNORECASE)
+        - NOTENDSWITH -- window title does NOT ends by given string (allowed flags: Re.IGNORECASE)
+        - MATCH -- This means ''title'' param contains a regex pattern (allowed syntax and flags: ''re.search()'' rules at https://docs.python.org/3/library/re.html)
+        - NOTMATCH -- ''title'' as a regex pattern too, but returning windows which do NOT fulfill the condition (allowed syntax and flags: ''re.search()'' rules at https://docs.python.org/3/library/re.html)
+        - LEVDISTANCE -- Uses levenshtein distance to get a similarity percentage (allowed flags: 0-100 as similarity threshold. Defaults to 90)
 
     :param title: title or regex pattern to match, as string
+    :param app: used ONLY in macOS platform
     :param condition: (optional) condition to apply when searching the window. Defaults to ''Re.IS'' (is equal to)
-    :param caseSensitive: (optional) set to ''False'' for non case sensitive comparison. Not used with ''Re.REGEXSEARCH'' (use ''regex_flags=re.IGNORECASE'' instead)
-    :param regex_flags: (optional) additional ''re'' module flags. Only applies to Re.REGEXSEARCH condition mode. Defaults to 0 (no flags)
+    :param flags: (optional) flags to apply to condition, according to its value, as described above.
     :return: list of Window objects
     """
     matches = []
     if title and condition in Re._cond_dic.keys():
-        if condition == Re.REGEXSEARCH:
-            title = re.compile(title, regex_flags)
-        elif not caseSensitive:
-            title = title.lower()
-
+        lower = False
+        if condition in (Re.MATCH, Re.NOTMATCH):
+            title = re.compile(title, flags)
+        else:
+            if condition == Re.LEVDISTANCE and (not isinstance(flags, int) or not (0 < flags <= 100)):
+                flags = 90
+            if flags & re.IGNORECASE:
+                lower = True
+                title = title.lower()
         if not app:
             activeApps = _getAllApps()
             titleList = _getWindowTitles()
             for item in titleList:
                 pID = item[0]
-                winTitle = item[1]
-                if winTitle:
-                    if condition != Re.REGEXSEARCH and not caseSensitive:
-                        winTitle = winTitle.lower()
-                    if Re._cond_dic[condition](title, winTitle):
-                        x, y, w, h = int(item[2][0]), int(item[2][1]), int(item[3][0]), int(item[3][1])
-                        rect = Rect(x, y, x + w, y + h)
-                        for app in activeApps:
-                            if app.processIdentifier() == pID:
-                                matches.append(MacOSWindow(app, item[1], rect))
-                                break
+                winTitle = item[1].lower() if lower else item[1]
+                if winTitle and Re._cond_dic[condition](title, winTitle, flags):
+                    x, y, w, h = int(item[2][0]), int(item[2][1]), int(item[3][0]), int(item[3][1])
+                    rect = Rect(x, y, x + w, y + h)
+                    for app in activeApps:
+                        if app.processIdentifier() == pID:
+                            matches.append(MacOSWindow(app, item[1], rect))
+                            break
         else:
             windows = getAllWindows(app)
             for win in windows:
-                if win.title:
-                    winTitle = win.title
-                    if condition != Re.REGEXSEARCH and not caseSensitive:
-                        winTitle = winTitle.lower()
-                    if Re._cond_dic[condition](title, winTitle):
-                        matches.append(win)
+                if win.title and Re._cond_dic[condition](title, win.title.lower() if lower else win.title, flags):
+                    matches.append(win)
     return matches
 
 
@@ -179,10 +180,9 @@ def getAllTitles(app: AppKit.NSApplication = None) -> List[str]:
             for title in item:  # One-liner script is way faster, but produces complex data structures
                 matches.append(title)
                 j += 1
-        ret = matches
     else:
-        ret = [win.title for win in getAllWindows(app)]
-    return ret
+        matches = [win.title for win in getAllWindows(app)]
+    return matches
 
 
 def getAllWindows(app: AppKit.NSApplication = None):
@@ -1061,12 +1061,14 @@ class MacOSWindow(BaseWindow):
 
     class _WatchDog:
         """
-        Set a watchdog, in a separate Thread, to be notified when some window states change.
+        Set a watchdog, in a separate Thread, to be notified when some window states change
+
         Notice that changes will be notified according to the window status at the very moment of instantiating this class
 
         IMPORTANT: This can be extremely slow in macOS Apple Script version
 
          Available methods:
+        :meth start: Initialize and start watchdog and selected callbacks
         :meth updateCallbacks: Change the states this watchdog is hooked to
         :meth updateInterval: Change the interval to check changes
         :meth kill: Stop the entire watchdog and all its hooks
@@ -1076,18 +1078,19 @@ class MacOSWindow(BaseWindow):
             self._watchdog = None
             self._parent = parent
 
-        def start(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None,
-                          isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None, changedDisplayCB=None,
-                          interval=0.3):
+        def start(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None, isMaximizedCB=None,
+                  resizedCB=None, movedCB=None, changedTitleCB=None, changedDisplayCB=None, interval=0.3):
             """
-            Initialize and start watchdog and hooks (callbacks to be invoked when desired window states change).
+            Initialize and start watchdog and hooks (callbacks to be invoked when desired window states change)
+
             Notice that changes will be notified according to the window status at the very moment of execute start()
+
             The watchdog is asynchronous, so notifications will not be immediate (adjust interval value to your needs)
-            The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
+
+            The callbacks definition MUST REGEXSEARCH their return value (boolean, string or (int, int))
 
             IMPORTANT: This can be extremely slow in macOS Apple Script version
 
-            :param win: window object to watch
             :param isAliveCB: callback to call if window is not alive. Set to None to not to watch this
                             Returns the new alive status value (False)
             :param isActiveCB: callback to invoke if window changes its active status. Set to None to not to watch this
@@ -1110,18 +1113,21 @@ class MacOSWindow(BaseWindow):
             :param interval: set the interval to watch window changes. Default is 0.3 seconds
             """
             if not self._watchdog:
-                self._watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB, resizedCB,
-                                              movedCB, changedTitleCB, changedDisplayCB, interval)
+                self._watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB,
+                                              isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB,
+                                              interval)
                 self._watchdog.setDaemon(True)
             if not self.isAlive():
                 self._watchdog.start()
 
         def updateCallbacks(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None,
-                                    isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None,
-                                    changedDisplayCB=None):
+                            isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None,
+                            changedDisplayCB=None):
             """
-            Change the states this watchdog is hooked to.
-            The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
+            Change the states this watchdog is hooked to
+
+            The callbacks definition MUST REGEXSEARCH their return value (boolean, string or (int, int))
+
             IMPORTANT: When updating callbacks, remember to set ALL desired callbacks or they will be deactivated
 
             IMPORTANT: Remember to set ALL desired callbacks every time, or they will be defaulted to None (and unhooked)
@@ -1211,7 +1217,8 @@ class MacOSWindow(BaseWindow):
                 Values:
                     "parent":
                         parent sub-menu handle (main menu handle for level-0 items)
-                    "hSubMenu":
+
+
                         item handle (!= 0 for sub-menu items only)
                     "wID":
                         item ID (required for other actions, e.g. clickMenuItem())
@@ -1224,7 +1231,8 @@ class MacOSWindow(BaseWindow):
                     "entries":
                         sub-items within the sub-menu (if any)
             """
-
+            # Check: PathFinder / Edit / Format / Font / Kern / Tighten
+            # [[[], [], [], [], [], [], [], [], [['Use Default', 'Use None', 'Tighten', 'Loosen']], [['Use Default', 'Use None', 'Use All']], [['Use Default', 'Superscript', 'Subscript', 'Raise', 'Lower']], [], [], [], [], []]]
             self._menuStructure = {}
             self.menuList = []
             self.itemList = []
@@ -1312,9 +1320,9 @@ class MacOSWindow(BaseWindow):
                                 option = option[sec]
 
                     for i, name in enumerate(subNameList):
-                        pos = subPosList[i]
-                        size = subSizeList[i]
-                        attr = subAttrList[i] if addItemInfo else []
+                        pos = subPosList[i] if len(subPosList) > i else []
+                        size = subSizeList[i] if len(subSizeList) > i else []
+                        attr = subAttrList[i] if (addItemInfo and len(subAttrList) > 0) else []
                         if not name:
                             continue
                         elif name == "missing value":
@@ -1331,14 +1339,14 @@ class MacOSWindow(BaseWindow):
                                 item_info = self._parseAttr(attr)
                                 option[name]["item_info"] = item_info
                                 option[name]["shortcut"] = self._getaccesskey(item_info)
-                            if level+1 < len(nameList):
+                            if level + 1 < len(nameList):
                                 submenu = nameList[level + 1][mainlevel][0]
                                 subPos = posList[level + 1][mainlevel][0]
                                 subSize = sizeList[level + 1][mainlevel][0]
                                 subAttr = attrList[level + 1][mainlevel][0] if addItemInfo else []
-                                subPath = path[3:] + [i, 0]
+                                subPath = path[3:] + ([0] * (level - 3)) + [i, 0] + ([0] * (level - 2))
                                 for j in subPath:
-                                    if len(submenu) > j:
+                                    if len(submenu) > j and isinstance(submenu[j], list):
                                         submenu = submenu[j]
                                         subPos = subPos[j]
                                         subSize = subSize[j]
@@ -1350,7 +1358,8 @@ class MacOSWindow(BaseWindow):
                                     option[name]["entries"] = {}
                                     subfillit(submenu, subSize, subPos, subAttr,
                                               section + SEP + name + SEP + "entries",
-                                              level=level+1, mainlevel=mainlevel, path=path+subPath, parent=hSubMenu)
+                                              level=level + 1, mainlevel=mainlevel, path=[level+1, mainlevel, 0]+subPath,
+                                              parent=hSubMenu)
                                 else:
                                     option[name]["hSubMenu"] = 0
 
@@ -2135,12 +2144,14 @@ class MacOSNSWindow(BaseWindow):
 
     class _WatchDog:
         """
-        Set a watchdog, in a separate Thread, to be notified when some window states change.
+        Set a watchdog, in a separate Thread, to be notified when some window states change
+
         Notice that changes will be notified according to the window status at the very moment of instantiating this class
 
         IMPORTANT: This can be extremely slow in macOS Apple Script version
 
          Available methods:
+        :meth start: Initialize and start watchdog and selected callbacks
         :meth updateCallbacks: Change the states this watchdog is hooked to
         :meth updateInterval: Change the interval to check changes
         :meth kill: Stop the entire watchdog and all its hooks
@@ -2154,14 +2165,16 @@ class MacOSNSWindow(BaseWindow):
                           isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None, changedDisplayCB=None,
                           interval=0.3):
             """
-            Initialize and start watchdog and hooks (callbacks to be invoked when desired window states change).
+            Initialize and start watchdog and hooks (callbacks to be invoked when desired window states change)
+
             Notice that changes will be notified according to the window status at the very moment of execute start()
+
             The watchdog is asynchronous, so notifications will not be immediate (adjust interval value to your needs)
-            The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
+
+            The callbacks definition MUST REGEXSEARCH their return value (boolean, string or (int, int))
 
             IMPORTANT: This can be extremely slow in macOS Apple Script version
 
-            :param win: window object to watch
             :param isAliveCB: callback to call if window is not alive. Set to None to not to watch this
                             Returns the new alive status value (False)
             :param isActiveCB: callback to invoke if window changes its active status. Set to None to not to watch this
@@ -2195,8 +2208,10 @@ class MacOSNSWindow(BaseWindow):
                                     isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None,
                                     changedDisplayCB=None):
             """
-            Change the states this watchdog is hooked to.
-            The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
+            Change the states this watchdog is hooked to
+
+            The callbacks definition MUST REGEXSEARCH their return value (boolean, string or (int, int))
+
             IMPORTANT: When updating callbacks, remember to set ALL desired callbacks or they will be deactivated
 
             IMPORTANT: Remember to set ALL desired callbacks every time, or they will be defaulted to None (and unhooked)
@@ -2412,4 +2427,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

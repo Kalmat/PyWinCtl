@@ -35,19 +35,19 @@ def test_basic():
         basic_linux(npw)
 
     elif sys.platform == "darwin":
-        subprocess.Popen(['touch', 'test.txt'])
+        subprocess.Popen(['touch', 'test.py'])
         time.sleep(2)
-        subprocess.Popen(['open', '-a', 'TextEdit', 'test.txt'])
+        subprocess.Popen(['open', '-a', 'TextEdit', 'test.py'])
         time.sleep(5)
 
-        testWindows = pywinctl.getWindowsWithTitle('test.txt')
+        testWindows = pywinctl.getWindowsWithTitle('test.py')
         assert len(testWindows) == 1
 
         npw = testWindows[0]
 
         basic_macOS(npw)
 
-        subprocess.Popen(['rm', 'test.txt'])
+        subprocess.Popen(['rm', 'test.py'])
 
     else:
         raise NotImplementedError('PyWinCtl currently does not support this platform. If you have useful knowledge, please contribute! https://github.com/Kalmat/pywinctl')
