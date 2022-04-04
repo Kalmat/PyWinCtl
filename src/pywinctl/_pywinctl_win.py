@@ -7,7 +7,7 @@ import sys
 import re
 import threading
 import time
-from typing import List, Tuple, Union
+from typing import List, Tuple
 
 import win32api
 import win32con
@@ -50,6 +50,147 @@ def getActiveWindowTitle() -> str:
         return ""
 
 
+def getAllWindows():
+    """
+    Get the list of Window objects for all visible windows
+
+    :return: list of Window objects
+    """
+    matches = []
+    windowObjs = _findWindowHandles(onlyVisible=True)
+    for win in windowObjs:
+        if win32gui.IsWindowVisible(win):
+            matches.append(Win32Window(win))
+    return matches
+
+
+def getAllTitles() -> List[str]:
+    """
+    Get the list of titles of all visible windows
+
+    :return: list of titles as strings
+    """
+    return [window.title for window in getAllWindows()]
+
+
+def getWindowsWithTitle(title, app=(), condition=Re.IS, flags=0):
+    """
+    Get the list of window objects whose title match the given string with condition and flags.
+    Use ''condition'' to delimit the search. Allowed values are stored in pywinctl.Re sub-class (e.g. pywinctl.Re.CONTAINS)
+    Use ''flags'' to define additional values according to each condition type:
+
+        - IS -- window title is equal to given title (allowed flags: Re.IGNORECASE)
+        - CONTAINS -- window title contains given string (allowed flags: Re.IGNORECASE)
+        - STARTSWITH -- window title starts by given string (allowed flags: Re.IGNORECASE)
+        - ENDSWITH -- window title ends by given string (allowed flags: Re.IGNORECASE)
+        - NOTIS -- window title is not equal to given title (allowed flags: Re.IGNORECASE)
+        - NOTCONTAINS -- window title does NOT contains given string (allowed flags: Re.IGNORECASE)
+        - NOTSTARTSWITH -- window title does NOT starts by given string (allowed flags: Re.IGNORECASE)
+        - NOTENDSWITH -- window title does NOT ends by given string (allowed flags: Re.IGNORECASE)
+        - MATCH -- window title matched by given regex pattern (allowed flags: regex flags, see https://docs.python.org/3/library/re.html)
+        - NOTMATCH -- window title NOT matched by given regex pattern (allowed flags: regex flags, see https://docs.python.org/3/library/re.html)
+        - EDITDISTANCE -- window title matched using Levenshtein edit distance to a given similarity percentage (allowed flags: 0-100. Defaults to 90)
+
+    :param title: title or regex pattern to match, as string
+    :param app: (optional) tuple of app names. Defaults to ALL
+    :param condition: (optional) condition to apply when searching the window. Defaults to ''Re.IS'' (is equal to)
+    :param flags: (optional) specific flags to apply to condition
+    :return: list of Window objects
+    """
+    matches = []
+    if title and condition in Re._cond_dic.keys():
+        lower = False
+        if condition in (Re.MATCH, Re.NOTMATCH):
+            title = re.compile(title, flags)
+        else:
+            if condition == Re.EDITDISTANCE and (not isinstance(flags, int) or not (0 < flags <= 100)):
+                flags = 90
+            if flags & Re.IGNORECASE:
+                lower = True
+                title = title.lower()
+        for win in getAllWindows():
+            if win.title and Re._cond_dic[condition](title, win.title.lower() if lower else win.title, flags) \
+                    and (not app or (app and win.getAppName() in app)):
+                matches.append(win)
+    return matches
+
+
+def getAllAppsNames() -> List[str]:
+    """
+    Get the list of names of all visible apps
+
+    :return: list of names as strings
+    """
+    return list(getAllAppsWindowsTitles().keys())
+
+
+def getAppsWithName(name, condition=Re.IS, flags=0):
+    """
+    Get the list of app titles whose name match the given string using the given condition and flags.
+    Use ''condition'' to delimit the search. Allowed values are stored in pywinctl.Re sub-class (e.g. pywinctl.Re.CONTAINS)
+    Use ''flags'' to define additional values according to each condition type:
+
+        - IS -- window title is equal to given title (allowed flags: Re.IGNORECASE)
+        - CONTAINS -- window title contains given string (allowed flags: Re.IGNORECASE)
+        - STARTSWITH -- window title starts by given string (allowed flags: Re.IGNORECASE)
+        - ENDSWITH -- window title ends by given string (allowed flags: Re.IGNORECASE)
+        - NOTIS -- window title is not equal to given title (allowed flags: Re.IGNORECASE)
+        - NOTCONTAINS -- window title does NOT contains given string (allowed flags: Re.IGNORECASE)
+        - NOTSTARTSWITH -- window title does NOT starts by given string (allowed flags: Re.IGNORECASE)
+        - NOTENDSWITH -- window title does NOT ends by given string (allowed flags: Re.IGNORECASE)
+        - MATCH -- window title matched by given regex pattern (allowed flags: regex flags, see https://docs.python.org/3/library/re.html)
+        - NOTMATCH -- window title NOT matched by given regex pattern (allowed flags: regex flags, see https://docs.python.org/3/library/re.html)
+        - EDITDISTANCE -- window title matched using Levenshtein edit distance to a given similarity percentage (allowed flags: 0-100. Defaults to 90)
+
+    :param name: title or regex pattern to match, as string
+    :param condition: (optional) condition to apply when searching the window. Defaults to ''Re.IS'' (is equal to)
+    :param flags: (optional) specific flags to apply to condition
+    :return: list of app names
+    """
+    matches = []
+    if name and condition in Re._cond_dic.keys():
+        lower = False
+        if condition in (Re.MATCH, Re.NOTMATCH):
+            name = re.compile(name, flags)
+        else:
+            if condition == Re.EDITDISTANCE and (not isinstance(flags, int) or not (0 < flags <= 100)):
+                flags = 90
+            if flags & Re.IGNORECASE:
+                lower = True
+                name = name.lower()
+        for title in getAllAppsNames():
+            if title and Re._cond_dic[condition](name, title.lower() if lower else title, flags):
+                matches.append(title)
+    return matches
+
+
+def getAllAppsWindowsTitles() -> dict:
+    """
+    Get all visible apps names and their open windows titles
+
+    Format:
+        Key: app name
+
+        Values: list of window titles as strings
+
+    :return: python dictionary
+    """
+    process_list = _getAllApps(tryToFilter=True)
+    result = {}
+    for win in getAllWindows():
+        pID = win32process.GetWindowThreadProcessId(win.getHandle())
+        for item in process_list:
+            appPID = item[0]
+            appName = item[1]
+            if appPID == pID[1]:
+                if appName in result.keys():
+                    result[appName].append(win.title)
+                else:
+                    result[appName] = [win.title]
+                break
+    return result
+
+
 def getWindowsAt(x: int, y: int):
     """
     Get the list of Window objects whose windows contain the point ``(x, y)`` on screen
@@ -63,70 +204,6 @@ def getWindowsAt(x: int, y: int):
         if pointInRect(x, y, win.left, win.top, win.width, win.height):
             windowsAtXY.append(win)
     return windowsAtXY
-
-
-def getWindowsWithTitle(title, app=None, condition=Re.IS, flags=0):
-    """
-    Get the list of Window objects whose title match the given string using the give condition and flags.
-    Use ''condition'' to delimit the search. Allowed values are stored in pywinctl.Re sub-class (e.g. pywinctl.Re.Contains)
-    Use ''flags'' to define additional values according to each condition type:
-
-        - IS -- window title is equal to given title (allowed flags: Re.IGNORECASE)
-        - CONTAINS -- window title contains given string (allowed flags: Re.IGNORECASE)
-        - STARTSWITH -- window title starts by given string (allowed flags: Re.IGNORECASE)
-        - ENDSWITH -- window title ends by given string (allowed flags: Re.IGNORECASE)
-        - NOTIS -- window title is not equal to given title (allowed flags: Re.IGNORECASE)
-        - NOTCONTAINS -- window title does NOT contains given string (allowed flags: Re.IGNORECASE)
-        - NOTSTARTSWITH -- window title does NOT starts by given string (allowed flags: Re.IGNORECASE)
-        - NOTENDSWITH -- window title does NOT ends by given string (allowed flags: Re.IGNORECASE)
-        - MATCH -- This means ''title'' param contains a regex pattern (allowed syntax and flags: ''re.search()'' rules at https://docs.python.org/3/library/re.html)
-        - NOTMATCH -- ''title'' as a regex pattern too, but returning windows which do NOT fulfill the condition (allowed syntax and flags: ''re.search()'' rules at https://docs.python.org/3/library/re.html)
-        - LEVDISTANCE -- Uses levenshtein distance to get a similarity percentage (allowed flags: 0-100 as similarity threshold. Defaults to 90)
-
-    :param title: title or regex pattern to match, as string
-    :param app: used ONLY in macOS platform
-    :param condition: (optional) condition to apply when searching the window. Defaults to ''Re.IS'' (is equal to)
-    :param flags: (optional) flags to apply to condition, according to its value, as described above.
-    :return: list of Window objects
-    """
-    matches = []
-    if title and condition in Re._cond_dic.keys():
-        lower = False
-        if condition in (Re.MATCH, Re.NOTMATCH):
-            title = re.compile(title, flags)
-        else:
-            if condition == Re.LEVDISTANCE and (not isinstance(flags, int) or not (0 < flags <= 100)):
-                flags = 90
-            if flags & Re.IGNORECASE:
-                lower = True
-                title = title.lower()
-        for win in getAllWindows():
-            if win.title and Re._cond_dic[condition](title, win.title.lower() if lower else win.title, flags):
-                matches.append(win)
-    return matches
-
-
-def getAllTitles() -> List[str]:
-    """
-    Get the list of titles of all visible windows
-
-    :return: list of titles as strings
-    """
-    return [window.title for window in getAllWindows()]
-
-
-def getAllWindows():
-    """
-    Get the list of Window objects for all visible windows
-
-    :return: list of Window objects
-    """
-    matches = []
-    windowObjs = _findWindowHandles(onlyVisible=True)
-    for win in windowObjs:
-        if win32gui.IsWindowVisible(win):
-            matches.append(Win32Window(win))
-    return matches
 
 
 def _findWindowHandles(parent: int = None, window_class: str = None, title: str = None, onlyVisible: bool = False) -> List[int]:
@@ -170,42 +247,6 @@ def _getAllApps(tryToFilter=False):
                 matches.append(item)
         process_list = matches
     return process_list
-
-
-def getAllAppsTitles() -> List[str]:
-    """
-    Get the list of names of all visible apps
-
-    :return: list of names as strings
-    """
-    return list(getAllAppsWindowsTitles().keys())
-
-
-def getAllAppsWindowsTitles() -> dict:
-    """
-    Get all visible apps names and their open windows titles
-
-    Format:
-        Key: app name
-
-        Values: list of window titles as strings
-
-    :return: python dictionary
-    """
-    process_list = _getAllApps(tryToFilter=True)
-    result = {}
-    for win in getAllWindows():
-        pID = win32process.GetWindowThreadProcessId(win.getHandle())
-        for item in process_list:
-            appPID = item[0]
-            appName = item[1]
-            if appPID == pID[1]:
-                if appName in result.keys():
-                    result[appName].append(win.title)
-                else:
-                    result[appName] = [win.title]
-                break
-    return result
 
 
 def _getWindowInfo(hWnd):
@@ -765,13 +806,11 @@ class Win32Window(BaseWindow):
                             Returns the new display name (as string)
             :param interval: set the interval to watch window changes. Default is 0.3 seconds
             """
-            if self._parent.isAlive:
-                if not self._watchdog:
-                    self._watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB, resizedCB,
-                                                 movedCB, changedTitleCB, changedDisplayCB, interval)
-                    self._watchdog.setDaemon(True)
-                if not self.isAlive():
-                    self._watchdog.start()
+            if self._parent.isAlive and not self._watchdog and not self.isAlive():
+                self._watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB, resizedCB,
+                                             movedCB, changedTitleCB, changedDisplayCB, interval)
+                self._watchdog.setDaemon(True)
+                self._watchdog.start()
 
         def updateCallbacks(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None,
                                     isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None,
@@ -805,9 +844,11 @@ class Win32Window(BaseWindow):
             :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
                             Returns the new display name (as string)
             """
-            if self.isAlive():
+            if self._watchdog and self.isAlive():
                 self._watchdog.updateCallbacks(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB,
                                               resizedCB, movedCB, changedTitleCB, changedDisplayCB)
+            else:
+                self._watchdog = None
 
         def updateInterval(self, interval=0.3):
             """
@@ -815,16 +856,17 @@ class Win32Window(BaseWindow):
 
             :param interval: set the interval to watch window changes. Default is 0.3 seconds
             """
-            if self.isAlive():
+            if self._watchdog and self.isAlive():
                 self._watchdog.updateInterval(interval)
+            else:
+                self._watchdog = None
 
         def stop(self):
             """
             Stop the entire WatchDog and all its hooks
             """
-            if self._watchdog:
+            if self._watchdog and self.isAlive():
                 self._watchdog.kill()
-                self._watchdog.join()
             self._watchdog = None
 
         def isAlive(self):
@@ -837,6 +879,8 @@ class Win32Window(BaseWindow):
                 alive = bool(self._watchdog and self._watchdog.is_alive())
             except:
                 pass
+            if not alive:
+                self._watchdog = None
             return alive
 
     class _Menu:

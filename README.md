@@ -39,7 +39,7 @@ All these functions are available at the moment, in all three platforms (Windows
 |  |  getExtraFrame  |    | 
 |  |  getClientFrame  |    | 
 
-#### Important macOS notice:
+***Important macOS notice:***
 
 macOS doesn't "like" controlling windows from other apps, so there are two separate classes you can use:
 - To control your own application's windows: MacOSNSWindow() is based on NSWindow Objects (you have to pass the NSApp() Object reference).
@@ -82,7 +82,7 @@ The watchdog will automatically stop when window doesn't exist anymore or progra
 
 Functions included in this subclass:
 
-|  watchdog sub-module functions:  |
+|  watchdog sub-module methods:  |
 |  :---:  |
 |  start  |
 |  updateCallbacks  |
@@ -165,7 +165,7 @@ Menu dictionary (returned by getMenu() method) will likely contain all you may n
 
 Functions included in this subclass:
 
-|  menu sub-module functions:  |
+|  menu sub-module methods:  |
 |  :---:  |
 |  getMenu  |
 |  getMenuInfo  |

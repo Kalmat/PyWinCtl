@@ -1,3 +1,4 @@
+0.0.33, 2022/04/07 -- Added getAppsWithName() function with regex-like options to search app names. Added param to getWindowsWithTitle() used to define app names in which search window titles
 0.0.32, 2022/06/29 -- Added WinWatchDog class to hook to some window changes notifications. Added regex-like search options in getWindowsWithTitle() function. Fixed getMenu() method for menus with 5+ levels.
 0.0.31, 2022/03/27 -- Added getExtraFrame(), getClientFrame() methods and isAlive property. Fixed isVisible and getAllScreens() for older macOS
 0.0.29, 2022/03/22 -- Added getAllScreens() function and getDisplay() method. Experimental (not tested) in Linux and macOS

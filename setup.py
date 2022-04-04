@@ -32,6 +32,7 @@ setup(
     test_suite='tests',
     install_requires=[
         "PyRect~=0.1",
+        "numpy~=1.21",
         "pywin32>=302; sys_platform == 'win32'",
         "xlib~=0.21; sys_platform == 'linux'",
         "ewmh~=0.1; sys_platform == 'linux'",

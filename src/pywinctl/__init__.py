@@ -9,6 +9,7 @@
 __version__ = "0.0.32"
 
 import collections
+import numpy as np
 import re
 import sys
 import threading
@@ -44,7 +45,7 @@ class Re:
     NOTENDSWITH = -4
     MATCH = 10
     NOTMATCH = -10
-    LEVDISTANCE = 20
+    EDITDISTANCE = 20
 
     IGNORECASE = re.IGNORECASE
 
@@ -59,15 +60,13 @@ class Re:
         NOTENDSWITH: lambda s1, s2, fl: not s2.endswith(s1),
         MATCH: lambda s1, s2, fl: bool(s1.search(s2)),
         NOTMATCH: lambda s1, s2, fl: not (bool(s1.search(s2))),
-        LEVDISTANCE: lambda s1, s2, fl: _levenshtein(s1, s2, fl)
+        EDITDISTANCE: lambda s1, s2, fl: _levenshtein(s1, s2, fl)
     }
 
 
 def _levenshtein(seq1: str, seq2: str, similarity: int = 90) -> bool:
     # https://stackabuse.com/levenshtein-distance-and-text-similarity-in-python/
     # Adapted to return a similarity percentage, which is easier to define
-    import numpy as np
-
     size_x = len(seq1) + 1
     size_y = len(seq2) + 1
     matrix = np.zeros((size_x, size_y))
@@ -630,12 +629,13 @@ if sys.platform == "darwin":
         MacOSNSWindow,
         getActiveWindow,
         getActiveWindowTitle,
-        getWindowsAt,
-        getWindowsWithTitle,
         getAllWindows,
         getAllTitles,
-        getAllAppsTitles,
+        getWindowsWithTitle,
+        getAllAppsNames,
+        getAppsWithName,
         getAllAppsWindowsTitles,
+        getWindowsAt,
         getAllScreens,
         getMousePos,
         getScreenSize,
@@ -650,12 +650,13 @@ elif sys.platform == "win32":
         Win32Window,
         getActiveWindow,
         getActiveWindowTitle,
-        getWindowsAt,
-        getWindowsWithTitle,
         getAllWindows,
         getAllTitles,
-        getAllAppsTitles,
+        getWindowsWithTitle,
+        getAllAppsNames,
+        getAppsWithName,
         getAllAppsWindowsTitles,
+        getWindowsAt,
         getAllScreens,
         getMousePos,
         getScreenSize,
@@ -669,12 +670,13 @@ elif sys.platform == "linux":
         LinuxWindow,
         getActiveWindow,
         getActiveWindowTitle,
-        getWindowsAt,
-        getWindowsWithTitle,
         getAllWindows,
         getAllTitles,
-        getAllAppsTitles,
+        getWindowsWithTitle,
+        getAllAppsNames,
+        getAppsWithName,
         getAllAppsWindowsTitles,
+        getWindowsAt,
         getAllScreens,
         getMousePos,
         getScreenSize,
