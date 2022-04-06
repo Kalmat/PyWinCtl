@@ -132,7 +132,7 @@ def getWindowsWithTitle(title, app=(), condition=Re.IS, flags=0):
         - EDITDISTANCE -- window title matched using Levenshtein edit distance to a given similarity percentage (allowed flags: 0-100. Defaults to 90)
 
     :param title: title or regex pattern to match, as string
-    :param app: (optional) tuple of app names. Defaults to ALL
+    :param app: (optional) tuple of app names. Defaults to ALL (empty list)
     :param condition: (optional) condition to apply when searching the window. Defaults to ''Re.IS'' (is equal to)
     :param flags: (optional) specific flags to apply to condition
     :return: list of Window objects
@@ -918,7 +918,7 @@ class LinuxWindow(BaseWindow):
 
             The watchdog is asynchronous, so notifications will not be immediate (adjust interval value to your needs)
 
-            The callbacks definition MUST REGEXSEARCH their return value (boolean, string or (int, int))
+            The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
 
             IMPORTANT: This can be extremely slow in macOS Apple Script version
 
@@ -938,16 +938,19 @@ class LinuxWindow(BaseWindow):
                             Returns the new position (x, y)
             :param changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
                             Returns the new title (as string)
-                            IMPORTANT: This will not work in MacOS Apple Script version
             :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
                             Returns the new display name (as string)
             :param interval: set the interval to watch window changes. Default is 0.3 seconds
             """
-            if self._parent.isAlive and not self._watchdog and not self.isAlive():
-                self._watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB, resizedCB,
-                                             movedCB, changedTitleCB, changedDisplayCB, interval)
+            if self._parent.isAlive:
+                if not self._watchdog and not self.isAlive():
+                    self._watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB,
+                                                  isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB,
+                                                  interval)
                 self._watchdog.setDaemon(True)
                 self._watchdog.start()
+            else:
+                self._watchdog = None
 
         def updateCallbacks(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None,
                                     isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None,
@@ -955,7 +958,7 @@ class LinuxWindow(BaseWindow):
             """
             Change the states this watchdog is hooked to
 
-            The callbacks definition MUST REGEXSEARCH their return value (boolean, string or (int, int))
+            The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
 
             IMPORTANT: When updating callbacks, remember to set ALL desired callbacks or they will be deactivated
 
@@ -977,7 +980,6 @@ class LinuxWindow(BaseWindow):
                             Returns the new position (x, y)
             :param changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
                             Returns the new title (as string)
-                            IMPORTANT: This will not work in MacOS Apple Script version
             :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
                             Returns the new display name (as string)
             """

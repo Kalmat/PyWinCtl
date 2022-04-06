@@ -2,27 +2,18 @@
 # -*- coding: utf-8 -*-
 
 import ast
+import difflib
 import platform
 import subprocess
 import re
 import sys
 import time
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import AppKit
 import Quartz
 
 from pywinctl import pointInRect, BaseWindow, Rect, Point, Size, Re, _WinWatchDog
-
-""" 
-IMPORTANT NOTICE:
-    This script uses NSWindow objects, so you have to pass the app object (NSApp()) when instantiating the class.
-    To manage other apps windows, this script uses Apple Script. Bear this in mind:
-        - Apple Script compatibility is not standard, can be limited in some apps or even not be available at all
-        - You need to grant permissions on Settings Security & Privacy -> Accessibility
-        - It uses the name of the window to address it, which is not always reliable (e.g. Terminal changes its name when changes size)
-        - Changes are not immediately applied nor updated, activate wait option if you need to effectively know if/when action has been performed
-"""
 
 WS = AppKit.NSWorkspace.sharedWorkspace()
 WAIT_ATTEMPTS = 10
@@ -128,10 +119,8 @@ def getAllTitles(app: AppKit.NSApplication = None) -> List[str]:
         res = ast.literal_eval(ret)
         matches = []
         for item in res[0]:
-            j = 0
-            for title in item:  # One-liner script is way faster, but produces complex data structures
+            for title in item:
                 matches.append(title)
-                j += 1
     else:
         matches = [win.title for win in getAllWindows(app)]
     return matches
@@ -156,7 +145,7 @@ def getWindowsWithTitle(title, app=(), condition=Re.IS, flags=0):
         - EDITDISTANCE -- window title matched using Levenshtein edit distance to a given similarity percentage (allowed flags: 0-100. Defaults to 90)
 
     :param title: title or regex pattern to match, as string
-    :param app: NSApp object (NSWindow version) / (optional) tuple of app names (Apple Script version)
+    :param app: NSApp object (NSWindow version) / (optional) tuple of app names (Apple Script version), defaults to ALL (empty list)
     :param condition: (optional) condition to apply when searching the window. Defaults to ''Re.IS'' (is equal to)
     :param flags: (optional) specific flags to apply to condition
     :return: list of Window objects
@@ -327,6 +316,20 @@ def _getAllAppWindows(app: AppKit.NSApplication, userLayer: bool = True):
         if (not userLayer or (userLayer and win[Quartz.kCGWindowLayer] == 0)) and win[Quartz.kCGWindowOwnerPID] == app.processIdentifier():
             windowsInApp.append(win)
     return windowsInApp
+
+
+def _getAppWindowsTitles(appName):
+    cmd = """on run arg1
+                set appName to arg1 as string
+                set winNames to {}
+                set winNames to name of every window of application appName
+                return winNames
+            end run"""
+    proc = subprocess.Popen(['osascript', '-', appName],
+                            stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
+    ret, err = proc.communicate(cmd)
+    ret = ret.replace("\n", "").split(", ")
+    return ret
 
 
 def _getWindowTitles() -> List[List[str]]:
@@ -1036,12 +1039,42 @@ class MacOSWindow(BaseWindow):
         return active._app == self._app and active.title == self.title
 
     @property
-    def title(self) -> str:
+    def title(self) -> Union[str, None]:
         """
-        Get the current window title, as string
+        Get the current window title, as string.
+        IMPORTANT: window title may change. In that case, it will return None.
+        You can use ''updatedTitle'' to try to find the new window title.
+        You can also use ''watchdog'' submodule to be notified in case title changes and try to find the new one (Re-start watchdog in that case).
 
-        :return: title as a string
+        :return: title as a string or None
         """
+        titles = _getAppWindowsTitles(self._appName)
+        if self._winTitle not in titles:
+            return ""
+        return self._winTitle
+
+    @property
+    def updatedTitle(self) -> str:
+        """
+        Get and update title by finding a similar window title within same application.
+        It uses a similarity check to find the best match in case title changes (no way to effectively detect it).
+        This can be useful since this class uses window title to identify the target window.
+        If watchdog is activated, it will stop in case title changes.
+
+        IMPORTANT:
+
+        - New title may not belong to the original target window, it is just similar within same application
+        - If original title or a similar one is not found, window may still exist
+
+        :return: possible new title or same title if it didn't change, as a string
+        """
+        titles = _getAppWindowsTitles(self._appName)
+        if self._winTitle not in titles:
+            newTitles = difflib.get_close_matches(self._winTitle, titles, n=1)  # cutoff=0.6 is the default value
+            if newTitles:
+                self._winTitle = str(newTitles[0])
+            else:
+                return ""
         return self._winTitle
 
     @property
@@ -1059,10 +1092,9 @@ class MacOSWindow(BaseWindow):
     def isAlive(self) -> bool:
         """
         Check if window (and application) still exists (minimized and hidden windows are included as existing)
-
         :return: ''True'' if window exists
         """
-        ret = False
+        ret = "false"
         if self._app in WS.runningApplications():
             cmd = """on run {arg1, arg2}
                         set appName to arg1 as string
@@ -1080,22 +1112,6 @@ class MacOSWindow(BaseWindow):
                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
             ret, err = proc.communicate(cmd)
             ret = ret.replace("\n", "")
-        return ret
-
-    def _exists(self) -> bool:
-        cmd = """on run {arg1, arg2}
-                    set appName to arg1 as string
-                    set winName to arg2 as string
-                    set isAlive to "false"
-                    tell application "System Events" to tell application process appName
-                        set isAlive to exists window winName
-                    end tell
-                    return (isAlive as string)
-                end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
-        ret = ret.replace("\n", "")
         return ret == "true"
 
     class _WatchDog:
@@ -1127,7 +1143,7 @@ class MacOSWindow(BaseWindow):
 
             The watchdog is asynchronous, so notifications will not be immediate (adjust interval value to your needs)
 
-            The callbacks definition MUST REGEXSEARCH their return value (boolean, string or (int, int))
+            The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
 
             IMPORTANT: This can be extremely slow in macOS Apple Script version
 
@@ -1147,14 +1163,15 @@ class MacOSWindow(BaseWindow):
                             Returns the new position (x, y)
             :param changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
                             Returns the new title (as string)
-                            IMPORTANT: This will not work in MacOS Apple Script version
+                            IMPORTANT: In MacOS AppScript version, if title changes, it will try to find a similar title and will stop
             :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
                             Returns the new display name (as string)
             :param interval: set the interval to watch window changes. Default is 0.3 seconds
             """
-            if self._parent.isAlive and not self._watchdog and not self.isAlive():
-                self._watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB, resizedCB,
-                                             movedCB, changedTitleCB, changedDisplayCB, interval)
+            if self._parent.isAlive and not self.isAlive():
+                self._watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB,
+                                              isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB,
+                                              interval)
                 self._watchdog.setDaemon(True)
                 self._watchdog.start()
 
@@ -1164,7 +1181,7 @@ class MacOSWindow(BaseWindow):
             """
             Change the states this watchdog is hooked to
 
-            The callbacks definition MUST REGEXSEARCH their return value (boolean, string or (int, int))
+            The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
 
             IMPORTANT: When updating callbacks, remember to set ALL desired callbacks or they will be deactivated
 
@@ -1186,7 +1203,7 @@ class MacOSWindow(BaseWindow):
                             Returns the new position (x, y)
             :param changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
                             Returns the new title (as string)
-                            IMPORTANT: This will not work in MacOS Apple Script version
+                            IMPORTANT: In MacOS AppScript version, it will try to find the new title, but it can belong to a different window!
             :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
                             Returns the new display name (as string)
             """
@@ -1378,7 +1395,7 @@ class MacOSWindow(BaseWindow):
                                 x, y = pos
                                 w, h = size
                                 option[name]["rect"] = Rect(x, y, x + w, y + h)
-                            if addItemInfo:
+                            if addItemInfo and attr:
                                 item_info = self._parseAttr(attr)
                                 option[name]["item_info"] = item_info
                                 option[name]["shortcut"] = self._getaccesskey(item_info)
@@ -2214,7 +2231,7 @@ class MacOSNSWindow(BaseWindow):
 
             The watchdog is asynchronous, so notifications will not be immediate (adjust interval value to your needs)
 
-            The callbacks definition MUST REGEXSEARCH their return value (boolean, string or (int, int))
+            The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
 
             IMPORTANT: This can be extremely slow in macOS Apple Script version
 
@@ -2234,16 +2251,19 @@ class MacOSNSWindow(BaseWindow):
                             Returns the new position (x, y)
             :param changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
                             Returns the new title (as string)
-                            IMPORTANT: This will not work in MacOS Apple Script version
             :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
                             Returns the new display name (as string)
             :param interval: set the interval to watch window changes. Default is 0.3 seconds
             """
-            if self._parent.isAlive and not self._watchdog and not self.isAlive():
-                self._watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB, resizedCB,
-                                             movedCB, changedTitleCB, changedDisplayCB, interval)
+            if self._parent.isAlive:
+                if not self._watchdog and not self.isAlive():
+                    self._watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB,
+                                                  isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB,
+                                                  interval)
                 self._watchdog.setDaemon(True)
                 self._watchdog.start()
+            else:
+                self._watchdog = None
 
         def updateCallbacks(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None,
                                     isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None,
@@ -2251,7 +2271,7 @@ class MacOSNSWindow(BaseWindow):
             """
             Change the states this watchdog is hooked to
 
-            The callbacks definition MUST REGEXSEARCH their return value (boolean, string or (int, int))
+            The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
 
             IMPORTANT: When updating callbacks, remember to set ALL desired callbacks or they will be deactivated
 
@@ -2273,7 +2293,6 @@ class MacOSNSWindow(BaseWindow):
                             Returns the new position (x, y)
             :param changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
                             Returns the new title (as string)
-                            IMPORTANT: This will not work in MacOS Apple Script version
             :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
                             Returns the new display name (as string)
             """

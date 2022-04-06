@@ -6,7 +6,7 @@
 # Xlib and ewmh on Linux
 
 
-__version__ = "0.0.33"
+__version__ = "0.0.34"
 
 import collections
 import numpy as np
@@ -290,6 +290,11 @@ class BaseWindow:
         raise NotImplementedError
 
     @property
+    def updatedTitle(self) -> str:
+        """macOS Apple Script ONLY. Returns a similar window title from same app as a string."""
+        raise NotImplementedError
+
+    @property
     def visible(self) -> bool:
         raise NotImplementedError
     isVisible = visible  # isVisible is an alias for the visible property.
@@ -543,9 +548,22 @@ class _WinWatchDog(threading.Thread):
             self._kill.wait(self._interval)
 
             try:
-                if self._isAliveCB:
+                if self._isAliveCB or type(self._win).__name__ == MacOSWindow.__name__:
+                    # In macOS AppScript version, if title changes, it will consider window is not alive anymore
                     if not self._win.isAlive:
-                        self._isAliveCB(False)
+                        if self._isAliveCB:
+                            self._isAliveCB(False)
+                        if type(self._win).__name__ == MacOSWindow.__name__ and self._changedTitleCB is not None:
+                            # In macOS AppScript version, watchdog will try to find a similar window title within same app
+                            # and will pass it to the callback. However, the watchdog will stop!
+                            title = self._win.title
+                            if self._title != title:
+                                try:
+                                    title = self._win.updatedTitle
+                                except NotImplementedError:
+                                    pass
+                                self._changedTitleCB(title)
+                        self.kill()
                         break
 
                 if self._isActiveCB:
@@ -596,10 +614,9 @@ class _WinWatchDog(threading.Thread):
                         self._display = display
                         self._changedDisplayCB(display)
             except:
-                self.kill()
                 if self._isAliveCB:
-                    if not self._win.isAlive:
-                        self._isAliveCB(False)
+                    self._isAliveCB(False)
+                self.kill()
                 break
 
     def updateCallbacks(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None, isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None, changedDisplayCB=None):

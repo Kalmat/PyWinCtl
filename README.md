@@ -13,31 +13,31 @@ My most sincere thanks and acknowledgement to [macdeport](https://github.com/mac
 All these functions are available at the moment, in all three platforms (Windows, Linux and macOS):
 
 |  General, independent functions:  |  Window class methods:  |  Window class properties:  |
-|  :---:  |  :---:  |  :---:  |
-|  getActiveWindow  |  close  |  title  |
-|  getActiveWindowTitle  |  minimize  |  isMinimized  |
-|  getAllWindows  |  maximize  |  isMaximized  |
-|  getAllTitles  |  restore  |  isActive  |
-|  getWindowsWithTitle  |  hide  |  isVisible  |
-|  getWindowsAt  |  show  |  isAlive  | 
-|  getAllAppsTitles  |  activate  |    |  
-|  getAllAppsWindowsTitles  |  resize / resizeRel  |  |   
-|  getAllScreens  |  resizeTo  |  |
-|  getMousePos  |  move / moveRel  |  |  
-|  getScreenSize |  moveTo  |  |  
-|  getWorkArea  |  raiseWindow  |    |
-|  version  |  lowerWindow  |    |  
-|  |  alwaysOnTop  |    |  
+|  :---:  |  :---:  |  :---:  |  
+|  getActiveWindow  |  close  |  title  |  
+|  getActiveWindowTitle  |  minimize  |  updatedTitle (MacOSWindow only)  |  
+|  getAllWindows  |  maximize  |  isMaximized  |  
+|  getAllTitles  |  restore  |  isMinimized  |  
+|  getWindowsWithTitle  |  hide  |  isActive  |  
+|  getAllAppsNames  |  show  |  isVisible  |  
+|  getAppsWithName  |  activate  |  isAlive  |  
+|  getAllAppsWindowsTitles  |  resize / resizeRel  |  |  
+|  getWindowsAt  |  resizeTo  |  |  
+|  getAllScreens  |  move / moveRel  |  |  
+|  getMousePos |  moveTo  |  |  
+|  getScreenSize  |  raiseWindow  |    |  
+|  getWorkArea  |  lowerWindow  |    |  
+|  version  |  alwaysOnTop  |    |  
 |  |  alwaysOnBottom  |    |  
-|  |  getAppName  |    |
-|  |  getHandle  |    |
-|  |  getParent  |    |
+|  |  getAppName  |    |  
+|  |  getHandle  |    |  
+|  |  getParent  |    |  
 |  |  getChildren  |    |  
 |  |  isParent  |    |  
 |  |  isChild  |    |  
-|  |  getDisplay  |    | 
-|  |  getExtraFrame  |    | 
-|  |  getClientFrame  |    | 
+|  |  getDisplay  |    |  
+|  |  getExtraFrame  |    |  
+|  |  getClientFrame  |    |  
 
 ***Important macOS notice:***
 
@@ -75,12 +75,10 @@ The watchdog will automatically stop when window doesn't exist anymore or progra
     
     changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
                     Passes the new title (as string)
-                    IMPORTANT: This will not work in MacOS Apple Script version
+                    IMPORTANT: In MacOS AppScript version, if title changes, it will try to find a similar title and will stop
 
     changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
                       Passes the new display name (as string)
-
-Functions included in this subclass:
 
 |  watchdog sub-module methods:  |
 |  :---:  |
@@ -132,14 +130,25 @@ Example:
 
 #### Available in: MS-Windows and macOS Apple Script version (Win32Window() and MacOSWindow() classes)
 
-menu sub-class for Menu info and control methods (from asweigart's original ideas), accessible through 'menu' submodule. E.g.:
+menu sub-class for Menu info and control methods (from asweigart's original ideas), accessible through 'menu' submodule.
+
+|  menu sub-module methods:  |
+|  :---:  |
+|  getMenu  |
+|  getMenuInfo  |
+|  getMenuItemCount  |
+|  getMenuItemInfo  |
+|  getMenuItemRect  |
+|  clickMenuItem  |
+
+Example:
 
     import pywinctl as pwc
     import subprocess
     # import json
 
     subprocess.Popen('notepad')
-    windows = pwc.getWindowsWithTitle('notepad', condition=pwc.Re.CONTAINS, caseSensitive=False)
+    windows = pwc.getWindowsWithTitle('notepad', condition=pwc.Re.CONTAINS, flags=Re.IGNORECASE)
     if windows:
         win = windows[0]
         menu = win.menu.getMenu()
@@ -162,17 +171,6 @@ Menu dictionary (returned by getMenu() method) will likely contain all you may n
       "shortcut":   shortcut to menu item, if any (macOS: only if item_info is included)
       "entries":    sub-items within the sub-menu (or not present otherwise)
                     these sub-items will have this very same format, in a nested struct.
-
-Functions included in this subclass:
-
-|  menu sub-module methods:  |
-|  :---:  |
-|  getMenu  |
-|  getMenuInfo  |
-|  getMenuItemCount  |
-|  getMenuItemInfo  |
-|  getMenuItemRect  |
-|  clickMenuItem  |
 
 Note not all windows/applications will have a menu accessible by these methods.
 
