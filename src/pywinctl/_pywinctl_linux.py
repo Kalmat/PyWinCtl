@@ -1184,8 +1184,7 @@ def main():
     npw = getActiveWindow()
     print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()
-    # displayWindowsUnderMouse(0, 0)
-    print(getAllScreens())
+    displayWindowsUnderMouse(0, 0)
 
 
 if __name__ == "__main__":
