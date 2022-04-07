@@ -8,14 +8,13 @@ import re
 import subprocess
 import sys
 import time
-import tkinter as tk
 from typing import Union, List, Tuple
 
 import Xlib.X
 import Xlib.display
 import Xlib.protocol
-import Xlib.ext.randr
 import ewmh
+import tkinter as tk
 from Xlib.xobject.colormap import Colormap
 from Xlib.xobject.cursor import Cursor
 from Xlib.xobject.drawable import Drawable, Pixmap, Window
@@ -299,8 +298,7 @@ def _getWindowAttributes(hWnd = None):
 
     from ctypes.util import find_library
     from ctypes import (
-        POINTER, Structure, byref, c_char_p, c_int, c_int32, c_long, c_uint,
-        c_uint32, c_ulong, c_ushort, c_void_p, cast, cdll, create_string_buffer)
+        Structure, byref, c_int32, c_uint32, c_ulong, cdll)
 
     x11 = find_library('X11')
     xlib = cdll.LoadLibrary(x11)
@@ -1064,17 +1062,16 @@ def getAllScreens():
     wa = EWMH.getWorkArea() or [0, 0, 0, 0]
     for output in res.outputs:
         params = DISP.xrandr_get_output_info(output, res.config_timestamp)
-        if params.crtc:
-            crtc = DISP.xrandr_get_crtc_info(params.crtc, res.config_timestamp)
-            mode = None
-            for item in modes:
-                if crtc and crtc.mode and crtc.mode == item.id:
-                    mode = item
-                    break
-            if not mode:
-                continue
-        else:
+        if not params or not params.crtc:
             continue
+        crtc = DISP.xrandr_get_crtc_info(params.crtc, res.config_timestamp)
+        if not crtc or not crtc.mode:
+            continue
+        mode = None
+        for item in modes:
+            if crtc.mode == item.id:
+                mode = item
+                break
         result[params.name] = {
             'id': crtc.sequence_number,
             'is_primary': (crtc.x, crtc.y) == (0, 0),
@@ -1089,7 +1086,7 @@ def getAllScreens():
             # 'dpi': (round(crtc.width * 25.4 / SCREEN.width_in_mms), round(crtc.height * 25.4 / SCREEN.height_in_mms)),
             # 'dpi': (round(crtc.width * 25.4 / params.mm_width), round(crtc.height * 25.4 / params.mm_height)),
             'orientation': int(math.log(crtc.rotation, 2)),
-            'frequency': mode.dot_clock / (mode.h_total * mode.v_total),
+            'frequency': (mode.dot_clock / (mode.h_total * mode.v_total)) if mode else 0,
             'colordepth': SCREEN.root_depth
         }
         # props = DISP.xrandr_list_output_properties(output)
