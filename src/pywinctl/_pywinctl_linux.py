@@ -1058,41 +1058,43 @@ def getAllScreens():
     # https://stackoverflow.com/questions/8705814/get-display-count-and-resolution-for-each-display-in-python-without-xrandr
     # https://www.x.org/releases/X11R7.7/doc/libX11/libX11/libX11.html#Obtaining_Information_about_the_Display_Image_Formats_or_Screens
     result = {}
-    res = ROOT.xrandr_get_screen_resources()
-    modes = res.modes
-    for output in res.outputs:
-        try:
-            params = DISP.xrandr_get_output_info(output, res.config_timestamp)
-            crtc = DISP.xrandr_get_crtc_info(params.crtc, res.config_timestamp)
-        except:
-            continue
-        # Check if this all also applies to physical monitors and check differences
-        wa = EWMH.getWorkArea()
-        mode = None
-        for item in modes:
-            if crtc and crtc.mode and crtc.mode == item.id:
-                mode = item
-                break
-        if not params or not crtc or not mode:
-            continue
-        result[params.name] = {
-            'id': crtc.sequence_number,
-            'is_primary': (crtc.x, crtc.y) == (0, 0),
-            'pos': Point(crtc.x, crtc.y),
-            'size': Size(crtc.width, crtc.height),
-            'workarea': Rect(crtc.x + wa[0], crtc.y + wa[1], crtc.x + crtc.width - (SCREEN.width_in_pixels - wa[2] - wa[0]), crtc.y + crtc.height - (SCREEN.height_in_pixels - wa[3] - wa[1])),
-            'scale': -1,  # check with physical monitors using dpi, mms or other possible values or props
-            'dpi': (round(SCREEN.width_in_pixels * 25.4 / SCREEN.width_in_mms), round(SCREEN.height_in_pixels * 25.4 / SCREEN.height_in_mms)),
-            # 'dpi': (round(crtc.width * 25.4 / SCREEN.width_in_mms), round(crtc.height * 25.4 / SCREEN.height_in_mms)),
-            # 'dpi': (round(crtc.width * 25.4 / params.mm_width), round(crtc.height * 25.4 / params.mm_height)),
-            'orientation': int(math.log(crtc.rotation, 2)),  # 4 - Reflect X / 5 - Reflect Y,
-            'frequency': mode.dot_clock / (mode.h_total * mode.v_total),
-            'colordepth': SCREEN.root_depth
-        }
-        # props = DISP.xrandr_list_output_properties(output)
-        # for atom in props.atoms:
-        #     print(atom, DISP.get_atom_name(atom))
-        #     print(DISP.xrandr_get_output_property(output, atom, 0, 0, 1000)._data['value'])
+    desktop = os.environ.get('XDG_CURRENT_DESKTOP', '') + os.environ.get('GDMSESSION', '')
+    if desktop:
+        res = ROOT.xrandr_get_screen_resources()
+        modes = res.modes
+        wa = EWMH.getWorkArea() or [0, 0, 0, 0]
+        for output in res.outputs:
+            try:
+                params = DISP.xrandr_get_output_info(output, res.config_timestamp)
+                crtc = DISP.xrandr_get_crtc_info(params.crtc, res.config_timestamp)
+                mode = None
+                for item in modes:
+                    if crtc and crtc.mode and crtc.mode == item.id:
+                        mode = item
+                        break
+                result[params.name] = {
+                    'id': crtc.sequence_number,
+                    'is_primary': (crtc.x, crtc.y) == (0, 0),
+                    'pos': Point(crtc.x, crtc.y),
+                    'size': Size(crtc.width, crtc.height),
+                    'workarea': Rect(crtc.x + wa[0], crtc.y + wa[1],
+                                     crtc.x + crtc.width - (SCREEN.width_in_pixels - wa[2] - wa[0]),
+                                     crtc.y + crtc.height - (SCREEN.height_in_pixels - wa[3] - wa[1])),
+                    'scale': -1,  # check with physical monitors using dpi, mms or other possible values or props
+                    'dpi': (round(SCREEN.width_in_pixels * 25.4 / SCREEN.width_in_mms),
+                            round(SCREEN.height_in_pixels * 25.4 / SCREEN.height_in_mms)),
+                    # 'dpi': (round(crtc.width * 25.4 / SCREEN.width_in_mms), round(crtc.height * 25.4 / SCREEN.height_in_mms)),
+                    # 'dpi': (round(crtc.width * 25.4 / params.mm_width), round(crtc.height * 25.4 / params.mm_height)),
+                    'orientation': int(math.log(crtc.rotation, 2)),  # 4 - Reflect X / 5 - Reflect Y,
+                    'frequency': mode.dot_clock / (mode.h_total * mode.v_total),
+                    'colordepth': SCREEN.root_depth
+                }
+            except:
+                continue
+            # props = DISP.xrandr_list_output_properties(output)
+            # for atom in props.atoms:
+            #     print(atom, DISP.get_atom_name(atom))
+            #     print(DISP.xrandr_get_output_property(output, atom, 0, 0, 1000)._data['value'])
     return result
 
 
@@ -1102,8 +1104,12 @@ def getMousePos() -> Point:
 
     :return: Point struct
     """
-    mp = ROOT.query_pointer()
-    return Point(mp.root_x, mp.root_y)
+    x = y = 0
+    desktop = os.environ.get('XDG_CURRENT_DESKTOP', '') + os.environ.get('GDMSESSION', '')
+    if desktop:
+        mp = ROOT.query_pointer()
+        x, y = mp.root_x, mp.root_y
+    return Point(x, y)
 cursor = getMousePos  # cursor is an alias for getMousePos
 
 
@@ -1178,7 +1184,8 @@ def main():
     npw = getActiveWindow()
     print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()
-    displayWindowsUnderMouse(0, 0)
+    # displayWindowsUnderMouse(0, 0)
+    print(getAllScreens())
 
 
 if __name__ == "__main__":
