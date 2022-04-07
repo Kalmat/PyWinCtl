@@ -1081,9 +1081,8 @@ def getAllScreens():
                              crtc.x + crtc.width - (SCREEN.width_in_pixels - wa[2] - wa[0]),
                              crtc.y + crtc.height - (SCREEN.height_in_pixels - wa[3] - wa[1])),
             'scale': -1,  # check with physical monitors using dpi, mms or other possible values or props
-            'dpi': (round(SCREEN.width_in_pixels * 25.4 / SCREEN.width_in_mms),
-                    round(SCREEN.height_in_pixels * 25.4 / SCREEN.height_in_mms)),
-            # 'dpi': (round(crtc.width * 25.4 / SCREEN.width_in_mms), round(crtc.height * 25.4 / SCREEN.height_in_mms)),
+            'dpi': (round(crtc.width * 25.4 / SCREEN.width_in_mms), round(crtc.height * 25.4 / SCREEN.height_in_mms)),
+            # 'dpi': (round(SCREEN.width_in_pixels * 25.4 / SCREEN.width_in_mms), round(SCREEN.height_in_pixels * 25.4 / SCREEN.height_in_mms)),
             # 'dpi': (round(crtc.width * 25.4 / params.mm_width), round(crtc.height * 25.4 / params.mm_height)),
             'orientation': int(math.log(crtc.rotation, 2)),
             'frequency': (mode.dot_clock / (mode.h_total * mode.v_total)) if mode else 0,
