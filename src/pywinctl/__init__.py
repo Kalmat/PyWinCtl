@@ -9,6 +9,8 @@
 __version__ = "0.0.34"
 
 import collections
+import difflib
+
 import numpy as np
 import re
 import sys
@@ -46,6 +48,7 @@ class Re:
     MATCH = 10
     NOTMATCH = -10
     EDITDISTANCE = 20
+    DIFFRATIO = 30
 
     IGNORECASE = re.IGNORECASE
 
@@ -60,7 +63,8 @@ class Re:
         NOTENDSWITH: lambda s1, s2, fl: not s2.endswith(s1),
         MATCH: lambda s1, s2, fl: bool(s1.search(s2)),
         NOTMATCH: lambda s1, s2, fl: not (bool(s1.search(s2))),
-        EDITDISTANCE: lambda s1, s2, fl: _levenshtein(s1, s2, fl)
+        EDITDISTANCE: lambda s1, s2, fl: _levenshtein(s1, s2, fl),
+        DIFFRATIO: lambda s1, s2, fl: difflib.SequenceMatcher(None, s1, s2).ratio() * 100 >= fl
     }
 
 
@@ -553,16 +557,17 @@ class _WinWatchDog(threading.Thread):
                     if not self._win.isAlive:
                         if self._isAliveCB:
                             self._isAliveCB(False)
-                        if type(self._win).__name__ == MacOSWindow.__name__ and self._changedTitleCB is not None:
-                            # In macOS AppScript version, watchdog will try to find a similar window title within same app
-                            # and will pass it to the callback. However, the watchdog will stop!
+                        if type(self._win).__name__ == MacOSWindow.__name__:
                             title = self._win.title
                             if self._title != title:
                                 try:
                                     title = self._win.updatedTitle
                                 except NotImplementedError:
                                     pass
-                                self._changedTitleCB(title)
+                                if self._changedTitleCB is not None:
+                                    # In macOS AppScript version, watchdog will try to find a similar window title within same app
+                                    # and will pass it to the callback. However, the watchdog will stop!
+                                    self._changedTitleCB(title)
                         self.kill()
                         break
 

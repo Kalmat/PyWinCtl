@@ -130,6 +130,7 @@ def getWindowsWithTitle(title, app=(), condition=Re.IS, flags=0):
         - MATCH -- window title matched by given regex pattern (allowed flags: regex flags, see https://docs.python.org/3/library/re.html)
         - NOTMATCH -- window title NOT matched by given regex pattern (allowed flags: regex flags, see https://docs.python.org/3/library/re.html)
         - EDITDISTANCE -- window title matched using Levenshtein edit distance to a given similarity percentage (allowed flags: 0-100. Defaults to 90)
+        - DIFFRATIO -- window title matched using difflib similarity ratio (allowed flags: 0-100. Defaults to 90)
 
     :param title: title or regex pattern to match, as string
     :param app: (optional) tuple of app names. Defaults to ALL (empty list)
@@ -142,12 +143,11 @@ def getWindowsWithTitle(title, app=(), condition=Re.IS, flags=0):
         lower = False
         if condition in (Re.MATCH, Re.NOTMATCH):
             title = re.compile(title, flags)
-        else:
-            if condition == Re.EDITDISTANCE and (not isinstance(flags, int) or not (0 < flags <= 100)):
-                flags = 90
-            if flags & re.IGNORECASE:
-                lower = True
-                title = title.lower()
+        elif condition in (Re.EDITDISTANCE, Re.DIFFRATIO) and (not isinstance(flags, int) or not (0 < flags <= 100)):
+            flags = 90
+        elif flags == re.IGNORECASE:
+            lower = True
+            title = title.lower()
         for win in getAllWindows():
             if win.title and Re._cond_dic[condition](title, win.title.lower() if lower else win.title, flags)  \
                     and (not app or (app and win.getAppName() in app)):
@@ -166,24 +166,25 @@ def getAllAppsNames() -> List[str]:
 
 def getAppsWithName(name, condition=Re.IS, flags=0):
     """
-    Get the list of app titles whose name match the given string using the given condition and flags.
+    Get the list of app names which match the given string using the given condition and flags.
     Use ''condition'' to delimit the search. Allowed values are stored in pywinctl.Re sub-class (e.g. pywinctl.Re.CONTAINS)
     Use ''flags'' to define additional values according to each condition type:
 
-        - IS -- window title is equal to given title (allowed flags: Re.IGNORECASE)
-        - CONTAINS -- window title contains given string (allowed flags: Re.IGNORECASE)
-        - STARTSWITH -- window title starts by given string (allowed flags: Re.IGNORECASE)
-        - ENDSWITH -- window title ends by given string (allowed flags: Re.IGNORECASE)
-        - NOTIS -- window title is not equal to given title (allowed flags: Re.IGNORECASE)
-        - NOTCONTAINS -- window title does NOT contains given string (allowed flags: Re.IGNORECASE)
-        - NOTSTARTSWITH -- window title does NOT starts by given string (allowed flags: Re.IGNORECASE)
-        - NOTENDSWITH -- window title does NOT ends by given string (allowed flags: Re.IGNORECASE)
-        - MATCH -- window title matched by given regex pattern (allowed flags: regex flags, see https://docs.python.org/3/library/re.html)
-        - NOTMATCH -- window title are NOT matched by given regex pattern (allowed flags: regex flags)
-        - EDITDISTANCE -- window title matched using Levenshtein edit distance to a given similarity percentage (allowed flags: 0-100. Defaults to 90)
+        - IS -- app name is equal to given title (allowed flags: Re.IGNORECASE)
+        - CONTAINS -- app name contains given string (allowed flags: Re.IGNORECASE)
+        - STARTSWITH -- app name starts by given string (allowed flags: Re.IGNORECASE)
+        - ENDSWITH -- app name ends by given string (allowed flags: Re.IGNORECASE)
+        - NOTIS -- app name is not equal to given title (allowed flags: Re.IGNORECASE)
+        - NOTCONTAINS -- app name does NOT contains given string (allowed flags: Re.IGNORECASE)
+        - NOTSTARTSWITH -- app name does NOT starts by given string (allowed flags: Re.IGNORECASE)
+        - NOTENDSWITH -- app name does NOT ends by given string (allowed flags: Re.IGNORECASE)
+        - MATCH -- app name matched by given regex pattern (allowed flags: regex flags, see https://docs.python.org/3/library/re.html)
+        - NOTMATCH -- app name NOT matched by given regex pattern (allowed flags: regex flags, see https://docs.python.org/3/library/re.html)
+        - EDITDISTANCE -- app name matched using Levenshtein edit distance to a given similarity percentage (allowed flags: 0-100. Defaults to 90)
+        - DIFFRATIO -- app name matched using difflib similarity ratio (allowed flags: 0-100. Defaults to 90)
 
-    :param name: title or regex pattern to match, as string
-    :param condition: (optional) condition to apply when searching the window. Defaults to ''Re.IS'' (is equal to)
+    :param name: name or regex pattern to match, as string
+    :param condition: (optional) condition to apply when searching the app. Defaults to ''Re.IS'' (is equal to)
     :param flags: (optional) specific flags to apply to condition
     :return: list of app names
     """
@@ -192,12 +193,11 @@ def getAppsWithName(name, condition=Re.IS, flags=0):
         lower = False
         if condition in (Re.MATCH, Re.NOTMATCH):
             name = re.compile(name, flags)
-        else:
-            if condition == Re.EDITDISTANCE and (not isinstance(flags, int) or not (0 < flags <= 100)):
-                flags = 90
-            if flags & Re.IGNORECASE:
-                lower = True
-                name = name.lower()
+        elif condition == Re.EDITDISTANCE and (not isinstance(flags, int) or not (0 < flags <= 100)):
+            flags = 90
+        elif flags == Re.IGNORECASE:
+            lower = True
+            name = name.lower()
         for title in getAllAppsNames():
             if title and Re._cond_dic[condition](name, title.lower() if lower else title, flags):
                 matches.append(title)
