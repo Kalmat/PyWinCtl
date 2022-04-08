@@ -1185,6 +1185,7 @@ def getAllScreens() -> dict:
                     name = monitor_info.get("Device", None)
                     if name == dev.DeviceName:
                         break
+
                 if monitor_info:
                     x, y, r, b = monitor_info.get("Monitor", (0, 0, 0, 0))
                     wx, wy, wr, wb = monitor_info.get("Work", (0, 0, 0, 0))

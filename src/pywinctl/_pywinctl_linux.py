@@ -1071,40 +1071,40 @@ def getAllScreens():
             wa = EWMH.getWorkArea() or [0, 0, 0, 0]
             for output in res.outputs:
                 params = DISP.xrandr_get_output_info(output, res.config_timestamp)
-                if params.crtc:
+                crtc = DISP.xrandr_get_crtc_info(params.crtc, res.config_timestamp)
+
+                if crtc and crtc.mode:  # displays with empty (0) mode seem not to be valid
                     name = params.name
                     if name in result.keys():
                         name = name + str(i)
-                    crtc = DISP.xrandr_get_crtc_info(params.crtc, res.config_timestamp)
-                    if crtc and crtc.mode:  # displays with empty (0) mode seem not to be valid
-                        id = crtc.sequence_number
-                        x, y, w, h = crtc.x, crtc.y, crtc.width, crtc.height
-                        wx, wy, wr, wb = x + wa[0], y + wa[1], x + w - (screen.width_in_pixels - wa[2] - wa[0]), y + h - (screen.height_in_pixels - wa[3] - wa[1])
-                        # check all these values with physical monitors using dpi, mms or other possible values or props
-                        dpiX, dpiY = round(w * 25.4 / screen.width_in_mms), round(h * 25.4 / screen.height_in_mms)
-                        # 'dpi' = (round(SCREEN.width_in_pixels * 25.4 / SCREEN.width_in_mms), round(SCREEN.height_in_pixels * 25.4 / SCREEN.height_in_mms)),
-                        # 'dpi' = (round(crtc.width * 25.4 / params.mm_width), round(crtc.height * 25.4 / params.mm_height)),
-                        scaleX, scaleY = round(dpiX / 96 * 100), round(dpiY / 96 * 100)
-                        rot = int(math.log(crtc.rotation, 2))
-                        freq = 0
-                        for mode in modes:
-                            if crtc.mode == mode.id:
-                                freq = mode.dot_clock / (mode.h_total * mode.v_total)
-                                break
-                        depth = screen.root_depth
+                    id = crtc.sequence_number
+                    x, y, w, h = crtc.x, crtc.y, crtc.width, crtc.height
+                    wx, wy, wr, wb = x + wa[0], y + wa[1], x + w - (screen.width_in_pixels - wa[2] - wa[0]), y + h - (screen.height_in_pixels - wa[3] - wa[1])
+                    # check all these values with physical monitors using dpi, mms or other possible values or props
+                    dpiX, dpiY = round(w * 25.4 / screen.width_in_mms), round(h * 25.4 / screen.height_in_mms)
+                    # 'dpi' = (round(SCREEN.width_in_pixels * 25.4 / SCREEN.width_in_mms), round(SCREEN.height_in_pixels * 25.4 / SCREEN.height_in_mms)),
+                    # 'dpi' = (round(crtc.width * 25.4 / params.mm_width), round(crtc.height * 25.4 / params.mm_height)),
+                    scaleX, scaleY = round(dpiX / 96 * 100), round(dpiY / 96 * 100)
+                    rot = int(math.log(crtc.rotation, 2))
+                    freq = 0
+                    for mode in modes:
+                        if crtc.mode == mode.id:
+                            freq = mode.dot_clock / (mode.h_total * mode.v_total)
+                            break
+                    depth = screen.root_depth
 
-                        result[name] = {
-                            'id': id,
-                            'is_primary': (x, y) == (0, 0),
-                            'pos': Point(x, y),
-                            'size': Size(w, h),
-                            'workarea': Rect(wx, wy, wr, wb),
-                            'scale': (scaleX, scaleY),
-                            'dpi': (dpiX, dpiY),
-                            'orientation': rot,
-                            'frequency': freq,
-                            'colordepth': depth
-                        }
+                    result[name] = {
+                        'id': id,
+                        'is_primary': (x, y) == (0, 0),
+                        'pos': Point(x, y),
+                        'size': Size(w, h),
+                        'workarea': Rect(wx, wy, wr, wb),
+                        'scale': (scaleX, scaleY),
+                        'dpi': (dpiX, dpiY),
+                        'orientation': rot,
+                        'frequency': freq,
+                        'colordepth': depth
+                    }
         except:
             print(traceback.format_exc())
         # props = DISP.xrandr_list_output_properties(output)
