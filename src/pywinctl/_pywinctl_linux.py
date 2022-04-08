@@ -1057,41 +1057,57 @@ def getAllScreens():
     # https://stackoverflow.com/questions/8705814/get-display-count-and-resolution-for-each-display-in-python-without-xrandr
     # https://www.x.org/releases/X11R7.7/doc/libX11/libX11/libX11.html#Obtaining_Information_about_the_Display_Image_Formats_or_Screens
     result = {}
-    res = ROOT.xrandr_get_screen_resources()
-    modes = res.modes
-    wa = EWMH.getWorkArea() or [0, 0, 0, 0]
-    for output in res.outputs:
-        params = DISP.xrandr_get_output_info(output, res.config_timestamp)
-        if not params or not params.crtc:
+    for i in range(DISP.screen_count()):
+        try:
+            screen = DISP.screen(i)
+            root = screen.root
+        except:
             continue
-        crtc = DISP.xrandr_get_crtc_info(params.crtc, res.config_timestamp)
-        if not crtc or not crtc.mode:
-            continue
-        mode = None
-        for item in modes:
-            if crtc.mode == item.id:
-                mode = item
-                break
-        result[params.name] = {
-            'id': crtc.sequence_number,
-            'is_primary': (crtc.x, crtc.y) == (0, 0),
-            'pos': Point(crtc.x, crtc.y),
-            'size': Size(crtc.width, crtc.height),
-            'workarea': Rect(crtc.x + wa[0], crtc.y + wa[1],
-                             crtc.x + crtc.width - (SCREEN.width_in_pixels - wa[2] - wa[0]),
-                             crtc.y + crtc.height - (SCREEN.height_in_pixels - wa[3] - wa[1])),
-            'scale': -1,  # check with physical monitors using dpi, mms or other possible values or props
-            'dpi': (round(crtc.width * 25.4 / SCREEN.width_in_mms), round(crtc.height * 25.4 / SCREEN.height_in_mms)),
-            # 'dpi': (round(SCREEN.width_in_pixels * 25.4 / SCREEN.width_in_mms), round(SCREEN.height_in_pixels * 25.4 / SCREEN.height_in_mms)),
-            # 'dpi': (round(crtc.width * 25.4 / params.mm_width), round(crtc.height * 25.4 / params.mm_height)),
-            'orientation': int(math.log(crtc.rotation, 2)),
-            'frequency': (mode.dot_clock / (mode.h_total * mode.v_total)) if mode else 0,
-            'colordepth': SCREEN.root_depth
-        }
-        # props = DISP.xrandr_list_output_properties(output)
-        # for atom in props.atoms:
-        #     print(atom, DISP.get_atom_name(atom))
-        #     print(DISP.xrandr_get_output_property(output, atom, 0, 0, 1000)._data['value'])
+        res = root.xrandr_get_screen_resources()
+        modes = res.modes
+        wa = EWMH.getWorkArea() or [0, 0, 0, 0]
+        for output in res.outputs:
+            params = DISP.xrandr_get_output_info(output, res.config_timestamp)
+            if not params.crtc:
+                continue
+            name = params.name
+            if name in result.keys():
+                name = name + str(i)
+            crtc = DISP.xrandr_get_crtc_info(params.crtc, res.config_timestamp)
+            if not crtc or not crtc.mode:
+                continue
+            id = crtc.sequence_number
+            x, y, w, h = crtc.x, crtc.y, crtc.width, crtc.height
+            wx, wy, wr, wb = x + wa[0], y + wa[1], x + w - (screen.width_in_pixels - wa[2] - wa[0]), y + h - (screen.height_in_pixels - wa[3] - wa[1])
+            # check all these values with physical monitors using dpi, mms or other possible values or props
+            dpiX, dpiY = round(w * 25.4 / screen.width_in_mms), round(h * 25.4 / screen.height_in_mms)
+            # 'dpi' = (round(SCREEN.width_in_pixels * 25.4 / SCREEN.width_in_mms), round(SCREEN.height_in_pixels * 25.4 / SCREEN.height_in_mms)),
+            # 'dpi' = (round(crtc.width * 25.4 / params.mm_width), round(crtc.height * 25.4 / params.mm_height)),
+            scaleX, scaleY = round(dpiX / 96 * 100), round(dpiY / 96 * 100)
+            rot = int(math.log(crtc.rotation, 2))
+            freq = 0
+            for mode in modes:
+                if crtc.mode == mode.id:
+                    freq = mode.dot_clock / (mode.h_total * mode.v_total)
+                    break
+            depth = screen.root_depth
+
+            result[name] = {
+                'id': id,
+                'is_primary': (x, y) == (0, 0),
+                'pos': Point(x, y),
+                'size': Size(w, h),
+                'workarea': Rect(wx, wy, wr, wb),
+                'scale': (scaleX, scaleY),
+                'dpi': (dpiX, dpiY),
+                'orientation': rot,
+                'frequency': freq,
+                'colordepth': depth
+            }
+            # props = DISP.xrandr_list_output_properties(output)
+            # for atom in props.atoms:
+            #     print(atom, DISP.get_atom_name(atom))
+            #     print(DISP.xrandr_get_output_property(output, atom, 0, 0, 1000)._data['value'])
     return result
 
 

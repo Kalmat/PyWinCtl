@@ -2391,25 +2391,34 @@ def getAllScreens():
     result = {}
     screens = AppKit.NSScreen.screens()
     for i, screen in enumerate(screens):
-        desc = screen.deviceDescription()
-        display = desc['NSScreenNumber']  # Quartz.NSScreenNumber seems to be wrong
-        wa = screen.visibleFrame()
-        dpi = desc[Quartz.NSDeviceResolution].sizeValue()
         try:
-            name = screen.localizedName()
+            name = screen.localizedName()   # In older macOS screen doesn't have localizedName() method
         except:
             name = "Display" + str(i)
+        desc = screen.deviceDescription()
+        display = desc['NSScreenNumber']  # Quartz.NSScreenNumber seems to be wrong
+        is_primary = Quartz.CGDisplayIsMain(display) == 1
+        x, y, w, h = int(screen.frame().origin.x), int(screen.frame().origin.y), int(screen.frame().size.width), int(screen.frame().size.height)
+        wa = screen.visibleFrame()
+        wx, wy, wr, wb = int(wa.origin.x), int(wa.origin.y), int(wa.size.width), int(wa.size.height)
+        scale = int(screen.backingScaleFactor() * 100)
+        dpi = desc[Quartz.NSDeviceResolution].sizeValue()
+        dpiX, dpiY = int(dpi.width), int(dpi.height)
+        rot = int(Quartz.CGDisplayRotation(display))
+        freq = Quartz.CGDisplayModeGetRefreshRate(Quartz.CGDisplayCopyDisplayMode(display))
+        depth = Quartz.CGDisplayBitsPerPixel(display)
+
         result[name] = {
             'id': display,
-            'is_primary': Quartz.CGDisplayIsMain(display) == 1,
-            'pos': Point(int(screen.frame().origin.x), int(screen.frame().origin.y)),
-            'size': Size(int(screen.frame().size.width), int(screen.frame().size.height)),
-            'workarea': Rect(int(wa.origin.x), int(wa.origin.y), int(wa.size.width), int(wa.size.height)),
-            'scale': int(screen.backingScaleFactor() * 100),
-            'dpi': (int(dpi.width), int(dpi.height)),
-            'orientation': int(Quartz.CGDisplayRotation(display)),
-            'frequency': Quartz.CGDisplayModeGetRefreshRate(Quartz.CGDisplayCopyDisplayMode(display)),
-            'colordepth': Quartz.CGDisplayBitsPerPixel(display)
+            'is_primary': is_primary,
+            'pos': Point(x, y),
+            'size': Size(w, h),
+            'workarea': Rect(wx, wy, wr, wb),
+            'scale': scale,
+            'dpi': (dpiX, dpiY),
+            'orientation': rot,
+            'frequency': freq,
+            'colordepth': depth
         }
     return result
 

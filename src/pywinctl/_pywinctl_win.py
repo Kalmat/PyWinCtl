@@ -1167,7 +1167,6 @@ def getAllScreens() -> dict:
     i = 0
     monitors = win32api.EnumDisplayMonitors()
     while True:
-        dev = None
         try:
             dev = win32api.EnumDisplayDevices(None, i, 0)
         except:
@@ -1176,52 +1175,46 @@ def getAllScreens() -> dict:
         if dev and dev.StateFlags & win32con.DISPLAY_DEVICE_ATTACHED_TO_DESKTOP:
             # Device content: http://timgolden.me.uk/pywin32-docs/PyDISPLAY_DEVICE.html
             # Settings content: http://timgolden.me.uk/pywin32-docs/PyDEVMODE.html
-            result[dev.DeviceName] = {}
-
-            try:
-                settings = win32api.EnumDisplaySettings(dev.DeviceName, win32con.ENUM_CURRENT_SETTINGS)
-            except:
-                continue
-
-            found = False
             monitor_info = None
+            monitor = None
             for mon in monitors:
-                monitor_info = None
-                try:
-                    monitor_info = win32api.GetMonitorInfo(mon[0].handle)
-                    name = monitor_info.get("Device")
-                    x, y, r, b = monitor_info.get("Monitor")
-                    wx, wy, wr, wb = monitor_info.get("Work")
-                    # values seem to be affected by the scale factor of the first display
-                    wr, wb = wx + settings.PelsWidth + (wr - r), wy + settings.PelsHeight + (wb - b)
-                    r, b = x + settings.PelsWidth, y + settings.PelsHeight
-                    pScale = ctypes.c_uint()
-                    ctypes.windll.shcore.GetScaleFactorForMonitor(mon[0].handle, ctypes.byref(pScale))
-                    scale = pScale.value
-                    dpiX = ctypes.c_uint()
-                    dpiY = ctypes.c_uint()
-                    ctypes.windll.shcore.GetDpiForMonitor(mon[0].handle, 0, ctypes.byref(dpiX), ctypes.byref(dpiY))
-                    is_primary = ((x, y) == (0, 0))
-                except:
-                    continue
-                if monitor_info and name == dev.DeviceName:
-                    found = True
+                monitor = mon[0].handle
+                monitor_info = win32api.GetMonitorInfo(monitor)
+                name = monitor_info.get("Device", None)
+                if name == dev.DeviceName:
                     break
+            if not monitor_info:
+                continue
+            x, y, r, b = monitor_info.get("Monitor", (0, 0, 0, 0))
+            wx, wy, wr, wb = monitor_info.get("Work", (0, 0, 0, 0))
+            settings = win32api.EnumDisplaySettings(dev.DeviceName, win32con.ENUM_CURRENT_SETTINGS)
+            # values seem to be affected by the scale factor of the first display
+            wr, wb = wx + settings.PelsWidth + (wr - r), wy + settings.PelsHeight + (wb - b)
+            is_primary = ((x, y) == (0, 0))
+            r, b = x + settings.PelsWidth, y + settings.PelsHeight
+            pScale = ctypes.c_uint()
+            ctypes.windll.shcore.GetScaleFactorForMonitor(monitor, ctypes.byref(pScale))
+            scale = pScale.value
+            dpiX = ctypes.c_uint()
+            dpiY = ctypes.c_uint()
+            ctypes.windll.shcore.GetDpiForMonitor(monitor, 0, ctypes.byref(dpiX), ctypes.byref(dpiY))
+            rot = settings.DisplayOrientation
+            freq = settings.DisplayFrequency
+            depth = settings.BitsPerPel
 
-            if found and settings and monitor_info:
-                result[name] = {
-                    "id": i,
-                    # "is_primary": monitor_info.get("Flags", 0) & win32con.MONITORINFOF_PRIMARY == 1,
-                    "is_primary": is_primary,
-                    "pos": Point(x, y),
-                    "size": Size(r - x, b - y),
-                    "workarea": Rect(wx, wy, wr, wb),
-                    "scale": scale,
-                    "dpi": (dpiX.value, dpiY.value),
-                    "orientation": settings.DisplayOrientation,
-                    "frequency": settings.DisplayFrequency,
-                    "colordepth": settings.BitsPerPel
-                }
+            result[dev.DeviceName] = {
+                "id": i,
+                # "is_primary": monitor_info.get("Flags", 0) & win32con.MONITORINFOF_PRIMARY == 1,
+                "is_primary": is_primary,
+                "pos": Point(x, y),
+                "size": Size(r - x, b - y),
+                "workarea": Rect(wx, wy, wr, wb),
+                "scale": scale,
+                "dpi": (dpiX.value, dpiY.value),
+                "orientation": rot,
+                "frequency": freq,
+                "colordepth": depth
+            }
         i += 1
     return result
 
