@@ -7,6 +7,7 @@ import sys
 import re
 import threading
 import time
+import traceback
 from typing import List, Tuple
 
 import win32api
@@ -1162,10 +1163,10 @@ def getAllScreens() -> dict:
                 Bits per pixel referred to the display color depth
     """
     # https://stackoverflow.com/questions/35814309/winapi-changedisplaysettingsex-does-not-work
-    ctypes.windll.user32.SetProcessDPIAware()
     result = {}
-    i = 0
+    ctypes.windll.user32.SetProcessDPIAware()
     monitors = win32api.EnumDisplayMonitors()
+    i = 0
     while True:
         try:
             dev = win32api.EnumDisplayDevices(None, i, 0)
@@ -1173,48 +1174,50 @@ def getAllScreens() -> dict:
             break
 
         if dev and dev.StateFlags & win32con.DISPLAY_DEVICE_ATTACHED_TO_DESKTOP:
-            # Device content: http://timgolden.me.uk/pywin32-docs/PyDISPLAY_DEVICE.html
-            # Settings content: http://timgolden.me.uk/pywin32-docs/PyDEVMODE.html
-            monitor_info = None
-            monitor = None
-            for mon in monitors:
-                monitor = mon[0].handle
-                monitor_info = win32api.GetMonitorInfo(monitor)
-                name = monitor_info.get("Device", None)
-                if name == dev.DeviceName:
-                    break
-            if not monitor_info:
-                continue
-            x, y, r, b = monitor_info.get("Monitor", (0, 0, 0, 0))
-            wx, wy, wr, wb = monitor_info.get("Work", (0, 0, 0, 0))
-            settings = win32api.EnumDisplaySettings(dev.DeviceName, win32con.ENUM_CURRENT_SETTINGS)
-            # values seem to be affected by the scale factor of the first display
-            wr, wb = wx + settings.PelsWidth + (wr - r), wy + settings.PelsHeight + (wb - b)
-            is_primary = ((x, y) == (0, 0))
-            r, b = x + settings.PelsWidth, y + settings.PelsHeight
-            pScale = ctypes.c_uint()
-            ctypes.windll.shcore.GetScaleFactorForMonitor(monitor, ctypes.byref(pScale))
-            scale = pScale.value
-            dpiX = ctypes.c_uint()
-            dpiY = ctypes.c_uint()
-            ctypes.windll.shcore.GetDpiForMonitor(monitor, 0, ctypes.byref(dpiX), ctypes.byref(dpiY))
-            rot = settings.DisplayOrientation
-            freq = settings.DisplayFrequency
-            depth = settings.BitsPerPel
+            try:
+                # Device content: http://timgolden.me.uk/pywin32-docs/PyDISPLAY_DEVICE.html
+                # Settings content: http://timgolden.me.uk/pywin32-docs/PyDEVMODE.html
+                monitor_info = None
+                monitor = None
+                for mon in monitors:
+                    monitor = mon[0].handle
+                    monitor_info = win32api.GetMonitorInfo(monitor)
+                    name = monitor_info.get("Device", None)
+                    if name == dev.DeviceName:
+                        break
+                if monitor_info:
+                    x, y, r, b = monitor_info.get("Monitor", (0, 0, 0, 0))
+                    wx, wy, wr, wb = monitor_info.get("Work", (0, 0, 0, 0))
+                    settings = win32api.EnumDisplaySettings(dev.DeviceName, win32con.ENUM_CURRENT_SETTINGS)
+                    # values seem to be affected by the scale factor of the first display
+                    wr, wb = wx + settings.PelsWidth + (wr - r), wy + settings.PelsHeight + (wb - b)
+                    is_primary = ((x, y) == (0, 0))
+                    r, b = x + settings.PelsWidth, y + settings.PelsHeight
+                    pScale = ctypes.c_uint()
+                    ctypes.windll.shcore.GetScaleFactorForMonitor(monitor, ctypes.byref(pScale))
+                    scale = pScale.value
+                    dpiX = ctypes.c_uint()
+                    dpiY = ctypes.c_uint()
+                    ctypes.windll.shcore.GetDpiForMonitor(monitor, 0, ctypes.byref(dpiX), ctypes.byref(dpiY))
+                    rot = settings.DisplayOrientation
+                    freq = settings.DisplayFrequency
+                    depth = settings.BitsPerPel
 
-            result[dev.DeviceName] = {
-                "id": i,
-                # "is_primary": monitor_info.get("Flags", 0) & win32con.MONITORINFOF_PRIMARY == 1,
-                "is_primary": is_primary,
-                "pos": Point(x, y),
-                "size": Size(r - x, b - y),
-                "workarea": Rect(wx, wy, wr, wb),
-                "scale": scale,
-                "dpi": (dpiX.value, dpiY.value),
-                "orientation": rot,
-                "frequency": freq,
-                "colordepth": depth
-            }
+                    result[dev.DeviceName] = {
+                        "id": i,
+                        # "is_primary": monitor_info.get("Flags", 0) & win32con.MONITORINFOF_PRIMARY == 1,
+                        "is_primary": is_primary,
+                        "pos": Point(x, y),
+                        "size": Size(r - x, b - y),
+                        "workarea": Rect(wx, wy, wr, wb),
+                        "scale": scale,
+                        "dpi": (dpiX.value, dpiY.value),
+                        "orientation": rot,
+                        "frequency": freq,
+                        "colordepth": depth
+                    }
+            except:
+                print(traceback.format_exc())
         i += 1
     return result
 
