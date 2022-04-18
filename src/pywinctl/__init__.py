@@ -1,22 +1,16 @@
-# PyWinCtl
-# A cross-platform module to get info on and control windows on screen
-
-# pywin32 on Windows
-# pyobjc (AppKit and Quartz) on macOS
-# Xlib and ewmh on Linux
-
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
 
 __version__ = "0.0.34"
 
 import collections
 import difflib
-
-import numpy as np
 import re
 import sys
 import threading
 from typing import Tuple, List
 
+import numpy as np
 import pyrect
 
 Rect = collections.namedtuple("Rect", "left top right bottom")
@@ -496,6 +490,7 @@ class _WinWatchDog(threading.Thread):
         threading.Thread.__init__(self)
         self._win = win
         self._interval = interval
+        self._tryToFind = False
         self._kill = threading.Event()
 
         self._isAliveCB = isAliveCB
@@ -552,24 +547,21 @@ class _WinWatchDog(threading.Thread):
             self._kill.wait(self._interval)
 
             try:
-                if self._isAliveCB or type(self._win).__name__ == MacOSWindow.__name__:
+                if self._isAliveCB or self._tryToFind:
                     # In macOS AppScript version, if title changes, it will consider window is not alive anymore
                     if not self._win.isAlive:
                         if self._isAliveCB:
                             self._isAliveCB(False)
-                        if type(self._win).__name__ == MacOSWindow.__name__:
+                        if self._tryToFind:
                             title = self._win.title
                             if self._title != title:
-                                try:
-                                    title = self._win.updatedTitle
-                                except NotImplementedError:
-                                    pass
-                                if self._changedTitleCB is not None:
-                                    # In macOS AppScript version, watchdog will try to find a similar window title within same app
-                                    # and will pass it to the callback. However, the watchdog will stop!
+                                title = self._win.updatedTitle
+                                self._title = title
+                                if self._changedTitleCB:
                                     self._changedTitleCB(title)
-                        self.kill()
-                        break
+                        if not self._tryToFind or (self._tryToFind and not self._title):
+                            self.kill()
+                            break
 
                 if self._isActiveCB:
                     active = self._win.isActive
@@ -640,6 +632,10 @@ class _WinWatchDog(threading.Thread):
 
     def updateInterval(self, interval=0.3):
         self._interval = interval
+
+    def setTryToFind(self, tryToFind):
+        if type(self._win).__name__ == MacOSWindow.__name__:
+            self._tryToFind = tryToFind
 
     def kill(self):
         self._kill.set()

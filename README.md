@@ -104,6 +104,7 @@ The watchdog will automatically stop when window doesn't exist anymore or progra
 |  start  |
 |  updateCallbacks  |
 |  updateInterval  |
+|  setTryToFind  |
 |  isAlive  |
 |  stop  |
 
@@ -120,6 +121,7 @@ Example:
 
     npw = pwc.getActiveWindow()
     npw.watchdog.start(isActiveCB=activeCB)
+    npw.watchdog.setTryToFind(True)
     print("toggle focus and move active window")
     print("Press Ctl-C to Quit")
     i = 0
@@ -129,6 +131,7 @@ Example:
                 npw.watchdog.updateCallbacks(isActiveCB=activeCB, movedCB=movedCB)
             if i == 100:
                 npw.watchdog.updateInterval(0.1)
+                npw.setTryToFind(False)
             time.sleep(0.1)
         except KeyboardInterrupt:
             break

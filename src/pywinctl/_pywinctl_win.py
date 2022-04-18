@@ -865,6 +865,21 @@ class Win32Window(BaseWindow):
             else:
                 self._watchdog = None
 
+        def setTryToFind(self, tryToFind: bool):
+            """
+            In macOS Apple Script version, if set to ''True'' and in case title changes, watchdog will try to find
+            a similar title within same application to continue monitoring it. It will stop if set to ''False'' or
+            similar title not found.
+
+            IMPORTANT:
+
+            - It will have no effect in other platforms (Windows and Linux) and classes (MacOSNSWindow)
+            - This behavior is deactivated by default, so you need to explicitly activate it
+
+            :param tryToFind: set to ''True'' to try to find a similar title. Set to ''False'' to deactivate this behavior
+            """
+            pass
+
         def stop(self):
             """
             Stop the entire WatchDog and all its hooks
@@ -1152,7 +1167,7 @@ def getAllScreens() -> dict:
             "workarea":
                 Rect(left, top, right, bottom) struct with the screen workarea, in pixels
             "scale":
-                Scale ratio, as a percentage
+                Scale ratio, as a tuple of (x, y) scale percentage
             "dpi":
                 Dots per inch, as a tuple of (x, y) dpi values
             "orientation":
@@ -1211,7 +1226,7 @@ def getAllScreens() -> dict:
                         "pos": Point(x, y),
                         "size": Size(r - x, b - y),
                         "workarea": Rect(wx, wy, wr, wb),
-                        "scale": scale,
+                        "scale": (scale, scale),
                         "dpi": (dpiX.value, dpiY.value),
                         "orientation": rot,
                         "frequency": freq,

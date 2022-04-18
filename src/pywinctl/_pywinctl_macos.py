@@ -159,10 +159,10 @@ def getWindowsWithTitle(title, app=(), condition=Re.IS, flags=0):
             title = re.compile(title, flags)
         elif condition in (Re.EDITDISTANCE, Re.DIFFRATIO) and (not isinstance(flags, int) or not (0 < flags <= 100)):
             flags = 90
-        elif flags == re.IGNORECASE:
+        elif flags == Re.IGNORECASE:
             lower = True
             title = title.lower()
-        if not app:
+        if not app or (app and isinstance(app, tuple)):
             activeApps = _getAllApps()
             titleList = _getWindowTitles()
             for item in titleList:
@@ -172,8 +172,8 @@ def getWindowsWithTitle(title, app=(), condition=Re.IS, flags=0):
                     x, y, w, h = int(item[2][0]), int(item[2][1]), int(item[3][0]), int(item[3][1])
                     rect = Rect(x, y, x + w, y + h)
                     for a in activeApps:
-                        if a.processIdentifier() == pID and (not app or (app and app.localizedName() in app)):
-                            matches.append(MacOSWindow(app, item[1], rect))
+                        if (not app and a.processIdentifier() == pID) or a.localizedName() in app:
+                            matches.append(MacOSWindow(a, item[1], rect))
                             break
         else:
             windows = getAllWindows(app)
@@ -1057,7 +1057,7 @@ class MacOSWindow(BaseWindow):
     @property
     def updatedTitle(self) -> str:
         """
-        Get and update title by finding a similar window title within same application.
+        Get and updated title by finding a similar window title within same application.
         It uses a similarity check to find the best match in case title changes (no way to effectively detect it).
         This can be useful since this class uses window title to identify the target window.
         If watchdog is activated, it will stop in case title changes.
@@ -1067,7 +1067,7 @@ class MacOSWindow(BaseWindow):
         - New title may not belong to the original target window, it is just similar within same application
         - If original title or a similar one is not found, window may still exist
 
-        :return: possible new title or same title if it didn't change, as a string
+        :return: possible new title, empty if no similar title found or same title if it didn't change, as a string
         """
         titles = _getAppWindowsTitles(self._appName)
         if self._winTitle not in titles:
@@ -1222,6 +1222,24 @@ class MacOSWindow(BaseWindow):
             """
             if self._watchdog and self.isAlive():
                 self._watchdog.updateInterval(interval)
+            else:
+                self._watchdog = None
+
+        def setTryToFind(self, tryToFind: bool):
+            """
+            In macOS Apple Script version, if set to ''True'' and in case title changes, watchdog will try to find
+            a similar title within same application to continue monitoring it. It will stop if set to ''False'' or
+            similar title not found.
+
+            IMPORTANT:
+
+            - It will have no effect in other platforms (Windows and Linux) and classes (MacOSNSWindow)
+            - This behavior is deactivated by default, so you need to explicitly activate it
+
+            :param tryToFind: set to ''True'' to try to find a similar title. Set to ''False'' to deactivate this behavior
+            """
+            if self._watchdog and self.isAlive():
+                self._watchdog.setTryToFind(tryToFind)
             else:
                 self._watchdog = None
 
@@ -2066,8 +2084,8 @@ class MacOSNSWindow(BaseWindow):
         if sb:
             ret1 = self._hWnd.setLevel_(Quartz.kCGDesktopWindowLevel - 1)
             ret2 = self._hWnd.setCollectionBehavior_(Quartz.NSWindowCollectionBehaviorCanJoinAllSpaces |
-                                                    Quartz.NSWindowCollectionBehaviorStationary |
-                                                    Quartz.NSWindowCollectionBehaviorIgnoresCycle)
+                                                     Quartz.NSWindowCollectionBehaviorStationary |
+                                                     Quartz.NSWindowCollectionBehaviorIgnoresCycle)
         else:
             ret1 = self._hWnd.setLevel_(Quartz.kCGNormalWindowLevel)
             ret2 = self._hWnd.setCollectionBehavior_(Quartz.NSWindowCollectionBehaviorDefault |
@@ -2314,6 +2332,21 @@ class MacOSNSWindow(BaseWindow):
             else:
                 self._watchdog = None
 
+        def setTryToFind(self, tryToFind: bool):
+            """
+            In macOS Apple Script version, if set to ''True'' and in case title changes, watchdog will try to find
+            a similar title within same application to continue monitoring it. It will stop if set to ''False'' or
+            similar title not found.
+
+            IMPORTANT:
+
+            - It will have no effect in other platforms (Windows and Linux) and classes (MacOSNSWindow)
+            - This behavior is deactivated by default, so you need to explicitly activate it
+
+            :param tryToFind: set to ''True'' to try to find a similar title. Set to ''False'' to deactivate this behavior
+            """
+            pass
+
         def stop(self):
             """
             Stop the entire WatchDog and all its hooks
@@ -2379,7 +2412,7 @@ def getAllScreens():
             "workarea":
                 Rect(left, top, right, bottom) struct with the screen workarea, in pixels
             "scale":
-                Scale ratio, as a percentage
+                Scale ratio, as a tuple of (x, y) scale percentage
             "dpi":
                 Dots per inch, as a tuple of (x, y) dpi values
             "orientation":
@@ -2417,7 +2450,7 @@ def getAllScreens():
                 'pos': Point(x, y),
                 'size': Size(w, h),
                 'workarea': Rect(wx, wy, wr, wb),
-                'scale': scale,
+                'scale': (scale, scale),
                 'dpi': (dpiX, dpiY),
                 'orientation': rot,
                 'frequency': freq,
@@ -2491,6 +2524,14 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
     except KeyboardInterrupt:
         sys.stdout.write('\n\n')
         sys.stdout.flush()
+
+
+def isAliveCB(alive):
+    print("ALIVE", alive)
+
+
+def changedTitleCB(title):
+    print("TITLE", title)
 
 
 def main():

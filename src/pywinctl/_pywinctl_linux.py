@@ -146,7 +146,7 @@ def getWindowsWithTitle(title, app=(), condition=Re.IS, flags=0):
             title = re.compile(title, flags)
         elif condition in (Re.EDITDISTANCE, Re.DIFFRATIO) and (not isinstance(flags, int) or not (0 < flags <= 100)):
             flags = 90
-        elif flags == re.IGNORECASE:
+        elif flags == Re.IGNORECASE:
             lower = True
             title = title.lower()
         for win in getAllWindows():
@@ -1000,6 +1000,21 @@ class LinuxWindow(BaseWindow):
             else:
                 self._watchdog = None
 
+        def setTryToFind(self, tryToFind: bool):
+            """
+            In macOS Apple Script version, if set to ''True'' and in case title changes, watchdog will try to find
+            a similar title within same application to continue monitoring it. It will stop if set to ''False'' or
+            similar title not found.
+
+            IMPORTANT:
+
+            - It will have no effect in other platforms (Windows and Linux) and classes (MacOSNSWindow)
+            - This behavior is deactivated by default, so you need to explicitly activate it
+
+            :param tryToFind: set to ''True'' to try to find a similar title. Set to ''False'' to deactivate this behavior
+            """
+            pass
+
         def stop(self):
             """
             Stop the entire WatchDog and all its hooks
@@ -1045,7 +1060,7 @@ def getAllScreens():
             "workarea":
                 Rect(left, top, right, bottom) struct with the screen workarea, in pixels
             "scale":
-                Scale ratio, as a percentage
+                Scale ratio, as a tuple of (x, y) scale percentage
             "dpi":
                 Dots per inch, as a tuple of (x, y) dpi values
             "orientation":
@@ -1081,9 +1096,8 @@ def getAllScreens():
                     x, y, w, h = crtc.x, crtc.y, crtc.width, crtc.height
                     wx, wy, wr, wb = x + wa[0], y + wa[1], x + w - (screen.width_in_pixels - wa[2] - wa[0]), y + h - (screen.height_in_pixels - wa[3] - wa[1])
                     # check all these values with physical monitors using dpi, mms or other possible values or props
+                    # dpiX, dpiY = round(crtc.width * 25.4 / params.mm_width), round(crtc.height * 25.4 / params.mm_height)
                     dpiX, dpiY = round(w * 25.4 / screen.width_in_mms), round(h * 25.4 / screen.height_in_mms)
-                    # 'dpi' = (round(SCREEN.width_in_pixels * 25.4 / SCREEN.width_in_mms), round(SCREEN.height_in_pixels * 25.4 / SCREEN.height_in_mms)),
-                    # 'dpi' = (round(crtc.width * 25.4 / params.mm_width), round(crtc.height * 25.4 / params.mm_height)),
                     scaleX, scaleY = round(dpiX / 96 * 100), round(dpiY / 96 * 100)
                     rot = int(math.log(crtc.rotation, 2))
                     freq = 0
