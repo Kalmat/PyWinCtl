@@ -2526,14 +2526,6 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
         sys.stdout.flush()
 
 
-def isAliveCB(alive):
-    print("ALIVE", alive)
-
-
-def changedTitleCB(title):
-    print("TITLE", title)
-
-
 def main():
     """Run this script from command-line to get windows under mouse pointer"""
     print("PLATFORM:", sys.platform)
