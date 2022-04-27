@@ -35,6 +35,8 @@ def test_basic():
         basic_linux(npw)
 
     elif sys.platform == "darwin":
+        if not pywinctl.checkPermissions(activate=True):
+            exit()
         subprocess.Popen(['touch', 'test.py'])
         time.sleep(2)
         subprocess.Popen(['open', '-a', 'TextEdit', 'test.py'])

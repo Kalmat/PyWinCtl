@@ -22,7 +22,7 @@ My most sincere thanks and acknowledgement to [macdeport](https://github.com/mac
 
 ## Window Features <a name="window-features"></a>
 
-All these functions are available at the moment, in all three platforms (Windows, Linux and macOS):
+These functions are available at the moment, in all three platforms (Windows, Linux and macOS):
 
 |  General, independent functions:  |  Window class methods:  |  Window class properties:  |
 |  :---:  |  :---:  |  :---:  |  
@@ -40,7 +40,7 @@ All these functions are available at the moment, in all three platforms (Windows
 |  getScreenSize  |  raiseWindow  |    |  
 |  getWorkArea  |  lowerWindow  |    |  
 |  version  |  alwaysOnTop  |    |  
-|  |  alwaysOnBottom  |    |  
+|  checkPermissions (macOS only)  |  alwaysOnBottom  |    |  
 |  |  getAppName  |    |  
 |  |  getHandle  |    |  
 |  |  getParent  |    |  
@@ -69,7 +69,7 @@ In case you find problems in other configs, please [open an issue](https://githu
 
 watchdog sub-class, running in a separate Thread, will allow you to define hooks and its callbacks to be notified when some window states change.
 
-The watchdog will automatically stop when window doesn't exist anymore or program exits.
+The watchdog will automatically stop when window doesn't exist anymore or main program quits.
 
     isAliveCB:      callback to invoke when window is not alive anymore. Set to None to not to watch this
                     Passes the new alive status value (False)
@@ -94,7 +94,7 @@ The watchdog will automatically stop when window doesn't exist anymore or progra
     
     changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
                     Passes the new title (as string)
-                    IMPORTANT: In MacOS AppScript version, if title changes, it will try to find a similar title and will stop
+                    IMPORTANT: In MacOS AppScript version, if title changes, watchdog will stop unless using setTryToFind(True)
 
     changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
                       Passes the new display name (as string)
@@ -122,7 +122,7 @@ Example:
     npw = pwc.getActiveWindow()
     npw.watchdog.start(isActiveCB=activeCB)
     npw.watchdog.setTryToFind(True)
-    print("toggle focus and move active window")
+    print("Toggle focus and move active window")
     print("Press Ctl-C to Quit")
     i = 0
     while True:
@@ -147,9 +147,10 @@ Example:
 - When updating callbacks, remember to set ALL desired callbacks. Non-present (None) callbacks will be deactivated
 
 ***Important macOS Apple Script version notice <a name="watchdog-macos-comments"></a>***
+
 - Might be very slow and resource-consuming
 - It uses the title to identify the window, so if it changes, the watchdog will consider it is not available anymore and will stop
-- Use ''updatedTitle()'' to try to get the new title (not fully guaranteed since it uses a similarity check)
+- To avoid this, use ''tryToFind(True)'' method to try to find the new title (not fully guaranteed since it uses a similarity check, so the new title might not be found or correspond to a different window)
 
 
 ## Menu Features <a name="menu-features"></a>
@@ -167,23 +168,23 @@ menu sub-class for Menu info and control methods (from asweigart's original idea
 |  getMenuItemRect  |
 |  clickMenuItem  |
 
-Example:
+MS-Windows example (notice it is language-dependent):
 
     import pywinctl as pwc
     import subprocess
     # import json
 
     subprocess.Popen('notepad')
-    windows = pwc.getWindowsWithTitle('notepad', condition=pwc.Re.CONTAINS, flags=Re.IGNORECASE)
+    windows = pwc.getWindowsWithTitle('notepad', condition=pwc.Re.CONTAINS, flags=pwc.Re.IGNORECASE)
     if windows:
         win = windows[0]
         menu = win.menu.getMenu()
         # print(json.dumps(menu, indent=4, ensure_ascii=False))  # Prints menu dict in legible format
         ret = win.menu.clickMenuItem(["File", "Exit"])           # Exit program
         if not ret:
-            print("Option not found")
+            print("Option not found. Check option path and language")
     else:
-        print("Window not found")
+        print("Window not found. Check application name and language")
 
 Menu dictionary (returned by getMenu() method) will likely contain all you may need to handle application menu:
 

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-__version__ = "0.0.34"
+__version__ = "0.0.35"
 
 import collections
 import difflib
@@ -645,6 +645,7 @@ if sys.platform == "darwin":
     from ._pywinctl_macos import (
         MacOSWindow,
         MacOSNSWindow,
+        checkPermissions,
         getActiveWindow,
         getActiveWindowTitle,
         getAllWindows,
@@ -666,6 +667,7 @@ if sys.platform == "darwin":
 elif sys.platform == "win32":
     from ._pywinctl_win import (
         Win32Window,
+        checkPermissions,
         getActiveWindow,
         getActiveWindowTitle,
         getAllWindows,
@@ -686,6 +688,7 @@ elif sys.platform == "win32":
 elif sys.platform == "linux":
     from ._pywinctl_linux import (
         LinuxWindow,
+        checkPermissions,
         getActiveWindow,
         getActiveWindowTitle,
         getAllWindows,

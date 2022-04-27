@@ -70,6 +70,16 @@ HINT_STATE_NORMAL = 1
 HINT_STATE_ICONIC = 3
 
 
+def checkPermissions(activate: bool = False):
+    """
+    macOS ONLY: Check Apple Script permissions for current script and, optionally, opens security preferences
+
+    :param activate: If ''True'', shows a dialog and opens security preferences. Defaults to ''False''
+    :return: returns ''True'' if permissions are already granted or platform is not macOS
+    """
+    return True
+
+
 def getActiveWindow():
     """
     Get the currently active (focused) Window
@@ -136,7 +146,7 @@ def getWindowsWithTitle(title, app=(), condition=Re.IS, flags=0):
     :param title: title or regex pattern to match, as string
     :param app: (optional) tuple of app names. Defaults to ALL (empty list)
     :param condition: (optional) condition to apply when searching the window. Defaults to ''Re.IS'' (is equal to)
-    :param flags: (optional) specific flags to apply to condition
+    :param flags: (optional) specific flags to apply to condition. Defaults to 0 (no flags)
     :return: list of Window objects
     """
     matches = []
@@ -144,8 +154,9 @@ def getWindowsWithTitle(title, app=(), condition=Re.IS, flags=0):
         lower = False
         if condition in (Re.MATCH, Re.NOTMATCH):
             title = re.compile(title, flags)
-        elif condition in (Re.EDITDISTANCE, Re.DIFFRATIO) and (not isinstance(flags, int) or not (0 < flags <= 100)):
-            flags = 90
+        elif condition in (Re.EDITDISTANCE, Re.DIFFRATIO):
+            if not isinstance(flags, int) or not (0 < flags <= 100):
+                flags = 90
         elif flags == Re.IGNORECASE:
             lower = True
             title = title.lower()
@@ -186,7 +197,7 @@ def getAppsWithName(name, condition=Re.IS, flags=0):
 
     :param name: name or regex pattern to match, as string
     :param condition: (optional) condition to apply when searching the app. Defaults to ''Re.IS'' (is equal to)
-    :param flags: (optional) specific flags to apply to condition
+    :param flags: (optional) specific flags to apply to condition. Defaults to 0 (no flags)
     :return: list of app names
     """
     matches = []
@@ -194,8 +205,9 @@ def getAppsWithName(name, condition=Re.IS, flags=0):
         lower = False
         if condition in (Re.MATCH, Re.NOTMATCH):
             name = re.compile(name, flags)
-        elif condition == Re.EDITDISTANCE and (not isinstance(flags, int) or not (0 < flags <= 100)):
-            flags = 90
+        elif condition in (Re.EDITDISTANCE, Re.DIFFRATIO):
+            if not isinstance(flags, int) or not (0 < flags <= 100):
+                flags = 90
         elif flags == Re.IGNORECASE:
             lower = True
             name = name.lower()
@@ -796,7 +808,7 @@ class LinuxWindow(BaseWindow):
         :return: ''True'' if current window is child of the given window
         """
         return parent == self.getParent()
-    isChildOf = isChild  # isParentOf is an alias of isParent method
+    isChildOf = isChild  # isChildOf is an alias of isParent method
 
     def getDisplay(self):
         """

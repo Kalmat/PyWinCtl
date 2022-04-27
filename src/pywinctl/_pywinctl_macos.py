@@ -23,6 +23,37 @@ WAIT_DELAY = 0.025  # Will be progressively increased on every retry
 SEP = "|&|"
 
 
+def checkPermissions(activate: bool = False):
+    """
+    macOS ONLY: Check Apple Script permissions for current script and, optionally, opens security preferences
+
+    :param activate: If ''True'', shows a dialog and opens security preferences. Defaults to ''False''
+    :return: returns ''True'' if permissions are already granted or platform is not macOS
+    """
+    # https://stackoverflow.com/questions/26591560/how-to-grant-applescript-permissions-through-applescript
+    if activate:
+        cmd = """tell application "System Events"
+                    set UI_enabled to UI elements enabled
+                end tell
+                if UI_enabled is false then
+                    display dialog "This script requires Accessibility permissions" & return & return & "You can activate GUI Scripting by selecting the checkbox Enable access for assistive devices in the Security and Privacy > Accessibility preferences" with icon 1 buttons {"Ok"} default button 1
+                    tell application "System Preferences"
+                        activate
+                        set current pane to pane id "com.apple.preference.security"
+                    end tell
+                end if
+                return UI_enabled"""
+    else:
+        cmd = """tell application "System Events"
+                    set UI_enabled to UI elements enabled
+                end tell
+                return UI_enabled"""
+    proc = subprocess.Popen(['osascript'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
+    ret, err = proc.communicate(cmd)
+    ret = ret.replace("\n", "")
+    return ret == "true"
+
+
 def getActiveWindow(app: AppKit.NSApplication = None):
     """
     Get the currently active (focused) Window
@@ -46,7 +77,7 @@ def getActiveWindow(app: AppKit.NSApplication = None):
                 end run"""
         proc = subprocess.Popen(['osascript'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
-        appName, title = ret.replace("\n", ""). split(", ")
+        appName, title = ret.replace("\n", "").split(", ")
         if appName and title:
             apps = _getAllApps()
             for app in apps:
@@ -84,13 +115,19 @@ def getAllWindows(app: AppKit.NSApplication = None):
         activeApps = _getAllApps()
         titleList = _getWindowTitles()
         for item in titleList:
-            pID = item[0]
-            title = item[1]
-            x = int(item[2][0])
-            y = int(item[2][1])
-            w = int(item[3][0])
-            h = int(item[3][1])
-            rect = Rect(x, y, x + w, y + h)
+            try:
+                pID = item[0]
+                title = item[1]
+                if len(item) > 3 and len(item[2]) > 1 and len(item[3]) > 1:
+                    x = int(item[2][0])
+                    y = int(item[2][1])
+                    w = int(item[3][0])
+                    h = int(item[3][1])
+                    rect = Rect(x, y, x + w, y + h)
+                else:
+                    rect = None
+            except:
+                continue
             for app in activeApps:
                 if app.processIdentifier() == pID:
                     windows.append(MacOSWindow(app, title, rect))
@@ -119,9 +156,10 @@ def getAllTitles(app: AppKit.NSApplication = None) -> List[str]:
         ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
         res = ast.literal_eval(ret)
         matches = []
-        for item in res[0]:
-            for title in item:
-                matches.append(title)
+        if len(res) > 0:
+            for item in res[0]:
+                for title in item:
+                    matches.append(title)
     else:
         matches = [win.title for win in getAllWindows(app)]
     return matches
@@ -149,7 +187,7 @@ def getWindowsWithTitle(title, app=(), condition=Re.IS, flags=0):
     :param title: title or regex pattern to match, as string
     :param app: NSApp object (NSWindow version) / (optional) tuple of app names (Apple Script version), defaults to ALL (empty list)
     :param condition: (optional) condition to apply when searching the window. Defaults to ''Re.IS'' (is equal to)
-    :param flags: (optional) specific flags to apply to condition
+    :param flags: (optional) specific flags to apply to condition. Defaults to 0 (no flags)
     :return: list of Window objects
     """
     matches = []
@@ -157,8 +195,9 @@ def getWindowsWithTitle(title, app=(), condition=Re.IS, flags=0):
         lower = False
         if condition in (Re.MATCH, Re.NOTMATCH):
             title = re.compile(title, flags)
-        elif condition in (Re.EDITDISTANCE, Re.DIFFRATIO) and (not isinstance(flags, int) or not (0 < flags <= 100)):
-            flags = 90
+        elif condition in (Re.EDITDISTANCE, Re.DIFFRATIO):
+            if not isinstance(flags, int) or not (0 < flags <= 100):
+                flags = 90
         elif flags == Re.IGNORECASE:
             lower = True
             title = title.lower()
@@ -197,7 +236,7 @@ def getAllAppsNames() -> List[str]:
                                 end tell
                                 return winNames'"""
     ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").split(", ")
-    return ret
+    return ret or []
 
 
 def getAppsWithName(name, condition=Re.IS, flags=0):
@@ -221,7 +260,7 @@ def getAppsWithName(name, condition=Re.IS, flags=0):
 
     :param name: name or regex pattern to match, as string
     :param condition: (optional) condition to apply when searching the app. Defaults to ''Re.IS'' (is equal to)
-    :param flags: (optional) specific flags to apply to condition
+    :param flags: (optional) specific flags to apply to condition. Defaults to 0 (no flags)
     :return: list of app names
     """
     matches = []
@@ -229,8 +268,9 @@ def getAppsWithName(name, condition=Re.IS, flags=0):
         lower = False
         if condition in (Re.MATCH, Re.NOTMATCH):
             name = re.compile(name, flags)
-        elif condition == Re.EDITDISTANCE and (not isinstance(flags, int) or not (0 < flags <= 100)):
-            flags = 90
+        elif condition in (Re.EDITDISTANCE, Re.DIFFRATIO):
+            if not isinstance(flags, int) or not (0 < flags <= 100):
+                flags = 90
         elif flags == Re.IGNORECASE:
             lower = True
             name = name.lower()
@@ -261,8 +301,9 @@ def getAllAppsWindowsTitles() -> dict:
     ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
     res = ast.literal_eval(ret)
     result = {}
-    for i, item in enumerate(res[0]):
-        result[item] = res[1][i]
+    if res and len(res) > 0:
+        for i, item in enumerate(res[0]):
+            result[item] = res[1][i]
     return result
 
 
@@ -323,14 +364,18 @@ def _getAppWindowsTitles(appName):
     cmd = """on run arg1
                 set appName to arg1 as string
                 set winNames to {}
-                set winNames to name of every window of application appName
+                try
+                    tell application "System Events"
+                        set winNames to name of every window of process appName
+                    end tell
+                end try
                 return winNames
             end run"""
     proc = subprocess.Popen(['osascript', '-', appName],
                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
     ret, err = proc.communicate(cmd)
     ret = ret.replace("\n", "").split(", ")
-    return ret
+    return ret or []
 
 
 def _getWindowTitles() -> List[List[str]]:
@@ -345,14 +390,21 @@ def _getWindowTitles() -> List[List[str]]:
     ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
     res = ast.literal_eval(ret)
     result = []
-    for i, pID in enumerate(res[0]):
-        item = res[1][0][i]
-        j = 0
-        for title in item:  # One-liner script is way faster, but produces weird data structures
-            pos = res[1][1][i][j]
-            size = res[1][2][i][j]
-            result.append([pID, title, pos, size])
-            j += 1
+    if len(res) > 0:
+        for i, pID in enumerate(res[0]):
+            try:
+                item = res[1][0][i]
+                j = 0
+                for title in item:  # One-liner script is way faster, but produces complex data structures
+                    try:
+                        pos = res[1][1][i][j]
+                        size = res[1][2][i][j]
+                        result.append([pID, title, pos, size])
+                        j += 1
+                    except:
+                        continue
+            except:
+                pass
     return result
 
 
@@ -1310,8 +1362,6 @@ class MacOSWindow(BaseWindow):
                     "entries":
                         sub-items within the sub-menu (if any)
             """
-            # Check: PathFinder / Edit / Format / Font / Kern / Tighten
-            # [[[], [], [], [], [], [], [], [], [['Use Default', 'Use None', 'Tighten', 'Loosen']], [['Use Default', 'Use None', 'Use All']], [['Use Default', 'Superscript', 'Subscript', 'Raise', 'Lower']], [], [], [], [], []]]
             self._menuStructure = {}
             self.menuList = []
             self.itemList = []
@@ -2143,7 +2193,7 @@ class MacOSNSWindow(BaseWindow):
         :return: ''True'' if current window is child of the given window
         """
         return parent == self.getParent()
-    isChildOf = isChild  # isParentOf is an alias of isParent method
+    isChildOf = isChild  # isChildOf is an alias of isParent method
 
     def getDisplay(self):
         """
