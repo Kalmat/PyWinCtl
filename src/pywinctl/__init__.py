@@ -66,7 +66,7 @@ def _levenshtein(seq1: str, seq2: str, similarity: int = 90) -> bool:
     # Adapted to return a similarity percentage, which is easier to define
     size_x = len(seq1) + 1
     size_y = len(seq2) + 1
-    matrix = [x[:] for x in [[0] * size_y] * size_x]
+    matrix = [[0 for y in range(size_y)] for x in range(size_x)]
     for x in range(size_x):
         matrix[x][0] = x
     for y in range(size_y):
