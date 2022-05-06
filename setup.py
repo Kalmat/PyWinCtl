@@ -32,14 +32,14 @@ setup(
     test_suite='tests',
     install_requires=[
         "PyRect~=0.1",
-        "numpy~=1.21",
+        "numpy",
         "pywin32>=302; sys_platform == 'win32'",
         "xlib~=0.21; sys_platform == 'linux'",
         "ewmh~=0.1; sys_platform == 'linux'",
         "pynput~=1.16; sys_platform == 'linux'",
         "pyobjc~=8.1; sys_platform == 'darwin'"
     ],
-    keywords="gui window control menu title name geometry size position move resize minimize maximize restore hide show activate raise lower close",
+    keywords="gui window control menu title name geometry size position move resize minimize maximize restore hide show activate raise lower close screen-size mouse-position",
     classifiers=[
         'Development Status :: 4 - Beta',
         'Environment :: Win32 (MS Windows)',
