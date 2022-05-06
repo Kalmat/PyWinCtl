@@ -25,7 +25,8 @@ SEP = "|&|"
 
 def checkPermissions(activate: bool = False):
     """
-    macOS ONLY: Check Apple Script permissions for current script and, optionally, opens security preferences
+    macOS ONLY: Check Apple Script permissions for current script/app and, optionally, shows a
+    warning dialog and opens security preferences
 
     :param activate: If ''True'', shows a dialog and opens security preferences. Defaults to ''False''
     :return: returns ''True'' if permissions are already granted or platform is not macOS
@@ -64,6 +65,7 @@ def getActiveWindow(app: AppKit.NSApplication = None):
     if not app:
         # app = WS.frontmostApplication()   # This fails after using .activateWithOptions_()?!?!?!
         cmd = """on run
+                    set appName to ""
                     set winName to ""
                     try
                         tell application "System Events" 
@@ -400,9 +402,9 @@ def _getWindowTitles() -> List[List[str]]:
                         pos = res[1][1][i][j]
                         size = res[1][2][i][j]
                         result.append([pID, title, pos, size])
-                        j += 1
                     except:
-                        continue
+                        pass
+                    j += 1
             except:
                 pass
     return result
@@ -2580,11 +2582,12 @@ def main():
     """Run this script from command-line to get windows under mouse pointer"""
     print("PLATFORM:", sys.platform)
     print("SCREEN SIZE:", resolution())
-    print("ALL WINDOWS", getAllTitles())
-    npw = getActiveWindow()
-    print("ACTIVE WINDOW:", npw.title, "/", npw.box)
-    print()
-    displayWindowsUnderMouse(0, 0)
+    if checkPermissions(activate=True):
+        print("ALL WINDOWS", getAllTitles())
+        npw = getActiveWindow()
+        print("ACTIVE WINDOW:", npw.title, "/", npw.box)
+        print()
+        displayWindowsUnderMouse(0, 0)
 
 
 if __name__ == "__main__":

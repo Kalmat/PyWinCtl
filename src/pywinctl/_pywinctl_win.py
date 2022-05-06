@@ -27,7 +27,8 @@ WAIT_DELAY = 0.025  # Will be progressively increased on every retry
 
 def checkPermissions(activate: bool = False):
     """
-    macOS ONLY: Check Apple Script permissions for current script and, optionally, opens security preferences
+    macOS ONLY: Check Apple Script permissions for current script/app and, optionally, shows a
+    warning dialog and opens security preferences
 
     :param activate: If ''True'', shows a dialog and opens security preferences. Defaults to ''False''
     :return: returns ''True'' if permissions are already granted or platform is not macOS

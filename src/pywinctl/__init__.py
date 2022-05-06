@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-__version__ = "0.0.35"
+__version__ = "0.0.36"
 
 import collections
 import difflib
@@ -10,7 +10,6 @@ import sys
 import threading
 from typing import Tuple, List
 
-import numpy as np
 import pyrect
 
 Rect = collections.namedtuple("Rect", "left top right bottom")
@@ -67,27 +66,27 @@ def _levenshtein(seq1: str, seq2: str, similarity: int = 90) -> bool:
     # Adapted to return a similarity percentage, which is easier to define
     size_x = len(seq1) + 1
     size_y = len(seq2) + 1
-    matrix = np.zeros((size_x, size_y))
+    matrix = [x[:] for x in [[0] * size_y] * size_x]
     for x in range(size_x):
-        matrix[x, 0] = x
+        matrix[x][0] = x
     for y in range(size_y):
-        matrix[0, y] = y
+        matrix[0][y] = y
 
     for x in range(1, size_x):
         for y in range(1, size_y):
             if seq1[x - 1] == seq2[y - 1]:
-                matrix[x, y] = min(
-                    matrix[x - 1, y] + 1,
-                    matrix[x - 1, y - 1],
-                    matrix[x, y - 1] + 1
+                matrix[x][y] = min(
+                    matrix[x - 1][y] + 1,
+                    matrix[x - 1][y - 1],
+                    matrix[x][y - 1] + 1
                 )
             else:
-                matrix[x, y] = min(
-                    matrix[x - 1, y] + 1,
-                    matrix[x - 1, y - 1] + 1,
-                    matrix[x, y - 1] + 1
+                matrix[x][y] = min(
+                    matrix[x - 1][y] + 1,
+                    matrix[x - 1][y - 1] + 1,
+                    matrix[x][y - 1] + 1
                 )
-    dist = matrix[size_x - 1, size_y - 1]
+    dist = matrix[size_x - 1][size_y - 1]
     return ((1 - dist / max(len(seq1), len(seq2))) * 100) >= similarity
 
 
@@ -514,29 +513,34 @@ class _WinWatchDog(threading.Thread):
 
     def _getInitialValues(self):
 
-        if self._isActiveCB:
-            self._isActive = self._win.isActive
+        try:
+            if self._isActiveCB:
+                self._isActive = self._win.isActive
 
-        if self._isVisibleCB:
-            self._isVisible = self._win.isVisible
+            if self._isVisibleCB:
+                self._isVisible = self._win.isVisible
 
-        if self._isMinimizedCB:
-            self._isMinimized = self._win.isMinimized
+            if self._isMinimizedCB:
+                self._isMinimized = self._win.isMinimized
 
-        if self._isMaximizedCB:
-            self._isMaximized = self._win.isMaximized
+            if self._isMaximizedCB:
+                self._isMaximized = self._win.isMaximized
 
-        if self._resizedCB:
-            self._size = (self._win.width, self._win.height)
+            if self._resizedCB:
+                self._size = (self._win.width, self._win.height)
 
-        if self._movedCB:
-            self._pos = (self._win.left, self._win.top)
+            if self._movedCB:
+                self._pos = (self._win.left, self._win.top)
 
-        if self._changedTitleCB:
-            self._title = self._win.title
+            if self._changedTitleCB:
+                self._title = self._win.title
 
-        if self._changedDisplayCB:
-            self._display = self._win.getDisplay()
+            if self._changedDisplayCB:
+                self._display = self._win.getDisplay()
+        except:
+            if self._isAliveCB:
+                self._isAliveCB(False)
+            self.kill()
 
     def run(self):
 
