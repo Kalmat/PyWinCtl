@@ -30,7 +30,8 @@ def checkPermissions(activate: bool = False):
     macOS ONLY: Check Apple Script permissions for current script/app and, optionally, shows a
     warning dialog and opens security preferences
 
-    :param activate: If ''True'', shows a dialog and opens security preferences. Defaults to ''False''
+    :param activate: If ''True'' and if permissions are not granted, shows a dialog and opens security preferences.
+                     Defaults to ''False''
     :return: returns ''True'' if permissions are already granted or platform is not macOS
     """
     return True
@@ -706,6 +707,27 @@ class Win32Window(BaseWindow):
         except:
             pass
         return name
+
+    def _getContent(self):
+        # https://stackoverflow.com/questions/14500026/python-how-to-get-the-text-label-from-another-program-window
+        # Does not work with Terminal or Chrome. Besides, I don't think it can be done in Linux nor macOS
+
+        content = []
+
+        def findContent(childWindow):
+            bufferSize = win32gui.SendMessage(childWindow, win32con.WM_GETTEXTLENGTH, 0, 0) * 2
+            buf = win32gui.PyMakeBuffer(bufferSize)
+            win32gui.SendMessage(childWindow, win32con.WM_GETTEXT, bufferSize, buf)
+            a = buf.tobytes().decode('UTF-16', 'replace')
+            if a:
+                b = a.split("\r\n")
+                content.append(b)
+
+        children = self.getChildren()
+        for child in children:
+            findContent(child)
+        return content
+
 
     @property
     def isMinimized(self) -> bool:

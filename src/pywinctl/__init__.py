@@ -56,14 +56,15 @@ class Re:
         NOTENDSWITH: lambda s1, s2, fl: not s2.endswith(s1),
         MATCH: lambda s1, s2, fl: bool(s1.search(s2)),
         NOTMATCH: lambda s1, s2, fl: not (bool(s1.search(s2))),
-        EDITDISTANCE: lambda s1, s2, fl: _levenshtein(s1, s2, fl),
+        EDITDISTANCE: lambda s1, s2, fl: _levenshtein(s1, s2) >= fl,
         DIFFRATIO: lambda s1, s2, fl: difflib.SequenceMatcher(None, s1, s2).ratio() * 100 >= fl
     }
 
 
-def _levenshtein(seq1: str, seq2: str, similarity: int = 90) -> bool:
+def _levenshtein(seq1: str, seq2: str) -> float:
     # https://stackabuse.com/levenshtein-distance-and-text-similarity-in-python/
     # Adapted to return a similarity percentage, which is easier to define
+    # Removed numpy to reduce dependencies. This is likely slower, but titles are not too long
     size_x = len(seq1) + 1
     size_y = len(seq2) + 1
     matrix = [[0 for y in range(size_y)] for x in range(size_x)]
@@ -87,7 +88,7 @@ def _levenshtein(seq1: str, seq2: str, similarity: int = 90) -> bool:
                     matrix[x][y - 1] + 1
                 )
     dist = matrix[size_x - 1][size_y - 1]
-    return ((1 - dist / max(len(seq1), len(seq2))) * 100) >= similarity
+    return (1 - dist / max(len(seq1), len(seq2))) * 100
 
 
 class BaseWindow:
