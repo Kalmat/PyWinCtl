@@ -80,7 +80,11 @@ def getActiveWindow(app: AppKit.NSApplication = None):
                 end run"""
         proc = subprocess.Popen(['osascript'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
-        appName, title = ret.replace("\n", "").split(", ")
+        # sometimes the title of the window contains ',' characters, so just get the first entry as the appName and join the rest
+        # back together as a string
+        entries = ret.replace("\n", "").split(", ")
+        appName = entries[0]
+        title = ", ".join(entries[1:])
         if appName and title:
             apps = _getAllApps()
             for app in apps:
