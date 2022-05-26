@@ -20,7 +20,7 @@ My most sincere thanks and acknowledgement to [macdeport](https://github.com/mac
 6. [Using this code](#using)
 7. [Test](#test)
 
-## Window Features <a name="window-features"></a> <font size="1">[(up)](#pywinctl)</font> 
+## Window Features <a name="window-features"></a>
 
 These functions are available at the moment, in all three platforms (Windows, Linux and macOS):
 

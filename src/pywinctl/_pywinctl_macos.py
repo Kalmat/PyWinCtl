@@ -67,28 +67,31 @@ def getActiveWindow(app: AppKit.NSApplication = None):
         # app = WS.frontmostApplication()   # This fails after using .activateWithOptions_()?!?!?!
         cmd = """on run
                     set appName to ""
+                    set appID to ""
                     set winName to ""
                     try
                         tell application "System Events" 
                             set appName to name of first application process whose frontmost is true
+                            set appID to unix id of application process appName
                             tell application process appName
                                 set winName to name of (first window whose value of attribute "AXMain" is true)
                             end tell
                         end tell
                     end try
-                    return {appName, winName}
+                    return {appID, winName}
                 end run"""
         proc = subprocess.Popen(['osascript'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
+        # Thanks to Anthony Molinaro (djnym) for pointing out this bug and provide the solution!!!
         # sometimes the title of the window contains ',' characters, so just get the first entry as the appName and join the rest
         # back together as a string
         entries = ret.replace("\n", "").split(", ")
-        appName = entries[0]
+        appID = entries[0]
         title = ", ".join(entries[1:])
-        if appName and title:
+        if appID:  # and title:
             apps = _getAllApps()
             for app in apps:
-                if app.localizedName() == appName:
+                if str(app.processIdentifier()) == appID:
                     return MacOSWindow(app, title)
     else:
         for win in app.orderedWindows():  # .keyWindow() / .mainWindow() not working?!?!?!
@@ -235,14 +238,15 @@ def getAllAppsNames() -> List[str]:
 
     :return: list of names as strings
     """
-    cmd = """osascript -e 'tell application "System Events"
+    cmd = """osascript -s 's' -e 'tell application "System Events"
                                     set winNames to {}
                                     try
-                                        set winNames to name of every process whose background only is false
+                                        set winNames to name of every process whose background only is false  
                                     end try
                                 end tell
                                 return winNames'"""
-    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").split(", ")
+    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
+    ret = ast.literal_eval(ret)
     return ret or []
 
 
@@ -298,7 +302,7 @@ def getAllAppsWindowsTitles() -> dict:
 
     :return: python dictionary
     """
-    cmd = """osascript -s s -e 'tell application "System Events"
+    cmd = """osascript -s 's' -e 'tell application "System Events"
                                     set winNames to {}
                                     try
                                         set winNames to {name, (name of every window)} of (every process whose background only is false)
@@ -378,16 +382,17 @@ def _getAppWindowsTitles(appName):
                 end try
                 return winNames
             end run"""
-    proc = subprocess.Popen(['osascript', '-', appName],
+    proc = subprocess.Popen(['osascript', '-s', 's', '-', appName],
                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
     ret, err = proc.communicate(cmd)
-    ret = ret.replace("\n", "").split(", ")
+    ret = ret.replace("\n", "").replace("{", "[").replace("}", "]")
+    ret = ast.literal_eval(ret)
     return ret or []
 
 
 def _getWindowTitles() -> List[List[str]]:
     # https://gist.github.com/qur2/5729056 - qur2
-    cmd = """osascript -s s -e 'tell application "System Events"
+    cmd = """osascript -s 's' -e 'tell application "System Events"
                                     set winNames to {}
                                     try
                                         set winNames to {unix id, ({name, position, size} of (every window))} of (every process whose background only is false)
@@ -942,7 +947,9 @@ class MacOSWindow(BaseWindow):
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
         ret = ret.replace("\n", "")
-        role, parent = ret.split(", ")
+        entries = ret.replace("\n", "").split(", ")
+        role = entries[0]
+        parent = ", ".join(entries[1:])
         result = ""
         if role and parent:
             result = role + SEP + parent
@@ -965,16 +972,16 @@ class MacOSWindow(BaseWindow):
                     end try
                     return winChildren
                end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
+        proc = subprocess.Popen(['osascript', '-s', 's', '-', self._appName, self.title],
+                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf-8')
         ret, err = proc.communicate(cmd)
-        ret = ret.replace("\n", "").split(", ")
+        ret = ret.replace("\n", "").replace("{", "['").replace("}", "']").replace('"', '').replace(", ", "', '")
+        ret = ast.literal_eval(ret)
         result = []
         for item in ret:
             if item.startswith("window"):
                 res = item[item.find("window ")+len("window "):item.rfind(" of window "+self.title)]
-                if res:
-                    result.append("AXWindow" + SEP + res)
+                result.append("AXWindow" + SEP + res)
         return result
 
     def getHandle(self) -> str:
