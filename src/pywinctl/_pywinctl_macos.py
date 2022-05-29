@@ -30,7 +30,7 @@ def checkPermissions(activate: bool = False):
 
     :param activate: If ''True'' and if permissions are not granted, shows a dialog and opens security preferences.
                      Defaults to ''False''
-    :return: returns ''True'' if permissions are already granted or platform is not macOS
+    :return: ''True'' if permissions are already granted or platform is not macOS
     """
     # https://stackoverflow.com/questions/26591560/how-to-grant-applescript-permissions-through-applescript
     if activate:
