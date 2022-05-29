@@ -246,8 +246,8 @@ def getAllAppsNames() -> List[str]:
                                 end tell
                                 return winNames'"""
     ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
-    ret = ast.literal_eval(ret)
-    return ret or []
+    res = ast.literal_eval(ret)
+    return res or []
 
 
 def getAppsWithName(name, condition=Re.IS, flags=0):
@@ -386,8 +386,8 @@ def _getAppWindowsTitles(appName):
                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
     ret, err = proc.communicate(cmd)
     ret = ret.replace("\n", "").replace("{", "[").replace("}", "]")
-    ret = ast.literal_eval(ret)
-    return ret or []
+    res = ast.literal_eval(ret)
+    return res or []
 
 
 def _getWindowTitles() -> List[List[str]]:
@@ -973,7 +973,7 @@ class MacOSWindow(BaseWindow):
                     return winChildren
                end run"""
         proc = subprocess.Popen(['osascript', '-s', 's', '-', self._appName, self.title],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf-8')
+                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
         ret = ret.replace("\n", "").replace("{", "['").replace("}", "']").replace('"', '').replace(", ", "', '")
         ret = ast.literal_eval(ret)

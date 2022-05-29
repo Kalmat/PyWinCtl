@@ -51,13 +51,13 @@ These functions are available at the moment, in all three platforms (Windows, Li
 |  |  getExtraFrame  |    |  
 |  |  getClientFrame  |    |  
 
-***Important macOS notice <a name="macos-notice"></a>*** <font size="1">[(up)](#pywinctl)</font>
+***Important macOS notice <a name="macos-notice"></a>***
 
 macOS doesn't "like" controlling windows from other apps, so there are two separate classes you can use:
 - To control your own application's windows: MacOSNSWindow() is based on NSWindow Objects (you have to pass the NSApp() Object reference).
 - To control other applications' windows: MacOSWindow() is based on Apple Script, so it is non-standard, slower and, in some cases, tricky (uses window name as reference, which may change or be duplicate), but it's working fine in most cases. You will likely need to grant permissions on Settings -> Security&Privacy -> Accessibility. ***Notice some applications will have limited Apple Script support or no support at all, so some or even all methods may fail!***
 
-***Important Linux notice <a name="linux-notice"></a>*** <font size="1">[(up)](#pywinctl)</font>
+***Important Linux notice <a name="linux-notice"></a>***
 
 The enormous variety of Linux distributions, Desktop Environments, Window Managers, and their combinations, make it impossible to test in all scenarios.
 
@@ -65,7 +65,7 @@ This module has been tested OK in Ubuntu/Gnome, Ubuntu/Unity, Mint/Cinnamon and 
 
 In case you find problems in other configs, please [open an issue](https://github.com/Kalmat/PyWinCtl/issues). Furthermore, if you have knowledge in these other configs, do not hesitate to contribute!
 
-## Window Change Notifications <a name="watchdog"></a> <font size="1">[(up)](#pywinctl)</font>
+## Window Change Notifications <a name="watchdog"></a>
 
 watchdog sub-class, running in a separate Thread, will allow you to define hooks and its callbacks to be notified when some window states change.
 
@@ -139,21 +139,21 @@ Example:
     npw.watchdog.stop()
 
 
-***Important comments <a name="watchdog-comments"></a>*** <font size="1">[(up)](#pywinctl)</font>
+***Important comments <a name="watchdog-comments"></a>***
 
 - The callbacks definition MUST MATCH their invocation params (boolean, string or (int, int))
 - The watchdog is asynchronous, so notifications won't be immediate (adjust interval value to your needs). Use window object properties instead (e.g. isAlive)
 - Position and size notifications will trigger several times between initial and final values
 - When updating callbacks, remember to set ALL desired callbacks. Non-present (None) callbacks will be deactivated
 
-***Important macOS Apple Script version notice <a name="watchdog-macos-comments"></a>*** <font size="1">[(up)](#pywinctl)</font>
+***Important macOS Apple Script version notice <a name="watchdog-macos-comments"></a>***
 
 - Might be very slow and resource-consuming
 - It uses the title to identify the window, so if it changes, the watchdog will consider it is not available anymore and will stop
 - To avoid this, use ''tryToFind(True)'' method to try to find the new title (not fully guaranteed since it uses a similarity check, so the new title might not be found or correspond to a different window)
 
 
-## Menu Features <a name="menu-features"></a> <font size="1">[(up)](#pywinctl)</font>
+## Menu Features <a name="menu-features"></a>
 
 #### Available in: MS-Windows and macOS Apple Script version (Win32Window() and MacOSWindow() classes)
 
@@ -201,7 +201,7 @@ Menu dictionary (returned by getMenu() method) will likely contain all you may n
 
 Note not all windows/applications will have a menu accessible by these methods.
 
-## INSTALL <a name="install"></a> <font size="1">[(up)](#pywinctl)</font>
+## INSTALL <a name="install"></a>
 
 To install this module on your system, you can use pip: 
 
@@ -217,11 +217,11 @@ Then, you can use it on your own projects just importing it:
 
     import pywinctl
 
-## SUPPORT <a name="support"></a> <font size="1">[(up)](#pywinctl)</font>
+## SUPPORT <a name="support"></a>
 
 In case you have a problem, comments or suggestions, do not hesitate to [open issues](https://github.com/Kalmat/PyWinCtl/issues) on the [project homepage](https://github.com/Kalmat/PyWinCtl)
 
-## USING THIS CODE <a name="using"></a> <font size="1">[(up)](#pywinctl)</font>
+## USING THIS CODE <a name="using"></a>
 
 If you want to use this code or contribute, you can either:
 
@@ -230,7 +230,7 @@ If you want to use this code or contribute, you can either:
 
 Be sure you install all dependencies described on "docs/requirements.txt" by using pip
 
-## TEST <a name="test"></a> <font size="1">[(up)](#pywinctl)</font>
+## TEST <a name="test"></a>
 
 To test this module on your own system, cd to "tests" folder and run:
 
