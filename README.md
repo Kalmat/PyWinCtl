@@ -67,7 +67,7 @@ In case you find problems in other configs, please [open an issue](https://githu
 
 ## Window Change Notifications <a name="watchdog"></a>
 
-watchdog sub-class, running in a separate Thread, will allow you to define hooks and its callbacks to be notified when some window states change.
+watchdog sub-class, running in a separate Thread, will allow you to define hooks and its callbacks to be notified when some window states change. Accessible through 'watchdog' submodule.
 
 The watchdog will automatically stop when window doesn't exist anymore or main program quits.
 
@@ -131,7 +131,7 @@ Example:
                 npw.watchdog.updateCallbacks(isActiveCB=activeCB, movedCB=movedCB)
             if i == 100:
                 npw.watchdog.updateInterval(0.1)
-                npw.setTryToFind(False)
+                npw.watchdog.setTryToFind(False)
             time.sleep(0.1)
         except KeyboardInterrupt:
             break
@@ -157,7 +157,7 @@ Example:
 
 #### Available in: MS-Windows and macOS Apple Script version (Win32Window() and MacOSWindow() classes)
 
-menu sub-class for Menu info and control methods (from asweigart's original ideas), accessible through 'menu' submodule.
+menu sub-class for Menu info and control methods, accessible through 'menu' submodule.
 
 |  menu sub-module methods:  |
 |  :---:  |
@@ -207,7 +207,11 @@ To install this module on your system, you can use pip:
 
     pip install pywinctl
 
-Alternatively, you can download the wheel file (.whl) available in the [Donwnload page](https://pypi.org/project/pywin32/#files) and the [dist folder](https://github.com/Kalmat/PyWinCtl/tree/master/dist), and run this (don't forget to replace 'x.x.xx' with proper version number):
+or
+
+    python3 -m pìp install pywinctl
+
+Alternatively, you can download the wheel file (.whl) available in the [Download page](https://pypi.org/project/PyWinCtl/#files) and the [dist folder](https://github.com/Kalmat/PyWinCtl/tree/master/dist), and run this (don't forget to replace 'x.x.xx' with proper version number):
 
     pip install PyWinCtl-x.x.xx-py3-none-any.whl
 
@@ -215,7 +219,7 @@ You may want to add `--force-reinstall` option to be sure you are installing the
 
 Then, you can use it on your own projects just importing it:
 
-    import pywinctl
+    import pywinctl as pwc
 
 ## SUPPORT <a name="support"></a>
 

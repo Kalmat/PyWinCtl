@@ -531,6 +531,8 @@ class Win32Window(BaseWindow):
         :param aot: set to ''False'' to deactivate always-on-top behavior
         :return: ''True'' if command succeeded
         """
+        if self._t and self._t.is_alive():
+            self._t.kill()
         # https://stackoverflow.com/questions/25381589/pygame-set-window-on-top-without-changing-its-position/49482325 (kmaork)
         zorder = win32con.HWND_TOPMOST if aot else win32con.HWND_NOTOPMOST
         result = win32gui.SetWindowPos(self._hWnd, zorder, 0, 0, 0, 0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
@@ -557,11 +559,11 @@ class Win32Window(BaseWindow):
                     self._t = _SendBottom(self._hWnd)
                     # Not sure about the best behavior: stop thread when program ends or keeping sending window below
                     self._t.setDaemon(True)
-                if not self._t.is_alive():
                     self._t.start()
+                else:
+                    self._t.restart()
         else:
-            if self._t.is_alive():
-                self._t.kill()
+            self._t.kill()
             ret = self.sendBehind(sb=False)
         return ret
 
@@ -809,8 +811,8 @@ class Win32Window(BaseWindow):
             self._parent = parent
 
         def start(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None,
-                          isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None, changedDisplayCB=None,
-                          interval=0.3):
+                  isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None, changedDisplayCB=None,
+                  interval=0.3):
             """
             Initialize and start watchdog and hooks (callbacks to be invoked when desired window states change)
 
@@ -842,15 +844,16 @@ class Win32Window(BaseWindow):
                             Returns the new display name (as string)
             :param interval: set the interval to watch window changes. Default is 0.3 seconds
             """
-            if self._parent.isAlive:
-                if not self._watchdog and not self.isAlive():
-                    self._watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB,
-                                                  isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB,
-                                                  interval)
+            if self._watchdog is None:
+                self._watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB,
+                                              isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB,
+                                              interval)
                 self._watchdog.setDaemon(True)
                 self._watchdog.start()
             else:
-                self._watchdog = None
+                self._watchdog.restart(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB,
+                                       isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB,
+                                       interval)
 
         def updateCallbacks(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None,
                                     isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None,
@@ -883,11 +886,9 @@ class Win32Window(BaseWindow):
             :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
                             Returns the new display name (as string)
             """
-            if self._watchdog and self.isAlive():
+            if self._watchdog:
                 self._watchdog.updateCallbacks(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB,
                                               resizedCB, movedCB, changedTitleCB, changedDisplayCB)
-            else:
-                self._watchdog = None
 
         def updateInterval(self, interval=0.3):
             """
@@ -895,10 +896,8 @@ class Win32Window(BaseWindow):
 
             :param interval: set the interval to watch window changes. Default is 0.3 seconds
             """
-            if self._watchdog and self.isAlive():
+            if self._watchdog:
                 self._watchdog.updateInterval(interval)
-            else:
-                self._watchdog = None
 
         def setTryToFind(self, tryToFind: bool):
             """
@@ -919,22 +918,17 @@ class Win32Window(BaseWindow):
             """
             Stop the entire WatchDog and all its hooks
             """
-            if self._watchdog and self.isAlive():
-                self._watchdog.kill()
-            self._watchdog = None
+            self._watchdog.kill()
 
         def isAlive(self):
             """Check if watchdog is running
 
             :return: ''True'' if watchdog is alive
             """
-            alive = False
             try:
                 alive = bool(self._watchdog and self._watchdog.is_alive())
             except:
-                pass
-            if not alive:
-                self._watchdog = None
+                alive = False
             return alive
 
     class _Menu:
@@ -1179,6 +1173,11 @@ class _SendBottom(threading.Thread):
     def kill(self):
         self._kill.set()
 
+    def restart(self):
+        self.kill()
+        self._kill = threading.Event()
+        self.run()
+
 
 def getAllScreens() -> dict:
     """
@@ -1348,6 +1347,14 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0):
     except KeyboardInterrupt:
         sys.stdout.write('\n\n')
         sys.stdout.flush()
+
+
+def activeCB(active):
+    print("NEW ACTIVE STATUS", active)
+
+
+def movedCB(pos):
+    print("NEW POS", pos)
 
 
 def main():

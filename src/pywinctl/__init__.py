@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-__version__ = "0.0.38"
+__version__ = "0.0.39"
 
 import collections
 import difflib
@@ -644,6 +644,13 @@ class _WinWatchDog(threading.Thread):
 
     def kill(self):
         self._kill.set()
+
+    def restart(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None, isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None, changedDisplayCB=None, interval=0.3):
+        self.kill()
+        self._kill = threading.Event()
+        self.updateCallbacks(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB)
+        self.updateInterval(interval)
+        self.run()
 
 
 if sys.platform == "darwin":

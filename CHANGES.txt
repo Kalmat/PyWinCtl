@@ -1,3 +1,5 @@
+0.0.39, 2022/06/07 -- Improved watchdog, fixed Mint/Cinnamon sendBehind() method, added macOS AppScript alwaysOnTop() and alwaysOnBottom() methods
+0.0.38, 2022/05/29 -- Fixed pynput version typo in setup.py requirements
 0.0.37, 2022/05/26 -- macOS Apple Script version: fixed crash when title contains extra commmas
 0.0.36, 2022/05/06 -- Removed numpy dependency
 0.0.35, 2022/04/27 -- macOS Apple Script version: fixed crash in some methods when permissions not granted and added checkPermissions() function.

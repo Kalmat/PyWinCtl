@@ -9,6 +9,7 @@ import re
 import sys
 import time
 import traceback
+import threading
 from typing import List, Tuple, Union
 
 import AppKit
@@ -448,6 +449,8 @@ class MacOSWindow(BaseWindow):
         ver = float(v[0]+"."+v[1])
         # On Yosemite and below we need to use Zoom instead of FullScreen to maximize windows
         self._use_zoom = (ver <= 10.10)
+        self._tt = None
+        self._tb = None
         self.menu = self._Menu(self)
         self.watchdog = self._WatchDog(self)
 
@@ -466,6 +469,8 @@ class MacOSWindow(BaseWindow):
         proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
+        if not ret:
+            ret = "0, 0, 0, 0"
         w = ret.replace("\n", "").strip().split(", ")
         return Rect(int(w[0]), int(w[1]), int(w[0]) + int(w[2]), int(w[1]) + int(w[3]))
 
@@ -845,7 +850,20 @@ class MacOSWindow(BaseWindow):
         :return: ''True'' if command succeeded
         """
         # TODO: Is there an attribute or similar to force window always on top?
-        raise NotImplementedError
+        ret = True
+        if aot:
+            if self._tb and self._tb.is_alive():
+                self._tb.kill()
+            if self._tt is None:
+                self._tt = _SendTop(self, interval=0.3)
+                # Not sure about the best behavior: stop thread when program ends or keeping sending window below
+                self._tt.setDaemon(True)
+                self._tt.start()
+            else:
+                self._tt.restart()
+        else:
+            self._tt.kill()
+        return ret
 
     def alwaysOnBottom(self, aob: bool = True) -> bool:
         """
@@ -855,7 +873,20 @@ class MacOSWindow(BaseWindow):
         :return: ''True'' if command succeeded
         """
         # TODO: Is there an attribute or similar to force window always at bottom?
-        raise NotImplementedError
+        ret = True
+        if aob:
+            if self._tt and self._tt.is_alive():
+                self._tt.kill()
+            if self._tb is None:
+                self._tb = _SendBottom(self, interval=0.3)
+                # Not sure about the best behavior: stop thread when program ends or keeping sending window below
+                self._tb.setDaemon(True)
+                self._tb.start()
+            else:
+                self._tb.restart()
+        else:
+            self._tb.kill()
+        return ret
 
     def lowerWindow(self) -> None:
         """
@@ -1201,8 +1232,8 @@ class MacOSWindow(BaseWindow):
             self._parent = parent
 
         def start(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None,
-                          isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None, changedDisplayCB=None,
-                          interval=0.3):
+                  isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None, changedDisplayCB=None,
+                  interval=0.3):
             """
             Initialize and start watchdog and hooks (callbacks to be invoked when desired window states change)
 
@@ -1230,17 +1261,20 @@ class MacOSWindow(BaseWindow):
                             Returns the new position (x, y)
             :param changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
                             Returns the new title (as string)
-                            IMPORTANT: In MacOS AppScript version, if title changes, it will try to find a similar title and will stop
             :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
                             Returns the new display name (as string)
             :param interval: set the interval to watch window changes. Default is 0.3 seconds
             """
-            if self._parent.isAlive and not self.isAlive():
+            if self._watchdog is None:
                 self._watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB,
                                               isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB,
                                               interval)
                 self._watchdog.setDaemon(True)
                 self._watchdog.start()
+            else:
+                self._watchdog.restart(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB,
+                                       isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB,
+                                       interval)
 
         def updateCallbacks(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None,
                                     isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None,
@@ -1270,15 +1304,12 @@ class MacOSWindow(BaseWindow):
                             Returns the new position (x, y)
             :param changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
                             Returns the new title (as string)
-                            IMPORTANT: In MacOS AppScript version, it will try to find the new title, but it can belong to a different window!
             :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
                             Returns the new display name (as string)
             """
-            if self._watchdog and self.isAlive():
+            if self._watchdog:
                 self._watchdog.updateCallbacks(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB,
                                               resizedCB, movedCB, changedTitleCB, changedDisplayCB)
-            else:
-                self._watchdog = None
 
         def updateInterval(self, interval=0.3):
             """
@@ -1286,16 +1317,14 @@ class MacOSWindow(BaseWindow):
 
             :param interval: set the interval to watch window changes. Default is 0.3 seconds
             """
-            if self._watchdog and self.isAlive():
+            if self._watchdog:
                 self._watchdog.updateInterval(interval)
-            else:
-                self._watchdog = None
 
         def setTryToFind(self, tryToFind: bool):
             """
             In macOS Apple Script version, if set to ''True'' and in case title changes, watchdog will try to find
             a similar title within same application to continue monitoring it. It will stop if set to ''False'' or
-            similar title not found.
+            a similar title is not found.
 
             IMPORTANT:
 
@@ -1304,31 +1333,24 @@ class MacOSWindow(BaseWindow):
 
             :param tryToFind: set to ''True'' to try to find a similar title. Set to ''False'' to deactivate this behavior
             """
-            if self._watchdog and self.isAlive():
+            if self._watchdog:
                 self._watchdog.setTryToFind(tryToFind)
-            else:
-                self._watchdog = None
 
         def stop(self):
             """
             Stop the entire WatchDog and all its hooks
             """
-            if self._watchdog and self.isAlive():
-                self._watchdog.kill()
-            self._watchdog = None
+            self._watchdog.kill()
 
         def isAlive(self):
             """Check if watchdog is running
 
             :return: ''True'' if watchdog is alive
             """
-            alive = False
             try:
                 alive = bool(self._watchdog and self._watchdog.is_alive())
             except:
-                pass
-            if not alive:
-                self._watchdog = None
+                alive = False
             return alive
 
     class _Menu:
@@ -1873,6 +1895,64 @@ class MacOSWindow(BaseWindow):
                 modifiers_type = ""
 
             return modifiers_type + key
+
+
+class _SendTop(threading.Thread):
+
+    def __init__(self, hWnd, interval=0.5):
+        threading.Thread.__init__(self)
+        self._hWnd = hWnd
+        self._interval = interval
+        self._kill = threading.Event()
+
+    def run(self):
+        while not self._kill.is_set():
+            if not self._hWnd.isActive:
+                self._hWnd.activate()
+            self._kill.wait(self._interval)
+
+    def kill(self):
+        self._kill.set()
+
+    def restart(self):
+        self.kill()
+        self._kill = threading.Event()
+        self.run()
+
+
+class _SendBottom(threading.Thread):
+
+    def __init__(self, hWnd, interval=0.5):
+        threading.Thread.__init__(self)
+        self._hWnd = hWnd
+        self._app = hWnd._app
+        self._appPID = hWnd._appPID
+        self._interval = interval
+        self._kill = threading.Event()
+        _apps = _getAllApps()
+        self._apps = []
+        for app in _apps:
+            if app.processIdentifier() != self._appPID:
+                self._apps.append(app)
+
+    def run(self):
+        while not self._kill.is_set():
+            if self._hWnd.isActive:
+                self._hWnd.lowerWindow()
+                for app in self._apps:
+                    try:
+                        app.activateWithOptions_(Quartz.NSApplicationActivateIgnoringOtherApps)
+                    except:
+                        continue
+            self._kill.wait(self._interval)
+
+    def kill(self):
+        self._kill.set()
+
+    def restart(self):
+        self.kill()
+        self._kill = threading.Event()
+        self.run()
 
 
 class MacOSNSWindow(BaseWindow):

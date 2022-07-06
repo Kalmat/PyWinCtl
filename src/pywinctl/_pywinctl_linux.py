@@ -7,6 +7,7 @@ import platform
 import re
 import subprocess
 import sys
+import threading
 import time
 import traceback
 from typing import Union, List, Tuple
@@ -701,24 +702,27 @@ class LinuxWindow(BaseWindow):
         if sb:
             # https://stackoverflow.com/questions/58885803/can-i-use-net-wm-window-type-dock-ewhm-extension-in-openbox
             w = DISP.create_resource_object('window', self._hWnd)
+            w.unmap()
             # Place a Window behind desktop icons using PyQt on Ubuntu/GNOME
             # This adds the properties (notice the PropMode options), but with no effect on GNOME
-            w.change_property(DISP.intern_atom(WM_STATE, False), Xlib.Xatom.ATOM,
-                              32, [DISP.intern_atom(STATE_BELOW, False), ],
-                              Xlib.X.PropModeReplace)
-            w.change_property(DISP.intern_atom(WM_STATE, False), Xlib.Xatom.ATOM,
-                              32, [DISP.intern_atom(STATE_SKIP_TASKBAR, False), ],
-                              Xlib.X.PropModeAppend)
-            w.change_property(DISP.intern_atom(WM_STATE, False), Xlib.Xatom.ATOM,
-                              32, [DISP.intern_atom(STATE_SKIP_PAGER, False), ],
-                              Xlib.X.PropModeAppend)
-            DISP.flush()
-
+            # w.change_property(DISP.intern_atom(WM_STATE, False), Xlib.Xatom.ATOM,
+            #                   32, [DISP.intern_atom(STATE_BELOW, False), ],
+            #                   Xlib.X.PropModeReplace)
+            # w.change_property(DISP.intern_atom(WM_STATE, False), Xlib.Xatom.ATOM,
+            #                   32, [DISP.intern_atom(STATE_SKIP_TASKBAR, False), ],
+            #                   Xlib.X.PropModeAppend)
+            # w.change_property(DISP.intern_atom(WM_STATE, False), Xlib.Xatom.ATOM,
+            #                   32, [DISP.intern_atom(STATE_SKIP_PAGER, False), ],
+            #                   Xlib.X.PropModeAppend)
+            # DISP.flush()
+            # self._hWnd.delete_property(DISP.intern_atom('WM_TAKE_FOCUS', False))
+            # DISP.flush()
             # This sends window below all others, but not behind the desktop icons
             w.change_property(DISP.intern_atom(WM_WINDOW_TYPE, False), Xlib.Xatom.ATOM,
                               32, [DISP.intern_atom(WINDOW_DESKTOP, False), ],
                               Xlib.X.PropModeReplace)
             DISP.flush()
+            w.map()
 
             if "GNOME" in os.environ.get('XDG_CURRENT_DESKTOP', ''):
                 pass
@@ -729,7 +733,6 @@ class LinuxWindow(BaseWindow):
                 # if desktop:
                 #     w.reparent(desktop[-1], self.left, self.top)
                 #     DISP.flush()
-
             else:
                 # Mint/Cinnamon: just clicking on the desktop, it raises, sending the window/wallpaper to the bottom!
                 # TODO: Find a smarter way to raise desktop icons instead of a mouse click
@@ -923,8 +926,8 @@ class LinuxWindow(BaseWindow):
             self._parent = parent
 
         def start(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None,
-                          isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None, changedDisplayCB=None,
-                          interval=0.3):
+                  isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None, changedDisplayCB=None,
+                  interval=0.3):
             """
             Initialize and start watchdog and hooks (callbacks to be invoked when desired window states change)
 
@@ -956,15 +959,16 @@ class LinuxWindow(BaseWindow):
                             Returns the new display name (as string)
             :param interval: set the interval to watch window changes. Default is 0.3 seconds
             """
-            if self._parent.isAlive:
-                if not self._watchdog and not self.isAlive():
-                    self._watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB,
-                                                  isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB,
-                                                  interval)
+            if self._watchdog is None:
+                self._watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB,
+                                              isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB,
+                                              interval)
                 self._watchdog.setDaemon(True)
                 self._watchdog.start()
             else:
-                self._watchdog = None
+                self._watchdog.restart(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB,
+                                       isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB,
+                                       interval)
 
         def updateCallbacks(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None,
                                     isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None,
@@ -997,11 +1001,9 @@ class LinuxWindow(BaseWindow):
             :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
                             Returns the new display name (as string)
             """
-            if self._watchdog and self.isAlive():
+            if self._watchdog:
                 self._watchdog.updateCallbacks(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB,
                                               resizedCB, movedCB, changedTitleCB, changedDisplayCB)
-            else:
-                self._watchdog = None
 
         def updateInterval(self, interval=0.3):
             """
@@ -1009,10 +1011,8 @@ class LinuxWindow(BaseWindow):
 
             :param interval: set the interval to watch window changes. Default is 0.3 seconds
             """
-            if self._watchdog and self.isAlive():
+            if self._watchdog:
                 self._watchdog.updateInterval(interval)
-            else:
-                self._watchdog = None
 
         def setTryToFind(self, tryToFind: bool):
             """
@@ -1033,22 +1033,17 @@ class LinuxWindow(BaseWindow):
             """
             Stop the entire WatchDog and all its hooks
             """
-            if self._watchdog and self.isAlive():
-                self._watchdog.kill()
-            self._watchdog = None
+            self._watchdog.kill()
 
         def isAlive(self):
             """Check if watchdog is running
 
             :return: ''True'' if watchdog is alive
             """
-            alive = False
             try:
                 alive = bool(self._watchdog and self._watchdog.is_alive())
             except:
-                pass
-            if not alive:
-                self._watchdog = None
+                alive = False
             return alive
 
 
