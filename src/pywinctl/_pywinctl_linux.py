@@ -10,7 +10,7 @@ import sys
 import threading
 import time
 import traceback
-from typing import Union, List, Tuple
+from typing import Iterable, Union, List, Tuple, cast
 
 import Xlib.X
 import Xlib.display
@@ -108,14 +108,25 @@ def getActiveWindowTitle() -> str:
         return ""
 
 
+def __remove_bad_windows(windows: Iterable[Window]):
+    """
+    :param clients: Xlib Windows
+    :return: A generator of LinuxWindow that filters out BadWindows
+    """
+    for window in windows:
+        try:
+            yield LinuxWindow(window)
+        except Xlib.error.XResourceError:
+            pass
+
+
 def getAllWindows():
     """
     Get the list of Window objects for all visible windows
-
     :return: list of Window objects
     """
-    windows = EWMH.getClientList()
-    return [LinuxWindow(window) for window in windows]
+    windows = cast(list[Window], EWMH.getClientListStacking())
+    return [window for window in __remove_bad_windows(windows)]
 
 
 def getAllTitles() -> List[str]:
@@ -249,11 +260,26 @@ def getWindowsAt(x: int, y: int):
     :param y: Y screen coordinate of the window(s)
     :return: list of Window objects
     """
-    windowsAtXY = []
-    for win in getAllWindows():
-        if pointInRect(x, y, win.left, win.top, win.width, win.height):
-            windowsAtXY.append(win)
-    return windowsAtXY
+    return [
+        window for window
+        in getAllWindows()
+        if pointInRect(x, y, window.left, window.top, window.width, window.height)]
+
+
+def getTopWindowAt(x: int, y: int):
+    """
+    Get the Window object at the top of the stack at the point ``(x, y)`` on screen
+
+    :param x: X screen coordinate of the window
+    :param y: Y screen coordinate of the window
+    :return: Window object or None
+    """
+    windows = cast(list[Window], EWMH.getClientListStacking())
+    for window in __remove_bad_windows(reversed(windows)):
+        if pointInRect(x, y, window.left, window.top, window.width, window.height):
+            return window
+    else:
+        return None
 
 
 def _xlibGetAllWindows(parent: int = None, title: str = "") -> List[int]:
