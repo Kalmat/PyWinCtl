@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+from __future__ import annotations
 
 import ast
 import difflib
@@ -10,7 +11,7 @@ import sys
 import time
 import traceback
 import threading
-from typing import List, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import AppKit
 import Quartz
@@ -121,7 +122,7 @@ def getAllWindows(app: AppKit.NSApplication = None):
     :param app: (optional) NSApp() object. If passed, returns the Window objects of all windows of given app
     :return: list of Window objects
     """
-    windows = []
+    windows: list[Union[MacOSNSWindow, MacOSWindow]] = []
     if not app:
         activeApps = _getAllApps()
         titleList = _getWindowTitles()
@@ -319,7 +320,7 @@ def getAllAppsWindowsTitles() -> dict:
     return result
 
 
-def getWindowsAt(x: int, y: int, app: AppKit.NSApplication = None, allWindows=None):
+def getWindowsAt(x: int, y: int, app: AppKit.NSApplication = None, allWindows: Optional[list[MacOSNSWindow | MacOSWindow]] = None):
     """
     Get the list of Window objects whose windows contain the point ``(x, y)`` on screen
 
@@ -329,14 +330,30 @@ def getWindowsAt(x: int, y: int, app: AppKit.NSApplication = None, allWindows=No
     :param allWindows: (optional) list of window objects (required to improve performance in Apple Script version)
     :return: list of Window objects
     """
-    matches = []
     if not allWindows:
         allWindows = getAllWindows(app)
-    for win in allWindows:
-        box = win.box
-        if pointInRect(x, y, box.left, box.top, box.width, box.height):
-            matches.append(win)
-    return matches
+    windowBoxGenerator = ((window, window.box) for window in allWindows)
+    return [
+        window for (window, box)
+        in windowBoxGenerator
+        if pointInRect(x, y, box.left, box.top, box.width, box.height)]
+
+
+def getTopWindowAt(x: int, y: int, app: AppKit.NSApplication = None, allWindows: Optional[list[MacOSNSWindow | MacOSWindow]] = None):
+    """
+    Get *a* Window object at the point ``(x, y)`` on screen.
+    Which window is not garranteed. See https://github.com/Kalmat/PyWinCtl/issues/20#issuecomment-1193348238
+
+    :param x: X screen coordinate of the window
+    :param y: Y screen coordinate of the window
+    :return: Window object or None
+    """
+    # TODO: Once we've figured out why getWindowsAt may not always return all windows
+    # (see https://github.com/Kalmat/PyWinCtl/issues/21)
+    # we can look into a more efficient implementation that only gets a single window
+    windows = getWindowsAt(x, y, app, allWindows)
+    return None if len(windows) == 0 else windows[-1]
+
 
 
 def _getAllApps(userOnly: bool = True):

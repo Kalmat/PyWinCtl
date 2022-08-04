@@ -69,12 +69,10 @@ def getAllWindows():
 
     :return: list of Window objects
     """
-    matches = []
-    windowObjs = _findWindowHandles(onlyVisible=True)
-    for win in windowObjs:
-        if win32gui.IsWindowVisible(win):
-            matches.append(Win32Window(win))
-    return matches
+    return [
+        Win32Window(hwnd) for hwnd
+        in _findWindowHandles(onlyVisible=True)
+        if win32gui.IsWindowVisible(hwnd)]
 
 
 def getAllTitles() -> List[str]:
@@ -215,11 +213,27 @@ def getWindowsAt(x: int, y: int):
     :param y: Y screen coordinate of the window(s)
     :return: list of Window objects
     """
-    windowsAtXY = []
-    for win in getAllWindows():
-        if pointInRect(x, y, win.left, win.top, win.width, win.height):
-            windowsAtXY.append(win)
-    return windowsAtXY
+    return [
+        window for window
+        in getAllWindows()
+        if pointInRect(x, y, window.left, window.top, window.width, window.height)]
+
+
+def getTopWindowAt(x: int, y: int):
+    """
+    Get the Window object at the top of the stack at the point ``(x, y)`` on screen
+
+    :param x: X screen coordinate of the window
+    :param y: Y screen coordinate of the window
+    :return: Window object or None
+    """
+    hwnd: int = win32gui.WindowFromPoint((x, y))
+
+    # Want to pull the parent window from the window handle
+    # By using GetAncestor we are able to get the parent window instead of the owner window.
+    while win32gui.IsChild(win32gui.GetParent(hwnd), hwnd):
+        hwnd = ctypes.windll.user32.GetAncestor(hwnd, win32con.GA_ROOT)
+    return Win32Window(hwnd) if hwnd else None
 
 
 def _findWindowHandles(parent: int = None, window_class: str = None, title: str = None, onlyVisible: bool = False) -> List[int]:
