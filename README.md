@@ -209,7 +209,7 @@ To install this module on your system, you can use pip:
 
 or
 
-    python3 -m pìp install pywinctl
+    python3 -m pip install pywinctl
 
 Alternatively, you can download the wheel file (.whl) available in the [Download page](https://pypi.org/project/PyWinCtl/#files) and the [dist folder](https://github.com/Kalmat/PyWinCtl/tree/master/dist), and run this (don't forget to replace 'x.x.xx' with proper version number):
 
