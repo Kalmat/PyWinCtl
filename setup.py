@@ -8,9 +8,12 @@ os.chdir(scriptFolder)
 
 # Find version info from module (without importing the module):
 with open("src/pywinctl/__init__.py", "r") as fileObj:
-    version = re.search(
+    match = re.search(
         r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]', fileObj.read(), re.MULTILINE
-    ).group(1)
+    )
+    if not match:
+        raise TypeError("'__version__' not found in 'src/pywinctl/__init__.py'")
+    version = match.group(1)
 
 # Use the README.md content for the long description:
 with io.open("README.md", encoding="utf-8") as fileObj:
@@ -29,6 +32,7 @@ setup(
     license='BSD 3',
     packages=find_packages(where='src'),
     package_dir={'': 'src'},
+    package_data={"pywinctl": ["src/pywinctl/py.typed"]},
     test_suite='tests',
     install_requires=[
         "PyRect>=0.1",
@@ -39,7 +43,7 @@ setup(
         "pyobjc>=8.1; sys_platform == 'darwin'"
     ],
     keywords="gui window control menu title name geometry size position move resize minimize maximize restore "
-             "hide show activate raise lower close screen-size mouse-position",
+             + "hide show activate raise lower close screen-size mouse-position",
     classifiers=[
         'Development Status :: 4 - Beta',
         'Environment :: Win32 (MS Windows)',

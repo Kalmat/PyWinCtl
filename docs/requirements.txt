@@ -1,6 +1,19 @@
+# Requirements required for development
+# Run: `pip install -r docs/requirements.txt`
+# Production requirements are found in ../setup.py
+
 PyRect>=0.1
+types-setuptools>=65.5
+
+# Windows
 pywin32>=302; sys_platform == 'win32'
+types-pywin32>=304.0.0.3
+
+# Linux
 xlib>=0.21; sys_platform == 'linux'
 ewmh>=0.1; sys_platform == 'linux'
 pynput>=1.6; sys_platform == 'linux'
+types-pynput>=1.6
+
+# MacOS
 pyobjc>=8.1; sys_platform == 'darwin'

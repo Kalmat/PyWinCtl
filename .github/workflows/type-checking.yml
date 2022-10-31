@@ -1,0 +1,47 @@
+name: Type Checking
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+  pull_request:
+    paths:
+      - "**/requirements.txt"
+      - "**/*.py"
+
+jobs:
+  pyright:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        python-version: ["3.7", "3.11"]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: "docs/requirements.txt"
+      - run: pip install -r "docs/requirements.txt"
+      - uses: jakebailey/pyright-action@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+  mypy:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        python-version: ["3.7", "3.11"]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: "docs/requirements.txt"
+      - run: pip install -r "docs/requirements.txt" mypy
+      - run: mypy .

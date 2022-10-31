@@ -5,16 +5,21 @@
 
 # We need to import the relevant object definitions from PyObjC
 
+import sys
+assert sys.platform == "darwin"
+
 import time
 
-from AppKit import *
+from AppKit import (  # type: ignore[import]
+    NSApp, NSObject, NSApplication, NSMakeRect, NSWindow, NSWindowStyleMaskTitled, NSWindowStyleMaskClosable,
+    NSWindowStyleMaskMiniaturizable, NSWindowStyleMaskResizable, NSBackingStoreBuffered)
 
-import pywinctl
+import pywinctl  # type: ignore[import]
 
 
 # Cocoa prefers composition to inheritance. The members of an object's
 # delegate will be called upon the happening of certain events. Once we define
-# methods with particular names, they will be called automatically 
+# methods with particular names, they will be called automatically
 class Delegate(NSObject):
 
     npw = None

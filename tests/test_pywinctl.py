@@ -5,8 +5,7 @@ import subprocess
 import sys
 import time
 
-import pytest
-import pywinctl
+import pywinctl  # type: ignore[import]  # pyright: ignore[reportMissingImports]
 
 
 def test_basic():

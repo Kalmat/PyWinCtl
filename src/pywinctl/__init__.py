@@ -1,20 +1,32 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+from __future__ import annotations
 
-__version__ = "0.0.39"
+from typing import NamedTuple
+from abc import ABC, abstractproperty, abstractmethod
 
-import collections
 import difflib
 import re
 import sys
 import threading
-from typing import Tuple, List
 
-import pyrect
+import pyrect  # type: ignore[import]  # TODO: Create type stubs or add to base library
 
-Rect = collections.namedtuple("Rect", "left top right bottom")
-Point = collections.namedtuple("Point", "x y")
-Size = collections.namedtuple("Size", "width height")
+__version__ = "0.0.39"
+
+class Rect(NamedTuple):
+    left: int
+    top: int
+    right: int
+    bottom: int
+
+class Point(NamedTuple):
+    x: int
+    y: int
+
+class Size(NamedTuple):
+    width: int
+    height: int
 
 
 def pointInRect(x, y, left, top, width, height):
@@ -90,19 +102,19 @@ def _levenshtein(seq1: str, seq2: str) -> float:
     dist = matrix[size_x - 1][size_y - 1]
     return (1 - dist / max(len(seq1), len(seq2))) * 100
 
+class BaseWindow(ABC):
+    @abstractproperty
+    def _rect(self) -> pyrect.Rect:
+        raise NotImplementedError
 
-class BaseWindow:
-    def __init__(self):
-        pass
-
-    def _setupRectProperties(self, bounds: Rect = None) -> None:
+    def _rectFactory(self, bounds: Rect | None = None):
 
         def _onRead(attrName):
             r = self._getWindowRect()
-            self._rect._left = r.left               # Setting _left directly to skip the onRead.
-            self._rect._top = r.top                 # Setting _top directly to skip the onRead.
-            self._rect._width = r.right - r.left    # Setting _width directly to skip the onRead.
-            self._rect._height = r.bottom - r.top   # Setting _height directly to skip the onRead.
+            rect._left = r.left               # Setting _left directly to skip the onRead.
+            rect._top = r.top                 # Setting _top directly to skip the onRead.
+            rect._width = r.right - r.left    # Setting _width directly to skip the onRead.
+            rect._height = r.bottom - r.top   # Setting _height directly to skip the onRead.
 
         def _onChange(oldBox, newBox):
             self._moveResizeTo(newBox.left, newBox.top, newBox.width, newBox.height)
@@ -111,8 +123,10 @@ class BaseWindow:
             r = bounds
         else:
             r = self._getWindowRect()
-        self._rect = pyrect.Rect(r.left, r.top, r.right - r.left, r.bottom - r.top, onChange=_onChange, onRead=_onRead)
+        rect = pyrect.Rect(r.left, r.top, r.right - r.left, r.bottom - r.top, onChange=_onChange, onRead=_onRead)
+        return rect
 
+    @abstractmethod
     def _getWindowRect(self) -> Rect:
         raise NotImplementedError
 
@@ -129,7 +143,8 @@ class BaseWindow:
             self.title,
         )
 
-    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
+    @abstractmethod
+    def getExtraFrameSize(self, includeBorder: bool = True) -> tuple[int, int, int, int]:
         """
         Get the extra space, in pixels, around the window, including or not the border.
         Notice not all applications/windows will use this property values
@@ -139,6 +154,7 @@ class BaseWindow:
         """
         raise NotImplementedError
 
+    @abstractmethod
     def getClientFrame(self):
         """
         Get the client area of window, as a Rect (x, y, right, bottom)
@@ -148,6 +164,7 @@ class BaseWindow:
         """
         raise NotImplementedError
 
+    @abstractmethod
     def close(self) -> bool:
         """Closes this window. This may trigger "Are you sure you want to
         quit?" dialogs or other actions that prevent the window from
@@ -155,51 +172,63 @@ class BaseWindow:
         window."""
         raise NotImplementedError
 
+    @abstractmethod
     def minimize(self, wait: bool = False) -> bool:
         """Minimizes this window."""
         raise NotImplementedError
 
+    @abstractmethod
     def maximize(self, wait: bool = False) -> bool:
         """Maximizes this window."""
         raise NotImplementedError
 
+    @abstractmethod
     def restore(self, wait: bool = False) -> bool:
         """If maximized or minimized, restores the window to it's normal size."""
         raise NotImplementedError
 
+    @abstractmethod
     def hide(self, wait: bool = False) -> bool:
         """If hidden or showing, hides the app from screen and title bar."""
         raise NotImplementedError
 
+    @abstractmethod
     def show(self, wait: bool = False) -> bool:
         """If hidden or showing, shows the window on screen and in title bar."""
         raise NotImplementedError
 
+    @abstractmethod
     def activate(self, wait: bool = False) -> bool:
         """Activate this window and make it the foreground window."""
         raise NotImplementedError
 
+    @abstractmethod
     def resize(self, widthOffset: int, heightOffset: int, wait: bool = False) -> bool:
         """Resizes the window relative to its current size."""
         raise NotImplementedError
     resizeRel = resize  # resizeRel is an alias for the resize() method.
 
+    @abstractmethod
     def resizeTo(self, newWidth: int, newHeight: int, wait: bool = False) -> bool:
         """Resizes the window to a new width and height."""
         raise NotImplementedError
 
+    @abstractmethod
     def move(self, xOffset: int, yOffset: int, wait: bool = False) -> bool:
         """Moves the window relative to its current position."""
         raise NotImplementedError
     moveRel = move  # moveRel is an alias for the move() method.
 
+    @abstractmethod
     def moveTo(self, newLeft:int, newTop: int, wait: bool = False) -> bool:
         """Moves the window to new coordinates on the screen."""
         raise NotImplementedError
 
+    @abstractmethod
     def _moveResizeTo(self, newLeft: int, newTop: int, newWidth: int, newHeight: int) -> bool:
         raise NotImplementedError
 
+    @abstractmethod
     def alwaysOnTop(self, aot: bool = True) -> bool:
         """Keeps window on top of all others.
 
@@ -207,6 +236,7 @@ class BaseWindow:
         """
         raise NotImplementedError
 
+    @abstractmethod
     def alwaysOnBottom(self, aob: bool = True) -> bool:
         """Keeps window below of all others, but on top of desktop icons and keeping all window properties
 
@@ -214,16 +244,19 @@ class BaseWindow:
         """
         raise NotImplementedError
 
+    @abstractmethod
     def lowerWindow(self) -> bool:
         """Lowers the window to the bottom so that it does not obscure any sibling windows.
         """
         raise NotImplementedError
 
+    @abstractmethod
     def raiseWindow(self) -> bool:
         """Raises the window to top so that it is not obscured by any sibling windows.
         """
         raise NotImplementedError
 
+    @abstractmethod
     def sendBehind(self, sb: bool = True) -> bool:
         """Sends the window to the very bottom, below all other windows, including desktop icons.
         It may also cause that the window does not accept focus nor keyboard/mouse events.
@@ -233,15 +266,18 @@ class BaseWindow:
         WARNING: On GNOME it will obscure desktop icons... by the moment"""
         raise NotImplementedError
 
+    @abstractmethod
     def getAppName(self) -> str:
         """Returns the name of the app to which current window belongs to, as string"""
         raise NotImplementedError
 
+    @abstractmethod
     def getParent(self):
         """Returns the handle of the window parent"""
         raise NotImplementedError
 
-    def getChildren(self) -> List[int]:
+    @abstractmethod
+    def getChildren(self) -> list[int]:
         """
         Get the children handles of current window
 
@@ -249,55 +285,60 @@ class BaseWindow:
         """
         raise NotImplementedError
 
+    @abstractmethod
     def getHandle(self):
         """Returns the handle of the window"""
         raise NotImplementedError
 
+    @abstractmethod
     def isParent(self, child) -> bool:
         """Returns ''True'' if the window is parent of the given window as input argument"""
         raise NotImplementedError
     isParentOf = isParent  # isParentOf is an alias of isParent method
 
+    @abstractmethod
     def isChild(self, parent) -> bool:
         """Returns ''True'' if the window is child of the given window as input argument"""
         raise NotImplementedError
     isChildOf = isChild  # isParentOf is an alias of isParent method
 
+    @abstractmethod
     def getDisplay(self) -> str:
         """Returns the name of the current window display (monitor)"""
         raise NotImplementedError
 
-    @property
+    @abstractproperty
     def isMinimized(self) -> bool:
         """Returns ''True'' if the window is currently minimized."""
         raise NotImplementedError
 
-    @property
+    @abstractproperty
     def isMaximized(self) -> bool:
         """Returns ''True'' if the window is currently maximized."""
         raise NotImplementedError
 
-    @property
+    @abstractproperty
     def isActive(self) -> bool:
         """Returns ''True'' if the window is currently the active, foreground window."""
         raise NotImplementedError
 
-    @property
+    @abstractproperty
     def title(self) -> str:
         """Returns the window title as a string."""
         raise NotImplementedError
 
-    @property
-    def updatedTitle(self) -> str:
-        """macOS Apple Script ONLY. Returns a similar window title from same app as a string."""
-        raise NotImplementedError
+    if sys.platform == "darwin":
+        @abstractproperty
+        def updatedTitle(self) -> str:
+            """macOS Apple Script ONLY. Returns a similar window title from same app as a string."""
+            raise NotImplementedError
 
-    @property
+    @abstractproperty
     def visible(self) -> bool:
         raise NotImplementedError
     isVisible = visible  # isVisible is an alias for the visible property.
 
-    @property
+    @abstractproperty
     def isAlive(self) -> bool:
         raise NotImplementedError
 
@@ -483,7 +524,6 @@ class BaseWindow:
         self._rect.box  # Run rect's onRead to update the Rect object.
         self._rect.box = value
 
-
 class _WinWatchDog(threading.Thread):
 
     def __init__(self, win: BaseWindow, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None, isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None, changedDisplayCB=None, interval=0.3):
@@ -552,20 +592,21 @@ class _WinWatchDog(threading.Thread):
             self._kill.wait(self._interval)
 
             try:
-                if self._isAliveCB or self._tryToFind:
+                if sys.platform == "darwin":
                     # In macOS AppScript version, if title changes, it will consider window is not alive anymore
-                    if not self._win.isAlive:
-                        if self._isAliveCB:
-                            self._isAliveCB(False)
-                        if self._tryToFind:
-                            title = self._win.title
-                            if self._title != title:
-                                title = self._win.updatedTitle
-                                self._title = title
-                                if self._changedTitleCB:
-                                    self._changedTitleCB(title)
-                        if not self._tryToFind or (self._tryToFind and not self._title):
-                            self.kill()
+                    if self._isAliveCB or self._tryToFind:
+                        if not self._win.isAlive:
+                            if self._isAliveCB:
+                                self._isAliveCB(False)
+                            if self._tryToFind:
+                                title = self._win.title
+                                if self._title != title:
+                                    title = self._win.updatedTitle
+                                    self._title = title
+                                    if self._changedTitleCB:
+                                        self._changedTitleCB(title)
+                            if not self._tryToFind or (self._tryToFind and not self._title):
+                                self.kill()
                             break
 
                 if self._isActiveCB:
@@ -639,7 +680,7 @@ class _WinWatchDog(threading.Thread):
         self._interval = interval
 
     def setTryToFind(self, tryToFind):
-        if type(self._win).__name__ == MacOSWindow.__name__:
+        if sys.platform == "darwin" and type(self._win).__name__ == MacOSWindow.__name__:
             self._tryToFind = tryToFind
 
     def kill(self):
@@ -654,70 +695,27 @@ class _WinWatchDog(threading.Thread):
 
 
 if sys.platform == "darwin":
-    from ._pywinctl_macos import (
-        MacOSWindow,
-        MacOSNSWindow,
-        checkPermissions,
-        getActiveWindow,
-        getActiveWindowTitle,
-        getAllWindows,
-        getAllTitles,
-        getWindowsWithTitle,
-        getAllAppsNames,
-        getAppsWithName,
-        getAllAppsWindowsTitles,
-        getWindowsAt,
-        getTopWindowAt,
-        getAllScreens,
-        getMousePos,
-        getScreenSize,
-        getWorkArea,
-    )
+    from ._pywinctl_macos import (MacOSNSWindow, MacOSWindow, checkPermissions, getActiveWindow, getActiveWindowTitle,
+                                  getAllAppsNames, getAllAppsWindowsTitles, getAllScreens, getAllTitles, getAllWindows,
+                                  getAppsWithName, getMousePos, getScreenSize, getTopWindowAt, getWindowsAt,
+                                  getWindowsWithTitle, getWorkArea)
 
     Window = MacOSWindow
     NSWindow = MacOSNSWindow
 
 elif sys.platform == "win32":
-    from ._pywinctl_win import (
-        Win32Window,
-        checkPermissions,
-        getActiveWindow,
-        getActiveWindowTitle,
-        getAllWindows,
-        getAllTitles,
-        getWindowsWithTitle,
-        getAllAppsNames,
-        getAppsWithName,
-        getAllAppsWindowsTitles,
-        getWindowsAt,
-        getTopWindowAt,
-        getAllScreens,
-        getMousePos,
-        getScreenSize,
-        getWorkArea,
-    )
+    from ._pywinctl_win import (Win32Window, checkPermissions, getActiveWindow, getActiveWindowTitle, getAllAppsNames,
+                                getAllAppsWindowsTitles, getAllScreens, getAllTitles, getAllWindows, getAppsWithName,
+                                getMousePos, getScreenSize, getTopWindowAt, getWindowsAt, getWindowsWithTitle,
+                                getWorkArea)
 
     Window = Win32Window
 
 elif sys.platform == "linux":
-    from ._pywinctl_linux import (
-        LinuxWindow,
-        checkPermissions,
-        getActiveWindow,
-        getActiveWindowTitle,
-        getAllWindows,
-        getAllTitles,
-        getWindowsWithTitle,
-        getAllAppsNames,
-        getAppsWithName,
-        getAllAppsWindowsTitles,
-        getWindowsAt,
-        getTopWindowAt,
-        getAllScreens,
-        getMousePos,
-        getScreenSize,
-        getWorkArea,
-    )
+    from ._pywinctl_linux import (LinuxWindow, checkPermissions, getActiveWindow, getActiveWindowTitle, getAllAppsNames,
+                                  getAllAppsWindowsTitles, getAllScreens, getAllTitles, getAllWindows, getAppsWithName,
+                                  getMousePos, getScreenSize, getTopWindowAt, getWindowsAt, getWindowsWithTitle,
+                                  getWorkArea)
 
     Window = LinuxWindow
 

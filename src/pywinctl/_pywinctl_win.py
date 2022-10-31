@@ -1,14 +1,16 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+from __future__ import annotations
+import sys
+from typing import cast
+assert sys.platform == "win32"
 
 import ctypes
-from ctypes import wintypes
-import sys
 import re
 import threading
 import time
 import traceback
-from typing import List, Tuple
+from ctypes import wintypes
 
 import win32api
 import win32con
@@ -17,7 +19,7 @@ import win32gui_struct
 import win32process
 from win32com.client import GetObject
 
-from pywinctl import pointInRect, BaseWindow, Rect, Point, Size, Re, _WinWatchDog
+from pywinctl import BaseWindow, Point, Re, Rect, Size, _WinWatchDog, pointInRect
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -75,7 +77,7 @@ def getAllWindows():
         if win32gui.IsWindowVisible(hwnd)]
 
 
-def getAllTitles() -> List[str]:
+def getAllTitles() -> list[str]:
     """
     Get the list of titles of all visible windows
 
@@ -128,7 +130,7 @@ def getWindowsWithTitle(title, app=(), condition=Re.IS, flags=0):
     return matches
 
 
-def getAllAppsNames() -> List[str]:
+def getAllAppsNames() -> list[str]:
     """
     Get the list of names of all visible apps
 
@@ -236,11 +238,11 @@ def getTopWindowAt(x: int, y: int):
     return Win32Window(hwnd) if hwnd else None
 
 
-def _findWindowHandles(parent: int = None, window_class: str = None, title: str = None, onlyVisible: bool = False) -> List[int]:
+def _findWindowHandles(parent: int | None = None, window_class: str | None = None, title: str | None = None, onlyVisible: bool = False) -> list[int]:
     # https://stackoverflow.com/questions/56973912/how-can-i-set-windows-10-desktop-background-with-smooth-transition
     # Fixed: original post returned duplicated handles when trying to retrieve all windows (no class nor title)
 
-    def _make_filter(class_name: str, title: str, onlyVisible=False):
+    def _make_filter(class_name: str | None, title: str | None, onlyVisible=False):
 
         def enum_windows(handle: int, h_list: list):
             if class_name and class_name not in win32gui.GetClassName(handle):
@@ -320,10 +322,18 @@ def _getWindowInfo(hWnd):
 
 
 class Win32Window(BaseWindow):
+    @property
+    def _rect(self):
+        return self.__rect
+
+    @_rect.setter
+    def _rect(self, value):
+        self.__rect = value
+
     def __init__(self, hWnd: int):
         super().__init__()
         self._hWnd = hWnd
-        self._setupRectProperties()
+        self.__rect = self._rectFactory()
         self._parent = win32gui.GetParent(self._hWnd)
         self._t = None
         self.menu = self._Menu(self)
@@ -334,7 +344,7 @@ class Win32Window(BaseWindow):
         x, y, r, b = win32gui.GetWindowRect(self._hWnd)
         return Rect(x, y, r, b)
 
-    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
+    def getExtraFrameSize(self, includeBorder: bool = True) -> tuple[int, int, int, int]:
         """
         Get the invisible space, in pixels, around the window, including or not the visible resize border (usually 1px)
         This can be useful to accurately adjust window position and size to the desired visible space
@@ -372,7 +382,7 @@ class Win32Window(BaseWindow):
         rcClient = self._rect
         if wi:
             rcClient = wi.rcClient
-        return Rect(rcClient.left, rcClient.top, rcClient.right, rcClient.bottom)
+        return Rect(int(rcClient.left), int(rcClient.top), int(rcClient.right), int(rcClient.bottom))
 
     def __repr__(self):
         return '%s(hWnd=%s)' % (self.__class__.__name__, self._hWnd)
@@ -483,7 +493,7 @@ class Win32Window(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
-        return self.resizeTo(self.width + widthOffset, self.height + heightOffset, wait)
+        return self.resizeTo(int(self.width + widthOffset), int(self.height + heightOffset), wait)
 
     resizeRel = resize  # resizeRel is an alias for the resize() method.
 
@@ -496,9 +506,9 @@ class Win32Window(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
-        result = win32gui.MoveWindow(self._hWnd, self.left, self.top, newWidth, newHeight, True)
+        win32gui.MoveWindow(self._hWnd, self.left, self.top, newWidth, newHeight, True)
         retries = 0
-        while result != 0 and wait and retries < WAIT_ATTEMPTS and (self.width != newWidth or self.height != newHeight):
+        while wait and retries < WAIT_ATTEMPTS and (self.width != newWidth or self.height != newHeight):
             retries += 1
             time.sleep(WAIT_DELAY * retries)
         return self.width == newWidth and self.height == newHeight
@@ -512,11 +522,11 @@ class Win32Window(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
-        return self.moveTo(self.left + xOffset, self.top + yOffset, wait)
+        return self.moveTo(int(self.left + xOffset), int(self.top + yOffset), wait)
 
     moveRel = move  # moveRel is an alias for the move() method.
 
-    def moveTo(self, newLeft:int, newTop: int, wait: bool = False) -> bool:
+    def moveTo(self, newLeft: int, newTop: int, wait: bool = False) -> bool:
         """
         Moves the window to new coordinates on the screen.
         In a multi-display environment, you can move the window to a different monitor using the coordinates
@@ -527,9 +537,9 @@ class Win32Window(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
-        result = win32gui.MoveWindow(self._hWnd, newLeft, newTop, self.width, self.height, True)
+        win32gui.MoveWindow(self._hWnd, newLeft, newTop, self.width, self.height, True)
         retries = 0
-        while result != 0 and wait and retries < WAIT_ATTEMPTS and (self.left != newLeft or self.top != newTop):
+        while wait and retries < WAIT_ATTEMPTS and (self.left != newLeft or self.top != newTop):
             retries += 1
             time.sleep(WAIT_DELAY * retries)
         return self.left == newLeft and self.top == newTop
@@ -538,7 +548,7 @@ class Win32Window(BaseWindow):
         win32gui.MoveWindow(self._hWnd, newLeft, newTop, newWidth, newHeight, True)
         return newLeft == self.left and newTop == self.top and newWidth == self.width and newHeight == self.height
 
-    def alwaysOnTop(self, aot: bool = True) -> bool:
+    def alwaysOnTop(self, aot: bool = True):
         """
         Keeps window on top of all others.
 
@@ -549,8 +559,7 @@ class Win32Window(BaseWindow):
             self._t.kill()
         # https://stackoverflow.com/questions/25381589/pygame-set-window-on-top-without-changing-its-position/49482325 (kmaork)
         zorder = win32con.HWND_TOPMOST if aot else win32con.HWND_NOTOPMOST
-        result = win32gui.SetWindowPos(self._hWnd, zorder, 0, 0, 0, 0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
-        return result != 0
+        win32gui.SetWindowPos(self._hWnd, zorder, 0, 0, 0, 0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
 
     def alwaysOnBottom(self, aob: bool = True) -> bool:
         """
@@ -561,45 +570,43 @@ class Win32Window(BaseWindow):
         """
         ret = False
         if aob:
-            result = win32gui.SetWindowPos(self._hWnd, win32con.HWND_BOTTOM, 0, 0, 0, 0,
+            win32gui.SetWindowPos(self._hWnd, win32con.HWND_BOTTOM, 0, 0, 0, 0,
                                            win32con.SWP_NOSENDCHANGING | win32con.SWP_NOOWNERZORDER | win32con.SWP_ASYNCWINDOWPOS | win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE | win32con.SWP_NOREDRAW | win32con.SWP_NOCOPYBITS)
-            if result != 0:
-                # There is no HWND_TOPBOTTOM (similar to TOPMOST), so it won't keep window below all others as desired
-                # May be catching WM_WINDOWPOSCHANGING event? Not sure if possible for a "foreign" window, and seems really complex
-                # https://stackoverflow.com/questions/64529896/attach-keyboard-hook-to-specific-window
-                # TODO: Try to find other smarter methods to keep window at the bottom
-                ret = True
-                if self._t is None:
-                    self._t = _SendBottom(self._hWnd)
-                    # Not sure about the best behavior: stop thread when program ends or keeping sending window below
-                    self._t.setDaemon(True)
-                    self._t.start()
-                else:
-                    self._t.restart()
+            # There is no HWND_TOPBOTTOM (similar to TOPMOST), so it won't keep window below all others as desired
+            # May be catching WM_WINDOWPOSCHANGING event? Not sure if possible for a "foreign" window, and seems really complex
+            # https://stackoverflow.com/questions/64529896/attach-keyboard-hook-to-specific-window
+            # TODO: Try to find other smarter methods to keep window at the bottom
+            ret = True
+            if self._t is None:
+                self._t = _SendBottom(self._hWnd)
+                # Not sure about the best behavior: stop thread when program ends or keeping sending window below
+                self._t.setDaemon(True)
+                self._t.start()
+            else:
+                self._t.restart()
         else:
-            self._t.kill()
+            if self._t:
+                self._t.kill()
             ret = self.sendBehind(sb=False)
         return ret
 
-    def lowerWindow(self) -> bool:
+    def lowerWindow(self):
         """
         Lowers the window to the bottom so that it does not obscure any sibling windows
 
         :return: ''True'' if window lowered
         """
-        result = win32gui.SetWindowPos(self._hWnd, win32con.HWND_BOTTOM, 0, 0, 0, 0,
+        win32gui.SetWindowPos(self._hWnd, win32con.HWND_BOTTOM, 0, 0, 0, 0,
                                        win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE)
-        return result != 0
 
-    def raiseWindow(self) -> bool:
+    def raiseWindow(self):
         """
         Raises the window to top so that it is not obscured by any sibling windows.
 
         :return: ''True'' if window raised
         """
-        result = win32gui.SetWindowPos(self._hWnd, win32con.HWND_TOP, 0, 0, 0, 0,
+        win32gui.SetWindowPos(self._hWnd, win32con.HWND_TOP, 0, 0, 0, 0,
                                        win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE)
-        return result != 0
 
     def sendBehind(self, sb: bool = True) -> bool:
         """
@@ -673,7 +680,7 @@ class Win32Window(BaseWindow):
         """
         return win32gui.GetParent(self._hWnd)
 
-    def getChildren(self) -> List[int]:
+    def getChildren(self) -> list[int]:
         """
         Get the children handles of current window
 
@@ -732,7 +739,7 @@ class Win32Window(BaseWindow):
 
         def findContent(childWindow):
             bufferSize = win32gui.SendMessage(childWindow, win32con.WM_GETTEXTLENGTH, 0, 0) * 2
-            buf = win32gui.PyMakeBuffer(bufferSize)
+            buf = win32gui.PyMakeBuffer(bufferSize)  # pyright: ignore[reportGeneralTypeIssues]  # deprecated
             win32gui.SendMessage(childWindow, win32con.WM_GETTEXT, bufferSize, buf)
             a = buf.tobytes().decode('UTF-16', 'replace')
             if a:
@@ -794,7 +801,11 @@ class Win32Window(BaseWindow):
         """
         return win32gui.IsWindowVisible(self._hWnd) != 0
 
-    isVisible = visible  # isVisible is an alias for the visible property.
+    # Must cast because mypy thinks the property is a callable
+    # https://github.com/python/mypy/issues/2563
+    # https://github.com/python/mypy/issues/11619
+    # https://github.com/python/mypy/issues/13975
+    isVisible: bool = cast(bool, visible)  # isVisible is an alias for the visible property.
 
     @property
     def isAlive(self) -> bool:
@@ -932,7 +943,8 @@ class Win32Window(BaseWindow):
             """
             Stop the entire WatchDog and all its hooks
             """
-            self._watchdog.kill()
+            if self._watchdog:
+                self._watchdog.kill()
 
         def isAlive(self):
             """Check if watchdog is running
@@ -947,7 +959,7 @@ class Win32Window(BaseWindow):
 
     class _Menu:
 
-        def __init__(self, parent: BaseWindow):
+        def __init__(self, parent: Win32Window):
             self._parent = parent
             self._hWnd = parent._hWnd
             self._hMenu = win32gui.GetMenu(self._hWnd)
@@ -985,7 +997,7 @@ class Win32Window(BaseWindow):
                         sub-items within the sub-menu (if any)
             """
 
-            def findit(parent: int, level: str = "", parentRect: Rect = None) -> None:
+            def findit(parent: int, level: str = "", parentRect: Rect | None = None) -> None:
 
                 option = self._menuStructure
                 if level:
@@ -994,6 +1006,8 @@ class Win32Window(BaseWindow):
 
                 for i in range(win32gui.GetMenuItemCount(parent)):
                     item_info = self._getMenuItemInfo(hSubMenu=parent, itemPos=i)
+                    if not item_info or not item_info.text or item_info.hSubMenu is None:
+                        continue
                     text = item_info.text.split("\t")
                     title = (text[0].replace("&", "")) or "separator"
                     shortcut = "" if len(text) < 2 else text[1]
@@ -1008,7 +1022,7 @@ class Win32Window(BaseWindow):
                 findit(self._hMenu)
             return self._menuStructure
 
-        def clickMenuItem(self, itemPath: list = None, wID: int = 0) -> bool:
+        def clickMenuItem(self, itemPath: list | None = None, wID: int = 0) -> bool:
             """
             Simulates a click on a menu item
 
@@ -1047,7 +1061,7 @@ class Win32Window(BaseWindow):
 
             return found
 
-        def getMenuInfo(self, hSubMenu: int = 0) -> win32gui_struct.UnpackMENUINFO:
+        def getMenuInfo(self, hSubMenu: int = 0):
             """
             Returns the MENUINFO struct of the given sub-menu or main menu if none given
 
@@ -1075,7 +1089,7 @@ class Win32Window(BaseWindow):
                 hSubMenu = self._hMenu
             return win32gui.GetMenuItemCount(hSubMenu)
 
-        def getMenuItemInfo(self, hSubMenu: int, wID: int) -> win32gui_struct.UnpackMENUITEMINFO:
+        def getMenuItemInfo(self, hSubMenu: int, wID: int):
             """
             Returns the MENUITEMINFO struct for the given menu item
 
@@ -1090,7 +1104,7 @@ class Win32Window(BaseWindow):
                 item_info = win32gui_struct.UnpackMENUITEMINFO(buf)
             return item_info
 
-        def _getMenuItemInfo(self, hSubMenu: int, itemPos: int) -> win32gui_struct.UnpackMENUITEMINFO:
+        def _getMenuItemInfo(self, hSubMenu: int, itemPos: int):
             item_info = None
             if self._hMenu:
                 buf, extras = win32gui_struct.EmptyMENUITEMINFO()
@@ -1135,15 +1149,15 @@ class Win32Window(BaseWindow):
             itemPos = findit(self._menuStructure, hSubMenu, wID)
             ret = Rect(0, 0, 0, 0)
             if self._hMenu and 0 <= itemPos < self.getMenuItemCount(hSubMenu=hSubMenu):
-                [result, (x, y, r, b)] = win32gui.GetMenuItemRect(self._hWnd, hSubMenu, itemPos)
+                result, (x, y, r, b) = win32gui.GetMenuItemRect(self._hWnd, hSubMenu, itemPos)
                 if result != 0:
                     ret = Rect(x, y, r, b)
             return ret
 
-        def _getMenuItemRect(self, hSubMenu: int, itemPos: int, parentRect: Rect = None, relative: bool = False) -> Rect:
+        def _getMenuItemRect(self, hSubMenu: int, itemPos: int, parentRect: Rect | None = None, relative: bool = False):
             ret = None
             if self._hMenu and hSubMenu and 0 <= itemPos < self.getMenuItemCount(hSubMenu=hSubMenu):
-                [result, (x, y, r, b)] = win32gui.GetMenuItemRect(self._hWnd, hSubMenu, itemPos)
+                result, (x, y, r, b) = win32gui.GetMenuItemRect(self._hWnd, hSubMenu, itemPos)
                 if result != 0:
                     if relative:
                         x = abs(abs(x) - abs(self._parent.left))
@@ -1152,7 +1166,7 @@ class Win32Window(BaseWindow):
                         b = abs(abs(b) - abs(self._parent.top))
                     if parentRect:
                         x = parentRect.left
-                    ret = Rect(x, y, r, b)
+                    ret = Rect(int(x), int(y), int(r), int(b))
             return ret
 
 
@@ -1305,7 +1319,7 @@ def getScreenSize(name: str = "") -> Size:
     :param name: name of the screen as returned by getAllScreens() and getDisplay() methods.
     :return: Size struct or None
     """
-    size = None
+    size = Size(0, 0)
     screens = getAllScreens()
     for key in screens.keys():
         if (name and key == name) or (not name and screens[key]["is_primary"]):
@@ -1324,7 +1338,7 @@ def getWorkArea(name: str = "") -> Rect:
     :return: Rect struct or None
     """
     screens = getAllScreens()
-    workarea = None
+    workarea = Rect(0, 0, 0, 0)
     for key in screens.keys():
         if (name and key == name) or (not name and screens[key]["is_primary"]):
             workarea = screens[key]["workarea"]
@@ -1377,7 +1391,10 @@ def main():
     print("SCREEN SIZE:", resolution())
     print("ALL WINDOWS", getAllTitles())
     npw = getActiveWindow()
-    print("ACTIVE WINDOW:", npw.title, "/", npw.box)
+    if npw is None:
+        print("ACTIVE WINDOW:", None)
+    else:
+        print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()
     displayWindowsUnderMouse(0, 0)
 
