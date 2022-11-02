@@ -1,20 +1,23 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 from __future__ import annotations
+import sys
+assert sys.platform == "darwin"
 
 import ast
 import difflib
 import platform
 import subprocess
 import re
-import sys
 import time
 import traceback
 import threading
-from typing import List, Optional, Tuple, Union
 
-import AppKit
-import Quartz
+# https://github.com/ronaldoussoren/pyobjc/issues/198
+# https://github.com/ronaldoussoren/pyobjc/issues/417
+# https://github.com/ronaldoussoren/pyobjc/issues/419
+import AppKit  # type: ignore[import]
+import Quartz  # type: ignore[import]
 
 from pywinctl import pointInRect, BaseWindow, Rect, Point, Size, Re, _WinWatchDog
 
@@ -58,7 +61,7 @@ def checkPermissions(activate: bool = False):
     return ret == "true"
 
 
-def getActiveWindow(app: AppKit.NSApplication = None):
+def getActiveWindow(app: AppKit.NSApplication | None = None):
     """
     Get the currently active (focused) Window
 
@@ -72,7 +75,7 @@ def getActiveWindow(app: AppKit.NSApplication = None):
                     set appID to ""
                     set winName to ""
                     try
-                        tell application "System Events" 
+                        tell application "System Events"
                             set appName to name of first application process whose frontmost is true
                             set appID to unix id of application process appName
                             tell application process appName
@@ -93,7 +96,7 @@ def getActiveWindow(app: AppKit.NSApplication = None):
         if appID:  # and title:
             apps = _getAllApps()
             for app in apps:
-                if str(app.processIdentifier()) == appID:
+                if str(app.processIdentifier()) == appID:  # pyright: ignore[reportOptionalMemberAccess]  # Is Unknown, but not None
                     return MacOSWindow(app, title)
     else:
         for win in app.orderedWindows():  # .keyWindow() / .mainWindow() not working?!?!?!
@@ -101,7 +104,7 @@ def getActiveWindow(app: AppKit.NSApplication = None):
     return None
 
 
-def getActiveWindowTitle(app: AppKit.NSApplication = None) -> str:
+def getActiveWindowTitle(app: AppKit.NSApplication | None = None) -> str:
     """
     Get the title of the currently active (focused) Window
 
@@ -110,19 +113,19 @@ def getActiveWindowTitle(app: AppKit.NSApplication = None) -> str:
     """
     win = getActiveWindow(app)
     if win:
-        return win.title
+        return win.title or ""
     else:
         return ""
 
 
-def getAllWindows(app: AppKit.NSApplication = None):
+def getAllWindows(app: AppKit.NSApplication | None = None):
     """
     Get the list of Window objects for all visible windows
 
     :param app: (optional) NSApp() object. If passed, returns the Window objects of all windows of given app
     :return: list of Window objects
     """
-    windows: list[Union[MacOSNSWindow, MacOSWindow]] = []
+    windows: list[MacOSNSWindow | MacOSWindow] = []
     if not app:
         activeApps = _getAllApps()
         titleList = _getWindowTitles()
@@ -141,7 +144,7 @@ def getAllWindows(app: AppKit.NSApplication = None):
             except:
                 continue
             for app in activeApps:
-                if app.processIdentifier() == pID:
+                if app.processIdentifier() == pID:  # pyright: ignore[reportOptionalMemberAccess]  # Is Unknown, but not None
                     windows.append(MacOSWindow(app, title, rect))
                     break
     else:
@@ -150,7 +153,7 @@ def getAllWindows(app: AppKit.NSApplication = None):
     return windows
 
 
-def getAllTitles(app: AppKit.NSApplication = None) -> List[str]:
+def getAllTitles(app: AppKit.NSApplication | None = None):
     """
     Get the list of titles of all visible windows
 
@@ -234,7 +237,7 @@ def getWindowsWithTitle(title, app=(), condition=Re.IS, flags=0):
     return matches
 
 
-def getAllAppsNames() -> List[str]:
+def getAllAppsNames() -> list[str]:
     """
     Get the list of names of all visible apps
 
@@ -243,7 +246,7 @@ def getAllAppsNames() -> List[str]:
     cmd = """osascript -s 's' -e 'tell application "System Events"
                                     set winNames to {}
                                     try
-                                        set winNames to name of every process whose background only is false  
+                                        set winNames to name of every process whose background only is false
                                     end try
                                 end tell
                                 return winNames'"""
@@ -320,7 +323,7 @@ def getAllAppsWindowsTitles() -> dict:
     return result
 
 
-def getWindowsAt(x: int, y: int, app: AppKit.NSApplication = None, allWindows: Optional[list[MacOSNSWindow | MacOSWindow]] = None):
+def getWindowsAt(x: int, y: int, app: AppKit.NSApplication | None = None, allWindows: list[MacOSNSWindow | MacOSWindow] | None = None):
     """
     Get the list of Window objects whose windows contain the point ``(x, y)`` on screen
 
@@ -339,7 +342,7 @@ def getWindowsAt(x: int, y: int, app: AppKit.NSApplication = None, allWindows: O
         if pointInRect(x, y, box.left, box.top, box.width, box.height)]
 
 
-def getTopWindowAt(x: int, y: int, app: AppKit.NSApplication = None, allWindows: Optional[list[MacOSNSWindow | MacOSWindow]] = None):
+def getTopWindowAt(x: int, y: int, app: AppKit.NSApplication | None = None, allWindows: list[MacOSNSWindow | MacOSWindow] | None = None):
     """
     Get *a* Window object at the point ``(x, y)`` on screen.
     Which window is not garranteed. See https://github.com/Kalmat/PyWinCtl/issues/20#issuecomment-1193348238
@@ -408,7 +411,7 @@ def _getAppWindowsTitles(appName):
     return res or []
 
 
-def _getWindowTitles() -> List[List[str]]:
+def _getWindowTitles() -> list[list[str]]:
     # https://gist.github.com/qur2/5729056 - qur2
     cmd = """osascript -s 's' -e 'tell application "System Events"
                                     set winNames to {}
@@ -453,25 +456,35 @@ def _getBorderSizes():
 
 
 class MacOSWindow(BaseWindow):
+    @property
+    def _rect(self):
+        return self.__rect
 
-    def __init__(self, app: AppKit.NSRunningApplication, title: str, bounds: Rect = None):
+    @_rect.setter
+    def _rect(self, value):
+        self.__rect = value
+
+    def __init__(self, app: AppKit.NSRunningApplication, title: str, bounds: Rect | None = None):
         super().__init__()
         self._app = app
         self._appName = app.localizedName()
         self._appPID = app.processIdentifier()
         self._winTitle = title
         # self._parent = self.getParent()  # It is slow and not required by now
-        self._setupRectProperties(bounds=bounds)
+        self.__rect = self._rectFactory(bounds=bounds)
         v = platform.mac_ver()[0].split(".")
         ver = float(v[0]+"."+v[1])
         # On Yosemite and below we need to use Zoom instead of FullScreen to maximize windows
         self._use_zoom = (ver <= 10.10)
-        self._tt = None
-        self._tb = None
+        self._tt: _SendTop | None = None
+        self._tb: _SendBottom | None = None
         self.menu = self._Menu(self)
         self.watchdog = self._WatchDog(self)
 
     def _getWindowRect(self) -> Rect:
+        if not self.title:
+            return Rect(0,0,0,0)
+
         cmd = """on run {arg1, arg2}
                     set procName to arg1
                     set winName to arg2
@@ -491,7 +504,7 @@ class MacOSWindow(BaseWindow):
         w = ret.replace("\n", "").strip().split(", ")
         return Rect(int(w[0]), int(w[1]), int(w[0]) + int(w[2]), int(w[1]) + int(w[3]))
 
-    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
+    def getExtraFrameSize(self, includeBorder: bool = True) -> tuple[int, int, int, int]:
         """
         Get the invisible space, in pixels, around the window, including or not the visible resize border
 
@@ -510,7 +523,7 @@ class MacOSWindow(BaseWindow):
         # https://www.macscripter.net/viewtopic.php?id=46336 --> Won't allow access to NSWindow objects, but interesting
         # Didn't find a way to get menu bar height using Apple Script
         titleHeight, borderWidth = _getBorderSizes()
-        res = Rect(self.left + borderWidth, self.top + titleHeight, self.right - borderWidth, self.bottom - borderWidth)
+        res = Rect(int(self.left + borderWidth), int(self.top + titleHeight), int(self.right - borderWidth), int(self.bottom - borderWidth))
         return res
 
     def __repr__(self):
@@ -528,6 +541,9 @@ class MacOSWindow(BaseWindow):
 
         :return: ''True'' if window is closed
         """
+        if not self.title:
+            return False
+
         self.show()
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
@@ -552,6 +568,9 @@ class MacOSWindow(BaseWindow):
         :param wait: set to ''True'' to confirm action requested (in a reasonable time)
         :return: ''True'' if window minimized
         """
+        if not self.title:
+            return False
+
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
@@ -577,6 +596,9 @@ class MacOSWindow(BaseWindow):
         :param wait: set to ''True'' to confirm action requested (in a reasonable time)
         :return: ''True'' if window maximized
         """
+        if not self.title:
+            return False
+
         # Thanks to: macdeport (for this piece of code, his help, and the moral support!!!)
         if not self.isMaximized:
             if self._use_zoom:
@@ -615,6 +637,9 @@ class MacOSWindow(BaseWindow):
         :param wait: set to ''True'' to confirm action requested (in a reasonable time)
         :return: ''True'' if window restored
         """
+        if not self.title:
+            return False
+
         if self.isMaximized:
             if self._use_zoom:
                 cmd = """on run {arg1, arg2}
@@ -667,6 +692,9 @@ class MacOSWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window showed
         """
+        if not self.title:
+            return False
+
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
@@ -699,6 +727,9 @@ class MacOSWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window hidden
         """
+        if not self.title:
+            return False
+
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
@@ -731,6 +762,9 @@ class MacOSWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window activated
         """
+        if not self.title:
+            return False
+
         if not self.isVisible:
             self.show(wait=wait)
         if self.isMinimized or self.isMaximized:
@@ -742,7 +776,7 @@ class MacOSWindow(BaseWindow):
                     try
                         tell application "System Events" to tell application process appName
                             set frontmost to true
-                            tell window winName to set value of attribute "AXMain" to true 
+                            tell window winName to set value of attribute "AXMain" to true
                         end tell
                     end try
                 end run"""
@@ -762,7 +796,7 @@ class MacOSWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
-        return self.resizeTo(self.width + widthOffset, self.height + heightOffset, wait)
+        return self.resizeTo(int(self.width + widthOffset), int(self.height + heightOffset), wait)
 
     resizeRel = resize  # resizeRel is an alias for the resize() method.
 
@@ -773,6 +807,9 @@ class MacOSWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
+        if not self.title:
+            return False
+
         # https://apple.stackexchange.com/questions/350256/how-to-move-mac-os-application-to-specific-display-and-also-resize-automatically
         cmd = """on run {arg1, arg2, arg3, arg4}
                     set appName to arg1 as string
@@ -801,7 +838,7 @@ class MacOSWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
-        return self.moveTo(self.left + xOffset, self.top + yOffset, wait)
+        return self.moveTo(int(self.left + xOffset), int(self.top + yOffset), wait)
 
     moveRel = move  # moveRel is an alias for the move() method.
 
@@ -812,6 +849,9 @@ class MacOSWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
+        if not self.title:
+            return False
+
         # https://apple.stackexchange.com/questions/350256/how-to-move-mac-os-application-to-specific-display-and-also-resize-automatically
         cmd = """on run {arg1, arg2, arg3, arg4}
                     set appName to arg1 as string
@@ -834,6 +874,9 @@ class MacOSWindow(BaseWindow):
         return self.left == newLeft and self.top == newTop
 
     def _moveResizeTo(self, newLeft: int, newTop: int, newWidth: int, newHeight: int) -> bool:
+        if not self.title:
+            return False
+
         cmd = """on run {arg1, arg2, arg3, arg4, arg5, arg6}
                     set appName to arg1 as string
                     set winName to arg2 as string
@@ -878,7 +921,7 @@ class MacOSWindow(BaseWindow):
                 self._tt.start()
             else:
                 self._tt.restart()
-        else:
+        elif self._tt:
             self._tt.kill()
         return ret
 
@@ -901,16 +944,19 @@ class MacOSWindow(BaseWindow):
                 self._tb.start()
             else:
                 self._tb.restart()
-        else:
+        elif self._tb:
             self._tb.kill()
         return ret
 
-    def lowerWindow(self) -> None:
+    def lowerWindow(self):
         """
         Lowers the window to the bottom so that it does not obscure any sibling windows
 
         :return: ''True'' if window lowered
         """
+        if not self.title:
+            return False
+
         # https://apple.stackexchange.com/questions/233687/how-can-i-send-the-currently-active-window-to-the-back
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
@@ -927,18 +973,22 @@ class MacOSWindow(BaseWindow):
                                 end repeat
                             end if
                         end tell
-                    end try 
+                    end try
                end run""" % self._appName
         proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
+        return not err
 
-    def raiseWindow(self) -> None:
+    def raiseWindow(self):
         """
         Raises the window to top so that it is not obscured by any sibling windows.
 
         :return: ''True'' if window raised
         """
+        if not self.title:
+            return False
+
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
@@ -951,6 +1001,7 @@ class MacOSWindow(BaseWindow):
         proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
+        return not err
 
     def sendBehind(self, sb: bool = True) -> bool:
         """
@@ -978,6 +1029,9 @@ class MacOSWindow(BaseWindow):
 
         :return: handle (role:name) of the window parent as string. Role can take "AXApplication" or "AXWindow" values according to its type
         """
+        if not self.title:
+            return ""
+
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
@@ -1009,6 +1063,9 @@ class MacOSWindow(BaseWindow):
 
         :return: list of handles (role:name) as string. Role can only be "AXWindow" in this case
         """
+        if not self.title:
+            return []
+
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
@@ -1038,7 +1095,8 @@ class MacOSWindow(BaseWindow):
 
         :return: window handle (role:name) as string. Role can only be "AXWindow" in this case
         """
-        return "AXWindow" + SEP + self.title
+
+        return f"AXWindow{SEP}{self.title}"
 
     def isParent(self, child: str) -> bool:
         """
@@ -1089,6 +1147,9 @@ class MacOSWindow(BaseWindow):
 
         :return: ``True`` if the window is minimized
         """
+        if not self.title:
+            return False
+
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
                     set winName to arg2 as string
@@ -1113,6 +1174,9 @@ class MacOSWindow(BaseWindow):
 
         :return: ``True`` if the window is maximized
         """
+        if not self.title:
+            return False
+
         if self._use_zoom:
             cmd = """on run {arg1, arg2}
                         set appName to arg1 as string
@@ -1154,7 +1218,7 @@ class MacOSWindow(BaseWindow):
         return active is not None and active._app == self._app and active.title == self.title
 
     @property
-    def title(self) -> Union[str, None]:
+    def title(self) -> str | None:  # type: ignore[override]
         """
         Get the current window title, as string.
         IMPORTANT: window title may change. In that case, it will return None.
@@ -1209,6 +1273,9 @@ class MacOSWindow(BaseWindow):
         Check if window (and application) still exists (minimized and hidden windows are included as existing)
         :return: ''True'' if window exists
         """
+        if not self.title:
+            return False
+
         ret = "false"
         if self._app in WS.runningApplications():
             cmd = """on run {arg1, arg2}
@@ -1357,7 +1424,8 @@ class MacOSWindow(BaseWindow):
             """
             Stop the entire WatchDog and all its hooks
             """
-            self._watchdog.kill()
+            if self._watchdog:
+                self._watchdog.kill()
 
         def isAlive(self):
             """Check if watchdog is running
@@ -1372,7 +1440,7 @@ class MacOSWindow(BaseWindow):
 
     class _Menu:
 
-        def __init__(self, parent: BaseWindow):
+        def __init__(self, parent: MacOSWindow):
             self._parent = parent
             self._menuStructure = {}
             self.menuList = []
@@ -1493,8 +1561,8 @@ class MacOSWindow(BaseWindow):
 
             def fillit():
 
-                def subfillit(subNameList, subSizeList, subPosList, subAttrList, section="", level=0, mainlevel=0, path=[], parent=0):
-
+                def subfillit(subNameList, subSizeList, subPosList, subAttrList, section="", level=0, mainlevel=0, path: list[int] | None=None, parent=0):
+                    path = path or []
                     option = self._menuStructure
                     if section:
                         for sec in section.split(SEP):
@@ -1555,7 +1623,7 @@ class MacOSWindow(BaseWindow):
 
             return self._menuStructure
 
-        def clickMenuItem(self, itemPath: list = None, wID: int = 0) -> bool:
+        def clickMenuItem(self, itemPath: list | None = None, wID: int = 0) -> bool:
             """
             Simulates a click on a menu item
 
@@ -1690,7 +1758,7 @@ class MacOSWindow(BaseWindow):
             :param wID: id of the window within menu struct (as returned by :meth: getMenu())
             :return: MENUITEMINFO struct
             """
-            itemInfo = []
+            itemInfo = {}
             if self._checkMenuStruct():
                 if wID == -1:
                     itemPath = self._getPathFromHSubMenu(hSubMenu)
@@ -1904,7 +1972,7 @@ class MacOSWindow(BaseWindow):
             # Noticed in  Google Chrome navigating previous tab
             elif virtual_key == 123 and glyph == 100:
                 key = "<left>"
-            # List application in a window to Force Quit
+            # list application in a window to Force Quit
             elif virtual_key == 53 and glyph == 27:
                 key = "<escape>"
 
@@ -1973,13 +2041,20 @@ class _SendBottom(threading.Thread):
 
 
 class MacOSNSWindow(BaseWindow):
+    @property
+    def _rect(self):
+        return self.__rect
+
+    @_rect.setter
+    def _rect(self, value):
+        self.__rect = value
 
     def __init__(self, app: AppKit.NSApplication, hWnd: AppKit.NSWindow):
         super().__init__()
         self._app = app
         self._hWnd = hWnd
         self._parent = hWnd.parentWindow()
-        self._setupRectProperties()
+        self.__rect = self._rectFactory()
         self.watchdog = self._WatchDog(self)
 
     def _getWindowRect(self) -> Rect:
@@ -1991,7 +2066,7 @@ class MacOSNSWindow(BaseWindow):
         h = y + int(frame.size.height)
         return Rect(x, y, w, h)
 
-    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
+    def getExtraFrameSize(self, includeBorder: bool = True) -> tuple[int, int, int, int]:
         """
         Get the extra space, in pixels, around the window, including or not the border
 
@@ -2135,7 +2210,7 @@ class MacOSNSWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
-        return self.resizeTo(self.width + widthOffset, self.height + heightOffset, wait)
+        return self.resizeTo(int(self.width + widthOffset), int(self.height + heightOffset), wait)
 
     resizeRel = resize  # resizeRel is an alias for the resize() method.
 
@@ -2160,7 +2235,7 @@ class MacOSNSWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
-        return self.moveTo(self.left + xOffset, self.top + yOffset, wait)
+        return self.moveTo(int(self.left + xOffset), int(self.top + yOffset), wait)
 
     moveRel = move  # moveRel is an alias for the move() method.
 
@@ -2270,7 +2345,7 @@ class MacOSNSWindow(BaseWindow):
         """
         return self._hWnd.parentWindow()
 
-    def getChildren(self) -> List[int]:
+    def getChildren(self) -> list[int]:
         """
         Get the children handles of current window
 
@@ -2360,6 +2435,10 @@ class MacOSNSWindow(BaseWindow):
         return self._hWnd.title()
 
     @property
+    def updatedTitle(self) -> str:
+        raise NotImplementedError
+
+    @property
     def visible(self) -> bool:
         """
         Check if current window is visible (minimized windows are also visible)
@@ -2440,8 +2519,9 @@ class MacOSNSWindow(BaseWindow):
                     self._watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB,
                                                   isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB,
                                                   interval)
-                self._watchdog.setDaemon(True)
-                self._watchdog.start()
+                if self._watchdog:
+                    self._watchdog.setDaemon(True)
+                    self._watchdog.start()
             else:
                 self._watchdog = None
 
@@ -2629,7 +2709,7 @@ def getScreenSize(name: str = "") -> Size:
     :return: Size struct
     """
     screens = getAllScreens()
-    res = None
+    res = Size(0, 0)
     for key in screens.keys():
         if (name and key == name) or (not name):
             res = screens[key]["size"]
@@ -2645,7 +2725,7 @@ def getWorkArea(name: str = "") -> Rect:
     :return: Rect struct
     """
     screens = getAllScreens()
-    res = None
+    res = Rect(0, 0, 0, 0)
     for key in screens.keys():
         if (name and key == name) or (not name):
             res = screens[key]["workarea"]
@@ -2667,14 +2747,13 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
         while True:
             x, y = getMousePos()
             positionStr = 'X: ' + str(x - xOffset).rjust(4) + ' Y: ' + str(y - yOffset).rjust(4) + '  (Press Ctrl-C to quit)'
-            if index % 20 == 0:
-                allWindows = getAllWindows()
+            allWindows = getAllWindows() if index % 20 == 0 else None
             windows = getWindowsAt(x, y, app=None, allWindows=allWindows)
             if windows != prevWindows:
                 prevWindows = windows
                 print('\n')
                 for win in windows:
-                    name = win.title
+                    name = win.title or ''
                     eraser = '' if len(name) >= len(positionStr) else ' ' * (len(positionStr) - len(name))
                     sys.stdout.write(name + eraser + '\n')
             sys.stdout.write(positionStr)
@@ -2694,7 +2773,10 @@ def main():
     if checkPermissions(activate=True):
         print("ALL WINDOWS", getAllTitles())
         npw = getActiveWindow()
-        print("ACTIVE WINDOW:", npw.title, "/", npw.box)
+        if npw is None:
+            print("ACTIVE WINDOW:", None)
+        else:
+            print("ACTIVE WINDOW:", npw.title, "/", npw.box)
         print()
         displayWindowsUnderMouse(0, 0)
 

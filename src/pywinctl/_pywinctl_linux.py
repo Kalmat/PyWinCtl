@@ -1,27 +1,29 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+from __future__ import annotations
+import sys
+assert sys.platform == "linux"
 
 import math
 import os
 import platform
 import re
 import subprocess
-import sys
-import threading
 import time
 import traceback
-from typing import Iterable, Union, List, Tuple, cast
+from typing import Iterable, cast
 
-import Xlib.X
-import Xlib.display
-import Xlib.protocol
-import ewmh
+# TODO: Create basic type stubs for Xlib
+import Xlib.X  # type: ignore[import]
+import Xlib.display  # type: ignore[import]
+import Xlib.protocol  # type: ignore[import]
+import ewmh  # type: ignore[import]
 import tkinter as tk
-from Xlib.xobject.colormap import Colormap
-from Xlib.xobject.cursor import Cursor
-from Xlib.xobject.drawable import Drawable, Pixmap, Window
-from Xlib.xobject.fontable import Fontable, GC, Font
-from Xlib.xobject.resource import Resource
+from Xlib.xobject.colormap import Colormap  # type: ignore[import]
+from Xlib.xobject.cursor import Cursor  # type: ignore[import]
+from Xlib.xobject.drawable import Drawable, Pixmap, Window  # type: ignore[import]
+from Xlib.xobject.fontable import Fontable, GC, Font  # type: ignore[import]
+from Xlib.xobject.resource import Resource  # type: ignore[import]
 from pynput import mouse
 
 from pywinctl import pointInRect, BaseWindow, Rect, Point, Size, Re, _WinWatchDog
@@ -116,7 +118,7 @@ def __remove_bad_windows(windows: Iterable[Window]):
     for window in windows:
         try:
             yield LinuxWindow(window)
-        except Xlib.error.XResourceError:
+        except Xlib.error.XResourceError:  # pyright: ignore[reportGeneralTypeIssues]  # TODO: Create basic Xlib stub
             pass
 
 
@@ -125,11 +127,11 @@ def getAllWindows():
     Get the list of Window objects for all visible windows
     :return: list of Window objects
     """
-    windows = cast(list[Window], EWMH.getClientListStacking())
+    windows = cast('list[Window]', EWMH.getClientListStacking())
     return [window for window in __remove_bad_windows(windows)]
 
 
-def getAllTitles() -> List[str]:
+def getAllTitles() -> list[str]:
     """
     Get the list of titles of all visible windows
 
@@ -181,7 +183,7 @@ def getWindowsWithTitle(title, app=(), condition=Re.IS, flags=0):
     return matches
 
 
-def getAllAppsNames() -> List[str]:
+def getAllAppsNames() -> list[str]:
     """
     Get the list of names of all visible apps
 
@@ -274,7 +276,7 @@ def getTopWindowAt(x: int, y: int):
     :param y: Y screen coordinate of the window
     :return: Window object or None
     """
-    windows = cast(list[Window], EWMH.getClientListStacking())
+    windows = cast('list[Window]', EWMH.getClientListStacking())
     for window in __remove_bad_windows(reversed(windows)):
         if pointInRect(x, y, window.left, window.top, window.width, window.height):
             return window
@@ -282,12 +284,11 @@ def getTopWindowAt(x: int, y: int):
         return None
 
 
-def _xlibGetAllWindows(parent: int = None, title: str = "") -> List[int]:
+def _xlibGetAllWindows(parent: Window | None = None, title: str = ""):
     # Not using window class (get_wm_class())
 
-    if not parent:
-        parent = ROOT
-    allWindows = [parent]
+    parentWindow = parent or ROOT
+    allWindows = [parentWindow]
 
     def findit(hwnd):
         query = hwnd.query_tree()
@@ -295,15 +296,11 @@ def _xlibGetAllWindows(parent: int = None, title: str = "") -> List[int]:
             allWindows.append(child)
             findit(child)
 
-    findit(parent)
+    findit(parentWindow)
     if not title:
-        matches = allWindows
+        return allWindows
     else:
-        matches = []
-        for w in allWindows:
-            if w.get_wm_name() == title:
-                matches.append(w)
-    return matches
+        return [window for window in allWindows if window.get_wm_name() == title]
 
 
 def _getBorderSizes():
@@ -331,7 +328,7 @@ def _getBorderSizes():
     return app.getTitlebarHeight(), app.getBorderWidth()
 
 
-def _getWindowAttributes(hWnd = None):
+def _getWindowAttributes(hWnd: Window):
     # Leaving this as reference of using X11 library
     # https://github.com/evocount/display-management/blob/c4f58f6653f3457396e44b8c6dc97636b18e8d8a/displaymanagement/rotation.py
     # https://github.com/nathanlopez/Stitch/blob/master/Configuration/mss/linux.py
@@ -343,7 +340,7 @@ def _getWindowAttributes(hWnd = None):
         Structure, byref, c_int32, c_uint32, c_ulong, cdll)
 
     x11 = find_library('X11')
-    xlib = cdll.LoadLibrary(x11)
+    xlib = cdll.LoadLibrary(str(x11))
 
     class XWindowAttributes(Structure):
 
@@ -401,12 +398,20 @@ def _getWindowAttributes(hWnd = None):
 
 
 class LinuxWindow(BaseWindow):
+    @property
+    def _rect(self):
+        return self.__rect
 
-    def __init__(self, hWnd: Union[Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]):
+    @_rect.setter
+    def _rect(self, value):
+        self.__rect = value
+
+    # hWnd used to be typed as: Cursor, Drawable, Pixmap, Resource, Fontable, GC, Colormap, Font
+    def __init__(self, hWnd: Window):
         super().__init__()
         self._hWnd = hWnd
         self._parent = self._hWnd.query_tree().parent
-        self._setupRectProperties()
+        self.__rect = self._rectFactory()
         # self._saveWindowInitValues()  # Store initial Window parameters to allow reset and other actions
         self.watchdog = self._WatchDog(self)
 
@@ -430,7 +435,7 @@ class LinuxWindow(BaseWindow):
         # ret = ww.translate_coords(self._hWnd, x, y)
         return Rect(x, y, x + w, y + h)
 
-    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
+    def getExtraFrameSize(self, includeBorder: bool = True) -> tuple[int, int, int, int]:
         """
         Get the extra space, in pixels, around the window, including or not the border.
         Notice not all applications/windows will use this property values
@@ -463,16 +468,16 @@ class LinuxWindow(BaseWindow):
         borderWidth = geom.border_width
         # Didn't find a way to get title bar height using Xlib
         titleHeight, borderWidth = _getBorderSizes()
-        res = Rect(self.left + borderWidth, self.top + titleHeight, self.right - borderWidth, self.bottom - borderWidth)
+        res = Rect(int(self.left + borderWidth), int(self.top + titleHeight), int(self.right - borderWidth), int(self.bottom - borderWidth))
         return res
 
-    def _saveWindowInitValues(self) -> None:
-        # Saves initial rect values to allow reset to original position, size, state and hints.
-        self._init_rect = self._getWindowRect()
-        self._init_state = self._hWnd.get_wm_state()
-        self._init_hints = self._hWnd.get_wm_hints()
-        self._init_normal_hints = self._hWnd.get_wm_normal_hints()
-        # self._init_attributes = self._hWnd.get_attributes()  # can't be modified, so not saving it
+    # def _saveWindowInitValues(self) -> None:
+    #     # Saves initial rect values to allow reset to original position, size, state and hints.
+    #     self._init_rect = self._getWindowRect()
+    #     self._init_state = self._hWnd.get_wm_state()
+    #     self._init_hints = self._hWnd.get_wm_hints()
+    #     self._init_normal_hints = self._hWnd.get_wm_normal_hints()
+    #     # self._init_attributes = self._hWnd.get_attributes()  # can't be modified, so not saving it
 
     def __repr__(self):
         return '%s(hWnd=%s)' % (self.__class__.__name__, self._hWnd)
@@ -502,7 +507,7 @@ class LinuxWindow(BaseWindow):
         """
         if not self.isMinimized:
             prop = DISP.intern_atom(WM_CHANGE_STATE, False)
-            data = (32, [Xlib.Xutil.IconicState, 0, 0, 0, 0])
+            data = (32, [Xlib.Xutil.IconicState, 0, 0, 0, 0])  # pyright: ignore[reportGeneralTypeIssues]  # Missing Xlib typing
             ev = Xlib.protocol.event.ClientMessage(window=self._hWnd.id, client_type=prop, data=data)
             mask = Xlib.X.SubstructureRedirectMask | Xlib.X.SubstructureNotifyMask
             ROOT.send_event(event=ev, event_mask=mask)
@@ -609,7 +614,7 @@ class LinuxWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
-        return self.resizeTo(self.width + widthOffset, self.height + heightOffset, wait)
+        return self.resizeTo(int(self.width + widthOffset), int(self.height + heightOffset), wait)
 
     resizeRel = resize  # resizeRel is an alias for the resize() method.
 
@@ -637,11 +642,11 @@ class LinuxWindow(BaseWindow):
         """
         newLeft = max(0, self.left + xOffset)  # Xlib/EWMH won't accept negative positions
         newTop = max(0, self.top + yOffset)
-        return self.moveTo(newLeft, newTop, wait)
+        return self.moveTo(int(newLeft), int(newTop), wait)
 
     moveRel = move  # moveRel is an alias for the move() method.
 
-    def moveTo(self, newLeft:int, newTop: int, wait: bool = False) -> bool:
+    def moveTo(self, newLeft: int, newTop: int, wait: bool = False) -> bool:
         """
         Moves the window to new coordinates on the screen
 
@@ -744,7 +749,7 @@ class LinuxWindow(BaseWindow):
             # self._hWnd.delete_property(DISP.intern_atom('WM_TAKE_FOCUS', False))
             # DISP.flush()
             # This sends window below all others, but not behind the desktop icons
-            w.change_property(DISP.intern_atom(WM_WINDOW_TYPE, False), Xlib.Xatom.ATOM,
+            w.change_property(DISP.intern_atom(WM_WINDOW_TYPE, False), Xlib.Xatom.ATOM,  # pyright: ignore[reportGeneralTypeIssues]  # Missing Xlib typing
                               32, [DISP.intern_atom(WINDOW_DESKTOP, False), ],
                               Xlib.X.PropModeReplace)
             DISP.flush()
@@ -769,11 +774,11 @@ class LinuxWindow(BaseWindow):
         else:
             w = DISP.create_resource_object('window', self._hWnd)
             w.unmap()
-            w.change_property(DISP.intern_atom(WM_WINDOW_TYPE, False), Xlib.Xatom.ATOM,
+            w.change_property(DISP.intern_atom(WM_WINDOW_TYPE, False), Xlib.Xatom.ATOM,  # pyright: ignore[reportGeneralTypeIssues]  # Missing Xlib typing
                               32, [DISP.intern_atom(WINDOW_NORMAL, False), ],
                               Xlib.X.PropModeReplace)
             DISP.flush()
-            w.change_property(DISP.intern_atom(WM_STATE, False), Xlib.Xatom.ATOM,
+            w.change_property(DISP.intern_atom(WM_STATE, False), Xlib.Xatom.ATOM,  # pyright: ignore[reportGeneralTypeIssues]  # Missing Xlib typing
                               32, [DISP.intern_atom(STATE_FOCUSED, False), ],
                               Xlib.X.PropModeReplace)
             DISP.flush()
@@ -791,12 +796,10 @@ class LinuxWindow(BaseWindow):
         # https://stackoverflow.com/questions/32295395/how-to-get-the-process-name-by-pid-in-linux-using-python
         pid = EWMH.getWmPid(self._hWnd)
         with subprocess.Popen(f"ps -q {pid} -o comm=", shell=True, stdout=subprocess.PIPE) as p:
-            ret = p.communicate()
-        if len(ret) > 0:
-            ret = ret[0].decode(encoding="utf8").replace("\n", "")
-        return ret
+            stdout, stderr = p.communicate()
+        return stdout.decode(encoding="utf8").replace("\n", "")
 
-    def getParent(self) -> Union[Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]:
+    def getParent(self) -> Cursor | Drawable | Pixmap | Resource | Fontable | Window | GC | Colormap | Font:
         """
         Get the handle of the current window parent. It can be another window or an application
 
@@ -804,7 +807,7 @@ class LinuxWindow(BaseWindow):
         """
         return self._hWnd.query_tree().parent
 
-    def getChildren(self) -> List[int]:
+    def getChildren(self) -> list[int]:
         """
         Get the children handles of current window
 
@@ -813,7 +816,7 @@ class LinuxWindow(BaseWindow):
         w = DISP.create_resource_object('window', self._hWnd)
         return w.query_tree().children
 
-    def getHandle(self) -> Union[Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]:
+    def getHandle(self) -> Cursor | Drawable | Pixmap | Resource | Fontable | Window | GC | Colormap | Font:
         """
         Get the current window handle
 
@@ -821,7 +824,7 @@ class LinuxWindow(BaseWindow):
         """
         return self._hWnd
 
-    def isParent(self, child: Union[Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]) -> bool:
+    def isParent(self, child: Window) -> bool:
         """Returns ''True'' if the window is parent of the given window as input argument
 
         Args:
@@ -831,7 +834,7 @@ class LinuxWindow(BaseWindow):
         return child.query_tree().parent == self._hWnd
     isParentOf = isParent  # isParentOf is an alias of isParent method
 
-    def isChild(self, parent: Union[Cursor, Drawable, Pixmap, Resource, Fontable, Window, GC, Colormap, Font]) -> bool:
+    def isChild(self, parent: Cursor | Drawable | Pixmap | Resource | Fontable | Window | GC | Colormap | Font) -> bool:
         """
         Check if current window is child of given window/app (handle)
 
@@ -921,7 +924,7 @@ class LinuxWindow(BaseWindow):
         try:
             win = DISP.create_resource_object('window', self._hWnd)
             state = win.get_attributes().map_state
-        except Xlib.error.BadWindow:
+        except Xlib.error.BadWindow:  # pyright: ignore[reportGeneralTypeIssues]  # Missing Xlib typing
             ret = False
         return ret
 
@@ -1059,7 +1062,8 @@ class LinuxWindow(BaseWindow):
             """
             Stop the entire WatchDog and all its hooks
             """
-            self._watchdog.kill()
+            if self._watchdog:
+                self._watchdog.kill()
 
         def isAlive(self):
             """Check if watchdog is running
@@ -1182,7 +1186,7 @@ def getScreenSize(name: str = "") -> Size:
     :return: Size struct or None
     """
     screens = getAllScreens()
-    res = None
+    res = Size(0, 0)
     for key in screens.keys():
         if (name and key == name) or (not name):
             res = screens[key]["size"]
@@ -1199,7 +1203,7 @@ def getWorkArea(name: str = "") -> Rect:
     :return: Rect struct or None
     """
     screens = getAllScreens()
-    res = None
+    res = Rect(0, 0, 0, 0)
     for key in screens.keys():
         if (name and key == name) or (not name):
             res = screens[key]["workarea"]
@@ -1243,7 +1247,10 @@ def main():
     print("SCREEN SIZE:", resolution())
     print("ALL WINDOWS", getAllTitles())
     npw = getActiveWindow()
-    print("ACTIVE WINDOW:", npw.title, "/", npw.box)
+    if npw is None:
+        print("ACTIVE WINDOW:", None)
+    else:
+        print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()
     displayWindowsUnderMouse(0, 0)
 
