@@ -1,5 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+# Incomplete type stubs for pyobjc
+# mypy: disable_error_code = no-any-return
 from __future__ import annotations
 import sys
 assert sys.platform == "darwin"
@@ -12,14 +14,16 @@ import re
 import time
 import traceback
 import threading
+from collections.abc import Iterable, Sequence, Callable
+from typing import Any, cast, overload
+from typing_extensions import TypeAlias, TypedDict, Literal
 
-# https://github.com/ronaldoussoren/pyobjc/issues/198
-# https://github.com/ronaldoussoren/pyobjc/issues/417
-# https://github.com/ronaldoussoren/pyobjc/issues/419
-import AppKit  # type: ignore[import]
-import Quartz  # type: ignore[import]
+import AppKit
+import Quartz
 
-from pywinctl import pointInRect, BaseWindow, Rect, Point, Size, Re, _WinWatchDog
+from . import pointInRect, BaseWindow, Rect, Point, Size, Re, _WinWatchDog
+
+Incomplete: TypeAlias = Any
 
 WS = AppKit.NSWorkspace.sharedWorkspace()
 WAIT_ATTEMPTS = 10
@@ -60,6 +64,10 @@ def checkPermissions(activate: bool = False):
     ret = ret.replace("\n", "")
     return ret == "true"
 
+@overload
+def getActiveWindow(app: AppKit.NSApplication) -> MacOSNSWindow | None: ...
+@overload
+def getActiveWindow(app: None = ...) -> MacOSWindow | None: ...
 
 def getActiveWindow(app: AppKit.NSApplication | None = None):
     """
@@ -94,10 +102,10 @@ def getActiveWindow(app: AppKit.NSApplication | None = None):
         appID = entries[0]
         title = ", ".join(entries[1:])
         if appID:  # and title:
-            apps = _getAllApps()
-            for app in apps:
-                if str(app.processIdentifier()) == appID:  # pyright: ignore[reportOptionalMemberAccess]  # Is Unknown, but not None
-                    return MacOSWindow(app, title)
+            activeApps = _getAllApps()
+            for activeApp in activeApps:
+                if str(activeApp.processIdentifier()) == appID:
+                    return MacOSWindow(activeApp, title)
     else:
         for win in app.orderedWindows():  # .keyWindow() / .mainWindow() not working?!?!?!
             return MacOSNSWindow(app, win)
@@ -117,6 +125,10 @@ def getActiveWindowTitle(app: AppKit.NSApplication | None = None) -> str:
     else:
         return ""
 
+@overload
+def getAllWindows(app: AppKit.NSApplication) -> list[MacOSNSWindow]: ...
+@overload
+def getAllWindows(app: None = ...) -> list[MacOSWindow]: ...
 
 def getAllWindows(app: AppKit.NSApplication | None = None):
     """
@@ -125,8 +137,8 @@ def getAllWindows(app: AppKit.NSApplication | None = None):
     :param app: (optional) NSApp() object. If passed, returns the Window objects of all windows of given app
     :return: list of Window objects
     """
-    windows: list[MacOSNSWindow | MacOSWindow] = []
     if not app:
+        windows: list[MacOSWindow] = []
         activeApps = _getAllApps()
         titleList = _getWindowTitles()
         for item in titleList:
@@ -143,14 +155,16 @@ def getAllWindows(app: AppKit.NSApplication | None = None):
                     rect = None
             except:
                 continue
-            for app in activeApps:
-                if app.processIdentifier() == pID:  # pyright: ignore[reportOptionalMemberAccess]  # Is Unknown, but not None
-                    windows.append(MacOSWindow(app, title, rect))
+            for activeApp in activeApps:
+                if activeApp.processIdentifier() == pID:
+                    windows.append(MacOSWindow(activeApp, title, rect))
                     break
+        return windows
     else:
+        nsWindows: list[MacOSNSWindow] = []
         for win in app.orderedWindows():
-            windows.append(MacOSNSWindow(app, win))
-    return windows
+            nsWindows.append(MacOSNSWindow(app, win))
+        return nsWindows
 
 
 def getAllTitles(app: AppKit.NSApplication | None = None):
@@ -170,7 +184,7 @@ def getAllTitles(app: AppKit.NSApplication | None = None):
                                 return winNames'"""
         ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
         res = ast.literal_eval(ret)
-        matches = []
+        matches: list[str] = []
         if len(res) > 0:
             for item in res[0]:
                 for title in item:
@@ -179,8 +193,12 @@ def getAllTitles(app: AppKit.NSApplication | None = None):
         matches = [win.title for win in getAllWindows(app)]
     return matches
 
+@overload
+def getWindowsWithTitle(title: str | re.Pattern[str], app: tuple[str, ...] | None = ..., condition: int = ..., flags: int = ...) -> list[MacOSWindow]: ...
+@overload
+def getWindowsWithTitle(title: str | re.Pattern[str], app: AppKit.NSApp, condition: int = ..., flags: int = ...) -> list[MacOSNSWindow]: ...
 
-def getWindowsWithTitle(title, app=(), condition=Re.IS, flags=0):
+def getWindowsWithTitle(title: str | re.Pattern[str], app: AppKit.NSApp | tuple[str, ...] | None = None, condition: int = Re.IS, flags: int = 0):
     """
     Get the list of window objects whose title match the given string with condition and flags.
     Use ''condition'' to delimit the search. Allowed values are stored in pywinctl.Re sub-class (e.g. pywinctl.Re.CONTAINS)
@@ -205,36 +223,43 @@ def getWindowsWithTitle(title, app=(), condition=Re.IS, flags=0):
     :param flags: (optional) specific flags to apply to condition. Defaults to 0 (no flags)
     :return: list of Window objects
     """
-    matches = []
-    if title and condition in Re._cond_dic.keys():
-        lower = False
-        if condition in (Re.MATCH, Re.NOTMATCH):
-            title = re.compile(title, flags)
-        elif condition in (Re.EDITDISTANCE, Re.DIFFRATIO):
-            if not isinstance(flags, int) or not (0 < flags <= 100):
-                flags = 90
-        elif flags == Re.IGNORECASE:
-            lower = True
-            title = title.lower()
-        if not app or (app and isinstance(app, tuple)):
-            activeApps = _getAllApps()
-            titleList = _getWindowTitles()
-            for item in titleList:
-                pID = item[0]
-                winTitle = item[1].lower() if lower else item[1]
-                if winTitle and Re._cond_dic[condition](title, winTitle, flags):
-                    x, y, w, h = int(item[2][0]), int(item[2][1]), int(item[3][0]), int(item[3][1])
-                    rect = Rect(x, y, x + w, y + h)
-                    for a in activeApps:
-                        if (not app and a.processIdentifier() == pID) or a.localizedName() in app:
-                            matches.append(MacOSWindow(a, item[1], rect))
-                            break
-        else:
-            windows = getAllWindows(app)
-            for win in windows:
-                if win.title and Re._cond_dic[condition](title, win.title.lower() if lower else win.title, flags):
-                    matches.append(win)
-    return matches
+
+    if not (title and condition in Re._cond_dic):
+        return []  # pyright: ignore[reportUnknownVariableType]  # Type doesn't matter here
+
+    lower = False
+    if condition in (Re.MATCH, Re.NOTMATCH):
+        title = re.compile(title, flags)
+    elif condition in (Re.EDITDISTANCE, Re.DIFFRATIO):
+        if not isinstance(flags, int) or not (0 < flags <= 100):
+            flags = 90
+    elif flags == Re.IGNORECASE:
+        lower = True
+        if isinstance(title, re.Pattern):
+            title = title.pattern
+        title = title.lower()
+
+    if app is None or isinstance(app, tuple):
+        matches: list[MacOSWindow] = []
+        activeApps = _getAllApps()
+        titleList = _getWindowTitles()
+        for item in titleList:
+            pID = item[0]
+            winTitle = item[1].lower() if lower else item[1]
+            if winTitle and Re._cond_dic[condition](title, winTitle, flags):
+                x, y, w, h = int(item[2][0]), int(item[2][1]), int(item[3][0]), int(item[3][1])
+                rect = Rect(x, y, x + w, y + h)
+                for a in activeApps:
+                    if (app and a.localizedName() in app) or (a.processIdentifier() == pID):
+                        matches.append(MacOSWindow(a, item[1], rect))
+                        break
+        return matches
+    else:
+        return [
+            win for win
+            in getAllWindows(app)
+            if win.title and Re._cond_dic[condition](title, win.title.lower() if lower else win.title, flags)
+        ]
 
 
 def getAllAppsNames() -> list[str]:
@@ -255,7 +280,7 @@ def getAllAppsNames() -> list[str]:
     return res or []
 
 
-def getAppsWithName(name, condition=Re.IS, flags=0):
+def getAppsWithName(name: str | re.Pattern[str], condition: int = Re.IS, flags: int = 0):
     """
     Get the list of app names which match the given string using the given condition and flags.
     Use ''condition'' to delimit the search. Allowed values are stored in pywinctl.Re sub-class (e.g. pywinctl.Re.CONTAINS)
@@ -279,8 +304,8 @@ def getAppsWithName(name, condition=Re.IS, flags=0):
     :param flags: (optional) specific flags to apply to condition. Defaults to 0 (no flags)
     :return: list of app names
     """
-    matches = []
-    if name and condition in Re._cond_dic.keys():
+    matches: list[str] = []
+    if name and condition in Re._cond_dic:
         lower = False
         if condition in (Re.MATCH, Re.NOTMATCH):
             name = re.compile(name, flags)
@@ -289,6 +314,8 @@ def getAppsWithName(name, condition=Re.IS, flags=0):
                 flags = 90
         elif flags == Re.IGNORECASE:
             lower = True
+            if isinstance(name, re.Pattern):
+                name = name.pattern
             name = name.lower()
         for title in getAllAppsNames():
             if title and Re._cond_dic[condition](name, title.lower() if lower else title, flags):
@@ -296,7 +323,7 @@ def getAppsWithName(name, condition=Re.IS, flags=0):
     return matches
 
 
-def getAllAppsWindowsTitles() -> dict:
+def getAllAppsWindowsTitles():
     """
     Get all visible apps names and their open windows titles
 
@@ -315,15 +342,22 @@ def getAllAppsWindowsTitles() -> dict:
                                 end tell
                                 return winNames'"""
     ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
-    res = ast.literal_eval(ret)
-    result = {}
+    res: tuple[list[str], list[list[str]]] = ast.literal_eval(ret)
+    result: dict[str, list[str]] = {}
     if res and len(res) > 0:
         for i, item in enumerate(res[0]):
             result[item] = res[1][i]
     return result
 
 
-def getWindowsAt(x: int, y: int, app: AppKit.NSApplication | None = None, allWindows: list[MacOSNSWindow | MacOSWindow] | None = None):
+@overload
+def getWindowsAt(x: int, y: int, app: AppKit.NSApplication, allWindows: list[MacOSNSWindow] | None = ...) -> list[MacOSNSWindow]: ...
+@overload
+def getWindowsAt(x: int, y: int, app: None = ..., allWindows: list[MacOSWindow] | None = ...) -> list[MacOSWindow]: ...
+@overload
+def getWindowsAt(x: int, y: int, app: AppKit.NSApplication | None = ..., allWindows: list[MacOSWindow | MacOSNSWindow] | list[MacOSNSWindow] | list[MacOSWindow] | None = ...) -> list[MacOSWindow | MacOSNSWindow] | list[MacOSNSWindow] | list[MacOSWindow]: ...
+
+def getWindowsAt(x: int, y: int, app: AppKit.NSApplication | None = None, allWindows: list[MacOSNSWindow | MacOSWindow] | list[MacOSNSWindow] | list[MacOSWindow] | None = None) -> list[MacOSWindow | MacOSNSWindow] | list[MacOSNSWindow] | list[MacOSWindow]:
     """
     Get the list of Window objects whose windows contain the point ``(x, y)`` on screen
 
@@ -333,16 +367,21 @@ def getWindowsAt(x: int, y: int, app: AppKit.NSApplication | None = None, allWin
     :param allWindows: (optional) list of window objects (required to improve performance in Apple Script version)
     :return: list of Window objects
     """
-    if not allWindows:
-        allWindows = getAllWindows(app)
-    windowBoxGenerator = ((window, window.box) for window in allWindows)
+    windows = allWindows if allWindows else getAllWindows(app)
+    windowBoxGenerator = ((window, window.box) for window in windows)
     return [
         window for (window, box)
         in windowBoxGenerator
         if pointInRect(x, y, box.left, box.top, box.width, box.height)]
 
+@overload
+def getTopWindowAt(x: int, y: int, app: AppKit.NSApplication, allWindows: list[MacOSNSWindow] | None = ...) -> MacOSNSWindow | None: ...
+@overload
+def getTopWindowAt(x: int, y: int, app: None = ..., allWindows: list[MacOSWindow] | None = ...) -> MacOSWindow | None: ...
+@overload
+def getTopWindowAt(x: int, y: int, app: AppKit.NSApplication | None = ..., allWindows: list[MacOSWindow | MacOSNSWindow] | list[MacOSNSWindow] | list[MacOSWindow] | None = ...) -> MacOSWindow | MacOSNSWindow | None: ...
 
-def getTopWindowAt(x: int, y: int, app: AppKit.NSApplication | None = None, allWindows: list[MacOSNSWindow | MacOSWindow] | None = None):
+def getTopWindowAt(x: int, y: int, app: AppKit.NSApplication | None = None, allWindows: list[MacOSNSWindow | MacOSWindow] | list[MacOSNSWindow] | list[MacOSWindow] | None = None):
     """
     Get *a* Window object at the point ``(x, y)`` on screen.
     Which window is not garranteed. See https://github.com/Kalmat/PyWinCtl/issues/20#issuecomment-1193348238
@@ -360,7 +399,7 @@ def getTopWindowAt(x: int, y: int, app: AppKit.NSApplication | None = None, allW
 
 
 def _getAllApps(userOnly: bool = True):
-    matches = []
+    matches: list[AppKit.NSRunningApplication] = []
     for app in WS.runningApplications():
         if not userOnly or (userOnly and app.activationPolicy() == Quartz.NSApplicationActivationPolicyRegular):
             matches.append(app)
@@ -373,9 +412,9 @@ def _getAllWindows(excludeDesktop: bool = True, screenOnly: bool = True, userLay
     # Besides, since it may not have kCGWindowName value and the kCGWindowNumber can't be accessed from Apple Script, it's useless
     flags = Quartz.kCGWindowListExcludeDesktopElements if excludeDesktop else 0 | \
             Quartz.kCGWindowListOptionOnScreenOnly if screenOnly else 0
-    ret = Quartz.CGWindowListCopyWindowInfo(flags, Quartz.kCGNullWindowID)
+    ret: list[dict[Incomplete, int]] = Quartz.CGWindowListCopyWindowInfo(flags, Quartz.kCGNullWindowID)
     if userLayer:
-        matches = []
+        matches: list[dict[Incomplete, int]] = []
         for win in ret:
             if win[Quartz.kCGWindowLayer] != 0:
                 matches.append(win)
@@ -385,14 +424,14 @@ def _getAllWindows(excludeDesktop: bool = True, screenOnly: bool = True, userLay
 
 def _getAllAppWindows(app: AppKit.NSApplication, userLayer: bool = True):
     windows = _getAllWindows()
-    windowsInApp = []
+    windowsInApp: list[dict[Incomplete, int]] = []
     for win in windows:
         if (not userLayer or (userLayer and win[Quartz.kCGWindowLayer] == 0)) and win[Quartz.kCGWindowOwnerPID] == app.processIdentifier():
             windowsInApp.append(win)
     return windowsInApp
 
 
-def _getAppWindowsTitles(appName):
+def _getAppWindowsTitles(appName: str):
     cmd = """on run arg1
                 set appName to arg1 as string
                 set winNames to {}
@@ -422,7 +461,7 @@ def _getWindowTitles() -> list[list[str]]:
                                 return winNames'"""
     ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
     res = ast.literal_eval(ret)
-    result = []
+    result: list[list[str]] = []
     if len(res) > 0:
         for i, pID in enumerate(res[0]):
             try:
@@ -446,13 +485,24 @@ def _getBorderSizes():
     frame = AppKit.NSMakeRect(400, 800, 250, 100)
     mask = AppKit.NSWindowStyleMaskTitled | AppKit.NSWindowStyleMaskClosable | AppKit.NSWindowStyleMaskMiniaturizable | AppKit.NSWindowStyleMaskResizable
     w = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(frame, mask, AppKit.NSBackingStoreBuffered, False)
-    titlebarHeight = w.titlebarHeight()
+    titlebarHeight = int(w.titlebarHeight())
     borderWidth = int(w.frame().size.width - w.contentRectForFrameRect_(frame).size.width)
     # w.display()
     # a.run()
     # w.releasedWhenClosed = True  # Method not found (?)
     w.close()
-    return int(titlebarHeight), int(borderWidth)
+    return titlebarHeight, borderWidth
+
+
+_ItemInfoValue = TypedDict("_ItemInfoValue", {"value": str, "class": str, "settable": bool})
+class _SubMenuStructure(TypedDict, total=False):
+    hSubMenu: int
+    wID: int
+    entries: dict[str, _SubMenuStructure]
+    parent: int
+    rect: Rect
+    item_info: dict[str, _ItemInfoValue]
+    shortcut: str
 
 
 class MacOSWindow(BaseWindow):
@@ -460,14 +510,10 @@ class MacOSWindow(BaseWindow):
     def _rect(self):
         return self.__rect
 
-    @_rect.setter
-    def _rect(self, value):
-        self.__rect = value
-
     def __init__(self, app: AppKit.NSRunningApplication, title: str, bounds: Rect | None = None):
         super().__init__()
         self._app = app
-        self._appName = app.localizedName()
+        self._appName: str = app.localizedName()
         self._appPID = app.processIdentifier()
         self._winTitle = title
         # self._parent = self.getParent()  # It is slow and not required by now
@@ -529,7 +575,7 @@ class MacOSWindow(BaseWindow):
     def __repr__(self):
         return '%s(hWnd=%s)' % (self.__class__.__name__, self._app)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object):
         return isinstance(other, MacOSWindow) and self._app == other._app
 
     def close(self, force: bool = False) -> bool:
@@ -1063,8 +1109,9 @@ class MacOSWindow(BaseWindow):
 
         :return: list of handles (role:name) as string. Role can only be "AXWindow" in this case
         """
+        result: list[str] = []
         if not self.title:
-            return []
+            return result
 
         cmd = """on run {arg1, arg2}
                     set appName to arg1 as string
@@ -1082,7 +1129,6 @@ class MacOSWindow(BaseWindow):
         ret, err = proc.communicate(cmd)
         ret = ret.replace("\n", "").replace("{", "['").replace("}", "']").replace('"', '').replace(", ", "', '")
         ret = ast.literal_eval(ret)
-        result = []
         for item in ret:
             if item.startswith("window"):
                 res = item[item.find("window ")+len("window "):item.rfind(" of window "+self.title)]
@@ -1134,7 +1180,7 @@ class MacOSWindow(BaseWindow):
         """
         screens = getAllScreens()
         name = ""
-        for key in screens.keys():
+        for key in screens:
             if pointInRect(self.centerx, self.centery, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
                 name = key
                 break
@@ -1311,13 +1357,23 @@ class MacOSWindow(BaseWindow):
         :meth kill: Stop the entire watchdog and all its hooks
         :meth isAlive: Check if watchdog is running
         """
-        def __init__(self, parent):
+        def __init__(self, parent: MacOSWindow):
             self._watchdog = None
             self._parent = parent
 
-        def start(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None,
-                  isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None, changedDisplayCB=None,
-                  interval=0.3):
+        def start(
+            self,
+            isAliveCB: Callable[[bool], None] | None = None,
+            isActiveCB: Callable[[bool], None] | None = None,
+            isVisibleCB: Callable[[bool], None] | None = None,
+            isMinimizedCB: Callable[[bool], None] | None = None,
+            isMaximizedCB: Callable[[bool], None] | None = None,
+            resizedCB: Callable[[tuple[float, float]], None] | None = None,
+            movedCB: Callable[[tuple[float, float]], None] | None = None,
+            changedTitleCB: Callable[[str], None] | None = None,
+            changedDisplayCB: Callable[[str], None] | None = None,
+            interval: float = 0.3
+        ):
             """
             Initialize and start watchdog and hooks (callbacks to be invoked when desired window states change)
 
@@ -1360,9 +1416,18 @@ class MacOSWindow(BaseWindow):
                                        isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB,
                                        interval)
 
-        def updateCallbacks(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None,
-                                    isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None,
-                                    changedDisplayCB=None):
+        def updateCallbacks(
+            self,
+            isAliveCB: Callable[[bool], None] | None = None,
+            isActiveCB: Callable[[bool], None] | None = None,
+            isVisibleCB: Callable[[bool], None] | None = None,
+            isMinimizedCB: Callable[[bool], None] | None = None,
+            isMaximizedCB: Callable[[bool], None] | None = None,
+            resizedCB: Callable[[tuple[float, float]], None] | None = None,
+            movedCB: Callable[[tuple[float, float]], None] | None = None,
+            changedTitleCB: Callable[[str], None] | None = None,
+            changedDisplayCB: Callable[[str], None] | None = None
+        ):
             """
             Change the states this watchdog is hooked to
 
@@ -1395,7 +1460,7 @@ class MacOSWindow(BaseWindow):
                 self._watchdog.updateCallbacks(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB,
                                               resizedCB, movedCB, changedTitleCB, changedDisplayCB)
 
-        def updateInterval(self, interval=0.3):
+        def updateInterval(self, interval: float = 0.3):
             """
             Change the interval to check changes
 
@@ -1442,11 +1507,11 @@ class MacOSWindow(BaseWindow):
 
         def __init__(self, parent: MacOSWindow):
             self._parent = parent
-            self._menuStructure = {}
-            self.menuList = []
-            self.itemList = []
+            self._menuStructure: dict[str, _SubMenuStructure] = {}
+            self.menuList: list[str] = []
+            self.itemList: list[str] = []
 
-        def getMenu(self, addItemInfo: bool = False) -> dict:
+        def getMenu(self, addItemInfo: bool = False):
             """
             Loads and returns Menu options, sub-menus and related information, as dictionary.
 
@@ -1487,10 +1552,10 @@ class MacOSWindow(BaseWindow):
             self.menuList = []
             self.itemList = []
 
-            nameList = []
-            sizeList = []
-            posList = []
-            attrList = []
+            nameList: list[list[list[list[str]]]] = []
+            sizeList: list[list[list[list[tuple[int, int] | Literal['missing value']]]]] = []
+            posList: list[list[list[list[tuple[int, int] | Literal['missing value']]]]] = []
+            attrList: list[list[list[list[list[tuple[str, str, bool, str]]]]]] = []
 
             def findit():
 
@@ -1561,18 +1626,28 @@ class MacOSWindow(BaseWindow):
 
             def fillit():
 
-                def subfillit(subNameList, subSizeList, subPosList, subAttrList, section="", level=0, mainlevel=0, path: list[int] | None=None, parent=0):
+                def subfillit(
+                    subNameList: Iterable[str],
+                    subSizeList: Sequence[tuple[int, int] | Literal['missing value']],
+                    subPosList: Sequence[tuple[int, int] | Literal['missing value']],
+                    subAttrList: Sequence[Iterable[tuple[str, str, bool, str]]],
+                    section: str = "",
+                    level: int = 0,
+                    mainlevel: int = 0,
+                    path: list[int] | None = None,
+                    parent: int = 0
+                ):
                     path = path or []
-                    option = self._menuStructure
+                    option: dict[str, _SubMenuStructure] = self._menuStructure
                     if section:
                         for sec in section.split(SEP):
                             if sec:
-                                option = option[sec]
+                                option = cast("dict[str, _SubMenuStructure]", option[sec])
 
                     for i, name in enumerate(subNameList):
-                        pos = subPosList[i] if len(subPosList) > i else []
-                        size = subSizeList[i] if len(subSizeList) > i else []
-                        attr = subAttrList[i] if (addItemInfo and len(subAttrList) > 0) else []
+                        pos = subPosList[i] if len(subPosList) > i else "missing value"
+                        size = subSizeList[i] if len(subSizeList) > i else "missing value"
+                        attr: Iterable[tuple[str, str, bool, str]] = subAttrList[i] if (addItemInfo and len(subAttrList) > 0) else []
                         if not name:
                             continue
                         elif name == "missing value":
@@ -1590,17 +1665,27 @@ class MacOSWindow(BaseWindow):
                                 option[name]["item_info"] = item_info
                                 option[name]["shortcut"] = self._getaccesskey(item_info)
                             if level + 1 < len(nameList):
-                                submenu = nameList[level + 1][mainlevel][0]
-                                subPos = posList[level + 1][mainlevel][0]
-                                subSize = sizeList[level + 1][mainlevel][0]
-                                subAttr = attrList[level + 1][mainlevel][0] if addItemInfo else []
+                                submenu: list[str] = nameList[level + 1][mainlevel][0]
+                                subPos: list[tuple[int, int] | Literal['missing value']] = posList[level + 1][mainlevel][0]
+                                subSize: list[tuple[int, int] | Literal['missing value']] = sizeList[level + 1][mainlevel][0]
+                                subAttr: list[list[tuple[str, str, bool, str]]] = attrList[level + 1][mainlevel][0] if addItemInfo else []
                                 subPath = path[3:] + ([0] * (level - 3)) + [i, 0] + ([0] * (level - 2))
                                 for j in subPath:
-                                    if len(submenu) > j and isinstance(submenu[j], list):
-                                        submenu = submenu[j]
-                                        subPos = subPos[j]
-                                        subSize = subSize[j]
-                                        subAttr = subAttr[j] if addItemInfo else []
+                                    submenuj = submenu[j]
+                                    subPosj = subPos[j]
+                                    subSizej = subSize[j]
+                                    subAttrj = subAttr[j]
+                                    if (
+                                        len(submenu) > j
+                                        and isinstance(submenuj, list)
+                                        and isinstance(subPosj, list)
+                                        and isinstance(subSizej, list)
+                                        and isinstance(subAttrj, list)
+                                    ):
+                                        submenu = submenuj
+                                        subPos = subPosj
+                                        subSize = subSizej
+                                        subAttr = cast("list[list[tuple[str, str, bool, str]]]", subAttrj) if addItemInfo else []
                                     else:
                                         break
                                 if submenu:
@@ -1613,7 +1698,8 @@ class MacOSWindow(BaseWindow):
                                 else:
                                     option[name]["hSubMenu"] = 0
 
-                for i, item in enumerate(nameList[0]):
+                # TODO: How is this even possible if we had to access so many levels of nameList in teh code above???
+                for i, item in enumerate(cast("list[str]", nameList[0])):
                     hSubMenu = self._getNewHSubMenu(item)
                     self._menuStructure[item] = {"hSubMenu": hSubMenu, "wID": self._getNewWid(item), "entries": {}}
                     subfillit(nameList[1][i][0], sizeList[1][i][0], posList[1][i][0], attrList[1][i][0] if addItemInfo else [],
@@ -1623,7 +1709,7 @@ class MacOSWindow(BaseWindow):
 
             return self._menuStructure
 
-        def clickMenuItem(self, itemPath: list | None = None, wID: int = 0) -> bool:
+        def clickMenuItem(self, itemPath: Sequence[str] | None = None, wID: int = 0) -> bool:
             """
             Simulates a click on a menu item
 
@@ -1672,7 +1758,7 @@ class MacOSWindow(BaseWindow):
 
             return found
 
-        def getMenuInfo(self, hSubMenu: int) -> dict:
+        def getMenuInfo(self, hSubMenu: int):
             """
             Returns the MENUINFO struct of the given sub-menu or main menu if none given
 
@@ -1738,7 +1824,7 @@ class MacOSWindow(BaseWindow):
 
             return count
 
-        def getMenuItemInfo(self, hSubMenu: int, wID: int) -> dict:
+        def getMenuItemInfo(self, hSubMenu: int, wID: int):
             """
             Returns the MENUITEMINFO struct for the given menu item
 
@@ -1793,7 +1879,7 @@ class MacOSWindow(BaseWindow):
                     proc = subprocess.Popen(['osascript', '-s', 's', '-', str(self._parent._app.localizedName())],
                                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
                     ret, err = proc.communicate(cmd)
-                    itemInfo = self._parseAttr(ret, convert=True)
+                    itemInfo = self._parseAttr(ret)
 
             return itemInfo
 
@@ -1845,21 +1931,23 @@ class MacOSWindow(BaseWindow):
 
             return Rect(x, y, x + w, y + h)
 
-        def _isListEmpty(self, inList):
+        def _isListEmpty(self, inList: list[Any]):
             # https://stackoverflow.com/questions/1593564/python-how-to-check-if-a-nested-list-is-essentially-empty/51582274
             if isinstance(inList, list):
                 return all(map(self._isListEmpty, inList))
             return False
 
-        def _parseAttr(self, attr, convert=False):
+        def _parseAttr(self, attr: str | Iterable[tuple[str, str, bool, str]]):
 
-            itemInfo = {}
-            if convert:
+            itemInfo: dict[str, _ItemInfoValue] = {}
+            if isinstance(attr, str):
                 attr = attr.replace("\n", "").replace('missing value', '"missing value"') \
                     .replace("{", "[").replace("}", "]").replace("value:", "'") \
                     .replace(", class:", "', '").replace(", settable:", "', '").replace(", name:", "', ")
-                attr = ast.literal_eval(attr)
-            for item in attr:
+                items: Iterable[tuple[str, str, bool, str]] = ast.literal_eval(attr)
+            else:
+                items = attr
+            for item in items:
                 if len(item) >= 4:
                     itemInfo[item[3]] = {"value": item[0], "class": item[1], "settable": item[2]}
 
@@ -1870,45 +1958,43 @@ class MacOSWindow(BaseWindow):
                 self.getMenu()
             return self._menuStructure
 
-        def _getNewWid(self, ref):
+        def _getNewWid(self, ref: str):
             self.itemList.append(ref)
             return len(self.itemList)
 
-        def _getPathFromWid(self, wID):
+        def _getPathFromWid(self, wID: int):
             itemPath = []
             if self._checkMenuStruct():
                 if 0 < wID <= len(self.itemList):
                     itemPath = self.itemList[wID - 1].split(SEP)
             return itemPath
 
-        def _getNewHSubMenu(self, ref):
+        def _getNewHSubMenu(self, ref: str):
             self.menuList.append(ref)
             return len(self.menuList)
 
-        def _getPathFromHSubMenu(self, hSubMenu):
+        def _getPathFromHSubMenu(self, hSubMenu: int):
             menuPath = []
             if self._checkMenuStruct():
                 if 0 < hSubMenu <= len(self.menuList):
                     menuPath = self.menuList[hSubMenu - 1].split(SEP)
             return menuPath
 
-        def _getMenuItemWid(self, itemPath: str) -> str:
-            wID = ""
+        def _getMenuItemWid(self, itemPath: str):
+            wID = 0
             if itemPath:
                 option = self._menuStructure
                 for item in itemPath[:-1]:
-                    if item in option.keys() and "entries" in option[item].keys():
-                        option = option[item]["entries"]
+                    entries = option.get(item, {}).get("entries", None)
+                    if entries:
+                        option = entries
                     else:
                         option = {}
                         break
-
-                if option and itemPath and itemPath[-1] in option.keys() and "wID" in option[itemPath[-1]]:
-                    wID = option[itemPath[-1]]["wID"]
-
+                wID = option.get(itemPath[-1], {}).get("wID", 0)
             return wID
 
-        def _getaccesskey(self, item_info):
+        def _getaccesskey(self, item_info: dict[str, dict[str, str]] | dict[str, _ItemInfoValue]):
             # https://github.com/babarrett/hammerspoon/blob/master/cheatsheets.lua
             # https://github.com/pyatom/pyatom/blob/master/atomac/ldtpd/core.py
 
@@ -1921,21 +2007,15 @@ class MacOSWindow(BaseWindow):
             except:
                 key = ""
             try:
-                modifiers = item_info["AXMenuItemCmdModifiers"]["value"]
-                if modifiers.isnumeric():
-                    modifiers = int(modifiers)
+                modifiers = int(item_info["AXMenuItemCmdModifiers"]["value"])
             except:
                 modifiers = -1
             try:
-                glyph = item_info["AXMenuItemCmdGlyph"]["value"]
-                if glyph.isnumeric():
-                    glyph = int(glyph)
+                glyph = int(item_info["AXMenuItemCmdGlyph"]["value"])
             except:
                 glyph = -1
             try:
-                virtual_key = item_info["AXMenuItemCmdVirtualKey"]["value"]
-                if virtual_key.isnumeric():
-                    virtual_key = int(virtual_key)
+                virtual_key = int(item_info["AXMenuItemCmdVirtualKey"]["value"])
             except:
                 virtual_key = -1
 
@@ -1984,7 +2064,7 @@ class MacOSWindow(BaseWindow):
 
 class _SendTop(threading.Thread):
 
-    def __init__(self, hWnd, interval=0.5):
+    def __init__(self, hWnd: MacOSWindow | MacOSNSWindow, interval: float = 0.5):
         threading.Thread.__init__(self)
         self._hWnd = hWnd
         self._interval = interval
@@ -2007,7 +2087,7 @@ class _SendTop(threading.Thread):
 
 class _SendBottom(threading.Thread):
 
-    def __init__(self, hWnd, interval=0.5):
+    def __init__(self, hWnd: MacOSWindow, interval: float = 0.5):
         threading.Thread.__init__(self)
         self._hWnd = hWnd
         self._app = hWnd._app
@@ -2015,7 +2095,7 @@ class _SendBottom(threading.Thread):
         self._interval = interval
         self._kill = threading.Event()
         _apps = _getAllApps()
-        self._apps = []
+        self._apps: list[AppKit.NSRunningApplication] = []
         for app in _apps:
             if app.processIdentifier() != self._appPID:
                 self._apps.append(app)
@@ -2044,10 +2124,6 @@ class MacOSNSWindow(BaseWindow):
     @property
     def _rect(self):
         return self.__rect
-
-    @_rect.setter
-    def _rect(self, value):
-        self.__rect = value
 
     def __init__(self, app: AppKit.NSApplication, hWnd: AppKit.NSWindow):
         super().__init__()
@@ -2098,7 +2174,7 @@ class MacOSNSWindow(BaseWindow):
     def __repr__(self):
         return '%s(hWnd=%s)' % (self.__class__.__name__, self._hWnd)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object):
         return isinstance(other, MacOSNSWindow) and self._hWnd == other._hWnd
 
     def close(self) -> bool:
@@ -2221,7 +2297,11 @@ class MacOSNSWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
-        self._hWnd.setFrame_display_animate_(AppKit.NSMakeRect(self.bottomleft.x, self.bottomleft.y, newWidth, newHeight), True, True)
+        self._hWnd.setFrame_display_animate_(
+            AppKit.NSMakeRect(self.bottomleft.x, self.bottomleft.y, newWidth, newHeight),
+            True,
+            True
+        )
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and self.width != newWidth and self.height != newHeight:
             retries += 1
@@ -2353,7 +2433,7 @@ class MacOSNSWindow(BaseWindow):
         """
         return self._hWnd.childWindows()
 
-    def getHandle(self) -> int:
+    def getHandle(self):
         """
         Get the current window handle
 
@@ -2361,7 +2441,7 @@ class MacOSNSWindow(BaseWindow):
         """
         return self._hWnd
 
-    def isParent(self, child) -> bool:
+    def isParent(self, child: AppKit.NSWindow) -> bool:
         """
         Check if current window is parent of given window (handle)
 
@@ -2371,7 +2451,7 @@ class MacOSNSWindow(BaseWindow):
         return child.parentWindow() == self._hWnd
     isParentOf = isParent  # isParentOf is an alias of isParent method
 
-    def isChild(self, parent) -> bool:
+    def isChild(self, parent: int) -> bool:
         """
         Check if current window is child of given window/app (handle)
 
@@ -2389,7 +2469,7 @@ class MacOSNSWindow(BaseWindow):
         """
         screens = getAllScreens()
         name = ""
-        for key in screens.keys():
+        for key in screens:
             if pointInRect(self.centerx, self.centery, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
                 name = key
                 break
@@ -2422,7 +2502,7 @@ class MacOSNSWindow(BaseWindow):
         """
         windows = getAllWindows(self._app)
         for win in windows:
-            return self._hWnd == win
+            return self._hWnd == win._hWnd
         return False
 
     @property
@@ -2476,13 +2556,23 @@ class MacOSNSWindow(BaseWindow):
         :meth kill: Stop the entire watchdog and all its hooks
         :meth isAlive: Check if watchdog is running
         """
-        def __init__(self, parent):
+        def __init__(self, parent: MacOSNSWindow):
             self._watchdog = None
             self._parent = parent
 
-        def start(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None,
-                          isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None, changedDisplayCB=None,
-                          interval=0.3):
+        def start(
+            self,
+            isAliveCB: Callable[[bool], None] | None = None,
+            isActiveCB: Callable[[bool], None] | None = None,
+            isVisibleCB: Callable[[bool], None] | None = None,
+            isMinimizedCB: Callable[[bool], None] | None = None,
+            isMaximizedCB: Callable[[bool], None] | None = None,
+            resizedCB: Callable[[tuple[float, float]], None] | None = None,
+            movedCB: Callable[[tuple[float, float]], None] | None = None,
+            changedTitleCB: Callable[[str], None] | None = None,
+            changedDisplayCB: Callable[[str], None] | None = None,
+            interval: float = 0.3
+        ):
             """
             Initialize and start watchdog and hooks (callbacks to be invoked when desired window states change)
 
@@ -2525,9 +2615,18 @@ class MacOSNSWindow(BaseWindow):
             else:
                 self._watchdog = None
 
-        def updateCallbacks(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None,
-                                    isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None,
-                                    changedDisplayCB=None):
+        def updateCallbacks(
+            self,
+            isAliveCB: Callable[[bool], None] | None = None,
+            isActiveCB: Callable[[bool], None] | None = None,
+            isVisibleCB: Callable[[bool], None] | None = None,
+            isMinimizedCB: Callable[[bool], None] | None = None,
+            isMaximizedCB: Callable[[bool], None] | None = None,
+            resizedCB: Callable[[tuple[float, float]], None] | None = None,
+            movedCB: Callable[[tuple[float, float]], None] | None = None,
+            changedTitleCB: Callable[[str], None] | None = None,
+            changedDisplayCB: Callable[[str], None] | None = None
+        ):
             """
             Change the states this watchdog is hooked to
 
@@ -2562,7 +2661,7 @@ class MacOSNSWindow(BaseWindow):
             else:
                 self._watchdog = None
 
-        def updateInterval(self, interval=0.3):
+        def updateInterval(self, interval: float = 0.3):
             """
             Change the interval to check changes
 
@@ -2622,7 +2721,7 @@ def getMousePos() -> Point:
     mp = Quartz.NSEvent.mouseLocation()
     screens = getAllScreens()
     x = y = 0
-    for key in screens.keys():
+    for key in screens:
         if pointInRect(mp.x, mp.y, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
             x = int(mp.x)
             y = int(screens[key]["size"].height) - abs(int(mp.y))
@@ -2630,6 +2729,17 @@ def getMousePos() -> Point:
     return Point(x, y)
 cursor = getMousePos  # cursor is an alias for getMousePos
 
+class _ScreenValue(TypedDict):
+    id: int
+    is_primary: bool
+    pos: Point
+    size: Size
+    workarea: Rect
+    scale: tuple[int, int]
+    dpi: tuple[int, int]
+    orientation: int
+    frequency: float
+    colordepth: int
 
 def getAllScreens():
     """
@@ -2663,7 +2773,7 @@ def getAllScreens():
             "colordepth":
                 Bits per pixel referred to the display color depth
     """
-    result = {}
+    result: dict[str, _ScreenValue] = {}
     screens = AppKit.NSScreen.screens()
     for i, screen in enumerate(screens):
         try:
@@ -2710,7 +2820,7 @@ def getScreenSize(name: str = "") -> Size:
     """
     screens = getAllScreens()
     res = Size(0, 0)
-    for key in screens.keys():
+    for key in screens:
         if (name and key == name) or (not name):
             res = screens[key]["size"]
             break
@@ -2726,7 +2836,7 @@ def getWorkArea(name: str = "") -> Rect:
     """
     screens = getAllScreens()
     res = Rect(0, 0, 0, 0)
-    for key in screens.keys():
+    for key in screens:
         if (name and key == name) or (not name):
             res = screens[key]["workarea"]
             break
