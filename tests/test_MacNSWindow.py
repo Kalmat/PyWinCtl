@@ -10,11 +10,11 @@ assert sys.platform == "darwin"
 
 import time
 
-from AppKit import (  # type: ignore[import]
+from AppKit import (
     NSApp, NSObject, NSApplication, NSMakeRect, NSWindow, NSWindowStyleMaskTitled, NSWindowStyleMaskClosable,
     NSWindowStyleMaskMiniaturizable, NSWindowStyleMaskResizable, NSBackingStoreBuffered)
 
-import pywinctl  # type: ignore[import]
+import pywinctl
 
 
 # Cocoa prefers composition to inheritance. The members of an object's
@@ -34,7 +34,7 @@ class Delegate(NSObject):
     def unsetDemoMode(self):
         self.demoMode = False
 
-    def applicationDidFinishLaunching_(self, aNotification):
+    def applicationDidFinishLaunching_(self, aNotification: None):
         '''Called automatically when the application has launched'''
         # Set it as the frontmost application
         NSApp().activateIgnoringOtherApps_(True)
@@ -262,13 +262,13 @@ class Delegate(NSObject):
             assert not self.npw.isVisible
             assert not self.npw.isAlive
 
-    def windowWillClose_(self, aNotification):
+    def windowWillClose_(self, aNotification: None):
         '''Called automatically when the window is closed'''
         print("Window has been closed")
         # Terminate the application
         NSApp().terminate_(self)
 
-    def windowDidBecomeKey_(self, aNotification):
+    def windowDidBecomeKey_(self, aNotification: None):
         print("Now I'm ACTIVE")
 
 

@@ -4,10 +4,11 @@
 
 PyRect>=0.1
 types-setuptools>=65.5
+mypy >= 0.990
 
 # Windows
 pywin32>=302; sys_platform == 'win32'
-types-pywin32>=304.0.0.3
+types-pywin32>=304.0.0.4
 
 # Linux
 xlib>=0.21; sys_platform == 'linux'

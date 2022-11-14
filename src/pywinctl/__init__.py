@@ -1,18 +1,57 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+# pyright: reportUnknownMemberType=false
 from __future__ import annotations
-
-from typing import NamedTuple
-from abc import ABC, abstractproperty, abstractmethod
 
 import difflib
 import re
 import sys
 import threading
+from abc import ABC, abstractmethod
+from collections.abc import Callable
+from typing import Any, NamedTuple, cast
 
 import pyrect  # type: ignore[import]  # TODO: Create type stubs or add to base library
 
+if sys.platform == "darwin":
+    from ._pywinctl_macos import (MacOSNSWindow as NSWindow, MacOSWindow as Window, checkPermissions, getActiveWindow,
+                                  getActiveWindowTitle, getAllAppsNames, getAllAppsWindowsTitles, getAllScreens,
+                                  getAllTitles, getAllWindows, getAppsWithName, getMousePos, getScreenSize,
+                                  getTopWindowAt, getWindowsAt, getWindowsWithTitle, getWorkArea)
+
+elif sys.platform == "win32":
+    from ._pywinctl_win import (Win32Window as Window, checkPermissions, getActiveWindow, getActiveWindowTitle,
+                                getAllAppsNames, getAllAppsWindowsTitles, getAllScreens, getAllTitles, getAllWindows,
+                                getAppsWithName, getMousePos, getScreenSize, getTopWindowAt, getWindowsAt,
+                                getWindowsWithTitle, getWorkArea)
+
+elif sys.platform == "linux":
+    from ._pywinctl_linux import (LinuxWindow as Window, checkPermissions, getActiveWindow, getActiveWindowTitle,
+                                  getAllAppsNames, getAllAppsWindowsTitles, getAllScreens, getAllTitles, getAllWindows,
+                                  getAppsWithName, getMousePos, getScreenSize, getTopWindowAt, getWindowsAt,
+                                  getWindowsWithTitle, getWorkArea)
+
+else:
+    raise NotImplementedError('PyWinCtl currently does not support this platform. If you think you can help, please contribute! https://github.com/Kalmat/PyWinCtl')
+
+__all__ = [
+    "BaseWindow", "version", "Re",
+    # OS Specifics
+    "Window", "checkPermissions", "getActiveWindow", "getActiveWindowTitle", "getAllAppsNames",
+    "getAllAppsWindowsTitles", "getAllScreens", "getAllTitles", "getAllWindows", "getAppsWithName", "getMousePos",
+    "getScreenSize", "getTopWindowAt", "getWindowsAt", "getWindowsWithTitle", "getWorkArea",
+]
+# Mac only
+if sys.platform == "darwin":
+    __all__ += ["NSWindow"]
+
 __version__ = "0.0.39"
+
+class Box(NamedTuple):
+    left: int
+    top: int
+    width: int
+    height: int
 
 class Rect(NamedTuple):
     left: int
@@ -29,13 +68,13 @@ class Size(NamedTuple):
     height: int
 
 
-def pointInRect(x, y, left, top, width, height):
+def pointInRect(x: float, y: float, left: float, top: float, width: float, height: float):
     """Returns ``True`` if the ``(x, y)`` point is within the box described
     by ``(left, top, width, height)``."""
     return left < x < left + width and top < y < top + height
 
 
-def version(numberOnly=True):
+def version(numberOnly: bool = True):
     """Returns the current version of PyWinCtl module, in the form ''x.x.xx'' as string"""
     return ("" if numberOnly else "PyWinCtl-")+__version__
 
@@ -57,19 +96,20 @@ class Re:
 
     IGNORECASE = re.IGNORECASE
 
-    _cond_dic = {
+    # Does not play well with static typing and current implementation of TypedDict
+    _cond_dic: dict[int, Callable[[str | re.Pattern[str], str, float], bool]] = {
         IS: lambda s1, s2, fl: s1 == s2,
-        CONTAINS: lambda s1, s2, fl: s1 in s2,
-        STARTSWITH: lambda s1, s2, fl: s2.startswith(s1),
-        ENDSWITH: lambda s1, s2, fl: s2.endswith(s1),
+        CONTAINS: lambda s1, s2, fl: s1 in s2, # type: ignore
+        STARTSWITH: lambda s1, s2, fl: s2.startswith(s1),  # type: ignore
+        ENDSWITH: lambda s1, s2, fl: s2.endswith(s1),  # type: ignore
         NOTIS: lambda s1, s2, fl: s1 != s2,
-        NOTCONTAINS: lambda s1, s2, fl: s1 not in s2,
-        NOTSTARTSWITH: lambda s1, s2, fl: not s2.startswith(s1),
-        NOTENDSWITH: lambda s1, s2, fl: not s2.endswith(s1),
-        MATCH: lambda s1, s2, fl: bool(s1.search(s2)),
-        NOTMATCH: lambda s1, s2, fl: not (bool(s1.search(s2))),
-        EDITDISTANCE: lambda s1, s2, fl: _levenshtein(s1, s2) >= fl,
-        DIFFRATIO: lambda s1, s2, fl: difflib.SequenceMatcher(None, s1, s2).ratio() * 100 >= fl
+        NOTCONTAINS: lambda s1, s2, fl: s1 not in s2,  # type: ignore
+        NOTSTARTSWITH: lambda s1, s2, fl: not s2.startswith(s1),  # type: ignore
+        NOTENDSWITH: lambda s1, s2, fl: not s2.endswith(s1),  # type: ignore
+        MATCH: lambda s1, s2, fl: bool(s1.search(s2)),  # type: ignore
+        NOTMATCH: lambda s1, s2, fl: not (bool(s1.search(s2))),  # type: ignore
+        EDITDISTANCE: lambda s1, s2, fl: _levenshtein(s1, s2) >= fl,  # type: ignore
+        DIFFRATIO: lambda s1, s2, fl: difflib.SequenceMatcher(None, s1, s2).ratio() * 100 >= fl  # type: ignore
     }
 
 
@@ -77,13 +117,13 @@ def _levenshtein(seq1: str, seq2: str) -> float:
     # https://stackabuse.com/levenshtein-distance-and-text-similarity-in-python/
     # Adapted to return a similarity percentage, which is easier to define
     # Removed numpy to reduce dependencies. This is likely slower, but titles are not too long
+    # SPed up filling in the top row
     size_x = len(seq1) + 1
     size_y = len(seq2) + 1
-    matrix = [[0 for y in range(size_y)] for x in range(size_x)]
+    matrix = [[0 for _y in range(size_y)] for _x in range(size_x)]
     for x in range(size_x):
         matrix[x][0] = x
-    for y in range(size_y):
-        matrix[0][y] = y
+    matrix[0] = list(range(0, size_y))
 
     for x in range(1, size_x):
         for y in range(1, size_y):
@@ -103,20 +143,21 @@ def _levenshtein(seq1: str, seq2: str) -> float:
     return (1 - dist / max(len(seq1), len(seq2))) * 100
 
 class BaseWindow(ABC):
-    @abstractproperty
+    @property
+    @abstractmethod
     def _rect(self) -> pyrect.Rect:
         raise NotImplementedError
 
     def _rectFactory(self, bounds: Rect | None = None):
 
-        def _onRead(attrName):
+        def _onRead(attrName: str):
             r = self._getWindowRect()
             rect._left = r.left               # Setting _left directly to skip the onRead.
             rect._top = r.top                 # Setting _top directly to skip the onRead.
             rect._width = r.right - r.left    # Setting _width directly to skip the onRead.
             rect._height = r.bottom - r.top   # Setting _height directly to skip the onRead.
 
-        def _onChange(oldBox, newBox):
+        def _onChange(oldBox: Box, newBox: Box):
             self._moveResizeTo(newBox.left, newBox.top, newBox.width, newBox.height)
 
         if bounds:
@@ -155,7 +196,7 @@ class BaseWindow(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def getClientFrame(self):
+    def getClientFrame(self) -> Rect:
         """
         Get the client area of window, as a Rect (x, y, right, bottom)
         Notice that scroll and status bars might be included, or not, depending on the application
@@ -272,12 +313,12 @@ class BaseWindow(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def getParent(self):
+    def getParent(self) -> object:
         """Returns the handle of the window parent"""
         raise NotImplementedError
 
     @abstractmethod
-    def getChildren(self) -> list[int]:
+    def getChildren(self) -> list[Any]:
         """
         Get the children handles of current window
 
@@ -286,18 +327,18 @@ class BaseWindow(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def getHandle(self):
+    def getHandle(self) -> object:
         """Returns the handle of the window"""
         raise NotImplementedError
 
     @abstractmethod
-    def isParent(self, child) -> bool:
+    def isParent(self, child: Any) -> bool:
         """Returns ''True'' if the window is parent of the given window as input argument"""
         raise NotImplementedError
     isParentOf = isParent  # isParentOf is an alias of isParent method
 
     @abstractmethod
-    def isChild(self, parent) -> bool:
+    def isChild(self, parent: Any) -> bool:
         """Returns ''True'' if the window is child of the given window as input argument"""
         raise NotImplementedError
     isChildOf = isChild  # isParentOf is an alias of isParent method
@@ -307,226 +348,246 @@ class BaseWindow(ABC):
         """Returns the name of the current window display (monitor)"""
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def isMinimized(self) -> bool:
         """Returns ''True'' if the window is currently minimized."""
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def isMaximized(self) -> bool:
         """Returns ''True'' if the window is currently maximized."""
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def isActive(self) -> bool:
         """Returns ''True'' if the window is currently the active, foreground window."""
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def title(self) -> str:
         """Returns the window title as a string."""
         raise NotImplementedError
 
     if sys.platform == "darwin":
-        @abstractproperty
+        @property
+        @abstractmethod
         def updatedTitle(self) -> str:
             """macOS Apple Script ONLY. Returns a similar window title from same app as a string."""
             raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def visible(self) -> bool:
         raise NotImplementedError
     isVisible = visible  # isVisible is an alias for the visible property.
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def isAlive(self) -> bool:
         raise NotImplementedError
 
     # Wrappers for pyrect.Rect object's properties:
     @property
     def left(self):
-        return self._rect.left
+        return cast(float, self._rect.left)  # pyrect.Rect properties are potentially unknown
 
     @left.setter
-    def left(self, value):
+    def left(self, value: float):
         # import pdb; pdb.set_trace()
         self._rect.left  # Run rect's onRead to update the Rect object.
         self._rect.left = value
 
     @property
     def right(self):
-        return self._rect.right
+        return cast(float, self._rect.right)  # pyrect.Rect properties are potentially unknown
 
     @right.setter
-    def right(self, value):
+    def right(self, value: float):
         self._rect.right  # Run rect's onRead to update the Rect object.
         self._rect.right = value
 
     @property
     def top(self):
-        return self._rect.top
+        return cast(float, self._rect.top)  # pyrect.Rect properties are potentially unknown
 
     @top.setter
-    def top(self, value):
+    def top(self, value: float):
         self._rect.top  # Run rect's onRead to update the Rect object.
         self._rect.top = value
 
     @property
     def bottom(self):
-        return self._rect.bottom
+        return cast(float, self._rect.bottom)  # pyrect.Rect properties are potentially unknown
 
     @bottom.setter
-    def bottom(self, value):
+    def bottom(self, value: float):
         self._rect.bottom  # Run rect's onRead to update the Rect object.
         self._rect.bottom = value
 
     @property
     def topleft(self):
-        return self._rect.topleft
+        return cast(Point, self._rect.topleft) # pyrect.Rect.Point properties are potentially unknown
 
     @topleft.setter
-    def topleft(self, value):
+    def topleft(self, value: tuple[float, float]):
         self._rect.topleft  # Run rect's onRead to update the Rect object.
         self._rect.topleft = value
 
     @property
     def topright(self):
-        return self._rect.topright
+        return cast(Point, self._rect.topright) # pyrect.Rect.Point properties are potentially unknown
 
     @topright.setter
-    def topright(self, value):
+    def topright(self, value: tuple[float, float]):
         self._rect.topright  # Run rect's onRead to update the Rect object.
         self._rect.topright = value
 
     @property
     def bottomleft(self):
-        return self._rect.bottomleft
+        return cast(Point, self._rect.bottomleft) # pyrect.Rect.Point properties are potentially unknown
 
     @bottomleft.setter
-    def bottomleft(self, value):
+    def bottomleft(self, value: tuple[float, float]):
         self._rect.bottomleft  # Run rect's onRead to update the Rect object.
         self._rect.bottomleft = value
 
     @property
     def bottomright(self):
-        return self._rect.bottomright
+        return cast(Point, self._rect.bottomright) # pyrect.Rect.Point properties are potentially unknown
 
     @bottomright.setter
-    def bottomright(self, value):
+    def bottomright(self, value: tuple[float, float]):
         self._rect.bottomright  # Run rect's onRead to update the Rect object.
         self._rect.bottomright = value
 
     @property
     def midleft(self):
-        return self._rect.midleft
+        return cast(Point, self._rect.midleft) # pyrect.Rect.Point properties are potentially unknown
 
     @midleft.setter
-    def midleft(self, value):
+    def midleft(self, value: tuple[float, float]):
         self._rect.midleft  # Run rect's onRead to update the Rect object.
         self._rect.midleft = value
 
     @property
     def midright(self):
-        return self._rect.midright
+        return cast(Point, self._rect.midright) # pyrect.Rect.Point properties are potentially unknown
 
     @midright.setter
-    def midright(self, value):
+    def midright(self, value: tuple[float, float]):
         self._rect.midright  # Run rect's onRead to update the Rect object.
         self._rect.midright = value
 
     @property
     def midtop(self):
-        return self._rect.midtop
+        return cast(Point, self._rect.midtop) # pyrect.Rect.Point properties are potentially unknown
 
     @midtop.setter
-    def midtop(self, value):
+    def midtop(self, value: tuple[float, float]):
         self._rect.midtop  # Run rect's onRead to update the Rect object.
         self._rect.midtop = value
 
     @property
     def midbottom(self):
-        return self._rect.midbottom
+        return cast(Point, self._rect.midbottom) # pyrect.Rect.Point properties are potentially unknown
 
     @midbottom.setter
-    def midbottom(self, value):
+    def midbottom(self, value: tuple[float, float]):
         self._rect.midbottom  # Run rect's onRead to update the Rect object.
         self._rect.midbottom = value
 
     @property
     def center(self):
-        return self._rect.center
+        return cast(Point, self._rect.center) # pyrect.Rect.Point properties are potentially unknown
 
     @center.setter
-    def center(self, value):
+    def center(self, value: tuple[float, float]):
         self._rect.center  # Run rect's onRead to update the Rect object.
         self._rect.center = value
 
     @property
     def centerx(self):
-        return self._rect.centerx
+        return cast(float, self._rect.centerx)  # pyrect.Rect properties are potentially unknown
 
     @centerx.setter
-    def centerx(self, value):
+    def centerx(self, value: float):
         self._rect.centerx  # Run rect's onRead to update the Rect object.
         self._rect.centerx = value
 
     @property
     def centery(self):
-        return self._rect.centery
+        return cast(float, self._rect.centery)  # pyrect.Rect properties are potentially unknown
 
     @centery.setter
-    def centery(self, value):
+    def centery(self, value: float):
         self._rect.centery  # Run rect's onRead to update the Rect object.
         self._rect.centery = value
 
     @property
     def width(self):
-        return self._rect.width
+        return cast(float, self._rect.width)  # pyrect.Rect properties are potentially unknown
 
     @width.setter
-    def width(self, value):
+    def width(self, value: float):
         self._rect.width  # Run rect's onRead to update the Rect object.
         self._rect.width = value
 
     @property
     def height(self):
-        return self._rect.height
+        return cast(float, self._rect.height)  # pyrect.Rect properties are potentially unknown
 
     @height.setter
-    def height(self, value):
+    def height(self, value: float):
         self._rect.height  # Run rect's onRead to update the Rect object.
         self._rect.height = value
 
     @property
     def size(self):
-        return self._rect.size
+        return cast(Size, self._rect.size) # pyrect.Rect.Size properties are potentially unknown
 
     @size.setter
-    def size(self, value):
+    def size(self, value: tuple[float, float]):
         self._rect.size  # Run rect's onRead to update the Rect object.
         self._rect.size = value
 
     @property
     def area(self):
-        return self._rect.area
+        return cast(float, self._rect.area)  # pyrect.Rect properties are potentially unknown
 
     @area.setter
-    def area(self, value):
+    def area(self, value: float):
         self._rect.area  # Run rect's onRead to update the Rect object.
-        self._rect.area = value
+        self._rect.area = value # pyright: ignore[reportGeneralTypeIssues]  # FIXME: pyrect.Rect.area has no setter!
 
     @property
     def box(self):
-        return self._rect.box
+        return cast(Box, self._rect.box) # pyrect.Rect.Box properties are potentially unknown
 
     @box.setter
-    def box(self, value):
+    def box(self, value: Box):
         self._rect.box  # Run rect's onRead to update the Rect object.
         self._rect.box = value
 
 class _WinWatchDog(threading.Thread):
 
-    def __init__(self, win: BaseWindow, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None, isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None, changedDisplayCB=None, interval=0.3):
+    def __init__(
+        self,
+        win: BaseWindow,
+        isAliveCB: Callable[[bool], None] | None = None,
+        isActiveCB: Callable[[bool], None] | None = None,
+        isVisibleCB: Callable[[bool], None] | None = None,
+        isMinimizedCB: Callable[[bool], None] | None = None,
+        isMaximizedCB: Callable[[bool], None] | None = None,
+        resizedCB: Callable[[tuple[float, float]], None] | None = None,
+        movedCB: Callable[[tuple[float, float]], None] | None = None,
+        changedTitleCB: Callable[[str], None] | None = None,
+        changedDisplayCB: Callable[[str], None] | None = None,
+        interval: float = 0.3
+    ):
         threading.Thread.__init__(self)
         self._win = win
         self._interval = interval
@@ -619,7 +680,7 @@ class _WinWatchDog(threading.Thread):
                     visible = self._win.isVisible
                     if self._isVisible != visible:
                         self._isVisible = visible
-                        self._isVisibleCB(visible)
+                        self._isVisibleCB(visible)  # type: ignore[arg-type]  # mypy bug
 
                 if self._isMinimizedCB:
                     minimized = self._win.isMinimized
@@ -662,7 +723,18 @@ class _WinWatchDog(threading.Thread):
                 self.kill()
                 break
 
-    def updateCallbacks(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None, isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None, changedDisplayCB=None):
+    def updateCallbacks(
+        self,
+        isAliveCB: Callable[[bool], None] | None = None,
+        isActiveCB: Callable[[bool], None] | None = None,
+        isVisibleCB: Callable[[bool], None] | None = None,
+        isMinimizedCB: Callable[[bool], None] | None = None,
+        isMaximizedCB: Callable[[bool], None] | None = None,
+        resizedCB: Callable[[tuple[float, float]], None] | None = None,
+        movedCB: Callable[[tuple[float, float]], None] | None = None,
+        changedTitleCB: Callable[[str], None] | None = None,
+        changedDisplayCB: Callable[[str], None] | None = None
+    ):
 
         self._isAliveCB = isAliveCB
         self._isActiveCB = isActiveCB
@@ -676,48 +748,31 @@ class _WinWatchDog(threading.Thread):
 
         self._getInitialValues()
 
-    def updateInterval(self, interval=0.3):
+    def updateInterval(self, interval: float = 0.3):
         self._interval = interval
 
-    def setTryToFind(self, tryToFind):
-        if sys.platform == "darwin" and type(self._win).__name__ == MacOSWindow.__name__:
-            self._tryToFind = tryToFind
+    def setTryToFind(self, tryToFind: bool):
+        if sys.platform == "darwin" and type(self._win).__name__ == Window.__name__:
+                self._tryToFind = tryToFind
 
     def kill(self):
         self._kill.set()
 
-    def restart(self, isAliveCB=None, isActiveCB=None, isVisibleCB=None, isMinimizedCB=None, isMaximizedCB=None, resizedCB=None, movedCB=None, changedTitleCB=None, changedDisplayCB=None, interval=0.3):
+    def restart(
+        self,
+        isAliveCB: Callable[[bool], None] | None  = None,
+        isActiveCB: Callable[[bool], None] | None  = None,
+        isVisibleCB: Callable[[bool], None] | None  = None,
+        isMinimizedCB: Callable[[bool], None] | None  = None,
+        isMaximizedCB: Callable[[bool], None] | None  = None,
+        resizedCB: Callable[[tuple[float, float]], None] | None  = None,
+        movedCB: Callable[[tuple[float, float]], None] | None  = None,
+        changedTitleCB: Callable[[str], None] | None  = None,
+        changedDisplayCB: Callable[[str], None] | None  = None,
+        interval: float = 0.3
+    ):
         self.kill()
         self._kill = threading.Event()
         self.updateCallbacks(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB)
         self.updateInterval(interval)
         self.run()
-
-
-if sys.platform == "darwin":
-    from ._pywinctl_macos import (MacOSNSWindow, MacOSWindow, checkPermissions, getActiveWindow, getActiveWindowTitle,
-                                  getAllAppsNames, getAllAppsWindowsTitles, getAllScreens, getAllTitles, getAllWindows,
-                                  getAppsWithName, getMousePos, getScreenSize, getTopWindowAt, getWindowsAt,
-                                  getWindowsWithTitle, getWorkArea)
-
-    Window = MacOSWindow
-    NSWindow = MacOSNSWindow
-
-elif sys.platform == "win32":
-    from ._pywinctl_win import (Win32Window, checkPermissions, getActiveWindow, getActiveWindowTitle, getAllAppsNames,
-                                getAllAppsWindowsTitles, getAllScreens, getAllTitles, getAllWindows, getAppsWithName,
-                                getMousePos, getScreenSize, getTopWindowAt, getWindowsAt, getWindowsWithTitle,
-                                getWorkArea)
-
-    Window = Win32Window
-
-elif sys.platform == "linux":
-    from ._pywinctl_linux import (LinuxWindow, checkPermissions, getActiveWindow, getActiveWindowTitle, getAllAppsNames,
-                                  getAllAppsWindowsTitles, getAllScreens, getAllTitles, getAllWindows, getAppsWithName,
-                                  getMousePos, getScreenSize, getTopWindowAt, getWindowsAt, getWindowsWithTitle,
-                                  getWorkArea)
-
-    Window = LinuxWindow
-
-else:
-    raise NotImplementedError('PyWinCtl currently does not support this platform. If you think you can help, please contribute! https://github.com/Kalmat/PyWinCtl')
