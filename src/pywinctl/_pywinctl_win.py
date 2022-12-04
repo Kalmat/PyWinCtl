@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 from __future__ import annotations
+
 import sys
 assert sys.platform == "win32"
 
@@ -9,16 +10,16 @@ import re
 import threading
 import time
 import traceback
-from ctypes import wintypes
-from typing import TYPE_CHECKING, cast, overload, type_check_only
-from typing_extensions import NotRequired, TypedDict, Literal
 from collections import Callable, Sequence
+from ctypes import wintypes
+from typing import TYPE_CHECKING, cast, overload
 
 import win32api
 import win32con
 import win32gui
 import win32gui_struct
 import win32process
+from typing_extensions import Literal, NotRequired, TypedDict
 from win32com.client import GetObject
 
 from . import BaseWindow, Point, Re, Rect, Size, _WinWatchDog, pointInRect
@@ -293,30 +294,30 @@ def _getAllApps(tryToFilter: bool = False) -> list[tuple[int, str, str | None]] 
 def _getWindowInfo(hWnd: int | str | bytes | bool | None):
     class tagWINDOWINFO(ctypes.Structure):
         # Help type-checkers with ctypes.Structure
-        cbSize: int
-        rcWindow: wintypes.RECT
-        rcClient: wintypes.RECT
-        dwStyle: int
-        dwExStyle: int
-        dwWindowStatus: int
-        cxWindowBorders: int
-        cyWindowBorders: int
-        atomWindowType: int
-        wCreatorVersion: int
-        @type_check_only
-        def __init__(
-            self,
-            cbSize: int = ...,
-            rcWindow: wintypes.RECT = ...,
-            rcClient: wintypes.RECT = ...,
-            dwStyle: int = ...,
-            dwExStyle: int = ...,
-            dwWindowStatus: int = ...,
-            cxWindowBorders: int = ...,
-            cyWindowBorders: int = ...,
-            atomWindowType: int = ...,
-            wCreatorVersion: int = ...
-        ): ...
+        if TYPE_CHECKING:
+            cbSize: int
+            rcWindow: wintypes.RECT
+            rcClient: wintypes.RECT
+            dwStyle: int
+            dwExStyle: int
+            dwWindowStatus: int
+            cxWindowBorders: int
+            cyWindowBorders: int
+            atomWindowType: int
+            wCreatorVersion: int
+            def __init__(
+                self,
+                cbSize: int = ...,
+                rcWindow: wintypes.RECT = ...,
+                rcClient: wintypes.RECT = ...,
+                dwStyle: int = ...,
+                dwExStyle: int = ...,
+                dwWindowStatus: int = ...,
+                cxWindowBorders: int = ...,
+                cyWindowBorders: int = ...,
+                atomWindowType: int = ...,
+                wCreatorVersion: int = ...
+            ): ...
 
         _fields_ = [
             ('cbSize', wintypes.DWORD),

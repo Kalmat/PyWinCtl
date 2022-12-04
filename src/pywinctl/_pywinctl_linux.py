@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import annotations
+
 import sys
 assert sys.platform == "linux"
 
@@ -15,19 +16,17 @@ import tkinter as tk
 import traceback
 from collections.abc import Callable
 from typing import Iterable
-from typing_extensions import TypedDict
 
 import ewmh
-# All of tehse errors will be fixed with a Xlib type-stub
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportGeneralTypeIssues=false, reportUnknownParameterType=false
-import Xlib.display  # type: ignore[import,reportMissingTypeStubs]
-import Xlib.error  # type: ignore[import,reportMissingTypeStubs]
-import Xlib.protocol  # type: ignore[import,reportMissingTypeStubs]
-import Xlib.X  # type: ignore[import,reportMissingTypeStubs]
-import Xlib.Xutil  # type: ignore[import,reportMissingTypeStubs]
-import Xlib.Xatom  # type: ignore[import,reportMissingTypeStubs]
+import Xlib.display
+import Xlib.error
+import Xlib.protocol
+import Xlib.X
+import Xlib.Xatom
+import Xlib.Xutil
 from pynput import mouse
-from Xlib.xobject.drawable import Window  # type: ignore[import,reportMissingTypeStubs]
+from typing_extensions import TypedDict
+from Xlib.xobject.drawable import Window
 
 from . import BaseWindow, Point, Re, Rect, Size, _WinWatchDog, pointInRect
 
@@ -410,7 +409,7 @@ class LinuxWindow(BaseWindow):
 
     def __init__(self, hWnd: Window):
         super().__init__()
-        self._hWnd: Window = hWnd
+        self._hWnd = hWnd
         self._parent: Window = self._hWnd.query_tree().parent
         self.__rect = self._rectFactory()
         # self._saveWindowInitValues()  # Store initial Window parameters to allow reset and other actions

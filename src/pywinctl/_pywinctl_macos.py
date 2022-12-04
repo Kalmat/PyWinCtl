@@ -3,25 +3,26 @@
 # Incomplete type stubs for pyobjc
 # mypy: disable_error_code = no-any-return
 from __future__ import annotations
+
 import sys
 assert sys.platform == "darwin"
 
 import ast
 import difflib
 import platform
-import subprocess
 import re
+import subprocess
+import threading
 import time
 import traceback
-import threading
-from collections.abc import Iterable, Sequence, Callable
+from collections.abc import Callable, Iterable, Sequence
 from typing import Any, cast, overload
-from typing_extensions import TypeAlias, TypedDict, Literal
 
 import AppKit
 import Quartz
+from typing_extensions import Literal, TypeAlias, TypedDict
 
-from . import pointInRect, BaseWindow, Rect, Point, Size, Re, _WinWatchDog
+from . import BaseWindow, Point, Re, Rect, Size, _WinWatchDog, pointInRect
 
 Incomplete: TypeAlias = Any
 
@@ -223,9 +224,10 @@ def getWindowsWithTitle(title: str | re.Pattern[str], app: AppKit.NSApp | tuple[
     :param flags: (optional) specific flags to apply to condition. Defaults to 0 (no flags)
     :return: list of Window objects
     """
+    matches: list[MacOSWindow] = []
 
     if not (title and condition in Re._cond_dic):
-        return []  # pyright: ignore[reportUnknownVariableType]  # Type doesn't matter here
+        return matches
 
     lower = False
     if condition in (Re.MATCH, Re.NOTMATCH):
@@ -240,7 +242,6 @@ def getWindowsWithTitle(title: str | re.Pattern[str], app: AppKit.NSApp | tuple[
         title = title.lower()
 
     if app is None or isinstance(app, tuple):
-        matches: list[MacOSWindow] = []
         activeApps = _getAllApps()
         titleList = _getWindowTitles()
         for item in titleList:
@@ -1964,9 +1965,8 @@ class MacOSWindow(BaseWindow):
 
         def _getPathFromWid(self, wID: int):
             itemPath = []
-            if self._checkMenuStruct():
-                if 0 < wID <= len(self.itemList):
-                    itemPath = self.itemList[wID - 1].split(SEP)
+            if self._checkMenuStruct() and 0 < wID <= len(self.itemList):
+                itemPath = self.itemList[wID - 1].split(SEP)
             return itemPath
 
         def _getNewHSubMenu(self, ref: str):
@@ -1975,9 +1975,8 @@ class MacOSWindow(BaseWindow):
 
         def _getPathFromHSubMenu(self, hSubMenu: int):
             menuPath = []
-            if self._checkMenuStruct():
-                if 0 < hSubMenu <= len(self.menuList):
-                    menuPath = self.menuList[hSubMenu - 1].split(SEP)
+            if self._checkMenuStruct() and 0 < hSubMenu <= len(self.menuList):
+                menuPath = self.menuList[hSubMenu - 1].split(SEP)
             return menuPath
 
         def _getMenuItemWid(self, itemPath: str):

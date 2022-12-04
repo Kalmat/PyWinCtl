@@ -15,6 +15,7 @@ xlib>=0.21; sys_platform == 'linux'
 ewmh>=0.1; sys_platform == 'linux'
 pynput>=1.6; sys_platform == 'linux'
 types-pynput>=1.6
+types-python-xlib>=0.32
 
 # MacOS
 pyobjc>=8.1; sys_platform == 'darwin'

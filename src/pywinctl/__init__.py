@@ -430,7 +430,7 @@ class BaseWindow(ABC):
 
     @property
     def topleft(self):
-        return cast(Point, self._rect.topleft) # pyrect.Rect.Point properties are potentially unknown
+        return cast(Point, self._rect.topleft)  # pyrect.Rect.Point properties are potentially unknown
 
     @topleft.setter
     def topleft(self, value: tuple[float, float]):
@@ -439,7 +439,7 @@ class BaseWindow(ABC):
 
     @property
     def topright(self):
-        return cast(Point, self._rect.topright) # pyrect.Rect.Point properties are potentially unknown
+        return cast(Point, self._rect.topright)  # pyrect.Rect.Point properties are potentially unknown
 
     @topright.setter
     def topright(self, value: tuple[float, float]):
@@ -448,7 +448,7 @@ class BaseWindow(ABC):
 
     @property
     def bottomleft(self):
-        return cast(Point, self._rect.bottomleft) # pyrect.Rect.Point properties are potentially unknown
+        return cast(Point, self._rect.bottomleft)  # pyrect.Rect.Point properties are potentially unknown
 
     @bottomleft.setter
     def bottomleft(self, value: tuple[float, float]):
@@ -457,7 +457,7 @@ class BaseWindow(ABC):
 
     @property
     def bottomright(self):
-        return cast(Point, self._rect.bottomright) # pyrect.Rect.Point properties are potentially unknown
+        return cast(Point, self._rect.bottomright)  # pyrect.Rect.Point properties are potentially unknown
 
     @bottomright.setter
     def bottomright(self, value: tuple[float, float]):
@@ -466,7 +466,7 @@ class BaseWindow(ABC):
 
     @property
     def midleft(self):
-        return cast(Point, self._rect.midleft) # pyrect.Rect.Point properties are potentially unknown
+        return cast(Point, self._rect.midleft)  # pyrect.Rect.Point properties are potentially unknown
 
     @midleft.setter
     def midleft(self, value: tuple[float, float]):
@@ -475,7 +475,7 @@ class BaseWindow(ABC):
 
     @property
     def midright(self):
-        return cast(Point, self._rect.midright) # pyrect.Rect.Point properties are potentially unknown
+        return cast(Point, self._rect.midright)  # pyrect.Rect.Point properties are potentially unknown
 
     @midright.setter
     def midright(self, value: tuple[float, float]):
@@ -493,7 +493,7 @@ class BaseWindow(ABC):
 
     @property
     def midbottom(self):
-        return cast(Point, self._rect.midbottom) # pyrect.Rect.Point properties are potentially unknown
+        return cast(Point, self._rect.midbottom)  # pyrect.Rect.Point properties are potentially unknown
 
     @midbottom.setter
     def midbottom(self, value: tuple[float, float]):
@@ -502,7 +502,7 @@ class BaseWindow(ABC):
 
     @property
     def center(self):
-        return cast(Point, self._rect.center) # pyrect.Rect.Point properties are potentially unknown
+        return cast(Point, self._rect.center)  # pyrect.Rect.Point properties are potentially unknown
 
     @center.setter
     def center(self, value: tuple[float, float]):
@@ -547,7 +547,7 @@ class BaseWindow(ABC):
 
     @property
     def size(self):
-        return cast(Size, self._rect.size) # pyrect.Rect.Size properties are potentially unknown
+        return cast(Size, self._rect.size)  # pyrect.Rect.Size properties are potentially unknown
 
     @size.setter
     def size(self, value: tuple[float, float]):
@@ -561,11 +561,11 @@ class BaseWindow(ABC):
     @area.setter
     def area(self, value: float):
         self._rect.area  # Run rect's onRead to update the Rect object.
-        self._rect.area = value # pyright: ignore[reportGeneralTypeIssues]  # FIXME: pyrect.Rect.area has no setter!
+        self._rect.area = value  # pyright: ignore[reportGeneralTypeIssues]  # FIXME: pyrect.Rect.area has no setter!
 
     @property
     def box(self):
-        return cast(Box, self._rect.box) # pyrect.Rect.Box properties are potentially unknown
+        return cast(Box, self._rect.box)  # pyrect.Rect.Box properties are potentially unknown
 
     @box.setter
     def box(self, value: Box):
@@ -653,22 +653,20 @@ class _WinWatchDog(threading.Thread):
             self._kill.wait(self._interval)
 
             try:
-                if sys.platform == "darwin":
-                    # In macOS AppScript version, if title changes, it will consider window is not alive anymore
-                    if self._isAliveCB or self._tryToFind:
-                        if not self._win.isAlive:
-                            if self._isAliveCB:
-                                self._isAliveCB(False)
-                            if self._tryToFind:
-                                title = self._win.title
-                                if self._title != title:
-                                    title = self._win.updatedTitle
-                                    self._title = title
-                                    if self._changedTitleCB:
-                                        self._changedTitleCB(title)
-                            if not self._tryToFind or (self._tryToFind and not self._title):
-                                self.kill()
-                            break
+                # In macOS AppScript version, if title changes, it will consider window is not alive anymore
+                if sys.platform == "darwin" and (self._isAliveCB or self._tryToFind) and not self._win.isAlive:
+                    if self._isAliveCB:
+                        self._isAliveCB(False)
+                    if self._tryToFind:
+                        title = self._win.title
+                        if self._title != title:
+                            title = self._win.updatedTitle
+                            self._title = title
+                            if self._changedTitleCB:
+                                self._changedTitleCB(title)
+                    if not self._tryToFind or (self._tryToFind and not self._title):
+                        self.kill()
+                    break
 
                 if self._isActiveCB:
                     active = self._win.isActive
@@ -753,22 +751,22 @@ class _WinWatchDog(threading.Thread):
 
     def setTryToFind(self, tryToFind: bool):
         if sys.platform == "darwin" and type(self._win).__name__ == Window.__name__:
-                self._tryToFind = tryToFind
+            self._tryToFind = tryToFind
 
     def kill(self):
         self._kill.set()
 
     def restart(
         self,
-        isAliveCB: Callable[[bool], None] | None  = None,
-        isActiveCB: Callable[[bool], None] | None  = None,
-        isVisibleCB: Callable[[bool], None] | None  = None,
-        isMinimizedCB: Callable[[bool], None] | None  = None,
-        isMaximizedCB: Callable[[bool], None] | None  = None,
-        resizedCB: Callable[[tuple[float, float]], None] | None  = None,
-        movedCB: Callable[[tuple[float, float]], None] | None  = None,
-        changedTitleCB: Callable[[str], None] | None  = None,
-        changedDisplayCB: Callable[[str], None] | None  = None,
+        isAliveCB: Callable[[bool], None] | None = None,
+        isActiveCB: Callable[[bool], None] | None = None,
+        isVisibleCB: Callable[[bool], None] | None = None,
+        isMinimizedCB: Callable[[bool], None] | None = None,
+        isMaximizedCB: Callable[[bool], None] | None = None,
+        resizedCB: Callable[[tuple[float, float]], None] | None = None,
+        movedCB: Callable[[tuple[float, float]], None] | None = None,
+        changedTitleCB: Callable[[str], None] | None = None,
+        changedDisplayCB: Callable[[str], None] | None = None,
         interval: float = 0.3
     ):
         self.kill()

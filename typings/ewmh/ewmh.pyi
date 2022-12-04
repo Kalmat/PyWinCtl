@@ -7,8 +7,8 @@ from collections.abc import Iterable
 from typing import Any
 
 from typing_extensions import Literal, TypeAlias
-from Xlib.display import Display  # type: ignore[import,reportMissingTypeStubs]
-from Xlib.xobject.drawable import Window  # type: ignore[import,reportMissingTypeStubs]
+from Xlib.display import Display
+from Xlib.xobject.drawable import Window
 
 _GetAttrsProperty: TypeAlias = Literal[
     "_NET_CLIENT_LIST",
