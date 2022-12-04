@@ -40,7 +40,9 @@ These functions are available at the moment, in all three platforms (Windows, Li
 |  getScreenSize  |  raiseWindow  |    |  
 |  getWorkArea  |  lowerWindow  |    |  
 |  version  |  alwaysOnTop  |    |  
-|  checkPermissions (macOS only)  |  alwaysOnBottom  |    |  
+|  checkPermissions (macOS only)  |  alwaysOnBottom  |    |
+|  |  sendBehind  |    |  
+|  |  acceptInput  |    |  
 |  |  getAppName  |    |  
 |  |  getHandle  |    |  
 |  |  getParent  |    |  
@@ -61,7 +63,7 @@ macOS doesn't "like" controlling windows from other apps, so there are two separ
 
 The enormous variety of Linux distributions, Desktop Environments, Window Managers, and their combinations, make it impossible to test in all scenarios.
 
-This module has been tested OK in Ubuntu/Gnome, Ubuntu/Unity, Mint/Cinnamon and Raspbian/LXDE.
+This module has been tested OK in Ubuntu/Gnome, Ubuntu/KDE, Ubuntu/Unity, Mint/Cinnamon and Raspbian/LXDE. Except for Mint/Cinnamon and Ubuntu 22.04+, `sendBehind()` method doesn't properly work!
 
 In case you find problems in other configs, please [open an issue](https://github.com/Kalmat/PyWinCtl/issues). Furthermore, if you have knowledge in these other configs, do not hesitate to contribute!
 

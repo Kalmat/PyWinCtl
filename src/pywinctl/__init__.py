@@ -13,26 +13,6 @@ from typing import Any, NamedTuple, cast
 
 import pyrect  # type: ignore[import]  # TODO: Create type stubs or add to base library
 
-if sys.platform == "darwin":
-    from ._pywinctl_macos import (MacOSNSWindow as NSWindow, MacOSWindow as Window, checkPermissions, getActiveWindow,
-                                  getActiveWindowTitle, getAllAppsNames, getAllAppsWindowsTitles, getAllScreens,
-                                  getAllTitles, getAllWindows, getAppsWithName, getMousePos, getScreenSize,
-                                  getTopWindowAt, getWindowsAt, getWindowsWithTitle, getWorkArea)
-
-elif sys.platform == "win32":
-    from ._pywinctl_win import (Win32Window as Window, checkPermissions, getActiveWindow, getActiveWindowTitle,
-                                getAllAppsNames, getAllAppsWindowsTitles, getAllScreens, getAllTitles, getAllWindows,
-                                getAppsWithName, getMousePos, getScreenSize, getTopWindowAt, getWindowsAt,
-                                getWindowsWithTitle, getWorkArea)
-
-elif sys.platform == "linux":
-    from ._pywinctl_linux import (LinuxWindow as Window, checkPermissions, getActiveWindow, getActiveWindowTitle,
-                                  getAllAppsNames, getAllAppsWindowsTitles, getAllScreens, getAllTitles, getAllWindows,
-                                  getAppsWithName, getMousePos, getScreenSize, getTopWindowAt, getWindowsAt,
-                                  getWindowsWithTitle, getWorkArea)
-
-else:
-    raise NotImplementedError('PyWinCtl currently does not support this platform. If you think you can help, please contribute! https://github.com/Kalmat/PyWinCtl')
 
 __all__ = [
     "BaseWindow", "version", "Re",
@@ -45,7 +25,7 @@ __all__ = [
 if sys.platform == "darwin":
     __all__ += ["NSWindow"]
 
-__version__ = "0.0.39"
+__version__ = "0.0.40"
 
 class Box(NamedTuple):
     left: int
@@ -308,6 +288,15 @@ class BaseWindow(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def acceptInput(self, setTo: bool) -> None:
+        """Toggles the window transparent to input and focus
+
+        :param setTo: True/False to toggle window transparent to input and focus
+        :return: None
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def getAppName(self) -> str:
         """Returns the name of the app to which current window belongs to, as string"""
         raise NotImplementedError
@@ -343,6 +332,7 @@ class BaseWindow(ABC):
         raise NotImplementedError
     isChildOf = isChild  # isParentOf is an alias of isParent method
 
+    @property
     @abstractmethod
     def getDisplay(self) -> str:
         """Returns the name of the current window display (monitor)"""
@@ -774,3 +764,25 @@ class _WinWatchDog(threading.Thread):
         self.updateCallbacks(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB)
         self.updateInterval(interval)
         self.run()
+
+
+if sys.platform == "darwin":
+    from ._pywinctl_macos import (MacOSNSWindow as NSWindow, MacOSWindow as Window, checkPermissions, getActiveWindow,
+                                  getActiveWindowTitle, getAllAppsNames, getAllAppsWindowsTitles, getAllScreens,
+                                  getAllTitles, getAllWindows, getAppsWithName, getMousePos, getScreenSize,
+                                  getTopWindowAt, getWindowsAt, getWindowsWithTitle, getWorkArea)
+
+elif sys.platform == "win32":
+    from ._pywinctl_win import (Win32Window as Window, checkPermissions, getActiveWindow, getActiveWindowTitle,
+                                getAllAppsNames, getAllAppsWindowsTitles, getAllScreens, getAllTitles, getAllWindows,
+                                getAppsWithName, getMousePos, getScreenSize, getTopWindowAt, getWindowsAt,
+                                getWindowsWithTitle, getWorkArea)
+
+elif sys.platform == "linux":
+    from ._pywinctl_linux import (LinuxWindow as Window, checkPermissions, getActiveWindow, getActiveWindowTitle,
+                                  getAllAppsNames, getAllAppsWindowsTitles, getAllScreens, getAllTitles, getAllWindows,
+                                  getAppsWithName, getMousePos, getScreenSize, getTopWindowAt, getWindowsAt,
+                                  getWindowsWithTitle, getWorkArea)
+
+else:
+    raise NotImplementedError('PyWinCtl currently does not support this platform. If you think you can help, please contribute! https://github.com/Kalmat/PyWinCtl')

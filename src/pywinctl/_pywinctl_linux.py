@@ -16,6 +16,7 @@ import tkinter as tk
 import traceback
 from collections.abc import Callable
 from typing import Iterable
+from typing_extensions import TypedDict
 
 import ewmh
 import Xlib.display
@@ -24,11 +25,10 @@ import Xlib.protocol
 import Xlib.X
 import Xlib.Xatom
 import Xlib.Xutil
-from pynput import mouse
 from typing_extensions import TypedDict
 from Xlib.xobject.drawable import Window
 
-from . import BaseWindow, Point, Re, Rect, Size, _WinWatchDog, pointInRect
+from pywinctl import BaseWindow, Point, Re, Rect, Size, _WinWatchDog, pointInRect
 
 DISP = Xlib.display.Display()
 SCREEN = DISP.screen()
@@ -114,7 +114,7 @@ def getActiveWindowTitle():
 
 def __remove_bad_windows(windows: Iterable[Window | None]):
     """
-    :param clients: Xlib Windows
+    :param windows: Xlib Windows
     :return: A generator of LinuxWindow that filters out BadWindows
     """
     for window in windows:
@@ -253,7 +253,7 @@ def getAllAppsWindowsTitles():
     result: dict[str, list[str]] = {}
     for win in getAllWindows():
         appName = win.getAppName()
-        if appName in result:
+        if appName in result.keys():
             result[appName].append(win.title)
         else:
             result[appName] = [win.title]
@@ -290,8 +290,7 @@ def getTopWindowAt(x: int, y: int):
         return None
 
 
-def _xlibGetAllWindows(parent: Window | None = None, title: str = ""):
-    # Not using window class (get_wm_class())
+def _xlibGetAllWindows(parent: Window | None = None, title: str = "", klass=None):
 
     parent = parent or ROOT
     allWindows = [parent]
@@ -303,10 +302,24 @@ def _xlibGetAllWindows(parent: Window | None = None, title: str = ""):
             findit(child)
 
     findit(parent)
-    if not title:
+    if not title and not klass:
         return allWindows
     else:
-        return [window for window in allWindows if window.get_wm_name() == title]
+        windows = []
+        for window in allWindows:
+            try:
+                winTitle = window.get_wm_name()
+            except:
+                winTitle = ""
+            try:
+                winClass = window.get_wm_class()
+            except:
+                winClass = ""
+            if (title and winTitle == title) or (klass and winClass == klass):
+                windows.append(window)
+        return windows
+        # return [window for window in allWindows if ((title and window.get_wm_name() == title) or
+        #                                             (klass and window.get_wm_class() == klass))]
 
 
 def _getBorderSizes():
@@ -340,6 +353,7 @@ def _getWindowAttributes(hWnd: Window):
     # https://github.com/nathanlopez/Stitch/blob/master/Configuration/mss/linux.py
     # https://gist.github.com/ssokolow/e7c9aae63fb7973e4d64cff969a78ae8
     # https://stackoverflow.com/questions/36188154/get-x11-window-caption-height
+    # https://refspecs.linuxfoundation.org/LSB_1.3.0/gLSB/gLSB/libx11-ddefs.html
 
     from ctypes import Structure, byref, c_int32, c_uint32, c_ulong, cdll
     from ctypes.util import find_library
@@ -399,6 +413,10 @@ def _getWindowAttributes(hWnd: Window):
     # EWMH._setProperty(_type="WM_CHANGE_STATE", data=data, mask=mask)
     # for atom in w.list_properties():
     #     print(DISP.atom_name(atom))
+    # props = DISP.xrandr_list_output_properties(output)
+    # for atom in props.atoms:
+    #     print(atom, DISP.get_atom_name(atom))
+    #     print(DISP.xrandr_get_output_property(output, atom, 0, 0, 1000)._data['value'])
     return attr
 
 
@@ -409,6 +427,10 @@ class LinuxWindow(BaseWindow):
 
     def __init__(self, hWnd: Window):
         super().__init__()
+        if isinstance(hWnd, int):
+            hWnd = DISP.create_resource_object('window', hWnd)
+        self._hWnd = hWnd
+        self._parent = self._hWnd.query_tree().parent
         self._hWnd = hWnd
         self._parent: Window = self._hWnd.query_tree().parent
         self.__rect = self._rectFactory()
@@ -727,49 +749,37 @@ class LinuxWindow(BaseWindow):
         Notes:
             - On GNOME it will obscure desktop icons... by the moment
         """
-        if sb:
+        if sb and WINDOW_DESKTOP not in EWMH.getWmWindowType(self._hWnd, str=True):
             # https://stackoverflow.com/questions/58885803/can-i-use-net-wm-window-type-dock-ewhm-extension-in-openbox
+
+            # This sends window below all others, but not behind the desktop icons
             w = DISP.create_resource_object('window', self._hWnd.id)
             w.unmap()
-            # Place a Window behind desktop icons using PyQt on Ubuntu/GNOME
-            # This adds the properties (notice the PropMode options), but with no effect on GNOME
-            # w.change_property(DISP.intern_atom(WM_STATE, False), Xlib.Xatom.ATOM,
-            #                   32, [DISP.intern_atom(STATE_BELOW, False), ],
-            #                   Xlib.X.PropModeReplace)
-            # w.change_property(DISP.intern_atom(WM_STATE, False), Xlib.Xatom.ATOM,
-            #                   32, [DISP.intern_atom(STATE_SKIP_TASKBAR, False), ],
-            #                   Xlib.X.PropModeAppend)
-            # w.change_property(DISP.intern_atom(WM_STATE, False), Xlib.Xatom.ATOM,
-            #                   32, [DISP.intern_atom(STATE_SKIP_PAGER, False), ],
-            #                   Xlib.X.PropModeAppend)
-            # DISP.flush()
-            # self._hWnd.delete_property(DISP.intern_atom('WM_TAKE_FOCUS', False))
-            # DISP.flush()
-            # This sends window below all others, but not behind the desktop icons
             w.change_property(DISP.intern_atom(WM_WINDOW_TYPE, False), Xlib.Xatom.ATOM,
                               32, [DISP.intern_atom(WINDOW_DESKTOP, False), ],
                               Xlib.X.PropModeReplace)
             DISP.flush()
             w.map()
 
-            if "GNOME" in os.environ.get('XDG_CURRENT_DESKTOP', ''):
-                pass
-                # This sends the window "too far behind" (below all others, including Wallpaper, like unmapped)
-                # Trying to figure out how to raise it on top of wallpaper but behind desktop icons
-                # TODO: As an idea, find Wallpaper window to try to reparent our window to it, or to its same parent
-                # desktop = _xlibGetAllWindows(title="gnome-shell")  # or "main", not sure...
-                # if desktop:
-                #     w.reparent(desktop[-1], self.left, self.top)
-                #     DISP.flush()
-            else:
-                # Mint/Cinnamon: just clicking on the desktop, it raises, sending the window/wallpaper to the bottom!
-                # TODO: Find a smarter way to raise desktop icons instead of a mouse click
-                m = mouse.Controller()
-                m.move(SCREEN.width_in_pixels - 1, 100)
-                m.click(mouse.Button.left, 1)
+            # This will try to raise the desktop icons layer on top of the window
+            # Ubuntu: "@!0,0;BDHF" is the new desktop icons NG extension on Ubuntu
+            # Mint: "Desktop" name is language-dependent. Using its class instead
+            # TODO: Test / find in other OS
+            desktop = _xlibGetAllWindows(title="@!0,0;BDHF", klass=('nemo-desktop', 'Nemo-desktop'))
+            # if not desktop:
+            #     for w in EWMH.getClientListStacking():  --> Should _xlibGetWindows() be used instead?
+            #         state = EWMH.getWmState(w)
+            #         winType = EWMH.getWmWindowType(w)
+            #         if STATE_SKIP_PAGER in state and STATE_SKIP_TASKBAR in state and WINDOW_DESKTOP in winType:
+            #             desktop.append(w)
+            for d in desktop:
+                w = DISP.create_resource_object('window', d)
+                w.raise_window()
+
             return WINDOW_DESKTOP in EWMH.getWmWindowType(self._hWnd, str=True)
         else:
             w = DISP.create_resource_object('window', self._hWnd.id)
+            pos = self.topleft
             w.unmap()
             w.change_property(DISP.intern_atom(WM_WINDOW_TYPE, False), Xlib.Xatom.ATOM,
                               32, [DISP.intern_atom(WINDOW_NORMAL, False), ],
@@ -777,12 +787,28 @@ class LinuxWindow(BaseWindow):
             DISP.flush()
             w.change_property(DISP.intern_atom(WM_STATE, False), Xlib.Xatom.ATOM,
                               32, [DISP.intern_atom(STATE_FOCUSED, False), ],
-                              Xlib.X.PropModeReplace)
+                              Xlib.X.PropModeAppend)
             DISP.flush()
             w.map()
             EWMH.setActiveWindow(self._hWnd)
             EWMH.display.flush()
+            self.moveTo(pos.x, pos.y)
             return WINDOW_NORMAL in EWMH.getWmWindowType(self._hWnd, str=True) and self.isActive
+
+    def acceptInput(self, setTo: bool) -> None:
+        """Toggles the window transparent to input and focus
+
+        :param setTo: True/False to toggle window transparent to input and focus
+        :return: None
+        """
+        if setTo:
+            mask = Xlib.X.SubstructureRedirectMask | Xlib.X.SubstructureNotifyMask | Xlib.X.EnableAccess
+        else:
+            mask = Xlib.X.SubstructureRedirectMask | Xlib.X.SubstructureNotifyMask | Xlib.X.DisableAccess
+        prop = DISP.intern_atom('WM_CHANGE_STATE', False)
+        data = (32, [Xlib.Xutil.FocusChangeMask, 0, 0, 0, 0])  # it seems to work with any atom (like Xlib.Xutil.IconicState)
+        ev = Xlib.protocol.event.ClientMessage(window=self._hWnd.id, client_type=prop, data=data)
+        DISP.send_event(destination=ROOT, event=ev, event_mask=mask)
 
     def getAppName(self) -> str:
         """
@@ -1146,51 +1172,51 @@ def getAllScreens():
         except:
             continue
 
-        try:
-            res = root.xrandr_get_screen_resources()
-            modes = res.modes
-            wa = EWMH.getWorkArea() or [0, 0, 0, 0]
-            for output in res.outputs:
-                params = DISP.xrandr_get_output_info(output, res.config_timestamp)
+        res = root.xrandr_get_screen_resources()
+        modes = res.modes
+        wa = EWMH.getWorkArea() or [0, 0, 0, 0]
+        for output in res.outputs:
+            params = DISP.xrandr_get_output_info(output, res.config_timestamp)
+            crtc = None
+            try:
                 crtc = DISP.xrandr_get_crtc_info(params.crtc, res.config_timestamp)
+            except:
+                continue
 
-                if crtc and crtc.mode:  # displays with empty (0) mode seem not to be valid
-                    name = params.name
-                    if name in result:
-                        name = name + str(i)
-                    id = crtc.sequence_number
-                    x, y, w, h = crtc.x, crtc.y, crtc.width, crtc.height
-                    wx, wy, wr, wb = x + wa[0], y + wa[1], x + w - (screen.width_in_pixels - wa[2] - wa[0]), y + h - (screen.height_in_pixels - wa[3] - wa[1])
-                    # check all these values with physical monitors using dpi, mms or other possible values or props
-                    # dpiX, dpiY = round(crtc.width * 25.4 / params.mm_width), round(crtc.height * 25.4 / params.mm_height)
+            if crtc and crtc.mode:  # displays with empty (0) mode seem not to be valid
+                name = params.name
+                if name in result:
+                    name = name + str(i)
+                id = crtc.sequence_number
+                x, y, w, h = crtc.x, crtc.y, crtc.width, crtc.height
+                wx, wy, wr, wb = x + wa[0], y + wa[1], x + w - (screen.width_in_pixels - wa[2] - wa[0]), y + h - (screen.height_in_pixels - wa[3] - wa[1])
+                # check all these values using dpi, mms or other possible values or props
+                dpiX = dpiY = 0
+                try:
+                    dpiX, dpiY = round(crtc.width * 25.4 / params.mm_width), round(crtc.height * 25.4 / params.mm_height)
+                except:
                     dpiX, dpiY = round(w * 25.4 / screen.width_in_mms), round(h * 25.4 / screen.height_in_mms)
-                    scaleX, scaleY = round(dpiX / 96 * 100), round(dpiY / 96 * 100)
-                    rot = int(math.log(crtc.rotation, 2))
-                    freq = 0.0
-                    for mode in modes:
-                        if crtc.mode == mode.id:
-                            freq = mode.dot_clock / (mode.h_total * mode.v_total)
-                            break
-                    depth = screen.root_depth
+                scaleX, scaleY = round(dpiX / 96 * 100), round(dpiY / 96 * 100)
+                rot = int(math.log(crtc.rotation, 2))
+                freq = 0.0
+                for mode in modes:
+                    if crtc.mode == mode.id:
+                        freq = mode.dot_clock / (mode.h_total * mode.v_total)
+                        break
+                depth = screen.root_depth
 
-                    result[name] = {
-                        'id': id,
-                        'is_primary': (x, y) == (0, 0),
-                        'pos': Point(x, y),
-                        'size': Size(w, h),
-                        'workarea': Rect(wx, wy, wr, wb),
-                        'scale': (scaleX, scaleY),
-                        'dpi': (dpiX, dpiY),
-                        'orientation': rot,
-                        'frequency': freq,
-                        'colordepth': depth
-                    }
-        except:
-            print(traceback.format_exc())
-        # props = DISP.xrandr_list_output_properties(output)
-        # for atom in props.atoms:
-        #     print(atom, DISP.get_atom_name(atom))
-        #     print(DISP.xrandr_get_output_property(output, atom, 0, 0, 1000)._data['value'])
+                result[name] = {
+                    'id': id,
+                    'is_primary': (x, y) == (0, 0),
+                    'pos': Point(x, y),
+                    'size': Size(w, h),
+                    'workarea': Rect(wx, wy, wr, wb),
+                    'scale': (scaleX, scaleY),
+                    'dpi': (dpiX, dpiY),
+                    'orientation': rot,
+                    'frequency': freq,
+                    'colordepth': depth
+                }
     return result
 
 

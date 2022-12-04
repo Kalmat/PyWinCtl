@@ -1,0 +1,17 @@
+Linux:
+- Test other combinations (especially for sendBehind()). Tested OK: Ubuntu/GNOME and Mint/Cinnamon
+
+Windows:
+- sendBehind(False): Find a smarter way to update window (now it's minimize/restore)
+- SendBottom(): Find a way to filter user vs. system apps. It should be doable like in Task Manager!!!
+- alwaysOnBottom(): Try to find other smarter methods to keep window at the bottom (now it's a thread)
+
+macOS / AppleScript:
+- In general, find a way to optimize all appScript calls in terms of time and resources
+https://discussions.apple.com/thread/1877444
+https://discussions.apple.com/thread/2189505
+- getAllWindows()/getAllTitles(): Find a way to return windows in same stack order than on screen
+- alwaysOnTop(): Try to find other smarter methods to keep window at the top (now it's a thread)
+- alwaysOnBottom(): Try to find other smarter methods to keep window at the bottom (now it's a thread)
+- sendBehind(): Is it even possible???
+- acceptInput(): Is it even possible???

@@ -3,7 +3,6 @@
 # Incomplete type stubs for pyobjc
 # mypy: disable_error_code = no-any-return
 from __future__ import annotations
-
 import sys
 assert sys.platform == "darwin"
 
@@ -14,15 +13,15 @@ import re
 import subprocess
 import threading
 import time
-import traceback
 from collections.abc import Callable, Iterable, Sequence
 from typing import Any, cast, overload
+from typing_extensions import TypeAlias, TypedDict, Literal
 
 import AppKit
 import Quartz
 from typing_extensions import Literal, TypeAlias, TypedDict
 
-from . import BaseWindow, Point, Re, Rect, Size, _WinWatchDog, pointInRect
+from pywinctl import pointInRect, BaseWindow, Rect, Point, Size, Re, _WinWatchDog
 
 Incomplete: TypeAlias = Any
 
@@ -60,7 +59,7 @@ def checkPermissions(activate: bool = False):
                     set UI_enabled to UI elements enabled
                 end tell
                 return UI_enabled"""
-    proc = subprocess.Popen(['osascript'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
+    proc = subprocess.Popen(['osascript'],  stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
     ret, err = proc.communicate(cmd)
     ret = ret.replace("\n", "")
     return ret == "true"
@@ -82,31 +81,35 @@ def getActiveWindow(app: AppKit.NSApplication | None = None):
         cmd = """on run
                     set appName to ""
                     set appID to ""
-                    set winName to ""
+                    set winData to {}
                     try
                         tell application "System Events"
                             set appName to name of first application process whose frontmost is true
                             set appID to unix id of application process appName
                             tell application process appName
-                                set winName to name of (first window whose value of attribute "AXMain" is true)
+                                set winData to {position, size, name} of (first window whose value of attribute "AXMain" is true)
                             end tell
                         end tell
                     end try
-                    return {appID, winName}
+                    return {appID, winData}
                 end run"""
-        proc = subprocess.Popen(['osascript'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
+        proc = subprocess.Popen(['osascript'],  stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
-        # Thanks to Anthony Molinaro (djnym) for pointing out this bug and provide the solution!!!
-        # sometimes the title of the window contains ',' characters, so just get the first entry as the appName and join the rest
-        # back together as a string
         entries = ret.replace("\n", "").split(", ")
-        appID = entries[0]
-        title = ", ".join(entries[1:])
-        if appID:  # and title:
-            activeApps = _getAllApps()
-            for activeApp in activeApps:
-                if str(activeApp.processIdentifier()) == appID:
-                    return MacOSWindow(activeApp, title)
+        try:
+            appID = entries[0]
+            bounds = Rect(int(entries[1]), int(entries[2]), int(entries[3]), int(entries[4]))
+            # Thanks to Anthony Molinaro (djnym) for pointing out this bug and provide the solution!!!
+            # sometimes the title of the window contains ',' characters, so just get the first entry as the appName and join the rest
+            # back together as a string
+            title = ", ".join(entries[5:])
+            if appID:  # and title:
+                activeApps = _getAllApps()
+                for app in activeApps:
+                    if str(app.processIdentifier()) == appID:
+                        return MacOSWindow(app, title, bounds)
+        except Exception as e:
+            print(e)
     else:
         for win in app.orderedWindows():  # .keyWindow() / .mainWindow() not working?!?!?!
             return MacOSNSWindow(app, win)
@@ -138,6 +141,8 @@ def getAllWindows(app: AppKit.NSApplication | None = None):
     :param app: (optional) NSApp() object. If passed, returns the Window objects of all windows of given app
     :return: list of Window objects
     """
+    # TODO: Find a way to return windows as per the stacking order (not sure if it is even possible!)
+    windows: list[MacOSNSWindow | MacOSWindow] = []
     if not app:
         windows: list[MacOSWindow] = []
         activeApps = _getAllApps()
@@ -224,10 +229,9 @@ def getWindowsWithTitle(title: str | re.Pattern[str], app: AppKit.NSApp | tuple[
     :param flags: (optional) specific flags to apply to condition. Defaults to 0 (no flags)
     :return: list of Window objects
     """
-    matches: list[MacOSWindow] = []
 
     if not (title and condition in Re._cond_dic):
-        return matches
+        return []  # pyright: ignore[reportUnknownVariableType]  # Type doesn't matter here
 
     lower = False
     if condition in (Re.MATCH, Re.NOTMATCH):
@@ -242,6 +246,7 @@ def getWindowsWithTitle(title: str | re.Pattern[str], app: AppKit.NSApp | tuple[
         title = title.lower()
 
     if app is None or isinstance(app, tuple):
+        matches: list[MacOSWindow] = []
         activeApps = _getAllApps()
         titleList = _getWindowTitles()
         for item in titleList:
@@ -385,14 +390,14 @@ def getTopWindowAt(x: int, y: int, app: AppKit.NSApplication | None = ..., allWi
 def getTopWindowAt(x: int, y: int, app: AppKit.NSApplication | None = None, allWindows: list[MacOSNSWindow | MacOSWindow] | list[MacOSNSWindow] | list[MacOSWindow] | None = None):
     """
     Get *a* Window object at the point ``(x, y)`` on screen.
-    Which window is not garranteed. See https://github.com/Kalmat/PyWinCtl/issues/20#issuecomment-1193348238
+    Which window is not guaranteed. See https://github.com/Kalmat/PyWinCtl/issues/20#issuecomment-1193348238
 
     :param x: X screen coordinate of the window
     :param y: Y screen coordinate of the window
     :return: Window object or None
     """
-    # TODO: Once we've figured out why getWindowsAt may not always return all windows
-    # (see https://github.com/Kalmat/PyWinCtl/issues/21)
+    # Once we've figured out why getWindowsAt may not always return all windows
+    # (see https://github.com/Kalmat/PyWinCtl/issues/21),
     # we can look into a more efficient implementation that only gets a single window
     windows = getWindowsAt(x, y, app, allWindows)
     return None if len(windows) == 0 else windows[-1]
@@ -407,17 +412,15 @@ def _getAllApps(userOnly: bool = True):
     return matches
 
 
-def _getAllWindows(excludeDesktop: bool = True, screenOnly: bool = True, userLayer: bool = False):
+def _getAllWindows(userLayer: bool = True):
     # Source: https://stackoverflow.com/questions/53237278/obtain-list-of-all-window-titles-on-macos-from-a-python-script/53985082#53985082
     # This returns a list of window info objects, which is static, so needs to be refreshed and takes some time to the OS to refresh it
     # Besides, since it may not have kCGWindowName value and the kCGWindowNumber can't be accessed from Apple Script, it's useless
-    flags = Quartz.kCGWindowListExcludeDesktopElements if excludeDesktop else 0 | \
-            Quartz.kCGWindowListOptionOnScreenOnly if screenOnly else 0
-    ret: list[dict[Incomplete, int]] = Quartz.CGWindowListCopyWindowInfo(flags, Quartz.kCGNullWindowID)
+    ret: list[dict[Incomplete, int]] = Quartz.CGWindowListCopyWindowInfo(Quartz.kCGWindowListExcludeDesktopElements | Quartz.kCGWindowListOptionOnScreenOnly, Quartz.kCGNullWindowID)
     if userLayer:
         matches: list[dict[Incomplete, int]] = []
         for win in ret:
-            if win[Quartz.kCGWindowLayer] != 0:
+            if win.get(Quartz.kCGWindowLayer, "") == 0:
                 matches.append(win)
         ret = matches
     return ret
@@ -482,16 +485,20 @@ def _getWindowTitles() -> list[list[str]]:
 
 
 def _getBorderSizes():
-    a = AppKit.NSApplication.sharedApplication()
-    frame = AppKit.NSMakeRect(400, 800, 250, 100)
-    mask = AppKit.NSWindowStyleMaskTitled | AppKit.NSWindowStyleMaskClosable | AppKit.NSWindowStyleMaskMiniaturizable | AppKit.NSWindowStyleMaskResizable
-    w = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(frame, mask, AppKit.NSBackingStoreBuffered, False)
-    titlebarHeight = int(w.titlebarHeight())
-    borderWidth = int(w.frame().size.width - w.contentRectForFrameRect_(frame).size.width)
-    # w.display()
-    # a.run()
-    # w.releasedWhenClosed = True  # Method not found (?)
-    w.close()
+    try:  # This will fail if not called on main thread!
+        a = AppKit.NSApplication.sharedApplication()
+        frame = AppKit.NSMakeRect(400, 800, 250, 100)
+        mask = AppKit.NSWindowStyleMaskTitled | AppKit.NSWindowStyleMaskClosable | AppKit.NSWindowStyleMaskMiniaturizable | AppKit.NSWindowStyleMaskResizable
+        w = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(frame, mask, AppKit.NSBackingStoreBuffered, False)
+        titlebarHeight = int(w.titlebarHeight())
+        borderWidth = int(w.frame().size.width - w.contentRectForFrameRect_(frame).size.width)
+        # w.display()
+        # a.run()
+        # w.setReleasedWhenClosed_(True)  # Method not found (?!)
+        w.close()
+    except:
+        titlebarHeight = 0
+        borderWidth = 0
     return titlebarHeight, borderWidth
 
 
@@ -543,7 +550,7 @@ class MacOSWindow(BaseWindow):
                     end try
                     return appBounds
                 end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
+        proc = subprocess.Popen(['osascript', '-', self._appName, self.title], 
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
         if not ret:
@@ -566,6 +573,8 @@ class MacOSWindow(BaseWindow):
         Notice that this method won't match non-standard window decoration style sizes
 
         :return: Rect struct
+
+        WARNING: it will fail if not called within main thread
         """
         # https://www.macscripter.net/viewtopic.php?id=46336 --> Won't allow access to NSWindow objects, but interesting
         # Didn't find a way to get menu bar height using Apple Script
@@ -601,7 +610,7 @@ class MacOSWindow(BaseWindow):
                         end tell
                     end try
                 end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
+        proc = subprocess.Popen(['osascript', '-', self._appName, self.title], 
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
         if force and self.isAlive:
@@ -627,7 +636,7 @@ class MacOSWindow(BaseWindow):
                         end tell
                     end try
                 end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
+        proc = subprocess.Popen(['osascript', '-', self._appName, self.title], 
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
         retries = 0
@@ -668,7 +677,7 @@ class MacOSWindow(BaseWindow):
                                 end tell
                             end try
                         end run"""
-            proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
+            proc = subprocess.Popen(['osascript', '-', self._appName, self.title], 
                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
             ret, err = proc.communicate(cmd)
             retries = 0
@@ -698,7 +707,7 @@ class MacOSWindow(BaseWindow):
                                 end tell
                             end try
                         end run""" % self._appName
-                proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
+                proc = subprocess.Popen(['osascript', '-', self._appName, self.title], 
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
                 ret, err = proc.communicate(cmd)
             else:
@@ -710,7 +719,7 @@ class MacOSWindow(BaseWindow):
                                 end tell
                             end try
                         end run"""
-                proc = subprocess.Popen(['osascript', '-', self._appName],
+                proc = subprocess.Popen(['osascript', '-', self._appName], 
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
                 ret, err = proc.communicate(cmd)
         if self.isMinimized:
@@ -723,7 +732,7 @@ class MacOSWindow(BaseWindow):
                             end tell
                         end try
                     end run"""
-            proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
+            proc = subprocess.Popen(['osascript', '-', self._appName, self.title], 
                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
             ret, err = proc.communicate(cmd)
         retries = 0
@@ -755,7 +764,7 @@ class MacOSWindow(BaseWindow):
                     end try
                     return (isDone as string)
                end run""" % self._appName
-        proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
+        proc = subprocess.Popen(['osascript', '-', self._appName, self.title], 
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
         ret = ret.replace("\n", "")
@@ -790,7 +799,7 @@ class MacOSWindow(BaseWindow):
                     end try
                     return (isDone as string)
                 end run""" % self._appName
-        proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
+        proc = subprocess.Popen(['osascript', '-', self._appName, self.title], 
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
         ret = ret.replace("\n", "")
@@ -827,7 +836,7 @@ class MacOSWindow(BaseWindow):
                         end tell
                     end try
                 end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
+        proc = subprocess.Popen(['osascript', '-', self._appName, self.title], 
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
         retries = 0
@@ -869,7 +878,7 @@ class MacOSWindow(BaseWindow):
                         end tell
                     end try
                 end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self.title, str(newWidth), str(newHeight)],
+        proc = subprocess.Popen(['osascript', '-', self._appName, self.title, str(newWidth), str(newHeight)], 
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
         retries = 0
@@ -911,7 +920,7 @@ class MacOSWindow(BaseWindow):
                         end tell
                     end try
                 end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self.title, str(newLeft), str(newTop)],
+        proc = subprocess.Popen(['osascript', '-', self._appName, self.title, str(newLeft), str(newTop)], 
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
         retries = 0
@@ -939,7 +948,7 @@ class MacOSWindow(BaseWindow):
                     end try
                 end run"""
         proc = subprocess.Popen(['osascript', '-', self._appName, self.title,
-                                 str(newLeft), str(newTop), str(newWidth), str(newHeight)],
+                                 str(newLeft), str(newTop), str(newWidth), str(newHeight)], 
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
         retries = 0
@@ -963,7 +972,7 @@ class MacOSWindow(BaseWindow):
                 self._tb.kill()
             if self._tt is None:
                 self._tt = _SendTop(self, interval=0.3)
-                # Not sure about the best behavior: stop thread when program ends or keeping sending window below
+                # Not sure about the best behavior: stop thread when program ends or keeping sending window on top
                 self._tt.setDaemon(True)
                 self._tt.start()
             else:
@@ -1022,7 +1031,7 @@ class MacOSWindow(BaseWindow):
                         end tell
                     end try
                end run""" % self._appName
-        proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
+        proc = subprocess.Popen(['osascript', '-', self._appName, self.title], 
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
         return not err
@@ -1045,7 +1054,7 @@ class MacOSWindow(BaseWindow):
                        end tell
                     end try
                end run""" % self._appName
-        proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
+        proc = subprocess.Popen(['osascript', '-', self._appName, self.title], 
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
         return not err
@@ -1060,6 +1069,14 @@ class MacOSWindow(BaseWindow):
         :return: ''True'' if window sent behind desktop icons
         """
         # TODO: Is there an attribute or similar to set window level?
+        raise NotImplementedError
+
+    def acceptInput(self, setTo: bool) -> None:
+        """Toggles the window transparent to input and focus
+
+        :param setTo: True/False to toggle window transparent to input and focus
+        :return: None
+        """
         raise NotImplementedError
 
     def getAppName(self) -> str:
@@ -1092,7 +1109,7 @@ class MacOSWindow(BaseWindow):
                     end try
                     return {parentRole, parentName}
                end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
+        proc = subprocess.Popen(['osascript', '-', self._appName, self.title], 
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
         ret = ret.replace("\n", "")
@@ -1125,7 +1142,7 @@ class MacOSWindow(BaseWindow):
                     end try
                     return winChildren
                end run"""
-        proc = subprocess.Popen(['osascript', '-s', 's', '-', self._appName, self.title],
+        proc = subprocess.Popen(['osascript', '-s', 's', '-', self._appName, self.title], 
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
         ret = ret.replace("\n", "").replace("{", "['").replace("}", "']").replace('"', '').replace(", ", "', '")
@@ -1208,7 +1225,7 @@ class MacOSWindow(BaseWindow):
                     end try
                     return (isMin as string)
                 end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
+        proc = subprocess.Popen(['osascript', '-', self._appName, self.title], 
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
         ret = ret.replace("\n", "")
@@ -1248,7 +1265,7 @@ class MacOSWindow(BaseWindow):
                         end try
                         return (isFull as string)
                     end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
+        proc = subprocess.Popen(['osascript', '-', self._appName, self.title], 
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
         ret = ret.replace("\n", "")
@@ -1337,7 +1354,7 @@ class MacOSWindow(BaseWindow):
                         end try
                         return (isDone as string)
                    end run""" % self._appName
-            proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
+            proc = subprocess.Popen(['osascript', '-', self._appName, self.title], 
                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
             ret, err = proc.communicate(cmd)
             ret = ret.replace("\n", "")
@@ -1512,7 +1529,7 @@ class MacOSWindow(BaseWindow):
             self.menuList: list[str] = []
             self.itemList: list[str] = []
 
-        def getMenu(self, addItemInfo: bool = False):
+        def getMenu(self, addItemInfo: bool = False) -> dict:
             """
             Loads and returns Menu options, sub-menus and related information, as dictionary.
 
@@ -1553,10 +1570,10 @@ class MacOSWindow(BaseWindow):
             self.menuList = []
             self.itemList = []
 
-            nameList: list[list[list[list[str]]]] = []
-            sizeList: list[list[list[list[tuple[int, int] | Literal['missing value']]]]] = []
-            posList: list[list[list[list[tuple[int, int] | Literal['missing value']]]]] = []
-            attrList: list[list[list[list[list[tuple[str, str, bool, str]]]]]] = []
+            nameList = []
+            sizeList = []
+            posList = []
+            attrList = []
 
             def findit():
 
@@ -1627,28 +1644,18 @@ class MacOSWindow(BaseWindow):
 
             def fillit():
 
-                def subfillit(
-                    subNameList: Iterable[str],
-                    subSizeList: Sequence[tuple[int, int] | Literal['missing value']],
-                    subPosList: Sequence[tuple[int, int] | Literal['missing value']],
-                    subAttrList: Sequence[Iterable[tuple[str, str, bool, str]]],
-                    section: str = "",
-                    level: int = 0,
-                    mainlevel: int = 0,
-                    path: list[int] | None = None,
-                    parent: int = 0
-                ):
-                    path = path or []
-                    option: dict[str, _SubMenuStructure] = self._menuStructure
+                def subfillit(subNameList, subSizeList, subPosList, subAttrList, section="", level=0, mainlevel=0, path=[], parent=0):
+
+                    option = self._menuStructure
                     if section:
                         for sec in section.split(SEP):
                             if sec:
-                                option = cast("dict[str, _SubMenuStructure]", option[sec])
+                                option = option[sec]
 
                     for i, name in enumerate(subNameList):
-                        pos = subPosList[i] if len(subPosList) > i else "missing value"
-                        size = subSizeList[i] if len(subSizeList) > i else "missing value"
-                        attr: Iterable[tuple[str, str, bool, str]] = subAttrList[i] if (addItemInfo and len(subAttrList) > 0) else []
+                        pos = subPosList[i] if len(subPosList) > i else []
+                        size = subSizeList[i] if len(subSizeList) > i else []
+                        attr = subAttrList[i] if (addItemInfo and len(subAttrList) > 0) else []
                         if not name:
                             continue
                         elif name == "missing value":
@@ -1666,27 +1673,17 @@ class MacOSWindow(BaseWindow):
                                 option[name]["item_info"] = item_info
                                 option[name]["shortcut"] = self._getaccesskey(item_info)
                             if level + 1 < len(nameList):
-                                submenu: list[str] = nameList[level + 1][mainlevel][0]
-                                subPos: list[tuple[int, int] | Literal['missing value']] = posList[level + 1][mainlevel][0]
-                                subSize: list[tuple[int, int] | Literal['missing value']] = sizeList[level + 1][mainlevel][0]
-                                subAttr: list[list[tuple[str, str, bool, str]]] = attrList[level + 1][mainlevel][0] if addItemInfo else []
+                                submenu = nameList[level + 1][mainlevel][0]
+                                subPos = posList[level + 1][mainlevel][0]
+                                subSize = sizeList[level + 1][mainlevel][0]
+                                subAttr = attrList[level + 1][mainlevel][0] if addItemInfo else []
                                 subPath = path[3:] + ([0] * (level - 3)) + [i, 0] + ([0] * (level - 2))
                                 for j in subPath:
-                                    submenuj = submenu[j]
-                                    subPosj = subPos[j]
-                                    subSizej = subSize[j]
-                                    subAttrj = subAttr[j]
-                                    if (
-                                        len(submenu) > j
-                                        and isinstance(submenuj, list)
-                                        and isinstance(subPosj, list)
-                                        and isinstance(subSizej, list)
-                                        and isinstance(subAttrj, list)
-                                    ):
-                                        submenu = submenuj
-                                        subPos = subPosj
-                                        subSize = subSizej
-                                        subAttr = cast("list[list[tuple[str, str, bool, str]]]", subAttrj) if addItemInfo else []
+                                    if len(submenu) > j and isinstance(submenu[j], list):
+                                        submenu = submenu[j]
+                                        subPos = subPos[j]
+                                        subSize = subSize[j]
+                                        subAttr = subAttr[j] if addItemInfo else []
                                     else:
                                         break
                                 if submenu:
@@ -1699,8 +1696,7 @@ class MacOSWindow(BaseWindow):
                                 else:
                                     option[name]["hSubMenu"] = 0
 
-                # TODO: How is this even possible if we had to access so many levels of nameList in teh code above???
-                for i, item in enumerate(cast("list[str]", nameList[0])):
+                for i, item in enumerate(nameList[0]):
                     hSubMenu = self._getNewHSubMenu(item)
                     self._menuStructure[item] = {"hSubMenu": hSubMenu, "wID": self._getNewWid(item), "entries": {}}
                     subfillit(nameList[1][i][0], sizeList[1][i][0], posList[1][i][0], attrList[1][i][0] if addItemInfo else [],
@@ -1753,7 +1749,7 @@ class MacOSWindow(BaseWindow):
                             end run
                             """ % subCmd
 
-                    proc = subprocess.Popen(['osascript', '-s', 's', '-', str(self._parent._app.localizedName())],
+                    proc = subprocess.Popen(['osascript', '-s', 's', '-', str(self._parent._app.localizedName())], 
                                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
                     ret, err = proc.communicate(cmd)
 
@@ -1816,7 +1812,7 @@ class MacOSWindow(BaseWindow):
                             end run
                             """ % subCmd
 
-                    proc = subprocess.Popen(['osascript', '-s', 's', '-', str(self._parent._app.localizedName())],
+                    proc = subprocess.Popen(['osascript', '-s', 's', '-', str(self._parent._app.localizedName())], 
                                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
                     ret, err = proc.communicate(cmd)
                     ret = ret.replace("\n", "")
@@ -1877,7 +1873,7 @@ class MacOSWindow(BaseWindow):
                             """ % subCmd
                     # https://stackoverflow.com/questions/69774133/how-to-use-global-variables-inside-of-an-applescript-function-for-a-python-code
                     # Didn't find a way to get the "injected code" working if passed this way
-                    proc = subprocess.Popen(['osascript', '-s', 's', '-', str(self._parent._app.localizedName())],
+                    proc = subprocess.Popen(['osascript', '-s', 's', '-', str(self._parent._app.localizedName())], 
                                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
                     ret, err = proc.communicate(cmd)
                     itemInfo = self._parseAttr(ret)
@@ -1922,7 +1918,7 @@ class MacOSWindow(BaseWindow):
                             end run
                             """ % subCmd
 
-                    proc = subprocess.Popen(['osascript', '-s', 's', '-', str(self._parent._app.localizedName())],
+                    proc = subprocess.Popen(['osascript', '-s', 's', '-', str(self._parent._app.localizedName())], 
                                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
                     ret, err = proc.communicate(cmd)
                     ret = ret.replace("\n", "").replace("{", "[").replace("}", "]")
@@ -1965,8 +1961,9 @@ class MacOSWindow(BaseWindow):
 
         def _getPathFromWid(self, wID: int):
             itemPath = []
-            if self._checkMenuStruct() and 0 < wID <= len(self.itemList):
-                itemPath = self.itemList[wID - 1].split(SEP)
+            if self._checkMenuStruct():
+                if 0 < wID <= len(self.itemList):
+                    itemPath = self.itemList[wID - 1].split(SEP)
             return itemPath
 
         def _getNewHSubMenu(self, ref: str):
@@ -1975,8 +1972,9 @@ class MacOSWindow(BaseWindow):
 
         def _getPathFromHSubMenu(self, hSubMenu: int):
             menuPath = []
-            if self._checkMenuStruct() and 0 < hSubMenu <= len(self.menuList):
-                menuPath = self.menuList[hSubMenu - 1].split(SEP)
+            if self._checkMenuStruct():
+                if 0 < hSubMenu <= len(self.menuList):
+                    menuPath = self.menuList[hSubMenu - 1].split(SEP)
             return menuPath
 
         def _getMenuItemWid(self, itemPath: str):
@@ -2408,6 +2406,16 @@ class MacOSNSWindow(BaseWindow):
                                                      Quartz.NSWindowCollectionBehaviorManaged)
         return ret1 and ret2
 
+    def acceptInput(self, setTo: bool) -> None:
+        """Toggles the window transparent to input and focus
+
+        :param setTo: True/False to toggle window transparent to input and focus
+        :return: None
+        """
+        # https://stackoverflow.com/questions/53248592/stop-nswindow-from-receiving-input-events-temporarily
+        # https://stackoverflow.com/questions/12677976/nswindow-ignore-mouse-keyboard-events
+        self._hWnd.setIgnoresMouseEvents_(not setTo)
+
     def getAppName(self) -> str:
         """
         Get the name of the app current window belongs to
@@ -2807,7 +2815,8 @@ def getAllScreens():
                 'colordepth': depth
             }
         except:
-            print(traceback.format_exc())
+            # print(traceback.format_exc())
+            pass
     return result
 
 

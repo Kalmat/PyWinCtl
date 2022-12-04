@@ -50,6 +50,8 @@ def test_basic():
         npw = testWindows[0]
         assert isinstance(npw, pywinctl.Window)
 
+        npw = testWindows[0]
+
         basic_macOS(npw)
 
         subprocess.Popen(['rm', 'test.py'])
@@ -394,7 +396,7 @@ if sys.platform == "darwin":
         assert npw is not None
 
         wait = True
-        timelap = 0.00
+        timelap = 0.50
 
         # Test maximize/minimize/restore.
         if npw.isMaximized:  # Make sure it starts un-maximized
@@ -429,25 +431,25 @@ if sys.platform == "darwin":
         assert npw.height == 420
 
         # Test moving
-        npw.moveTo(50, 24, wait=wait)
-        assert npw.topleft == (50, 24)
+        npw.moveTo(50, 54, wait=wait)
+        assert npw.topleft == (50, 54)
         assert npw.left == 50
-        assert npw.top == 24
+        assert npw.top == 54
         assert npw.right == 660
-        assert npw.bottom == 444
-        assert npw.bottomright == (660, 444)
-        assert npw.bottomleft == (50, 444)
-        assert npw.topright == (660, 24)
+        assert npw.bottom == 474
+        assert npw.bottomright == (660, 474)
+        assert npw.bottomleft == (50, 474)
+        assert npw.topright == (660, 54)
 
         npw.moveRel(1, 2, wait=wait)
-        assert npw.topleft == (51, 26)
+        assert npw.topleft == (51, 56)
         assert npw.left == 51
-        assert npw.top == 26
+        assert npw.top == 56
         assert npw.right == 661
-        assert npw.bottom == 446
-        assert npw.bottomright == (661, 446)
-        assert npw.bottomleft == (51, 446)
-        assert npw.topright == (661, 26)
+        assert npw.bottom == 476
+        assert npw.bottomright == (661, 476)
+        assert npw.bottomleft == (51, 476)
+        assert npw.topright == (661, 56)
 
         # Move via the properties
         npw.resizeTo(601, 401, wait=wait)

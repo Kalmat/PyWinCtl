@@ -9,7 +9,6 @@ import ctypes
 import re
 import threading
 import time
-import traceback
 from collections import Callable, Sequence
 from ctypes import wintypes
 from typing import TYPE_CHECKING, cast, overload
@@ -22,7 +21,7 @@ import win32process
 from typing_extensions import Literal, NotRequired, TypedDict
 from win32com.client import GetObject
 
-from . import BaseWindow, Point, Re, Rect, Size, _WinWatchDog, pointInRect
+from pywinctl import BaseWindow, Point, Re, Rect, Size, _WinWatchDog, pointInRect
 
 if TYPE_CHECKING:
     from win32.lib.win32gui_struct import _MENUITEMINFO
@@ -294,30 +293,30 @@ def _getAllApps(tryToFilter: bool = False) -> list[tuple[int, str, str | None]] 
 def _getWindowInfo(hWnd: int | str | bytes | bool | None):
     class tagWINDOWINFO(ctypes.Structure):
         # Help type-checkers with ctypes.Structure
-        if TYPE_CHECKING:
-            cbSize: int
-            rcWindow: wintypes.RECT
-            rcClient: wintypes.RECT
-            dwStyle: int
-            dwExStyle: int
-            dwWindowStatus: int
-            cxWindowBorders: int
-            cyWindowBorders: int
-            atomWindowType: int
-            wCreatorVersion: int
-            def __init__(
-                self,
-                cbSize: int = ...,
-                rcWindow: wintypes.RECT = ...,
-                rcClient: wintypes.RECT = ...,
-                dwStyle: int = ...,
-                dwExStyle: int = ...,
-                dwWindowStatus: int = ...,
-                cxWindowBorders: int = ...,
-                cyWindowBorders: int = ...,
-                atomWindowType: int = ...,
-                wCreatorVersion: int = ...
-            ): ...
+        cbSize: int
+        rcWindow: wintypes.RECT
+        rcClient: wintypes.RECT
+        dwStyle: int
+        dwExStyle: int
+        dwWindowStatus: int
+        cxWindowBorders: int
+        cyWindowBorders: int
+        atomWindowType: int
+        wCreatorVersion: int
+        @type_check_only
+        def __init__(
+            self,
+            cbSize: int = ...,
+            rcWindow: wintypes.RECT = ...,
+            rcClient: wintypes.RECT = ...,
+            dwStyle: int = ...,
+            dwExStyle: int = ...,
+            dwWindowStatus: int = ...,
+            cxWindowBorders: int = ...,
+            cyWindowBorders: int = ...,
+            atomWindowType: int = ...,
+            wCreatorVersion: int = ...
+        ): ...
 
         _fields_ = [
             ('cbSize', wintypes.DWORD),
@@ -695,6 +694,18 @@ class Win32Window(BaseWindow):
             result = result | win32gui.ShowWindow(self._hWnd, win32con.SW_RESTORE)
             self.show()
         return result != 0
+
+    def acceptInput(self, setTo: bool) -> None:
+        """Toggles the window transparent to input and focus
+
+        :param setTo: True/False to toggle window transparent to input and focus
+        :return: None
+        """
+        exStyle = win32api.GetWindowLong(self._hWnd, win32con.GWL_EXSTYLE)
+        if setTo:
+            win32api.SetWindowLong(self._hWnd, win32con.GWL_EXSTYLE, exStyle & ~win32con.WS_EX_TRANSPARENT)
+        else:
+            win32api.SetWindowLong(self._hWnd, win32con.GWL_EXSTYLE, exStyle | win32con.WS_EX_TRANSPARENT)
 
     def getAppName(self) -> str:
         """
@@ -1359,7 +1370,8 @@ def getAllScreens():
                         "colordepth": depth
                     }
             except:
-                print(traceback.format_exc())
+                # print(traceback.format_exc())
+                pass
         i += 1
     return result
 
