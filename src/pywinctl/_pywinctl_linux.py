@@ -29,7 +29,7 @@ from pywinctl import BaseWindow, Point, Re, Rect, Size, _WinWatchDog, pointInRec
 
 DISP = Xlib.display.Display()
 SCREEN = DISP.screen()
-ROOT: Window = SCREEN.root
+ROOT = SCREEN.root
 EWMH = ewmh.EWMH(_display=DISP, root=ROOT)
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
@@ -302,7 +302,7 @@ def _xlibGetAllWindows(parent: Window | None = None, title: str = "", klass: tup
     if not title and not klass:
         return allWindows
     else:
-        windows: [Window] = []
+        windows: list[Window] = []
         for window in allWindows:
             try:
                 winTitle = window.get_wm_name()
@@ -771,8 +771,8 @@ class LinuxWindow(BaseWindow):
             #         if STATE_SKIP_PAGER in state and STATE_SKIP_TASKBAR in state and WINDOW_DESKTOP in winType:
             #             desktop.append(w)
             for d in desktop:
-                w: Window = DISP.create_resource_object('window', d)
-                w.raise_window()
+                win: Window = DISP.create_resource_object('window', d)
+                win.raise_window()
 
             return WINDOW_DESKTOP in EWMH.getWmWindowType(self._hWnd, str=True)
         else:
