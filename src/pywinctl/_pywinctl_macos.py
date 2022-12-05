@@ -16,15 +16,16 @@ import subprocess
 import threading
 import time
 from collections.abc import Callable, Iterable, Sequence
-from typing import Any, overload, Literal, cast
+from typing import Any, overload, cast
+from typing_extensions import TypeAlias, TypedDict, Literal
 
 import AppKit
 import Quartz
-from typing_extensions import TypeAlias, TypedDict
 
 from pywinctl import pointInRect, BaseWindow, Rect, Point, Size, Re, _WinWatchDog
 
 Incomplete: TypeAlias = Any
+Attribute: TypeAlias = Sequence['tuple[str, str, bool, str]']
 
 WS = AppKit.NSWorkspace.sharedWorkspace()
 WAIT_ATTEMPTS = 10
@@ -1523,7 +1524,7 @@ class MacOSWindow(BaseWindow):
 
     class _Menu:
 
-        def __init__(self, parent: BaseWindow):
+        def __init__(self, parent: MacOSWindow):
             self._parent = parent
             self._menuStructure: dict[str, _SubMenuStructure] = {}
             self.menuList: list[str] = []
@@ -1570,10 +1571,12 @@ class MacOSWindow(BaseWindow):
             self.menuList = []
             self.itemList = []
 
-            nameList: list[list[list[list[str]]]] = []
-            sizeList: list[list[list[list[tuple[int, int] | Literal['missing value']]]]] = []
-            posList: list[list[list[list[tuple[int, int] | Literal['missing value']]]]] = []
-            attrList: list[list[list[list[list[tuple[str, str, bool, str]]]]]] = []
+            nameList: list[Incomplete] = []
+            # Nested recursive types. Dept based on size of nameList.
+            # Very complex to type.
+            sizeList: list[Sequence[Any]] = []
+            posList: list[Sequence[Any]] = []
+            attrList: list[Sequence[Any]] = []
 
             def findit():
 
@@ -1640,23 +1643,23 @@ class MacOSWindow(BaseWindow):
                             break
                     level += 1
 
-                return nameList != []
+                return nameList
 
             def fillit():
 
                 def subfillit(
-                        subNameList: Iterable[str],
-                        subSizeList: Sequence[tuple[int, int] | Literal['missing value']],
-                        subPosList: Sequence[tuple[int, int] | Literal['missing value']],
-                        subAttrList: Sequence[Iterable[tuple[str, str, bool, str]]],
-                        section: str = "",
-                        level: int = 0,
-                        mainlevel: int = 0,
-                        path: list[int] | None = None,
-                        parent: int = 0
+                    subNameList: Iterable[str],
+                    subSizeList: Sequence[tuple[int,int] | Literal["missing value"]],
+                    subPosList: Sequence[tuple[int,int] | Literal["missing value"]],
+                    subAttrList: Sequence[Attribute],
+                    section: str = "",
+                    level: int = 0,
+                    mainlevel: int = 0,
+                    path: Sequence[int] | None = None,
+                    parent: int = 0,
                 ):
-
-                    option: dict[str, _SubMenuStructure] = self._menuStructure
+                    path = list(path or [])
+                    option = self._menuStructure
                     if section:
                         for sec in section.split(SEP):
                             if sec:
@@ -1665,7 +1668,7 @@ class MacOSWindow(BaseWindow):
                     for i, name in enumerate(subNameList):
                         pos = subPosList[i] if len(subPosList) > i else "missing value"
                         size = subSizeList[i] if len(subSizeList) > i else "missing value"
-                        attr: Iterable[tuple[str, str, bool, str]] = subAttrList[i] if (addItemInfo and len(subAttrList) > 0) else []
+                        attr: str | Attribute = subAttrList[i] if (addItemInfo and len(subAttrList) > 0) else []
                         if not name:
                             continue
                         elif name == "missing value":
@@ -1683,10 +1686,10 @@ class MacOSWindow(BaseWindow):
                                 option[name]["item_info"] = item_info
                                 option[name]["shortcut"] = self._getaccesskey(item_info)
                             if level + 1 < len(nameList):
-                                submenu: list[str] = nameList[level + 1][mainlevel][0]
-                                subPos: list[tuple[int, int] | Literal['missing value']] = posList[level + 1][mainlevel][0]
-                                subSize: list[tuple[int, int] | Literal['missing value']] = sizeList[level + 1][mainlevel][0]
-                                subAttr: list[list[tuple[str, str, bool, str]]] = attrList[level + 1][mainlevel][0] if addItemInfo else []
+                                submenu = nameList[level + 1][mainlevel][0]
+                                subPos = posList[level + 1][mainlevel][0]
+                                subSize = sizeList[level + 1][mainlevel][0]
+                                subAttr: Any = attrList[level + 1][mainlevel][0] if addItemInfo else []
                                 subPath = path[3:] + ([0] * (level - 3)) + [i, 0] + ([0] * (level - 2))
                                 for j in subPath:
                                     if len(submenu) > j and isinstance(submenu[j], list):
@@ -1944,14 +1947,14 @@ class MacOSWindow(BaseWindow):
                 return all(map(self._isListEmpty, inList))
             return False
 
-        def _parseAttr(self, attr: str | Iterable[tuple[str, str, bool, str]]):
+        def _parseAttr(self, attr: str | Attribute):
 
             itemInfo: dict[str, _ItemInfoValue] = {}
             if isinstance(attr, str):
                 attr = attr.replace("\n", "").replace('missing value', '"missing value"') \
                     .replace("{", "[").replace("}", "]").replace("value:", "'") \
                     .replace(", class:", "', '").replace(", settable:", "', '").replace(", name:", "', ")
-                items: Iterable[tuple[str, str, bool, str]] = ast.literal_eval(attr)
+                items: Attribute = ast.literal_eval(attr)
             else:
                 items = attr
             for item in items:

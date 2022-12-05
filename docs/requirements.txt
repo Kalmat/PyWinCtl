@@ -8,12 +8,12 @@ mypy >= 0.990
 
 # Windows
 pywin32>=302; sys_platform == 'win32'
-types-pywin32>=304.0.0.4; sys_platform == 'win32'
+types-pywin32>=304.0.0.4
 
 # Linux
 xlib>=0.21; sys_platform == 'linux'
 ewmh>=0.1; sys_platform == 'linux'
-types-python-xlib>=0.32; sys_platform == 'linux'
+types-python-xlib>=0.32
 
 # MacOS
 pyobjc>=8.1; sys_platform == 'darwin'
