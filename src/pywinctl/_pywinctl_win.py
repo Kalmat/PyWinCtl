@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+
 assert sys.platform == "win32"
 
 import ctypes
@@ -11,7 +12,7 @@ import threading
 import time
 from collections import Callable, Sequence
 from ctypes import wintypes
-from typing import TYPE_CHECKING, cast, overload
+from typing import TYPE_CHECKING, cast, overload, type_check_only
 
 import win32api
 import win32con
@@ -283,6 +284,7 @@ def _getAllApps(tryToFilter: bool = False) -> list[tuple[int, str, str | None]] 
     # https://stackoverflow.com/questions/550653/cross-platform-way-to-get-pids-by-process-name-in-python
     WMI = GetObject('winmgmts:')
     processes = WMI.InstancesOf('Win32_Process')
+    # use print(p.__dir__() for p in processes) to print all methods available
     process_list: list[tuple[int, str, str | None]] = [(p.Properties_("ProcessID").Value, p.Properties_("Name").Value, p.Properties_("CommandLine").Value) for p in processes]
     if tryToFilter:
         # Trying to figure out how to identify user-apps (non-system apps). Commandline property seems to partially work
@@ -588,14 +590,14 @@ class Win32Window(BaseWindow):
 
     def alwaysOnTop(self, aot: bool = True):
         """
-        Keeps window on top of all others.
+        Keeps window on top of all others, except some games (not all, anyway) and media player.
 
         :param aot: set to ''False'' to deactivate always-on-top behavior
         :return: Always returns ''True''
         """
         if self._t and self._t.is_alive():
             self._t.kill()
-        # https://stackoverflow.com/questions/25381589/pygame-set-window-on-top-without-changing-its-position/49482325 (kmaork)
+        # https://stackoverflow.com/questions/17131857/python-windows-keep-program-on-top-of-another-full-screen-application
         zorder = win32con.HWND_TOPMOST if aot else win32con.HWND_NOTOPMOST
         win32gui.SetWindowPos(self._hWnd, zorder, 0, 0, 0, 0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
         return True
@@ -607,18 +609,17 @@ class Win32Window(BaseWindow):
         :param aob: set to ''False'' to deactivate always-on-bottom behavior
         :return: ''True'' if command succeeded
         """
-        ret = False
         if aob:
             win32gui.SetWindowPos(self._hWnd, win32con.HWND_BOTTOM, 0, 0, 0, 0,
                                            win32con.SWP_NOSENDCHANGING | win32con.SWP_NOOWNERZORDER | win32con.SWP_ASYNCWINDOWPOS | win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE | win32con.SWP_NOREDRAW | win32con.SWP_NOCOPYBITS)
-            # There is no HWND_TOPBOTTOM (similar to TOPMOST), so it won't keep window below all others as desired
+            # There is no HWND_BOTTOMMOST (similar to TOPMOST), so it won't keep window below all others as desired
             # May be catching WM_WINDOWPOSCHANGING event? Not sure if possible for a "foreign" window, and seems really complex
             # https://stackoverflow.com/questions/64529896/attach-keyboard-hook-to-specific-window
+            # https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setlayeredwindowattributes
             # TODO: Try to find other smarter methods to keep window at the bottom
             ret = True
             if self._t is None:
                 self._t = _SendBottom(self._hWnd)
-                # Not sure about the best behavior: stop thread when program ends or keeping sending window below
                 self._t.setDaemon(True)
                 self._t.start()
             else:
@@ -1453,14 +1454,6 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0):
         sys.stdout.flush()
 
 
-def activeCB(active: object):
-    print("NEW ACTIVE STATUS", active)
-
-
-def movedCB(pos: object):
-    print("NEW POS", pos)
-
-
 def main():
     """Run this script from command-line to get windows under mouse pointer"""
     print("PLATFORM:", sys.platform)
@@ -1472,7 +1465,9 @@ def main():
     else:
         print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()
-    displayWindowsUnderMouse(0, 0)
+    # displayWindowsUnderMouse(0, 0)
+    print(npw.title)
+    npw.alwaysOnTop()
 
 
 if __name__ == "__main__":

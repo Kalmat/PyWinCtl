@@ -3,7 +3,9 @@
 # Incomplete type stubs for pyobjc
 # mypy: disable_error_code = no-any-return
 from __future__ import annotations
+
 import sys
+
 assert sys.platform == "darwin"
 
 import ast
@@ -14,12 +16,11 @@ import subprocess
 import threading
 import time
 from collections.abc import Callable, Iterable, Sequence
-from typing import Any, cast, overload
-from typing_extensions import TypeAlias, TypedDict, Literal
+from typing import Any, overload, Literal, cast
 
 import AppKit
 import Quartz
-from typing_extensions import Literal, TypeAlias, TypedDict
+from typing_extensions import TypeAlias, TypedDict
 
 from pywinctl import pointInRect, BaseWindow, Rect, Point, Size, Re, _WinWatchDog
 
@@ -105,9 +106,9 @@ def getActiveWindow(app: AppKit.NSApplication | None = None):
             title = ", ".join(entries[5:])
             if appID:  # and title:
                 activeApps = _getAllApps()
-                for app in activeApps:
-                    if str(app.processIdentifier()) == appID:
-                        return MacOSWindow(app, title, bounds)
+                for a in activeApps:
+                    if str(a.processIdentifier()) == appID:
+                        return MacOSWindow(a, title, bounds)
         except Exception as e:
             print(e)
     else:
@@ -142,7 +143,6 @@ def getAllWindows(app: AppKit.NSApplication | None = None):
     :return: list of Window objects
     """
     # TODO: Find a way to return windows as per the stacking order (not sure if it is even possible!)
-    windows: list[MacOSNSWindow | MacOSWindow] = []
     if not app:
         windows: list[MacOSWindow] = []
         activeApps = _getAllApps()
@@ -1523,13 +1523,13 @@ class MacOSWindow(BaseWindow):
 
     class _Menu:
 
-        def __init__(self, parent: MacOSWindow):
+        def __init__(self, parent: BaseWindow):
             self._parent = parent
             self._menuStructure: dict[str, _SubMenuStructure] = {}
             self.menuList: list[str] = []
             self.itemList: list[str] = []
 
-        def getMenu(self, addItemInfo: bool = False) -> dict:
+        def getMenu(self, addItemInfo: bool = False) -> dict[str, _SubMenuStructure]:
             """
             Loads and returns Menu options, sub-menus and related information, as dictionary.
 
@@ -1570,10 +1570,10 @@ class MacOSWindow(BaseWindow):
             self.menuList = []
             self.itemList = []
 
-            nameList = []
-            sizeList = []
-            posList = []
-            attrList = []
+            nameList: list[list[list[list[str]]]] = []
+            sizeList: list[list[list[list[tuple[int, int] | Literal['missing value']]]]] = []
+            posList: list[list[list[list[tuple[int, int] | Literal['missing value']]]]] = []
+            attrList: list[list[list[list[list[tuple[str, str, bool, str]]]]]] = []
 
             def findit():
 
@@ -1644,18 +1644,28 @@ class MacOSWindow(BaseWindow):
 
             def fillit():
 
-                def subfillit(subNameList, subSizeList, subPosList, subAttrList, section="", level=0, mainlevel=0, path=[], parent=0):
+                def subfillit(
+                        subNameList: Iterable[str],
+                        subSizeList: Sequence[tuple[int, int] | Literal['missing value']],
+                        subPosList: Sequence[tuple[int, int] | Literal['missing value']],
+                        subAttrList: Sequence[Iterable[tuple[str, str, bool, str]]],
+                        section: str = "",
+                        level: int = 0,
+                        mainlevel: int = 0,
+                        path: list[int] | None = None,
+                        parent: int = 0
+                ):
 
-                    option = self._menuStructure
+                    option: dict[str, _SubMenuStructure] = self._menuStructure
                     if section:
                         for sec in section.split(SEP):
                             if sec:
-                                option = option[sec]
+                                option = cast("dict[str, _SubMenuStructure]", option[sec])
 
                     for i, name in enumerate(subNameList):
-                        pos = subPosList[i] if len(subPosList) > i else []
-                        size = subSizeList[i] if len(subSizeList) > i else []
-                        attr = subAttrList[i] if (addItemInfo and len(subAttrList) > 0) else []
+                        pos = subPosList[i] if len(subPosList) > i else "missing value"
+                        size = subSizeList[i] if len(subSizeList) > i else "missing value"
+                        attr: Iterable[tuple[str, str, bool, str]] = subAttrList[i] if (addItemInfo and len(subAttrList) > 0) else []
                         if not name:
                             continue
                         elif name == "missing value":
@@ -1673,10 +1683,10 @@ class MacOSWindow(BaseWindow):
                                 option[name]["item_info"] = item_info
                                 option[name]["shortcut"] = self._getaccesskey(item_info)
                             if level + 1 < len(nameList):
-                                submenu = nameList[level + 1][mainlevel][0]
-                                subPos = posList[level + 1][mainlevel][0]
-                                subSize = sizeList[level + 1][mainlevel][0]
-                                subAttr = attrList[level + 1][mainlevel][0] if addItemInfo else []
+                                submenu: list[str] = nameList[level + 1][mainlevel][0]
+                                subPos: list[tuple[int, int] | Literal['missing value']] = posList[level + 1][mainlevel][0]
+                                subSize: list[tuple[int, int] | Literal['missing value']] = sizeList[level + 1][mainlevel][0]
+                                subAttr: list[list[tuple[str, str, bool, str]]] = attrList[level + 1][mainlevel][0] if addItemInfo else []
                                 subPath = path[3:] + ([0] * (level - 3)) + [i, 0] + ([0] * (level - 2))
                                 for j in subPath:
                                     if len(submenu) > j and isinstance(submenu[j], list):
@@ -1696,7 +1706,7 @@ class MacOSWindow(BaseWindow):
                                 else:
                                     option[name]["hSubMenu"] = 0
 
-                for i, item in enumerate(nameList[0]):
+                for i, item in enumerate(cast("list[str]", nameList[0])):
                     hSubMenu = self._getNewHSubMenu(item)
                     self._menuStructure[item] = {"hSubMenu": hSubMenu, "wID": self._getNewWid(item), "entries": {}}
                     subfillit(nameList[1][i][0], sizeList[1][i][0], posList[1][i][0], attrList[1][i][0] if addItemInfo else [],

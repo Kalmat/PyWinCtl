@@ -79,7 +79,7 @@ class Re:
     # Does not play well with static typing and current implementation of TypedDict
     _cond_dic: dict[int, Callable[[str | re.Pattern[str], str, float], bool]] = {
         IS: lambda s1, s2, fl: s1 == s2,
-        CONTAINS: lambda s1, s2, fl: s1 in s2, # type: ignore
+        CONTAINS: lambda s1, s2, fl: s1 in s2,  # type: ignore
         STARTSWITH: lambda s1, s2, fl: s2.startswith(s1),  # type: ignore
         ENDSWITH: lambda s1, s2, fl: s2.endswith(s1),  # type: ignore
         NOTIS: lambda s1, s2, fl: s1 != s2,
@@ -332,7 +332,6 @@ class BaseWindow(ABC):
         raise NotImplementedError
     isChildOf = isChild  # isParentOf is an alias of isParent method
 
-    @property
     @abstractmethod
     def getDisplay(self) -> str:
         """Returns the name of the current window display (monitor)"""

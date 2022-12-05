@@ -1,22 +1,19 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-
 from __future__ import annotations
 
 import sys
+
 assert sys.platform == "linux"
 
 import math
-import os
 import platform
 import re
 import subprocess
 import time
 import tkinter as tk
-import traceback
 from collections.abc import Callable
 from typing import Iterable
-from typing_extensions import TypedDict
 
 import ewmh
 import Xlib.display
@@ -759,6 +756,7 @@ class LinuxWindow(BaseWindow):
                               32, [DISP.intern_atom(WINDOW_DESKTOP, False), ],
                               Xlib.X.PropModeReplace)
             DISP.flush()
+            self.acceptInput(False)
             w.map()
 
             # This will try to raise the desktop icons layer on top of the window
@@ -805,8 +803,8 @@ class LinuxWindow(BaseWindow):
             mask = Xlib.X.SubstructureRedirectMask | Xlib.X.SubstructureNotifyMask | Xlib.X.EnableAccess
         else:
             mask = Xlib.X.SubstructureRedirectMask | Xlib.X.SubstructureNotifyMask | Xlib.X.DisableAccess
-        prop = DISP.intern_atom('WM_CHANGE_STATE', False)
-        data = (32, [Xlib.Xutil.FocusChangeMask, 0, 0, 0, 0])  # it seems to work with any atom (like Xlib.Xutil.IconicState)
+        prop = DISP.intern_atom(WM_CHANGE_STATE, False)
+        data = (32, [Xlib.Xutil.VisualScreenMask, 0, 0, 0, 0])  # it seems to work with any atom (like Xlib.Xutil.IconicState)
         ev = Xlib.protocol.event.ClientMessage(window=self._hWnd.id, client_type=prop, data=data)
         DISP.send_event(destination=ROOT, event=ev, event_mask=mask)
 
