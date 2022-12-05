@@ -287,7 +287,7 @@ def getTopWindowAt(x: int, y: int):
         return None
 
 
-def _xlibGetAllWindows(parent: Window | None = None, title: str = "", klass=None):
+def _xlibGetAllWindows(parent: Window | None = None, title: str = "", klass: tuple[str, str] | None = None) -> list[Window]:
 
     parent = parent or ROOT
     allWindows = [parent]
@@ -302,7 +302,7 @@ def _xlibGetAllWindows(parent: Window | None = None, title: str = "", klass=None
     if not title and not klass:
         return allWindows
     else:
-        windows = []
+        windows: [Window] = []
         for window in allWindows:
             try:
                 winTitle = window.get_wm_name()
@@ -422,10 +422,10 @@ class LinuxWindow(BaseWindow):
     def _rect(self):
         return self.__rect
 
-    def __init__(self, hWnd: Window):
+    def __init__(self, hWnd: Window | int):
         super().__init__()
         if isinstance(hWnd, int):
-            hWnd = DISP.create_resource_object('window', hWnd)
+            hWnd: Window = DISP.create_resource_object('window', hWnd)
         self._hWnd = hWnd
         self._parent = self._hWnd.query_tree().parent
         self._hWnd = hWnd
@@ -450,7 +450,7 @@ class LinuxWindow(BaseWindow):
             win = parent
         w = geom.width
         h = geom.height
-        # ww = DISP.create_resource_object('window', self._hWnd.id)
+        # ww: Window = DISP.create_resource_object('window', self._hWnd.id)
         # ret = ww.translate_coords(self._hWnd, x, y)
         return Rect(x, y, x + w, y + h)
 
@@ -574,7 +574,7 @@ class LinuxWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window showed
         """
-        win = DISP.create_resource_object('window', self._hWnd.id)
+        win: Window = DISP.create_resource_object('window', self._hWnd.id)
         win.map()
         DISP.flush()
         win.map_sub_windows()
@@ -592,7 +592,7 @@ class LinuxWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window hidden
         """
-        win = DISP.create_resource_object('window', self._hWnd.id)
+        win: Window = DISP.create_resource_object('window', self._hWnd.id)
         win.unmap_sub_windows()
         DISP.flush()
         win.unmap()
@@ -716,7 +716,7 @@ class LinuxWindow(BaseWindow):
 
         :return: ''True'' if window lowered
         """
-        w = DISP.create_resource_object('window', self._hWnd.id)
+        w: Window = DISP.create_resource_object('window', self._hWnd.id)
         w.configure(stack_mode=Xlib.X.Below)
         DISP.flush()
         windows = EWMH.getClientListStacking()
@@ -728,7 +728,7 @@ class LinuxWindow(BaseWindow):
 
         :return: ''True'' if window raised
         """
-        w = DISP.create_resource_object('window', self._hWnd.id)
+        w: Window = DISP.create_resource_object('window', self._hWnd.id)
         w.configure(stack_mode=Xlib.X.Above)
         DISP.flush()
         windows = EWMH.getClientListStacking()
@@ -750,7 +750,7 @@ class LinuxWindow(BaseWindow):
             # https://stackoverflow.com/questions/58885803/can-i-use-net-wm-window-type-dock-ewhm-extension-in-openbox
 
             # This sends window below all others, but not behind the desktop icons
-            w = DISP.create_resource_object('window', self._hWnd.id)
+            w: Window = DISP.create_resource_object('window', self._hWnd.id)
             w.unmap()
             w.change_property(DISP.intern_atom(WM_WINDOW_TYPE, False), Xlib.Xatom.ATOM,
                               32, [DISP.intern_atom(WINDOW_DESKTOP, False), ],
@@ -771,12 +771,12 @@ class LinuxWindow(BaseWindow):
             #         if STATE_SKIP_PAGER in state and STATE_SKIP_TASKBAR in state and WINDOW_DESKTOP in winType:
             #             desktop.append(w)
             for d in desktop:
-                w = DISP.create_resource_object('window', d)
+                w: Window = DISP.create_resource_object('window', d)
                 w.raise_window()
 
             return WINDOW_DESKTOP in EWMH.getWmWindowType(self._hWnd, str=True)
         else:
-            w = DISP.create_resource_object('window', self._hWnd.id)
+            w: Window = DISP.create_resource_object('window', self._hWnd.id)
             pos = self.topleft
             w.unmap()
             w.change_property(DISP.intern_atom(WM_WINDOW_TYPE, False), Xlib.Xatom.ATOM,
@@ -834,7 +834,7 @@ class LinuxWindow(BaseWindow):
 
         :return: list of handles
         """
-        w = DISP.create_resource_object('window', self._hWnd.id)
+        w: Window = DISP.create_resource_object('window', self._hWnd.id)
         return w.query_tree().children  # type: ignore[no-any-return]
 
     def getHandle(self):
@@ -928,7 +928,7 @@ class LinuxWindow(BaseWindow):
 
         :return: ``True`` if the window is currently visible
         """
-        win = DISP.create_resource_object('window', self._hWnd.id)
+        win: Window = DISP.create_resource_object('window', self._hWnd.id)
         state = win.get_attributes().map_state
         return state == Xlib.X.IsViewable  # type: ignore[no-any-return]
 
@@ -943,7 +943,7 @@ class LinuxWindow(BaseWindow):
         """
         ret = True
         try:
-            win = DISP.create_resource_object('window', self._hWnd.id)
+            win: Window = DISP.create_resource_object('window', self._hWnd.id)
             state = win.get_attributes().map_state
         except Xlib.error.BadWindow:
             ret = False
@@ -952,7 +952,7 @@ class LinuxWindow(BaseWindow):
     @property
     def _isMapped(self) -> bool:
         # Returns ``True`` if the window is currently mapped
-        win = DISP.create_resource_object('window', self._hWnd.id)
+        win: Window = DISP.create_resource_object('window', self._hWnd.id)
         state = win.get_attributes().map_state
         return state != Xlib.X.IsUnmapped  # type: ignore[no-any-return]
 
