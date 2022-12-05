@@ -13,7 +13,7 @@ import subprocess
 import time
 import tkinter as tk
 from collections.abc import Callable
-from typing import Iterable, cast
+from typing import Iterable
 
 import ewmh
 import Xlib.display
@@ -424,11 +424,7 @@ class LinuxWindow(BaseWindow):
 
     def __init__(self, hWnd: Window | int):
         super().__init__()
-        if isinstance(hWnd, int):
-            hWndID: int = hWnd
-            h: Window = DISP.create_resource_object('window', hWndID)
-            hWnd = h
-        self._hWnd: Window = cast(hWnd, Window)
+        self._hWnd = hWnd if isinstance(hWnd, Window) else DISP.create_resource_object('window', hWnd)
         self._parent: Window = self._hWnd.query_tree().parent
         self.__rect = self._rectFactory()
         # self._saveWindowInitValues()  # Store initial Window parameters to allow reset and other actions
@@ -450,7 +446,7 @@ class LinuxWindow(BaseWindow):
             win = parent
         w = geom.width
         h = geom.height
-        # ww: Window = DISP.create_resource_object('window', self._hWnd.id)
+        # ww = DISP.create_resource_object('window', self._hWnd.id)
         # ret = ww.translate_coords(self._hWnd, x, y)
         return Rect(x, y, x + w, y + h)
 
@@ -574,7 +570,7 @@ class LinuxWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window showed
         """
-        win: Window = DISP.create_resource_object('window', self._hWnd.id)
+        win = DISP.create_resource_object('window', self._hWnd.id)
         win.map()
         DISP.flush()
         win.map_sub_windows()
@@ -592,7 +588,7 @@ class LinuxWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window hidden
         """
-        win: Window = DISP.create_resource_object('window', self._hWnd.id)
+        win = DISP.create_resource_object('window', self._hWnd.id)
         win.unmap_sub_windows()
         DISP.flush()
         win.unmap()
@@ -716,7 +712,7 @@ class LinuxWindow(BaseWindow):
 
         :return: ''True'' if window lowered
         """
-        w: Window = DISP.create_resource_object('window', self._hWnd.id)
+        w = DISP.create_resource_object('window', self._hWnd.id)
         w.configure(stack_mode=Xlib.X.Below)
         DISP.flush()
         windows = EWMH.getClientListStacking()
@@ -728,7 +724,7 @@ class LinuxWindow(BaseWindow):
 
         :return: ''True'' if window raised
         """
-        w: Window = DISP.create_resource_object('window', self._hWnd.id)
+        w = DISP.create_resource_object('window', self._hWnd.id)
         w.configure(stack_mode=Xlib.X.Above)
         DISP.flush()
         windows = EWMH.getClientListStacking()
@@ -750,14 +746,14 @@ class LinuxWindow(BaseWindow):
             # https://stackoverflow.com/questions/58885803/can-i-use-net-wm-window-type-dock-ewhm-extension-in-openbox
 
             # This sends window below all others, but not behind the desktop icons
-            w: Window = DISP.create_resource_object('window', self._hWnd.id)
-            w.unmap()
-            w.change_property(DISP.intern_atom(WM_WINDOW_TYPE, False), Xlib.Xatom.ATOM,
+            win = DISP.create_resource_object('window', self._hWnd.id)
+            win.unmap()
+            win.change_property(DISP.intern_atom(WM_WINDOW_TYPE, False), Xlib.Xatom.ATOM,
                               32, [DISP.intern_atom(WINDOW_DESKTOP, False), ],
                               Xlib.X.PropModeReplace)
             DISP.flush()
             self.acceptInput(False)
-            w.map()
+            win.map()
 
             # This will try to raise the desktop icons layer on top of the window
             # Ubuntu: "@!0,0;BDHF" is the new desktop icons NG extension on Ubuntu
@@ -765,29 +761,29 @@ class LinuxWindow(BaseWindow):
             # TODO: Test / find in other OS
             desktop = _xlibGetAllWindows(title="@!0,0;BDHF", klass=('nemo-desktop', 'Nemo-desktop'))
             # if not desktop:
-            #     for w in EWMH.getClientListStacking():  --> Should _xlibGetWindows() be used instead?
-            #         state = EWMH.getWmState(w)
-            #         winType = EWMH.getWmWindowType(w)
+            #     for win in EWMH.getClientListStacking():  --> Should _xlibGetWindows() be used instead?
+            #         state = EWMH.getWmState(win)
+            #         winType = EWMH.getWmWindowType(win)
             #         if STATE_SKIP_PAGER in state and STATE_SKIP_TASKBAR in state and WINDOW_DESKTOP in winType:
-            #             desktop.append(w)
+            #             desktop.append(win)
             for d in desktop:
-                win: Window = DISP.create_resource_object('window', d.id)
+                win = DISP.create_resource_object('window', d.id)
                 win.raise_window()
 
             return WINDOW_DESKTOP in EWMH.getWmWindowType(self._hWnd, str=True)
         else:
-            w2: Window = DISP.create_resource_object('window', self._hWnd.id)
+            win = DISP.create_resource_object('window', self._hWnd.id)
             pos = self.topleft
-            w2.unmap()
-            w2.change_property(DISP.intern_atom(WM_WINDOW_TYPE, False), Xlib.Xatom.ATOM,
+            win.unmap()
+            win.change_property(DISP.intern_atom(WM_WINDOW_TYPE, False), Xlib.Xatom.ATOM,
                               32, [DISP.intern_atom(WINDOW_NORMAL, False), ],
                               Xlib.X.PropModeReplace)
             DISP.flush()
-            w2.change_property(DISP.intern_atom(WM_STATE, False), Xlib.Xatom.ATOM,
+            win.change_property(DISP.intern_atom(WM_STATE, False), Xlib.Xatom.ATOM,
                               32, [DISP.intern_atom(STATE_FOCUSED, False), ],
                               Xlib.X.PropModeAppend)
             DISP.flush()
-            w2.map()
+            win.map()
             EWMH.setActiveWindow(self._hWnd)
             EWMH.display.flush()
             self.moveTo(pos.x, pos.y)
@@ -806,7 +802,8 @@ class LinuxWindow(BaseWindow):
         prop = DISP.intern_atom(WM_CHANGE_STATE, False)
         data = (32, [Xlib.Xutil.VisualScreenMask, 0, 0, 0, 0])  # it seems to work with any atom (like Xlib.Xutil.IconicState)
         ev = Xlib.protocol.event.ClientMessage(window=self._hWnd.id, client_type=prop, data=data)
-        DISP.send_event(destination=ROOT, event=ev, event_mask=mask)
+        # TODO: Xlib stubs need to be updated to accept xobjects in structs/Requests, not just ids
+        DISP.send_event(destination=ROOT, event=ev, event_mask=mask)  # type: ignore[call-overload]  # pyright: ignore[reportGeneralTypeIssues]
 
     def getAppName(self) -> str:
         """
@@ -834,7 +831,7 @@ class LinuxWindow(BaseWindow):
 
         :return: list of handles
         """
-        w: Window = DISP.create_resource_object('window', self._hWnd.id)
+        w = DISP.create_resource_object('window', self._hWnd.id)
         return w.query_tree().children  # type: ignore[no-any-return]
 
     def getHandle(self):
@@ -928,7 +925,7 @@ class LinuxWindow(BaseWindow):
 
         :return: ``True`` if the window is currently visible
         """
-        win: Window = DISP.create_resource_object('window', self._hWnd.id)
+        win = DISP.create_resource_object('window', self._hWnd.id)
         state = win.get_attributes().map_state
         return state == Xlib.X.IsViewable  # type: ignore[no-any-return]
 
@@ -941,18 +938,18 @@ class LinuxWindow(BaseWindow):
 
         :return: ''True'' if window exists
         """
-        ret = True
         try:
-            win: Window = DISP.create_resource_object('window', self._hWnd.id)
+            win = DISP.create_resource_object('window', self._hWnd.id)
             state = win.get_attributes().map_state
         except Xlib.error.BadWindow:
-            ret = False
-        return ret
+            return False
+        else:
+            return True
 
     @property
     def _isMapped(self) -> bool:
         # Returns ``True`` if the window is currently mapped
-        win: Window = DISP.create_resource_object('window', self._hWnd.id)
+        win = DISP.create_resource_object('window', self._hWnd.id)
         state = win.get_attributes().map_state
         return state != Xlib.X.IsUnmapped  # type: ignore[no-any-return]
 
