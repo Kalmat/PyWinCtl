@@ -426,7 +426,7 @@ class LinuxWindow(BaseWindow):
         super().__init__()
         if isinstance(hWnd, int):
             hWnd: Window = DISP.create_resource_object('window', hWnd)
-        self._hWnd = hWnd
+        self._hWnd: Window = hWnd
         self._parent = self._hWnd.query_tree().parent
         self._hWnd = hWnd
         self._parent: Window = self._hWnd.query_tree().parent
