@@ -425,10 +425,10 @@ class LinuxWindow(BaseWindow):
     def __init__(self, hWnd: Window | int):
         super().__init__()
         if isinstance(hWnd, int):
-            h: Window = DISP.create_resource_object('window', hWnd)
-            self._hWnd: Window = h
-        else:
-            self._hWnd: Window = hWnd
+            hWndID: int = hWnd
+            h: Window = DISP.create_resource_object('window', hWndID)
+            hWnd: Window = h
+        self._hWnd: Window = hWnd
         self._parent: Window = self._hWnd.query_tree().parent
         self.__rect = self._rectFactory()
         # self._saveWindowInitValues()  # Store initial Window parameters to allow reset and other actions
@@ -776,18 +776,18 @@ class LinuxWindow(BaseWindow):
 
             return WINDOW_DESKTOP in EWMH.getWmWindowType(self._hWnd, str=True)
         else:
-            w: Window = DISP.create_resource_object('window', self._hWnd.id)
+            w2: Window = DISP.create_resource_object('window', self._hWnd.id)
             pos = self.topleft
-            w.unmap()
-            w.change_property(DISP.intern_atom(WM_WINDOW_TYPE, False), Xlib.Xatom.ATOM,
+            w2.unmap()
+            w2.change_property(DISP.intern_atom(WM_WINDOW_TYPE, False), Xlib.Xatom.ATOM,
                               32, [DISP.intern_atom(WINDOW_NORMAL, False), ],
                               Xlib.X.PropModeReplace)
             DISP.flush()
-            w.change_property(DISP.intern_atom(WM_STATE, False), Xlib.Xatom.ATOM,
+            w2.change_property(DISP.intern_atom(WM_STATE, False), Xlib.Xatom.ATOM,
                               32, [DISP.intern_atom(STATE_FOCUSED, False), ],
                               Xlib.X.PropModeAppend)
             DISP.flush()
-            w.map()
+            w2.map()
             EWMH.setActiveWindow(self._hWnd)
             EWMH.display.flush()
             self.moveTo(pos.x, pos.y)
