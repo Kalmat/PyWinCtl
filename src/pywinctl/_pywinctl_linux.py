@@ -427,8 +427,6 @@ class LinuxWindow(BaseWindow):
         if isinstance(hWnd, int):
             hWnd: Window = DISP.create_resource_object('window', hWnd)
         self._hWnd: Window = hWnd
-        self._parent = self._hWnd.query_tree().parent
-        self._hWnd = hWnd
         self._parent: Window = self._hWnd.query_tree().parent
         self.__rect = self._rectFactory()
         # self._saveWindowInitValues()  # Store initial Window parameters to allow reset and other actions
