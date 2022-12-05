@@ -702,6 +702,7 @@ class Win32Window(BaseWindow):
         :param setTo: True/False to toggle window transparent to input and focus
         :return: None
         """
+        # These ignores will all be fixed by https://github.com/python/typeshed/pull/9308
         exStyle = win32api.GetWindowLong(self._hWnd, win32con.GWL_EXSTYLE)  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
         if setTo:
             win32api.SetWindowLong(self._hWnd, win32con.GWL_EXSTYLE, exStyle & ~win32con.WS_EX_TRANSPARENT)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
