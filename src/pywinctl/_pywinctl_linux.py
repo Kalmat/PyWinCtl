@@ -13,7 +13,7 @@ import subprocess
 import time
 import tkinter as tk
 from collections.abc import Callable
-from typing import Iterable
+from typing import Iterable, cast
 
 import ewmh
 import Xlib.display
@@ -287,12 +287,12 @@ def getTopWindowAt(x: int, y: int):
         return None
 
 
-def _xlibGetAllWindows(parent: Window | None = None, title: str = "", klass: tuple[str, str] | None = None) -> list[int]:
+def _xlibGetAllWindows(parent: Window | None = None, title: str = "", klass: tuple[str, str] | None = None) -> list[Window]:
 
     parent = parent or ROOT
     allWindows = [parent]
 
-    def findit(hwnd: int):
+    def findit(hwnd: Window):
         query = hwnd.query_tree()
         for child in query.children:
             allWindows.append(child)
@@ -302,7 +302,7 @@ def _xlibGetAllWindows(parent: Window | None = None, title: str = "", klass: tup
     if not title and not klass:
         return allWindows
     else:
-        windows: list[int] = []
+        windows: list[Window] = []
         for window in allWindows:
             try:
                 winTitle = window.get_wm_name()
@@ -428,7 +428,7 @@ class LinuxWindow(BaseWindow):
             hWndID: int = hWnd
             h: Window = DISP.create_resource_object('window', hWndID)
             hWnd = h
-        self._hWnd: Window = hWnd
+        self._hWnd: Window = cast(hWnd, Window)
         self._parent: Window = self._hWnd.query_tree().parent
         self.__rect = self._rectFactory()
         # self._saveWindowInitValues()  # Store initial Window parameters to allow reset and other actions
@@ -771,7 +771,7 @@ class LinuxWindow(BaseWindow):
             #         if STATE_SKIP_PAGER in state and STATE_SKIP_TASKBAR in state and WINDOW_DESKTOP in winType:
             #             desktop.append(w)
             for d in desktop:
-                win: Window = DISP.create_resource_object('window', d)
+                win: Window = DISP.create_resource_object('window', d.id)
                 win.raise_window()
 
             return WINDOW_DESKTOP in EWMH.getWmWindowType(self._hWnd, str=True)
