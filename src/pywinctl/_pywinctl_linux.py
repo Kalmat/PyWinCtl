@@ -287,12 +287,12 @@ def getTopWindowAt(x: int, y: int):
         return None
 
 
-def _xlibGetAllWindows(parent: Window | None = None, title: str = "", klass: tuple[str, str] | None = None) -> list[Window]:
+def _xlibGetAllWindows(parent: Window | None = None, title: str = "", klass: tuple[str, str] | None = None) -> list[int]:
 
     parent = parent or ROOT
     allWindows = [parent]
 
-    def findit(hwnd: Window):
+    def findit(hwnd: int):
         query = hwnd.query_tree()
         for child in query.children:
             allWindows.append(child)
@@ -302,7 +302,7 @@ def _xlibGetAllWindows(parent: Window | None = None, title: str = "", klass: tup
     if not title and not klass:
         return allWindows
     else:
-        windows: list[Window] = []
+        windows: list[int] = []
         for window in allWindows:
             try:
                 winTitle = window.get_wm_name()
@@ -427,7 +427,7 @@ class LinuxWindow(BaseWindow):
         if isinstance(hWnd, int):
             hWndID: int = hWnd
             h: Window = DISP.create_resource_object('window', hWndID)
-            hWnd: Window = h
+            hWnd = h
         self._hWnd: Window = hWnd
         self._parent: Window = self._hWnd.query_tree().parent
         self.__rect = self._rectFactory()
