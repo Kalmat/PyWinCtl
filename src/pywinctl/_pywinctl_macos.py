@@ -105,9 +105,9 @@ def getActiveWindow(app: AppKit.NSApplication | None = None):
             title = ", ".join(entries[5:])
             if appID:  # and title:
                 activeApps = _getAllApps()
-                for app in activeApps:
-                    if str(app.processIdentifier()) == appID:
-                        return MacOSWindow(app, title, bounds)
+                for a in activeApps:
+                    if str(a.processIdentifier()) == appID:
+                        return MacOSWindow(a, title, bounds)
         except Exception as e:
             print(e)
     else:
