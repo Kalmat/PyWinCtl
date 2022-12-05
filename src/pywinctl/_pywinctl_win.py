@@ -295,30 +295,30 @@ def _getAllApps(tryToFilter: bool = False) -> list[tuple[int, str, str | None]] 
 def _getWindowInfo(hWnd: int | str | bytes | bool | None):
     class tagWINDOWINFO(ctypes.Structure):
         # Help type-checkers with ctypes.Structure
-        cbSize: int
-        rcWindow: wintypes.RECT
-        rcClient: wintypes.RECT
-        dwStyle: int
-        dwExStyle: int
-        dwWindowStatus: int
-        cxWindowBorders: int
-        cyWindowBorders: int
-        atomWindowType: int
-        wCreatorVersion: int
-        @type_check_only
-        def __init__(
-            self,
-            cbSize: int = ...,
-            rcWindow: wintypes.RECT = ...,
-            rcClient: wintypes.RECT = ...,
-            dwStyle: int = ...,
-            dwExStyle: int = ...,
-            dwWindowStatus: int = ...,
-            cxWindowBorders: int = ...,
-            cyWindowBorders: int = ...,
-            atomWindowType: int = ...,
-            wCreatorVersion: int = ...
-        ): ...
+        if TYPE_CHECKING:
+            cbSize: int
+            rcWindow: wintypes.RECT
+            rcClient: wintypes.RECT
+            dwStyle: int
+            dwExStyle: int
+            dwWindowStatus: int
+            cxWindowBorders: int
+            cyWindowBorders: int
+            atomWindowType: int
+            wCreatorVersion: int
+            def __init__(
+                self,
+                cbSize: int = ...,
+                rcWindow: wintypes.RECT = ...,
+                rcClient: wintypes.RECT = ...,
+                dwStyle: int = ...,
+                dwExStyle: int = ...,
+                dwWindowStatus: int = ...,
+                cxWindowBorders: int = ...,
+                cyWindowBorders: int = ...,
+                atomWindowType: int = ...,
+                wCreatorVersion: int = ...
+            ): ...
 
         _fields_ = [
             ('cbSize', wintypes.DWORD),
@@ -702,11 +702,11 @@ class Win32Window(BaseWindow):
         :param setTo: True/False to toggle window transparent to input and focus
         :return: None
         """
-        exStyle = win32api.GetWindowLong(self._hWnd, win32con.GWL_EXSTYLE)
+        exStyle = win32api.GetWindowLong(self._hWnd, win32con.GWL_EXSTYLE)  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
         if setTo:
-            win32api.SetWindowLong(self._hWnd, win32con.GWL_EXSTYLE, exStyle & ~win32con.WS_EX_TRANSPARENT)
+            win32api.SetWindowLong(self._hWnd, win32con.GWL_EXSTYLE, exStyle & ~win32con.WS_EX_TRANSPARENT)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
         else:
-            win32api.SetWindowLong(self._hWnd, win32con.GWL_EXSTYLE, exStyle | win32con.WS_EX_TRANSPARENT)
+            win32api.SetWindowLong(self._hWnd, win32con.GWL_EXSTYLE, exStyle | win32con.WS_EX_TRANSPARENT)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
 
     def getAppName(self) -> str:
         """
