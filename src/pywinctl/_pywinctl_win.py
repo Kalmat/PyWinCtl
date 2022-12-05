@@ -12,7 +12,7 @@ import threading
 import time
 from collections import Callable, Sequence
 from ctypes import wintypes
-from typing import TYPE_CHECKING, cast, overload, type_check_only
+from typing import TYPE_CHECKING, cast, overload
 
 import win32api
 import win32con
@@ -1466,9 +1466,7 @@ def main():
     else:
         print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()
-    # displayWindowsUnderMouse(0, 0)
-    print(npw.title)
-    npw.alwaysOnTop()
+    displayWindowsUnderMouse(0, 0)
 
 
 if __name__ == "__main__":
