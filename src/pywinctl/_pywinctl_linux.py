@@ -758,7 +758,6 @@ class LinuxWindow(BaseWindow):
                               32, [DISP.intern_atom(WINDOW_DESKTOP, False), ],
                               Xlib.X.PropModeReplace)
             DISP.flush()
-            self.acceptInput(False)
             win.map()
 
             # This will try to raise the desktop icons layer on top of the window
