@@ -10,7 +10,7 @@ import ctypes
 import re
 import threading
 import time
-from collections import Callable, Sequence
+from collections.abc import Callable, Sequence
 from ctypes import wintypes
 from typing import TYPE_CHECKING, cast, overload
 
@@ -370,9 +370,9 @@ class Win32Window(BaseWindow):
     def _rect(self):
         return self.__rect
 
-    def __init__(self, hWnd: int):
+    def __init__(self, hWnd: int | str):
         super().__init__()
-        self._hWnd = hWnd
+        self._hWnd = int(hWnd, base=16) if isinstance(hWnd, str) else hWnd
         self.__rect = self._rectFactory()
         self._parent = win32gui.GetParent(self._hWnd)
         self._t = None

@@ -15,3 +15,6 @@ https://discussions.apple.com/thread/2189505
 - alwaysOnBottom(): Try to find other smarter methods to keep window at the bottom (now it's a thread)
 - sendBehind(): Is it even possible???
 - acceptInput(): Is it even possible???
+
+General:
+- Create type stubs or add to base library

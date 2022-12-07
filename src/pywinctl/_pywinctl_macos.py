@@ -15,8 +15,8 @@ import re
 import subprocess
 import threading
 import time
-from collections.abc import Callable, Iterable, Sequence
-from typing import Any, overload, cast
+from collections.abc import Callable, Iterable
+from typing import Any, overload, cast, Sequence
 from typing_extensions import TypeAlias, TypedDict, Literal
 
 import AppKit

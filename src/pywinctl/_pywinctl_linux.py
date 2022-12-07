@@ -422,9 +422,15 @@ class LinuxWindow(BaseWindow):
     def _rect(self):
         return self.__rect
 
-    def __init__(self, hWnd: Window | int):
+    def __init__(self, hWnd: Window | int | str):
         super().__init__()
-        self._hWnd = hWnd if isinstance(hWnd, Window) else DISP.create_resource_object('window', hWnd)
+        if isinstance(hWnd, int):
+            self._hWnd = DISP.create_resource_object('window', hWnd)
+        elif isinstance(hWnd, str):
+            self._hWnd = DISP.create_resource_object('window', int(hWnd, base=16))
+        else:
+            self._hWnd = hWnd
+        assert isinstance(self._hWnd, Window)
         self._parent: Window = self._hWnd.query_tree().parent
         self.__rect = self._rectFactory()
         # self._saveWindowInitValues()  # Store initial Window parameters to allow reset and other actions
