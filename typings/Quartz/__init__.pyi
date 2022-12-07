@@ -3,7 +3,7 @@
 # https://github.com/ronaldoussoren/pyobjc/issues/419
 from typing import Any
 
-import objc as objc  # type: ignore
+import objc as objc  # type: ignore  # pyright: ignore
 from AppKit import *
 from Quartz.CoreGraphics import *
 from Quartz.CoreVideo import *

@@ -1283,7 +1283,7 @@ class MacOSWindow(BaseWindow):
         return active is not None and active._app == self._app and active.title == self.title
 
     @property
-    def title(self) -> str | None:  # type: ignore[override]
+    def title(self) -> str | None:  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
         """
         Get the current window title, as string.
         IMPORTANT: window title may change. In that case, it will return None.

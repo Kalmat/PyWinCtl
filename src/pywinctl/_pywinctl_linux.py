@@ -116,7 +116,7 @@ def __remove_bad_windows(windows: Iterable[Window | None]):
     """
     for window in windows:
         try:
-            yield LinuxWindow(window)  # type: ignore[arg-type,reportGeneralTypeIssues]  # We expect an error here
+            yield LinuxWindow(window)  # type: ignore[arg-type]  # pyright: ignore[reportGeneralTypeIssues]  # We expect an error here
         except Xlib.error.XResourceError:
             pass
 
@@ -803,7 +803,7 @@ class LinuxWindow(BaseWindow):
         data = (32, [Xlib.Xutil.VisualScreenMask, 0, 0, 0, 0])  # it seems to work with any atom (like Xlib.Xutil.IconicState)
         ev = Xlib.protocol.event.ClientMessage(window=self._hWnd.id, client_type=prop, data=data)
         # TODO: Xlib stubs need to be updated to accept xobjects in structs/Requests, not just ids
-        DISP.send_event(destination=ROOT, event=ev, event_mask=mask)  # type: ignore[call-overload]  # pyright: ignore[reportGeneralTypeIssues]
+        DISP.send_event(destination=ROOT, event=ev, event_mask=mask)  # type: ignore[call-overload]
 
     def getAppName(self) -> str:
         """

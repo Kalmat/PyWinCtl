@@ -8,7 +8,7 @@ mypy >= 0.990
 
 # Windows
 pywin32>=302; sys_platform == 'win32'
-types-pywin32>=304.0.0.4
+types-pywin32>=305.0.0.3
 
 # Linux
 xlib>=0.21; sys_platform == 'linux'

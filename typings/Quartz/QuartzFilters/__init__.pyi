@@ -1,7 +1,7 @@
 # pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportMissingTypeArgument=false
 from typing import Any
 
-import Foundation as Foundation  # type: ignore
+import Foundation as Foundation  # type: ignore  # pyright: ignore
 
 
 def sel32or64(a, b): ...
