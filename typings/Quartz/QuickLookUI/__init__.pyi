@@ -2,7 +2,7 @@
 # mypy: disable-error-code=type-arg
 from typing import Any
 
-import objc._lazyimport  # type: ignore
+import objc._lazyimport  # type: ignore  # pyright: ignore
 
 QLPreviewViewStyle: Any
 _ObjCLazyModule__aliases_deprecated: dict
