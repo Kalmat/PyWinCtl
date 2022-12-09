@@ -25,7 +25,7 @@ __all__ = [
 if sys.platform == "darwin":
     __all__ += ["NSWindow"]
 
-__version__ = "0.0.40"
+__version__ = "0.0.41"
 
 class Box(NamedTuple):
     left: int

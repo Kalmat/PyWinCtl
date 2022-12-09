@@ -2,9 +2,10 @@
 # Run: `pip install -r docs/requirements.txt`
 # Production requirements are found in ../setup.py
 
-PyRect>=0.1
+PyRect>=0.2
 types-setuptools>=65.5
-mypy >= 0.990
+mypy>=0.990
+typing_extensions>=4.4.0
 
 # Windows
 pywin32>=302; sys_platform == 'win32'

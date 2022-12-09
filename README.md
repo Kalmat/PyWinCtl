@@ -22,7 +22,7 @@ My most sincere thanks and acknowledgement to [Avasam](https://github.com/Avasam
 
 ## Window Features <a name="window-features"></a>
 
-You need a Window object to manipulate/control windows on screen. It's possible to get a Window object by using any of the general methods (e.g. getActiveWidow() or getWindowsWithTitle()). You can also use windows id, as returned by PyQt's self.winId() or tkinter's root.frame(), which is very handy to get the Window object for your own application.
+You need a Window object to manipulate/control the target window on screen. It's possible to get a Window object by using any of the general methods (e.g. getActiveWidow() or getWindowsWithTitle()). You can also use windows id, as returned by PyQt's self.winId() or tkinter's root.frame(), which is very handy to get the Window object for your own application.
 
 These functions are available at the moment, in all three platforms (Windows, Linux and macOS):
 

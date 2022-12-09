@@ -595,11 +595,18 @@ class Win32Window(BaseWindow):
         :param aot: set to ''False'' to deactivate always-on-top behavior
         :return: Always returns ''True''
         """
+        # TODO: investigate how to place on top of DirectDraw exclusive mode windows (hook DirectDraw APIs)
+        # https://stackoverflow.com/questions/7009080/detecting-full-screen-mode-in-windows
+        # https://stackoverflow.com/questions/7928308/displaying-another-application-on-top-of-a-directdraw-full-screen-application
+        # https://www.codeproject.com/articles/730/apihijack-a-library-for-easy-dll-function-hooking?fid=1267&df=90&mpp=25&sort=Position&view=Normal&spc=Relaxed&select=116946&fr=73&prof=True
+        # https://guidedhacking.com/threads/d3d9-hooking.8481/
+        # https://stackoverflow.com/questions/25601362/transparent-window-on-top-of-immersive-full-screen-mode
         if self._t and self._t.is_alive():
             self._t.kill()
         # https://stackoverflow.com/questions/17131857/python-windows-keep-program-on-top-of-another-full-screen-application
         zorder = win32con.HWND_TOPMOST if aot else win32con.HWND_NOTOPMOST
-        win32gui.SetWindowPos(self._hWnd, zorder, 0, 0, 0, 0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
+        win32gui.SetWindowPos(self._hWnd, zorder, 0, 0, 0, 0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE |
+                                                              win32con.SWP_NOACTIVATE)
         return True
 
     def alwaysOnBottom(self, aob: bool = True) -> bool:
@@ -647,7 +654,7 @@ class Win32Window(BaseWindow):
         :return: Always returns ''True''
         """
         win32gui.SetWindowPos(self._hWnd, win32con.HWND_TOP, 0, 0, 0, 0,
-                                       win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE)
+                                       win32con.SWP_NOSIZE | win32con.SWP_NOMOVE)
         return True
 
     def sendBehind(self, sb: bool = True) -> bool:
