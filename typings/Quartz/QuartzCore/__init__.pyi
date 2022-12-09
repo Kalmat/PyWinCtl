@@ -2,8 +2,8 @@
 # mypy: disable-error-code=type-arg
 from typing import Any, ClassVar
 
-import objc  # type: ignore
-import objc._lazyimport  # type: ignore
+import objc  # type: ignore  # pyright: ignore
+import objc._lazyimport  # type: ignore  # pyright: ignore
 
 CAAnimationCalculationMode: Any
 CAAnimationRotationMode: Any
@@ -49,7 +49,7 @@ r: Any
 protocols: Any
 expressions: Any
 
-class CAFrameRateRange(objc._structwrapper):  # type: ignore
+class CAFrameRateRange(objc._structwrapper):  # type: ignore  # pyright: ignore
     _fields: ClassVar[tuple] = ...
     __match_args__: ClassVar[tuple] = ...
     __typestr__: ClassVar[bytes] = ...
@@ -68,7 +68,7 @@ class CAFrameRateRange(objc._structwrapper):  # type: ignore
     def __setattr__(self, name, value) -> Any: ...
     def __setitem__(self, index, object) -> Any: ...
 
-class CATransform3D(objc._structwrapper):  # type: ignore
+class CATransform3D(objc._structwrapper):  # type: ignore  # pyright: ignore
     _fields: ClassVar[tuple] = ...
     __match_args__: ClassVar[tuple] = ...
     __typestr__: ClassVar[bytes] = ...

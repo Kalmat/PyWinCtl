@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any, NamedTuple, cast
 
-import pyrect  # type: ignore[import]  # TODO: Create type stubs or add to base library
+import pyrect  # type: ignore[import]  # pyright: ignore[reportMissingTypeStubs]  # TODO: Create type stubs or add to base library
 
 
 __all__ = [
@@ -79,17 +79,17 @@ class Re:
     # Does not play well with static typing and current implementation of TypedDict
     _cond_dic: dict[int, Callable[[str | re.Pattern[str], str, float], bool]] = {
         IS: lambda s1, s2, fl: s1 == s2,
-        CONTAINS: lambda s1, s2, fl: s1 in s2,  # type: ignore
-        STARTSWITH: lambda s1, s2, fl: s2.startswith(s1),  # type: ignore
-        ENDSWITH: lambda s1, s2, fl: s2.endswith(s1),  # type: ignore
+        CONTAINS: lambda s1, s2, fl: s1 in s2,  # type: ignore  # pyright: ignore
+        STARTSWITH: lambda s1, s2, fl: s2.startswith(s1),  # type: ignore  # pyright: ignore
+        ENDSWITH: lambda s1, s2, fl: s2.endswith(s1),  # type: ignore  # pyright: ignore
         NOTIS: lambda s1, s2, fl: s1 != s2,
-        NOTCONTAINS: lambda s1, s2, fl: s1 not in s2,  # type: ignore
-        NOTSTARTSWITH: lambda s1, s2, fl: not s2.startswith(s1),  # type: ignore
-        NOTENDSWITH: lambda s1, s2, fl: not s2.endswith(s1),  # type: ignore
-        MATCH: lambda s1, s2, fl: bool(s1.search(s2)),  # type: ignore
-        NOTMATCH: lambda s1, s2, fl: not (bool(s1.search(s2))),  # type: ignore
-        EDITDISTANCE: lambda s1, s2, fl: _levenshtein(s1, s2) >= fl,  # type: ignore
-        DIFFRATIO: lambda s1, s2, fl: difflib.SequenceMatcher(None, s1, s2).ratio() * 100 >= fl  # type: ignore
+        NOTCONTAINS: lambda s1, s2, fl: s1 not in s2,  # type: ignore  # pyright: ignore
+        NOTSTARTSWITH: lambda s1, s2, fl: not s2.startswith(s1),  # type: ignore  # pyright: ignore
+        NOTENDSWITH: lambda s1, s2, fl: not s2.endswith(s1),  # type: ignore  # pyright: ignore
+        MATCH: lambda s1, s2, fl: bool(s1.search(s2)),  # type: ignore  # pyright: ignore
+        NOTMATCH: lambda s1, s2, fl: not (bool(s1.search(s2))),  # type: ignore  # pyright: ignore
+        EDITDISTANCE: lambda s1, s2, fl: _levenshtein(s1, s2) >= fl,  # type: ignore  # pyright: ignore
+        DIFFRATIO: lambda s1, s2, fl: difflib.SequenceMatcher(None, s1, s2).ratio() * 100 >= fl  # type: ignore  # pyright: ignore
     }
 
 
