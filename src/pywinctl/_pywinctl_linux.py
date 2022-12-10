@@ -33,7 +33,7 @@ from pywinctl import BaseWindow, Point, Re, Rect, Size, _WinWatchDog, pointInRec
 
 DISP = Xlib.display.Display()
 SCREEN = DISP.screen()
-ROOT: Window = SCREEN.root
+ROOT = SCREEN.root
 EWMH = ewmh.EWMH(_display=DISP, root=ROOT)
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
@@ -97,10 +97,6 @@ def getActiveWindow():
     win_id = EWMH.getActiveWindow()
     if win_id:
         return LinuxWindow(win_id)
-    # ret = ROOT.get_full_property(DISP.get_atom('_NET_ACTIVE_WINDOW', False), Xlib.X.AnyPropertyType)
-    # if ret and ret.value:
-    #     win_id = ret.value[0]
-    #     return LinuxWindow(win_id)
     return None
 
 
@@ -134,9 +130,7 @@ def getAllWindows():
     Get the list of Window objects for all visible windows
     :return: list of Window objects
     """
-    windows = EWMH.getClientListStacking()
-    return [window for window in __remove_bad_windows(windows)]
-    # return [window for window in __remove_bad_windows(ROOT.get_full_property(DISP.get_atom('_NET_CLIENT_LIST_STACKING', False), Xlib.X.AnyPropertyType).value)]
+    return [window for window in __remove_bad_windows(ROOT.get_full_property(DISP.get_atom('_NET_CLIENT_LIST_STACKING', False), Xlib.X.AnyPropertyType).value)]
 
 
 def getAllTitles() -> list[str]:
