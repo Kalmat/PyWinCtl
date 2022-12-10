@@ -12,20 +12,24 @@ import threading
 import time
 from collections.abc import Callable, Sequence
 from ctypes import wintypes
-from typing import TYPE_CHECKING, cast, overload
+from typing import cast, overload, AnyStr, TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing_extensions import Literal, NotRequired, TypedDict
+    from win32.lib.win32gui_struct import _MENUITEMINFO
+else:
+    # Only needed if the import from typing_extensions is used outside of annotations
+    Literal = AnyStr
+    NotRequired = dict
+    from typing import TypedDict
 
 import win32api
 import win32con
 import win32gui
 import win32gui_struct
 import win32process
-from typing_extensions import Literal, NotRequired, TypedDict
 from win32com.client import GetObject
 
 from pywinctl import BaseWindow, Point, Re, Rect, Size, _WinWatchDog, pointInRect
-
-if TYPE_CHECKING:
-    from win32.lib.win32gui_struct import _MENUITEMINFO
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.

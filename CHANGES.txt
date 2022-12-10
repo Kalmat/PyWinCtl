@@ -1,3 +1,4 @@
+0.0.42, 2022/12/09 -- Really fixed typing_extensions dependency and setup.py dependencies
 0.0.41, 2022/12/09 -- Fixed requirements.txt with typing_extensions dependency
 0.0.40, 2022/12/07 -- New typed version. Improved Window class to accept Window object or window id (int/str), added acceptInput(), added getTopWindowAt(), fixed and improved sendBehind() on Ubuntu 22.04+ and Mint/Cinnamon,
 0.0.39, 2022/06/07 -- Improved watchdog, fixed Mint/Cinnamon sendBehind() method, added macOS AppScript alwaysOnTop() and alwaysOnBottom() methods

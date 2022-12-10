@@ -16,8 +16,15 @@ import subprocess
 import threading
 import time
 from collections.abc import Callable, Iterable
-from typing import Any, overload, cast, Sequence
-from typing_extensions import TypeAlias, TypedDict, Literal
+from typing import Any, AnyStr, overload, cast, Sequence, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeAlias, TypedDict, Literal
+else:
+    # Only needed if the import from typing_extensions is used outside of annotations
+    TypeAlias = Any
+    from typing import TypedDict
+    Literal = AnyStr
 
 import AppKit
 import Quartz

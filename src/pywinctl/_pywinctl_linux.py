@@ -13,7 +13,12 @@ import subprocess
 import time
 import tkinter as tk
 from collections.abc import Callable
-from typing import Iterable
+from typing import Iterable, TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing_extensions import TypedDict
+else:
+    # Only needed if the import from typing_extensions is used outside of annotations
+    from typing import TypedDict
 
 import ewmh
 import Xlib.display
@@ -22,14 +27,13 @@ import Xlib.protocol
 import Xlib.X
 import Xlib.Xatom
 import Xlib.Xutil
-from typing_extensions import TypedDict
 from Xlib.xobject.drawable import Window
 
 from pywinctl import BaseWindow, Point, Re, Rect, Size, _WinWatchDog, pointInRect
 
 DISP = Xlib.display.Display()
 SCREEN = DISP.screen()
-ROOT = SCREEN.root
+ROOT: Window = SCREEN.root
 EWMH = ewmh.EWMH(_display=DISP, root=ROOT)
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
@@ -93,6 +97,10 @@ def getActiveWindow():
     win_id = EWMH.getActiveWindow()
     if win_id:
         return LinuxWindow(win_id)
+    # ret = ROOT.get_full_property(DISP.get_atom('_NET_ACTIVE_WINDOW', False), Xlib.X.AnyPropertyType)
+    # if ret and ret.value:
+    #     win_id = ret.value[0]
+    #     return LinuxWindow(win_id)
     return None
 
 
@@ -128,6 +136,7 @@ def getAllWindows():
     """
     windows = EWMH.getClientListStacking()
     return [window for window in __remove_bad_windows(windows)]
+    # return [window for window in __remove_bad_windows(ROOT.get_full_property(DISP.get_atom('_NET_CLIENT_LIST_STACKING', False), Xlib.X.AnyPropertyType).value)]
 
 
 def getAllTitles() -> list[str]:
@@ -424,6 +433,7 @@ class LinuxWindow(BaseWindow):
 
     def __init__(self, hWnd: Window | int | str):
         super().__init__()
+        print(type(hWnd))
         if isinstance(hWnd, int):
             self._hWnd = DISP.create_resource_object('window', hWnd)
         elif isinstance(hWnd, str):
