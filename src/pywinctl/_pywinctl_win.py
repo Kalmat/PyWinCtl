@@ -281,8 +281,22 @@ def _findMainWindowHandles():
     # Filter windows: https://stackoverflow.com/questions/64586371/filtering-background-processes-pywin32
 
     class TITLEBARINFO(ctypes.Structure):
-        _fields_ = [("cbSize", ctypes.wintypes.DWORD), ("rcTitleBar", ctypes.wintypes.RECT),
-                    ("rgstate", ctypes.wintypes.DWORD * 6)]
+        if TYPE_CHECKING:
+            cbSize: int
+            rcTitleBar: wintypes.RECT
+            rgstate: int
+            def __init__(
+                self,
+                cbSize: int = ...,
+                rcTitleBar: wintypes.RECT = ...,
+                rgstate: int = ...
+            ): ...
+
+        _fields_ = [
+            ("cbSize", wintypes.DWORD),
+            ("rcTitleBar", wintypes.RECT),
+            ("rgstate", wintypes.DWORD * 6)
+        ]
 
     def winEnumHandler(hwnd, ctx):
         # Title Info Initialization
