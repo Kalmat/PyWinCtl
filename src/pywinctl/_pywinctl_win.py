@@ -296,7 +296,7 @@ def _findMainWindowHandles():
         _fields_ = [
             ("cbSize", wintypes.DWORD),
             ("rcTitleBar", wintypes.RECT),
-            ("rgstate", [wintypes.DWORD * 6])
+            ("rgstate", wintypes.DWORD * 6)
         ]
 
     def winEnumHandler(hwnd: int, ctx: Any):
