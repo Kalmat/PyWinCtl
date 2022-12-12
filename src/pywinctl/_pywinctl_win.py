@@ -209,7 +209,7 @@ def getAllAppsWindowsTitles():
         pID = win32process.GetWindowThreadProcessId(win.getHandle())
         for item in process_list:
             appPID = item[0]
-            appName = item[1]
+            appName = str(item[1])
             if appPID == pID[1]:
                 if appName in result:
                     result[appName].append(win.title)
