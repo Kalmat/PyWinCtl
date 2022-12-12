@@ -12,7 +12,8 @@ import threading
 import time
 from collections.abc import Callable, Sequence
 from ctypes import wintypes
-from typing import cast, AnyStr, TYPE_CHECKING
+from typing import cast, AnyStr, Any, TYPE_CHECKING
+
 if TYPE_CHECKING:
     from typing_extensions import NotRequired, TypedDict
     from win32.lib.win32gui_struct import _MENUITEMINFO
@@ -284,21 +285,21 @@ def _findMainWindowHandles():
         if TYPE_CHECKING:
             cbSize: int
             rcTitleBar: wintypes.RECT
-            rgstate: int
+            rgstate: list[int, int, int, int, int, int]
             def __init__(
                 self,
                 cbSize: int = ...,
                 rcTitleBar: wintypes.RECT = ...,
-                rgstate: int = ...
+                rgstate: list[int, int, int, int, int, int] = ...
             ): ...
 
         _fields_ = [
             ("cbSize", wintypes.DWORD),
             ("rcTitleBar", wintypes.RECT),
-            ("rgstate", wintypes.DWORD * 6)
+            ("rgstate", [wintypes.DWORD * 6])
         ]
 
-    def winEnumHandler(hwnd, ctx):
+    def winEnumHandler(hwnd: int, ctx: Any):
         # Title Info Initialization
         title_info = TITLEBARINFO()
         title_info.cbSize = ctypes.sizeof(title_info)
@@ -763,11 +764,11 @@ class Win32Window(BaseWindow):
         :return: name of the app as string
         """
         # https://stackoverflow.com/questions/550653/cross-platform-way-to-get-pids-by-process-name-in-python
-        pID = win32process.GetWindowThreadProcessId(self._hWnd)[1]
-        name = self.title
+        pID: int = win32process.GetWindowThreadProcessId(self._hWnd)[1]
+        name: str = self.title
         for app in _getAllApps(tryToFilter=False):
-            if app[0] == pID:
-                name = app[1]
+            if int(app[0]) == pID:
+                name = str(app[1])
                 break
         return name
 
