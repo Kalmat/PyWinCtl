@@ -758,8 +758,8 @@ class _WinWatchDog(threading.Thread):
         changedDisplayCB: Callable[[str], None] | None = None,
         interval: float = 0.3
     ):
-        self.kill()
-        self._kill = threading.Event()
+        self._kill.set()
+        self._kill.clear()
         self.updateCallbacks(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB)
         self.updateInterval(interval)
         self.run()

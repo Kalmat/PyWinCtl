@@ -12,9 +12,9 @@ import threading
 import time
 from collections.abc import Callable, Sequence
 from ctypes import wintypes
-from typing import cast, overload, AnyStr, TYPE_CHECKING
+from typing import cast, AnyStr, TYPE_CHECKING
 if TYPE_CHECKING:
-    from typing_extensions import Literal, NotRequired, TypedDict
+    from typing_extensions import NotRequired, TypedDict
     from win32.lib.win32gui_struct import _MENUITEMINFO
 else:
     # Only needed if the import from typing_extensions is used outside of annotations
@@ -81,10 +81,8 @@ def getAllWindows():
 
     :return: list of Window objects
     """
-    return [
-        Win32Window(hwnd) for hwnd
-        in _findWindowHandles(onlyVisible=True)
-        if win32gui.IsWindowVisible(hwnd)]
+    # https://stackoverflow.com/questions/64586371/filtering-background-processes-pywin32
+    return [Win32Window(hwnd[0]) for hwnd in _findMainWindowHandles()]
 
 
 def getAllTitles() -> list[str]:
@@ -278,22 +276,47 @@ def _findWindowHandles(parent: int | None = None, window_class: str | None = Non
     finally:
         return handle_list
 
-@overload
-def _getAllApps(tryToFilter: Literal[True]) -> list[tuple[int, str, str]]:...
 
-@overload
-def _getAllApps(tryToFilter: Literal[False] = ...) -> list[tuple[int, str, str | None]]:...
+def _findMainWindowHandles():
+    # Filter windows: https://stackoverflow.com/questions/64586371/filtering-background-processes-pywin32
 
-def _getAllApps(tryToFilter: bool = False) -> list[tuple[int, str, str | None]] | list[tuple[int, str, str]]:
+    class TITLEBARINFO(ctypes.Structure):
+        _fields_ = [("cbSize", ctypes.wintypes.DWORD), ("rcTitleBar", ctypes.wintypes.RECT),
+                    ("rgstate", ctypes.wintypes.DWORD * 6)]
+
+    def winEnumHandler(hwnd, ctx):
+        # Title Info Initialization
+        title_info = TITLEBARINFO()
+        title_info.cbSize = ctypes.sizeof(title_info)
+        ctypes.windll.user32.GetTitleBarInfo(hwnd, ctypes.byref(title_info))
+
+        # DWM Cloaked Check
+        isCloaked = ctypes.c_int(0)
+        DWMWA_CLOAKED = 14
+        ctypes.windll.dwmapi.DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, ctypes.byref(isCloaked), ctypes.sizeof(isCloaked))
+
+        # Variables
+        title = win32gui.GetWindowText(hwnd)
+
+        # Append HWND to list
+        if win32gui.IsWindowVisible(hwnd) and title != '' and isCloaked.value == 0:
+            if not (title_info.rgstate[0] & win32con.STATE_SYSTEM_INVISIBLE):
+                handle_list.append((hwnd, win32process.GetWindowThreadProcessId(hwnd)[1]))
+
+    handle_list: list[tuple[int, int]] = []
+    win32gui.EnumWindows(winEnumHandler, None)
+    return handle_list
+
+
+def _getAllApps(tryToFilter: bool = False) -> list[tuple[int, str | None]] | list[tuple[int, str]]:
     # https://stackoverflow.com/questions/550653/cross-platform-way-to-get-pids-by-process-name-in-python
     WMI = GetObject('winmgmts:')
-    processes = WMI.InstancesOf('Win32_Process')
-    # use print(p.__dir__() for p in processes) to print all methods available
-    process_list: list[tuple[int, str, str | None]] = [(p.Properties_("ProcessID").Value, p.Properties_("Name").Value, p.Properties_("CommandLine").Value) for p in processes]
     if tryToFilter:
-        # Trying to figure out how to identify user-apps (non-system apps). Commandline property seems to partially work
-        return [item for item in process_list if item[2]]
-    return process_list
+        mainWindows = [w[1] for w in _findMainWindowHandles()]
+        return [(p.Properties_("ProcessID").Value, p.Properties_("Name").Value) for p in WMI.InstancesOf('Win32_Process')
+                if p.Properties_("ProcessID").Value in mainWindows]
+    else:
+        return [(p.Properties_("ProcessID").Value, p.Properties_("Name").Value) for p in WMI.InstancesOf('Win32_Process')]
 
 
 def _getWindowInfo(hWnd: int | str | bytes | bool | None):
@@ -599,7 +622,7 @@ class Win32Window(BaseWindow):
         :param aot: set to ''False'' to deactivate always-on-top behavior
         :return: Always returns ''True''
         """
-        # TODO: investigate how to place on top of DirectDraw exclusive mode windows (hook DirectDraw APIs)
+        # TODO: investigate how to place on top of DirectDraw exclusive mode windows (hook DirectDraw dll)
         # https://stackoverflow.com/questions/7009080/detecting-full-screen-mode-in-windows
         # https://stackoverflow.com/questions/7928308/displaying-another-application-on-top-of-a-directdraw-full-screen-application
         # https://www.codeproject.com/articles/730/apihijack-a-library-for-easy-dll-function-hooking?fid=1267&df=90&mpp=25&sort=Position&view=Normal&spc=Relaxed&select=116946&fr=73&prof=True
@@ -726,14 +749,12 @@ class Win32Window(BaseWindow):
         :return: name of the app as string
         """
         # https://stackoverflow.com/questions/550653/cross-platform-way-to-get-pids-by-process-name-in-python
-        WMI = GetObject('winmgmts:')
-        processes = WMI.InstancesOf('Win32_Process')
-        process_list: list[tuple[int, str]] = [(p.Properties_("ProcessID").Value, p.Properties_("Name").Value) for p in processes]
         pID = win32process.GetWindowThreadProcessId(self._hWnd)[1]
-        name = ""
-        for item in process_list:
-            if item[0] == pID:
-                name = item[1]
+        name = self.title
+        for app in _getAllApps(tryToFilter=False):
+            if app[0] == pID:
+                name = app[1]
+                break
         return name
 
     def getParent(self) -> int:
@@ -1253,34 +1274,26 @@ class _SendBottom(threading.Thread):
         threading.Thread.__init__(self)
         self._hWnd = hWnd
         self._interval = interval
-        self._kill = threading.Event()
+        self._keep = threading.Event()
+        self._keep.set()
 
     def _isLast(self):
-        # This avoids flickering and CPU consumption. Not very smart, but no other option found... by the moment
-        h = win32gui.GetWindow(self._hWnd, win32con.GW_HWNDLAST)
-        last = True
-        while h != 0 and h != self._hWnd:
-            h = win32gui.GetWindow(h, win32con.GW_HWNDPREV)
-            # TODO: Find a way to filter user vs. system apps. It should be doable like in Task Manager!!!
-            # not sure if this always guarantees these other windows are "system" windows (not user windows)
-            if h != self._hWnd and win32gui.IsWindowVisible(h) and win32gui.GetClassName(h) not in ("WorkerW", "Progman"):
-                last = False
-                break
-        return last
+        handles = _findMainWindowHandles()
+        last = None if not handles else handles[-1][0]
+        return self._hWnd == last
 
     def run(self):
-        while not self._kill.is_set() and win32gui.IsWindow(self._hWnd):
+        while self._keep.is_set() and win32gui.IsWindow(self._hWnd):
             if not self._isLast():
                 win32gui.SetWindowPos(self._hWnd, win32con.HWND_BOTTOM, 0, 0, 0, 0,
-                                      win32con.SWP_NOSENDCHANGING | win32con.SWP_NOOWNERZORDER | win32con.SWP_ASYNCWINDOWPOS | win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE | win32con.SWP_NOREDRAW | win32con.SWP_NOCOPYBITS)
-            self._kill.wait(self._interval)
+                                      win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE)
+            self._keep.wait(self._interval)
 
     def kill(self):
-        self._kill.set()
+        self._keep.clear()
 
     def restart(self):
-        self.kill()
-        self._kill = threading.Event()
+        self._keep.set()
         self.run()
 
 class _ScreenValue(TypedDict):
