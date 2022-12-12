@@ -285,12 +285,12 @@ def _findMainWindowHandles():
         if TYPE_CHECKING:
             cbSize: int
             rcTitleBar: wintypes.RECT
-            rgstate: list[int, int, int, int, int, int]
+            rgstate: list[int]
             def __init__(
                 self,
                 cbSize: int = ...,
                 rcTitleBar: wintypes.RECT = ...,
-                rgstate: list[int, int, int, int, int, int] = ...
+                rgstate: list[int] = ...
             ): ...
 
         _fields_ = [
