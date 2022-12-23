@@ -659,8 +659,7 @@ class Win32Window(BaseWindow):
         :return: ''True'' if command succeeded
         """
         if aob:
-            win32gui.SetWindowPos(self._hWnd, win32con.HWND_BOTTOM, 0, 0, 0, 0,
-                                           win32con.SWP_NOSENDCHANGING | win32con.SWP_NOOWNERZORDER | win32con.SWP_ASYNCWINDOWPOS | win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE | win32con.SWP_NOREDRAW | win32con.SWP_NOCOPYBITS)
+            win32gui.SetWindowPos(self._hWnd, win32con.HWND_BOTTOM, 0, 0, 0, 0, win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE)
             # There is no HWND_BOTTOMMOST (similar to TOPMOST), so it won't keep window below all others as desired
             # May be catching WM_WINDOWPOSCHANGING event? Not sure if possible for a "foreign" window, and seems really complex
             # https://stackoverflow.com/questions/64529896/attach-keyboard-hook-to-specific-window
@@ -722,6 +721,7 @@ class Win32Window(BaseWindow):
                 return thelist
 
             # https://www.codeproject.com/Articles/856020/Draw-Behind-Desktop-Icons-in-Windows-plus
+            self._parent = win32gui.GetParent(self._hWnd)
             progman = win32gui.FindWindow("Progman", None)
             win32gui.SendMessageTimeout(progman, 0x052C, 0, 0, win32con.SMTO_NORMAL, 1000)
             workerw = getWorkerW()
@@ -731,7 +731,7 @@ class Win32Window(BaseWindow):
         else:
             ret = win32gui.SetParent(self._hWnd, self._parent)
             win32gui.DefWindowProc(self._hWnd, 0x0128, 3 | 0x4, 0)
-            win32gui.RedrawWindow(self._hWnd, win32gui.GetWindowRect(self._hWnd), 0, 0)  # type: ignore[call-overload]
+            win32gui.RedrawWindow(self._hWnd, win32gui.GetWindowRect(self._hWnd), 0, 0)    # type: ignore[arg-type]  # pyright: ignore[reportUnknownMemberType, reportGeneralTypeIssues]  # We expect an error here
         return ret != 0
 
     def acceptInput(self, setTo: bool) -> None:
