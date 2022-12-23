@@ -2,25 +2,27 @@ Linux:
 - Test other combinations (especially for sendBehind()). Tested OK: Ubuntu/GNOME and Mint/Cinnamon
 
 Windows:
-- alwaysOnTop(): Working with GDI, not with windows using DirectDraw exclusive mode (is it possible with Python, or combining C++ and Python???)
+- alwaysOnTop(): Now working with GDI, not with windows using DirectDraw exclusive mode
+                 The solution seems to be hooking the d3d dll and force it to draw your own application as well
+                 Is this possible with Python, or combining C++ and Python???
         https://stackoverflow.com/questions/7009080/detecting-full-screen-mode-in-windows
         https://stackoverflow.com/questions/7928308/displaying-another-application-on-top-of-a-directdraw-full-screen-application
         https://www.codeproject.com/articles/730/apihijack-a-library-for-easy-dll-function-hooking?fid=1267&df=90&mpp=25&sort=Position&view=Normal&spc=Relaxed&select=116946&fr=73&prof=True
         https://guidedhacking.com/threads/d3d9-hooking.8481/
         https://stackoverflow.com/questions/25601362/transparent-window-on-top-of-immersive-full-screen-mode
-- sendBehind(False): Find a smarter way to update window (now it's minimize/restore)
-- SendBottom(): Find a way to filter user vs. system apps. It should be doable like in Task Manager!!!
+        https://github.com/jtsiomb/frapix/blob/master/src/frapix.c -> see overlay()
+        https://gist.github.com/Lurkki14/87342b4573e4348c2e762850579041b1
 - alwaysOnBottom(): Try to find other smarter methods to keep window at the bottom (now it's a thread)
 
 macOS / AppleScript:
-- In general, find a way to optimize all appScript calls in terms of time and resources
+- In general, find a way to optimize all AppScript calls in terms of time and resources
         https://discussions.apple.com/thread/1877444
         https://discussions.apple.com/thread/2189505
-- getAllWindows()/getAllTitles(): Find a way to return windows in same stack order than on screen
+- getAllWindows()/getAllTitles()/getAllAppsNames()/getAllAppsWindowsTitles(): Find a way to return windows in same stack order than on screen
 - alwaysOnTop(): Try to find other smarter methods to keep window at the top (now it's a thread)
 - alwaysOnBottom(): Try to find other smarter methods to keep window at the bottom (now it's a thread)
 - sendBehind(): Is it even possible???
 - acceptInput(): Is it even possible???
 
 General:
-- PyRect: Create type stubs or add to base library
+- [Type_check] PyRect: Create type stubs or add to base library

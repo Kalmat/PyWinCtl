@@ -647,8 +647,7 @@ class Win32Window(BaseWindow):
             self._t.kill()
         # https://stackoverflow.com/questions/17131857/python-windows-keep-program-on-top-of-another-full-screen-application
         zorder = win32con.HWND_TOPMOST if aot else win32con.HWND_NOTOPMOST
-        win32gui.SetWindowPos(self._hWnd, zorder, 0, 0, 0, 0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE |
-                                                              win32con.SWP_NOACTIVATE)
+        win32gui.SetWindowPos(self._hWnd, zorder, 0, 0, 0, 0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOACTIVATE)
         return True
 
     def alwaysOnBottom(self, aob: bool = True) -> bool:
@@ -658,15 +657,15 @@ class Win32Window(BaseWindow):
         :param aob: set to ''False'' to deactivate always-on-bottom behavior
         :return: ''True'' if command succeeded
         """
+
+        ret = 0
         if aob:
-            win32gui.SetWindowPos(self._hWnd, win32con.HWND_BOTTOM, 0, 0, 0, 0,
-                                           win32con.SWP_NOSENDCHANGING | win32con.SWP_NOOWNERZORDER | win32con.SWP_ASYNCWINDOWPOS | win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE | win32con.SWP_NOREDRAW | win32con.SWP_NOCOPYBITS)
+            ret = win32gui.SetWindowPos(self._hWnd, win32con.HWND_BOTTOM, 0, 0, 0, 0,
+                                        win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE)
             # There is no HWND_BOTTOMMOST (similar to TOPMOST), so it won't keep window below all others as desired
-            # May be catching WM_WINDOWPOSCHANGING event? Not sure if possible for a "foreign" window, and seems really complex
-            # https://stackoverflow.com/questions/64529896/attach-keyboard-hook-to-specific-window
-            # https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setlayeredwindowattributes
+            # Catching "WM_WINDOWPOSCHANGING" from other processes is not allowed, as in here:
+            # https://gist.github.com/eruffaldi/1dce5b303544a90f8b2bf940f6591bde
             # TODO: Try to find other smarter methods to keep window at the bottom
-            ret = True
             if self._t is None:
                 self._t = _SendBottom(self._hWnd)
                 self._t.setDaemon(True)
@@ -676,8 +675,9 @@ class Win32Window(BaseWindow):
         else:
             if self._t:
                 self._t.kill()
-            ret = self.sendBehind(sb=False)
-        return ret
+                ret = win32gui.SetWindowPos(self._hWnd, win32con.HWND_TOP, 0, 0, 0, 0,
+                                            win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE)
+        return ret != 0
 
     def lowerWindow(self):
         """
@@ -708,6 +708,7 @@ class Win32Window(BaseWindow):
         :param sb: set to ''False'' to bring the window back to front
         :return: ''True'' if window sent behind desktop icons
         """
+        ret = 0
         if sb:
             def getWorkerW():
 
@@ -722,28 +723,17 @@ class Win32Window(BaseWindow):
                 return thelist
 
             # https://www.codeproject.com/Articles/856020/Draw-Behind-Desktop-Icons-in-Windows-plus
+            self._parent = win32gui.GetParent(self._hWnd)
             progman = win32gui.FindWindow("Progman", None)
             win32gui.SendMessageTimeout(progman, 0x052C, 0, 0, win32con.SMTO_NORMAL, 1000)
             workerw = getWorkerW()
-            result = 0
             if workerw:
-                result = win32gui.SetParent(self._hWnd, workerw[0])
+                ret = win32gui.SetParent(self._hWnd, workerw[0])
         else:
-            result = win32gui.SetParent(self._hWnd, self._parent)
+            ret = win32gui.SetParent(self._hWnd, self._parent)
             win32gui.DefWindowProc(self._hWnd, 0x0128, 3 | 0x4, 0)
-            # Window raises, but completely transparent
-            # Sometimes this fixes it, but not always
-            # result = result | win32gui.ShowWindow(self._hWnd, win32con.SW_SHOWNORMAL)
-            # win32gui.SetLayeredWindowAttributes(self._hWnd, win32api.RGB(255, 255, 255), 255, win32con.LWA_COLORKEY)
-            # win32gui.SetWindowPos(self._hWnd, win32con.HWND_TOP, self.left, self.top, self.width, self.height, False)
-            # win32gui.UpdateWindow(self._hWnd)
-            # Didn't find a better way to update window content by the moment (also tried redraw(), update(), ...)
-            # TODO: Find another way to properly update window
-            self.hide()
-            result = result | win32gui.ShowWindow(self._hWnd, win32con.SW_MINIMIZE)
-            result = result | win32gui.ShowWindow(self._hWnd, win32con.SW_RESTORE)
-            self.show()
-        return result != 0
+            win32gui.RedrawWindow(self._hWnd, win32gui.GetWindowRect(self._hWnd), 0, 0)
+        return ret != 0
 
     def acceptInput(self, setTo: bool) -> None:
         """Toggles the window transparent to input and focus
@@ -1285,7 +1275,7 @@ class Win32Window(BaseWindow):
 
 class _SendBottom(threading.Thread):
 
-    def __init__(self, hWnd: int, interval: float = 0.5):
+    def __init__(self, hWnd: int, interval: float = 0.1):
         threading.Thread.__init__(self)
         self._hWnd = hWnd
         self._interval = interval
