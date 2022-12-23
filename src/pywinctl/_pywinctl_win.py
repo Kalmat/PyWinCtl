@@ -731,7 +731,7 @@ class Win32Window(BaseWindow):
         else:
             ret = win32gui.SetParent(self._hWnd, self._parent)
             win32gui.DefWindowProc(self._hWnd, 0x0128, 3 | 0x4, 0)
-            win32gui.RedrawWindow(self._hWnd, win32gui.GetWindowRect(self._hWnd), 0, 0)    # type: ignore[arg-type]  # pyright: ignore[reportUnknownMemberType, reportGeneralTypeIssues]  # We expect an error here
+            win32gui.RedrawWindow(self._hWnd, win32gui.GetWindowRect(self._hWnd), 0, 0)  # type: ignore[arg-type]  # pyright: ignore[reportUnknownMemberType, reportGeneralTypeIssues]  # We expect an error here
         return ret != 0
 
     def acceptInput(self, setTo: bool) -> None:
