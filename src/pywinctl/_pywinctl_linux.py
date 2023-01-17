@@ -427,7 +427,6 @@ class LinuxWindow(BaseWindow):
 
     def __init__(self, hWnd: Window | int | str):
         super().__init__()
-        print(type(hWnd))
         if isinstance(hWnd, int):
             self._hWnd = DISP.create_resource_object('window', hWnd)
         elif isinstance(hWnd, str):
