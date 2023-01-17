@@ -556,14 +556,15 @@ class LinuxWindow(BaseWindow):
                 time.sleep(WAIT_DELAY * retries)
         return self.isMaximized
 
-    def restore(self, wait: bool = False) -> bool:
+    def restore(self, wait: bool = False, user: bool = True) -> bool:
         """
         If maximized or minimized, restores the window to it's normal size
 
         :param wait: set to ''True'' to confirm action requested (in a reasonable time)
+        :param user: ''True'' indicates a direct user request, as required by some WMs to comply.
         :return: ''True'' if window restored
         """
-        self.activate(wait=wait)
+        self.activate(wait=wait, user=user)
         if self.isMaximized:
             EWMH.setWmState(self._hWnd, ACTION_UNSET, STATE_MAX_VERT, STATE_MAX_HORZ)
             EWMH.display.flush()
@@ -609,11 +610,12 @@ class LinuxWindow(BaseWindow):
             time.sleep(WAIT_DELAY * retries)
         return not self._isMapped
 
-    def activate(self, wait: bool = False):
+    def activate(self, wait: bool = False, user: bool = True) -> bool:
         """
         Activate this window and make it the foreground (focused) window
 
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :param user: ''True'' indicates a direct user request, as required by some WMs to comply.
         :return: ''True'' if window activated
         """
         if "arm" in platform.platform():
@@ -621,7 +623,11 @@ class LinuxWindow(BaseWindow):
             EWMH.display.flush()
             EWMH.setWmState(self._hWnd, ACTION_SET, STATE_ABOVE, STATE_FOCUSED)
         else:
-            EWMH.setActiveWindow(self._hWnd)
+            # https://specifications.freedesktop.org/wm-spec/wm-spec-latest.html#sourceindication
+            source = 2 if user else 1
+            EWMH._setProperty('_NET_ACTIVE_WINDOW',  # noqa : W0212
+                              [source, Xlib.X.CurrentTime, self._hWnd.id],
+                              self._hWnd)
         EWMH.display.flush()
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and not self.isActive:

@@ -204,7 +204,7 @@ class BaseWindow(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def restore(self, wait: bool = False) -> bool:
+    def restore(self, wait: bool = False, user: bool = True) -> bool:
         """If maximized or minimized, restores the window to it's normal size."""
         raise NotImplementedError
 
@@ -219,7 +219,7 @@ class BaseWindow(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def activate(self, wait: bool = False) -> bool:
+    def activate(self, wait: bool = False, user: bool = True) -> bool:
         """Activate this window and make it the foreground window."""
         raise NotImplementedError
 
