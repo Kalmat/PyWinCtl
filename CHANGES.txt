@@ -1,3 +1,5 @@
+0.0.4x, 2023/01/17 -- Add Window.bbox r/w property, a bounding box in the same (left, top, right, bottom) format used by PIL/Pillow
+0.0.4x, 2023/01/17 -- Add `user` argument to Window.activate() as required by some Linux WMs to comply with the request
 0.0.4x, 2022/12/23 -- Windows: return "user" apps only, simplified alwaysOnBottom, found a smarter way to refresh window after bringing it back from behind
 0.0.42, 2022/12/09 -- Really fixed typing_extensions dependency and setup.py dependencies
 0.0.41, 2022/12/09 -- Fixed requirements.txt with typing_extensions dependency
