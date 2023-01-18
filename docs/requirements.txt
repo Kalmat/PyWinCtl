@@ -12,7 +12,7 @@ pywin32>=302; sys_platform == 'win32'
 types-pywin32>=305.0.0.3
 
 # Linux
-xlib>=0.21; sys_platform == 'linux'
+python-xlib>=0.21; sys_platform == 'linux'
 ewmh>=0.1; sys_platform == 'linux'
 types-python-xlib>=0.32
 
