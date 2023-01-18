@@ -912,14 +912,14 @@ class LinuxWindow(BaseWindow):
         return STATE_MAX_VERT in state and STATE_MAX_HORZ in state
 
     @property
-    def isActive(self):
+    def isActive(self) -> bool:
         """
         Check if current window is currently the active, foreground window
 
         :return: ``True`` if the window is the active, foreground window
         """
         win = EWMH.getActiveWindow()
-        return win == self._hWnd
+        return bool(win == self._hWnd)
 
     @property
     def title(self) -> str:
