@@ -9,7 +9,7 @@ import sys
 import threading
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any, NamedTuple, cast
+from typing import Any, NamedTuple, cast, Tuple
 
 import pyrect  # type: ignore[import]  # pyright: ignore[reportMissingTypeStubs]  # TODO: Create type stubs or add to base library
 
@@ -34,6 +34,12 @@ class Box(NamedTuple):
     height: int
 
 class Rect(NamedTuple):
+    left: int
+    top: int
+    right: int
+    bottom: int
+
+class BoundingBox(NamedTuple):
     left: int
     top: int
     right: int
@@ -560,6 +566,22 @@ class BaseWindow(ABC):
     def box(self, value: Box):
         self._rect.box  # Run rect's onRead to update the Rect object.
         self._rect.box = value
+
+    @property
+    def bbox(self):
+        """Bounding Box as a (left, top, right, bottom) tuple"""
+        return BoundingBox(
+            cast(int, self._rect.left),
+            cast(int, self._rect.top),
+            cast(int, self._rect.right),
+            cast(int, self._rect.bottom),
+        )
+
+    @bbox.setter
+    def bbox(self, value: Tuple[int, int, int, int]):
+        self._rect.topleft = value[:2]
+        self._rect.bottomright = value[2:]
+
 
 class _WinWatchDog(threading.Thread):
 
