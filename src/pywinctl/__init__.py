@@ -571,10 +571,10 @@ class BaseWindow(ABC):
     def bbox(self):
         """Bounding Box as a (left, top, right, bottom) tuple"""
         return BoundingBox(
-            self._rect.left,
-            self._rect.top,
-            self._rect.right,
-            self._rect.bottom,
+            cast(int, self._rect.left),
+            cast(int, self._rect.top),
+            cast(int, self._rect.right),
+            cast(int, self._rect.bottom),
         )
 
     @bbox.setter
