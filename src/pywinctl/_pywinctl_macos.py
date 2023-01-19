@@ -694,11 +694,12 @@ class MacOSWindow(BaseWindow):
                 time.sleep(WAIT_DELAY * retries)
         return self.isMaximized
 
-    def restore(self, wait: bool = False) -> bool:
+    def restore(self, wait: bool = False, user: bool = True) -> bool:
         """
         If maximized or minimized, restores the window to it's normal size
 
         :param wait: set to ''True'' to confirm action requested (in a reasonable time)
+        :param user: ignored on macOS platform
         :return: ''True'' if window restored
         """
         if not self.title:
@@ -819,11 +820,12 @@ class MacOSWindow(BaseWindow):
             time.sleep(WAIT_DELAY * retries)
         return not self.visible
 
-    def activate(self, wait: bool = False) -> bool:
+    def activate(self, wait: bool = False, user: bool = True) -> bool:
         """
         Activate this window and make it the foreground (focused) window
 
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :param user: ignored on macOS platform
         :return: ''True'' if window activated
         """
         if not self.title:
@@ -2235,11 +2237,12 @@ class MacOSNSWindow(BaseWindow):
                 time.sleep(WAIT_DELAY * retries)
         return self.isMaximized
 
-    def restore(self, wait: bool = False) -> bool:
+    def restore(self, wait: bool = False, user: bool = True) -> bool:
         """
         If maximized or minimized, restores the window to it's normal size
 
         :param wait: set to ''True'' to confirm action requested (in a reasonable time)
+        :param user: ignored on macOS platform
         :return: ''True'' if window restored
         """
         self.activate(wait=True)
@@ -2281,11 +2284,12 @@ class MacOSNSWindow(BaseWindow):
             time.sleep(WAIT_DELAY * retries)
         return not self.visible
 
-    def activate(self, wait: bool = False) -> bool:
+    def activate(self, wait: bool = False, user: bool = True) -> bool:
         """
         Activate this window and make it the foreground (focused) window
 
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :param user: ignored on macOS platform
         :return: ''True'' if window activated
         """
         self._app.activateIgnoringOtherApps_(True)

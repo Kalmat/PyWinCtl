@@ -514,11 +514,12 @@ class Win32Window(BaseWindow):
                 time.sleep(WAIT_DELAY * retries)
         return self.isMaximized
 
-    def restore(self, wait: bool = False) -> bool:
+    def restore(self, wait: bool = False, user: bool = True) -> bool:
         """
         If maximized or minimized, restores the window to it's normal size
 
         :param wait: set to ''True'' to confirm action requested (in a reasonable time)
+        :param user: ignored on Windows platform
         :return: ''True'' if window restored
         """
         win32gui.ShowWindow(self._hWnd, win32con.SW_RESTORE)
@@ -556,11 +557,12 @@ class Win32Window(BaseWindow):
             time.sleep(WAIT_DELAY * retries)
         return not self.isVisible
 
-    def activate(self, wait: bool = False):
+    def activate(self, wait: bool = False, user: bool = True):
         """
         Activate this window and make it the foreground (focused) window
 
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
+        :param user: ignored on Windows platform
         :return: ''True'' if window activated
         """
         win32gui.SetForegroundWindow(self._hWnd)
