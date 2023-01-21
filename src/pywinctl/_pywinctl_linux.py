@@ -826,7 +826,17 @@ class LinuxWindow(BaseWindow):
         :return: name of the app as string
         """
         # https://stackoverflow.com/questions/32295395/how-to-get-the-process-name-by-pid-in-linux-using-python
-        pid = EWMH.getWmPid(self._hWnd)
+        try:
+            pid: int | None = EWMH.getWmPid(self._hWnd)
+        # Workaround a bug in ewmh. Fixed upstream but never released
+        # See https://github.com/parkouss/pyewmh/commit/acd58697
+        except TypeError:
+            return ""
+
+        # if the above fix is ever released, EWMH.getWmPid() might return None
+        if pid is None:
+            return ""
+
         with subprocess.Popen(f"ps -q {pid} -o comm=", shell=True, stdout=subprocess.PIPE) as p:
             stdout, stderr = p.communicate()
         return stdout.decode(encoding="utf8").replace("\n", "")
