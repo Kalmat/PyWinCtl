@@ -1,20 +1,8 @@
-# Requirements required for development
-# Run: `pip install -r docs/requirements.txt`
-# Production requirements are found in ../setup.py
-
-PyRect>=0.2
-types-setuptools>=65.5
-mypy>=0.990
-typing_extensions>=4.4.0
-
-# Windows
-pywin32>=302; sys_platform == 'win32'
-types-pywin32>=305.0.0.3
-
-# Linux
-python-xlib>=0.21; sys_platform == 'linux'
-ewmh>=0.1; sys_platform == 'linux'
-types-python-xlib>=0.32
-
-# MacOS
-pyobjc>=8.1; sys_platform == 'darwin'
+# Requirements needed for development
+#     Run: `pip install -r docs/requirements.txt`
+# Build/Production requirements are found in ../setup.py
+#     Run: `pip install -e .`
+#
+# installs dependencies from setup.py, and the package itself,
+# in editable mode
+-e .[dev]

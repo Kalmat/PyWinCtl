@@ -9,7 +9,7 @@ import sys
 import threading
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any, NamedTuple, cast, Tuple
+from typing import Any, NamedTuple, cast
 
 import pyrect  # type: ignore[import]  # pyright: ignore[reportMissingTypeStubs]  # TODO: Create type stubs or add to base library
 
@@ -25,7 +25,7 @@ __all__ = [
 if sys.platform == "darwin":
     __all__ += ["NSWindow"]
 
-__version__ = "0.0.42"
+__version__ = "0.1"
 
 class Box(NamedTuple):
     left: int
@@ -54,7 +54,7 @@ class Size(NamedTuple):
     height: int
 
 
-def pointInRect(x: float, y: float, left: float, top: float, width: float, height: float):
+def pointInRect(x: int, y: int, left: int, top: int, width: int, height: int):
     """Returns ``True`` if the ``(x, y)`` point is within the box described
     by ``(left, top, width, height)``."""
     return left < x < left + width and top < y < top + height
@@ -313,6 +313,17 @@ class BaseWindow(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def setParent(self, parent) -> bool:
+        """
+        Current window will become child of given parent
+        WARNIG: Not possible in macOS for foreign (other apps') windows
+
+        :param parent: window to set as current window parent
+        :return: ''True'' if current window is now child of given parent
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def getChildren(self) -> list[Any]:
         """
         Get the children handles of current window
@@ -322,7 +333,7 @@ class BaseWindow(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def getHandle(self) -> object:
+    def getHandle(self) -> int | object:
         """Returns the handle of the window"""
         raise NotImplementedError
 
@@ -378,48 +389,53 @@ class BaseWindow(ABC):
     @abstractmethod
     def visible(self) -> bool:
         raise NotImplementedError
-    isVisible = visible  # isVisible is an alias for the visible property.
+    isVisible: bool = cast(bool, visible)  # isVisible is an alias for the visible property.
 
     @property
     @abstractmethod
     def isAlive(self) -> bool:
         raise NotImplementedError
 
+    @property
+    @abstractmethod
+    def isAlerting(self) -> bool:
+        raise NotImplementedError
+
     # Wrappers for pyrect.Rect object's properties:
     @property
     def left(self):
-        return cast(float, self._rect.left)  # pyrect.Rect properties are potentially unknown
+        return cast(int, self._rect.left)  # pyrect.Rect properties are potentially unknown
 
     @left.setter
-    def left(self, value: float):
+    def left(self, value: int):
         # import pdb; pdb.set_trace()
         self._rect.left  # Run rect's onRead to update the Rect object.
         self._rect.left = value
 
     @property
     def right(self):
-        return cast(float, self._rect.right)  # pyrect.Rect properties are potentially unknown
+        return cast(int, self._rect.right)  # pyrect.Rect properties are potentially unknown
 
     @right.setter
-    def right(self, value: float):
+    def right(self, value: int):
         self._rect.right  # Run rect's onRead to update the Rect object.
         self._rect.right = value
 
     @property
     def top(self):
-        return cast(float, self._rect.top)  # pyrect.Rect properties are potentially unknown
+        return cast(int, self._rect.top)  # pyrect.Rect properties are potentially unknown
 
     @top.setter
-    def top(self, value: float):
+    def top(self, value: int):
         self._rect.top  # Run rect's onRead to update the Rect object.
         self._rect.top = value
 
     @property
     def bottom(self):
-        return cast(float, self._rect.bottom)  # pyrect.Rect properties are potentially unknown
+        return cast(int, self._rect.bottom)  # pyrect.Rect properties are potentially unknown
 
     @bottom.setter
-    def bottom(self, value: float):
+    def bottom(self, value: int):
         self._rect.bottom  # Run rect's onRead to update the Rect object.
         self._rect.bottom = value
 
@@ -428,7 +444,7 @@ class BaseWindow(ABC):
         return cast(Point, self._rect.topleft)  # pyrect.Rect.Point properties are potentially unknown
 
     @topleft.setter
-    def topleft(self, value: tuple[float, float]):
+    def topleft(self, value: tuple[int, int]):
         self._rect.topleft  # Run rect's onRead to update the Rect object.
         self._rect.topleft = value
 
@@ -437,7 +453,7 @@ class BaseWindow(ABC):
         return cast(Point, self._rect.topright)  # pyrect.Rect.Point properties are potentially unknown
 
     @topright.setter
-    def topright(self, value: tuple[float, float]):
+    def topright(self, value: tuple[int, int]):
         self._rect.topright  # Run rect's onRead to update the Rect object.
         self._rect.topright = value
 
@@ -446,7 +462,7 @@ class BaseWindow(ABC):
         return cast(Point, self._rect.bottomleft)  # pyrect.Rect.Point properties are potentially unknown
 
     @bottomleft.setter
-    def bottomleft(self, value: tuple[float, float]):
+    def bottomleft(self, value: tuple[int, int]):
         self._rect.bottomleft  # Run rect's onRead to update the Rect object.
         self._rect.bottomleft = value
 
@@ -455,7 +471,7 @@ class BaseWindow(ABC):
         return cast(Point, self._rect.bottomright)  # pyrect.Rect.Point properties are potentially unknown
 
     @bottomright.setter
-    def bottomright(self, value: tuple[float, float]):
+    def bottomright(self, value: tuple[int, int]):
         self._rect.bottomright  # Run rect's onRead to update the Rect object.
         self._rect.bottomright = value
 
@@ -464,7 +480,7 @@ class BaseWindow(ABC):
         return cast(Point, self._rect.midleft)  # pyrect.Rect.Point properties are potentially unknown
 
     @midleft.setter
-    def midleft(self, value: tuple[float, float]):
+    def midleft(self, value: tuple[int, int]):
         self._rect.midleft  # Run rect's onRead to update the Rect object.
         self._rect.midleft = value
 
@@ -473,7 +489,7 @@ class BaseWindow(ABC):
         return cast(Point, self._rect.midright)  # pyrect.Rect.Point properties are potentially unknown
 
     @midright.setter
-    def midright(self, value: tuple[float, float]):
+    def midright(self, value: tuple[int, int]):
         self._rect.midright  # Run rect's onRead to update the Rect object.
         self._rect.midright = value
 
@@ -482,7 +498,7 @@ class BaseWindow(ABC):
         return cast(Point, self._rect.midtop) # pyrect.Rect.Point properties are potentially unknown
 
     @midtop.setter
-    def midtop(self, value: tuple[float, float]):
+    def midtop(self, value: tuple[int, int]):
         self._rect.midtop  # Run rect's onRead to update the Rect object.
         self._rect.midtop = value
 
@@ -491,7 +507,7 @@ class BaseWindow(ABC):
         return cast(Point, self._rect.midbottom)  # pyrect.Rect.Point properties are potentially unknown
 
     @midbottom.setter
-    def midbottom(self, value: tuple[float, float]):
+    def midbottom(self, value: tuple[int, int]):
         self._rect.midbottom  # Run rect's onRead to update the Rect object.
         self._rect.midbottom = value
 
@@ -500,43 +516,43 @@ class BaseWindow(ABC):
         return cast(Point, self._rect.center)  # pyrect.Rect.Point properties are potentially unknown
 
     @center.setter
-    def center(self, value: tuple[float, float]):
+    def center(self, value: tuple[int, int]):
         self._rect.center  # Run rect's onRead to update the Rect object.
         self._rect.center = value
 
     @property
     def centerx(self):
-        return cast(float, self._rect.centerx)  # pyrect.Rect properties are potentially unknown
+        return cast(int, self._rect.centerx)  # pyrect.Rect properties are potentially unknown
 
     @centerx.setter
-    def centerx(self, value: float):
+    def centerx(self, value: int):
         self._rect.centerx  # Run rect's onRead to update the Rect object.
         self._rect.centerx = value
 
     @property
     def centery(self):
-        return cast(float, self._rect.centery)  # pyrect.Rect properties are potentially unknown
+        return cast(int, self._rect.centery)  # pyrect.Rect properties are potentially unknown
 
     @centery.setter
-    def centery(self, value: float):
+    def centery(self, value: int):
         self._rect.centery  # Run rect's onRead to update the Rect object.
         self._rect.centery = value
 
     @property
     def width(self):
-        return cast(float, self._rect.width)  # pyrect.Rect properties are potentially unknown
+        return cast(int, self._rect.width)  # pyrect.Rect properties are potentially unknown
 
     @width.setter
-    def width(self, value: float):
+    def width(self, value: int):
         self._rect.width  # Run rect's onRead to update the Rect object.
         self._rect.width = value
 
     @property
     def height(self):
-        return cast(float, self._rect.height)  # pyrect.Rect properties are potentially unknown
+        return cast(int, self._rect.height)  # pyrect.Rect properties are potentially unknown
 
     @height.setter
-    def height(self, value: float):
+    def height(self, value: int):
         self._rect.height  # Run rect's onRead to update the Rect object.
         self._rect.height = value
 
@@ -545,16 +561,16 @@ class BaseWindow(ABC):
         return cast(Size, self._rect.size)  # pyrect.Rect.Size properties are potentially unknown
 
     @size.setter
-    def size(self, value: tuple[float, float]):
+    def size(self, value: tuple[int, int]):
         self._rect.size  # Run rect's onRead to update the Rect object.
         self._rect.size = value
 
     @property
     def area(self):
-        return cast(float, self._rect.area)  # pyrect.Rect properties are potentially unknown
+        return cast(int, self._rect.area)  # pyrect.Rect properties are potentially unknown
 
     @area.setter
-    def area(self, value: float):
+    def area(self, value: int):
         self._rect.area  # Run rect's onRead to update the Rect object.
         self._rect.area = value  # pyright: ignore[reportGeneralTypeIssues]  # FIXME: pyrect.Rect.area has no setter!
 
@@ -568,22 +584,178 @@ class BaseWindow(ABC):
         self._rect.box = value
 
     @property
-    def bbox(self):
-        """Bounding Box as a (left, top, right, bottom) tuple"""
-        return BoundingBox(
-            cast(int, self._rect.left),
-            cast(int, self._rect.top),
-            cast(int, self._rect.right),
-            cast(int, self._rect.bottom),
-        )
+    def bbox(self) -> BoundingBox:
+        return BoundingBox(self.left, self.top, self.right, self.bottom)
 
     @bbox.setter
-    def bbox(self, value: Tuple[int, int, int, int]):
-        self._rect.topleft = value[:2]
-        self._rect.bottomright = value[2:]
+    def bbox(self, value: BoundingBox):
+        self._rect.box  # Run rect's onRead to update the Rect object.
+        self._rect.box = Box(value.left, value.top, value.right - value.left, value.bottom - value.top)
+        # self._rect.bbox = value
 
 
-class _WinWatchDog(threading.Thread):
+class _WatchDog:
+    """
+    Set a watchdog, in a separate Thread, to be notified when some window states change
+
+    Notice that changes will be notified according to the window status at the very moment of instantiating this class
+
+    IMPORTANT: This can be extremely slow in macOS Apple Script version
+
+     Available methods:
+    :meth start: Initialize and start watchdog and selected callbacks
+    :meth updateCallbacks: Change the states this watchdog is hooked to
+    :meth updateInterval: Change the interval to check changes
+    :meth kill: Stop the entire watchdog and all its hooks
+    :meth isAlive: Check if watchdog is running
+    """
+    def __init__(self, parent: BaseWindow):
+        self._watchdog: _WatchDogWorker | None = None
+        self._parent = parent
+
+    def start(
+        self,
+        isAliveCB: Callable[[bool], None] | None = None,
+        isActiveCB: Callable[[bool], None] | None = None,
+        isVisibleCB: Callable[[bool], None] | None = None,
+        isMinimizedCB: Callable[[bool], None] | None = None,
+        isMaximizedCB: Callable[[bool], None] | None = None,
+        resizedCB: Callable[[tuple[int, int]], None] | None = None,
+        movedCB: Callable[[tuple[int, int]], None] | None = None,
+        changedTitleCB: Callable[[str], None] | None = None,
+        changedDisplayCB: Callable[[str], None] | None = None,
+        interval: float = 0.3
+    ):
+        """
+        Initialize and start watchdog and hooks (callbacks to be invoked when desired window states change)
+
+        Notice that changes will be notified according to the window status at the very moment of execute start()
+
+        The watchdog is asynchronous, so notifications will not be immediate (adjust interval value to your needs)
+
+        The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
+
+        IMPORTANT: This can be extremely slow in macOS Apple Script version
+
+        :param isAliveCB: callback to call if window is not alive. Set to None to not to watch this
+                        Returns the new alive status value (False)
+        :param isActiveCB: callback to invoke if window changes its active status. Set to None to not to watch this
+                        Returns the new active status value (True/False)
+        :param isVisibleCB: callback to invoke if window changes its visible status. Set to None to not to watch this
+                        Returns the new visible status value (True/False)
+        :param isMinimizedCB: callback to invoke if window changes its minimized status. Set to None to not to watch this
+                        Returns the new minimized status value (True/False)
+        :param isMaximizedCB: callback to invoke if window changes its maximized status. Set to None to not to watch this
+                        Returns the new maximized status value (True/False)
+        :param resizedCB: callback to invoke if window changes its size. Set to None to not to watch this
+                        Returns the new size (width, height)
+        :param movedCB: callback to invoke if window changes its position. Set to None to not to watch this
+                        Returns the new position (x, y)
+        :param changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
+                        Returns the new title (as string)
+        :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
+                        Returns the new display name (as string)
+        :param interval: set the interval to watch window changes. Default is 0.3 seconds
+        """
+        if self._watchdog is None:
+            self._watchdog = _WatchDogWorker(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB,
+                                             isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB,
+                                             interval)
+            self._watchdog.setDaemon(True)
+            self._watchdog.start()
+        else:
+            self._watchdog.restart(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB,
+                                   isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB,
+                                   interval)
+
+    def updateCallbacks(
+        self,
+        isAliveCB: Callable[[bool], None] | None = None,
+        isActiveCB: Callable[[bool], None] | None = None,
+        isVisibleCB: Callable[[bool], None] | None = None,
+        isMinimizedCB: Callable[[bool], None] | None = None,
+        isMaximizedCB: Callable[[bool], None] | None = None,
+        resizedCB: Callable[[tuple[int, int]], None] | None = None,
+        movedCB: Callable[[tuple[int, int]], None] | None = None,
+        changedTitleCB: Callable[[str], None] | None = None,
+        changedDisplayCB: Callable[[str], None] | None = None
+    ):
+        """
+        Change the states this watchdog is hooked to
+
+        The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
+
+        IMPORTANT: When updating callbacks, remember to set ALL desired callbacks or they will be deactivated
+
+        IMPORTANT: Remember to set ALL desired callbacks every time, or they will be defaulted to None (and unhooked)
+
+        :param isAliveCB: callback to call if window is not alive. Set to None to not to watch this
+                        Returns the new alive status value (False)
+        :param isActiveCB: callback to invoke if window changes its active status. Set to None to not to watch this
+                        Returns the new active status value (True/False)
+        :param isVisibleCB: callback to invoke if window changes its visible status. Set to None to not to watch this
+                        Returns the new visible status value (True/False)
+        :param isMinimizedCB: callback to invoke if window changes its minimized status. Set to None to not to watch this
+                        Returns the new minimized status value (True/False)
+        :param isMaximizedCB: callback to invoke if window changes its maximized status. Set to None to not to watch this
+                        Returns the new maximized status value (True/False)
+        :param resizedCB: callback to invoke if window changes its size. Set to None to not to watch this
+                        Returns the new size (width, height)
+        :param movedCB: callback to invoke if window changes its position. Set to None to not to watch this
+                        Returns the new position (x, y)
+        :param changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
+                        Returns the new title (as string)
+        :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
+                        Returns the new display name (as string)
+        """
+        if self._watchdog:
+            self._watchdog.updateCallbacks(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB,
+                                          resizedCB, movedCB, changedTitleCB, changedDisplayCB)
+
+    def updateInterval(self, interval: float = 0.3):
+        """
+        Change the interval to check changes
+
+        :param interval: set the interval to watch window changes. Default is 0.3 seconds
+        """
+        if self._watchdog:
+            self._watchdog.updateInterval(interval)
+
+    def setTryToFind(self, tryToFind: bool):
+        """
+        In macOS Apple Script version, if set to ''True'' and in case title changes, watchdog will try to find
+        a similar title within same application to continue monitoring it. It will stop if set to ''False'' or
+        similar title not found.
+
+        IMPORTANT:
+
+        - It will have no effect in other platforms (Windows and Linux) and classes (MacOSNSWindow)
+        - This behavior is deactivated by default, so you need to explicitly activate it
+
+        :param tryToFind: set to ''True'' to try to find a similar title. Set to ''False'' to deactivate this behavior
+        """
+        pass
+
+    def stop(self):
+        """
+        Stop the entire WatchDog and all its hooks
+        """
+        if self._watchdog:
+            self._watchdog.kill()
+
+    def isAlive(self):
+        """Check if watchdog is running
+
+        :return: ''True'' if watchdog is alive
+        """
+        try:
+            alive = bool(self._watchdog and self._watchdog.is_alive())
+        except:
+            alive = False
+        return alive
+
+
+class _WatchDogWorker(threading.Thread):
 
     def __init__(
         self,
@@ -593,8 +765,8 @@ class _WinWatchDog(threading.Thread):
         isVisibleCB: Callable[[bool], None] | None = None,
         isMinimizedCB: Callable[[bool], None] | None = None,
         isMaximizedCB: Callable[[bool], None] | None = None,
-        resizedCB: Callable[[tuple[float, float]], None] | None = None,
-        movedCB: Callable[[tuple[float, float]], None] | None = None,
+        resizedCB: Callable[[tuple[int, int]], None] | None = None,
+        movedCB: Callable[[tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
         changedDisplayCB: Callable[[str], None] | None = None,
         interval: float = 0.3
@@ -739,8 +911,8 @@ class _WinWatchDog(threading.Thread):
         isVisibleCB: Callable[[bool], None] | None = None,
         isMinimizedCB: Callable[[bool], None] | None = None,
         isMaximizedCB: Callable[[bool], None] | None = None,
-        resizedCB: Callable[[tuple[float, float]], None] | None = None,
-        movedCB: Callable[[tuple[float, float]], None] | None = None,
+        resizedCB: Callable[[tuple[int, int]], None] | None = None,
+        movedCB: Callable[[tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
         changedDisplayCB: Callable[[str], None] | None = None
     ):
@@ -774,8 +946,8 @@ class _WinWatchDog(threading.Thread):
         isVisibleCB: Callable[[bool], None] | None = None,
         isMinimizedCB: Callable[[bool], None] | None = None,
         isMaximizedCB: Callable[[bool], None] | None = None,
-        resizedCB: Callable[[tuple[float, float]], None] | None = None,
-        movedCB: Callable[[tuple[float, float]], None] | None = None,
+        resizedCB: Callable[[tuple[int, int]], None] | None = None,
+        movedCB: Callable[[tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
         changedDisplayCB: Callable[[str], None] | None = None,
         interval: float = 0.3

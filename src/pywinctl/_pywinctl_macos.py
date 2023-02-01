@@ -15,7 +15,7 @@ import re
 import subprocess
 import threading
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from typing import Any, AnyStr, overload, cast, Sequence, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -29,7 +29,7 @@ else:
 import AppKit
 import Quartz
 
-from pywinctl import pointInRect, BaseWindow, Rect, Point, Size, Re, _WinWatchDog
+from pywinctl import pointInRect, BaseWindow, Rect, Point, Size, Re, _WatchDog
 
 Incomplete: TypeAlias = Any
 Attribute: TypeAlias = Sequence['tuple[str, str, bool, str]']
@@ -541,7 +541,7 @@ class MacOSWindow(BaseWindow):
         self._tt: _SendTop | None = None
         self._tb: _SendBottom | None = None
         self.menu = self._Menu(self)
-        self.watchdog = self._WatchDog(self)
+        self.watchdog = _WatchDog(self)
 
     def _getWindowRect(self) -> Rect:
         if not self.title:
@@ -694,7 +694,7 @@ class MacOSWindow(BaseWindow):
                 time.sleep(WAIT_DELAY * retries)
         return self.isMaximized
 
-    def restore(self, wait: bool = False, user: bool = True) -> bool:
+    def restore(self, wait: bool = False, user: bool = False) -> bool:
         """
         If maximized or minimized, restores the window to it's normal size
 
@@ -1131,6 +1131,16 @@ class MacOSWindow(BaseWindow):
             result = role + SEP + parent
         return result
 
+    def setParent(self, parent):
+        """
+        Current window will become child of given parent
+        WARNIG: Not implemented in AppleScript (not possible in macOS for foreign (other apps') windows)
+
+        :param parent: window to set as current window parent
+        :return: ''True'' if current window is now child of given parent
+        """
+        return False
+
     def getChildren(self):
         """
         Get the children handles of current window
@@ -1339,7 +1349,7 @@ class MacOSWindow(BaseWindow):
         """
         return self.title in getAllTitles()
 
-    isVisible = visible  # isVisible is an alias for the visible property.
+    isVisible: bool = cast(bool, visible)  # isVisible is an alias for the visible property.
 
     @property
     def isAlive(self) -> bool:
@@ -1370,166 +1380,13 @@ class MacOSWindow(BaseWindow):
             ret = ret.replace("\n", "")
         return ret == "true"
 
-    class _WatchDog:
+    @property
+    def isAlerting(self) -> bool:
+        """Check if window is flashing on taskbar while demanding user attention
+
+        :return:  ''True'' if window is demanding attention
         """
-        Set a watchdog, in a separate Thread, to be notified when some window states change
-
-        Notice that changes will be notified according to the window status at the very moment of instantiating this class
-
-        IMPORTANT: This can be extremely slow in macOS Apple Script version
-
-         Available methods:
-        :meth start: Initialize and start watchdog and selected callbacks
-        :meth updateCallbacks: Change the states this watchdog is hooked to
-        :meth updateInterval: Change the interval to check changes
-        :meth kill: Stop the entire watchdog and all its hooks
-        :meth isAlive: Check if watchdog is running
-        """
-        def __init__(self, parent: MacOSWindow):
-            self._watchdog = None
-            self._parent = parent
-
-        def start(
-            self,
-            isAliveCB: Callable[[bool], None] | None = None,
-            isActiveCB: Callable[[bool], None] | None = None,
-            isVisibleCB: Callable[[bool], None] | None = None,
-            isMinimizedCB: Callable[[bool], None] | None = None,
-            isMaximizedCB: Callable[[bool], None] | None = None,
-            resizedCB: Callable[[tuple[float, float]], None] | None = None,
-            movedCB: Callable[[tuple[float, float]], None] | None = None,
-            changedTitleCB: Callable[[str], None] | None = None,
-            changedDisplayCB: Callable[[str], None] | None = None,
-            interval: float = 0.3
-        ):
-            """
-            Initialize and start watchdog and hooks (callbacks to be invoked when desired window states change)
-
-            Notice that changes will be notified according to the window status at the very moment of execute start()
-
-            The watchdog is asynchronous, so notifications will not be immediate (adjust interval value to your needs)
-
-            The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
-
-            IMPORTANT: This can be extremely slow in macOS Apple Script version
-
-            :param isAliveCB: callback to call if window is not alive. Set to None to not to watch this
-                            Returns the new alive status value (False)
-            :param isActiveCB: callback to invoke if window changes its active status. Set to None to not to watch this
-                            Returns the new active status value (True/False)
-            :param isVisibleCB: callback to invoke if window changes its visible status. Set to None to not to watch this
-                            Returns the new visible status value (True/False)
-            :param isMinimizedCB: callback to invoke if window changes its minimized status. Set to None to not to watch this
-                            Returns the new minimized status value (True/False)
-            :param isMaximizedCB: callback to invoke if window changes its maximized status. Set to None to not to watch this
-                            Returns the new maximized status value (True/False)
-            :param resizedCB: callback to invoke if window changes its size. Set to None to not to watch this
-                            Returns the new size (width, height)
-            :param movedCB: callback to invoke if window changes its position. Set to None to not to watch this
-                            Returns the new position (x, y)
-            :param changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
-                            Returns the new title (as string)
-            :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
-                            Returns the new display name (as string)
-            :param interval: set the interval to watch window changes. Default is 0.3 seconds
-            """
-            if self._watchdog is None:
-                self._watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB,
-                                              isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB,
-                                              interval)
-                self._watchdog.setDaemon(True)
-                self._watchdog.start()
-            else:
-                self._watchdog.restart(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB,
-                                       isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB,
-                                       interval)
-
-        def updateCallbacks(
-            self,
-            isAliveCB: Callable[[bool], None] | None = None,
-            isActiveCB: Callable[[bool], None] | None = None,
-            isVisibleCB: Callable[[bool], None] | None = None,
-            isMinimizedCB: Callable[[bool], None] | None = None,
-            isMaximizedCB: Callable[[bool], None] | None = None,
-            resizedCB: Callable[[tuple[float, float]], None] | None = None,
-            movedCB: Callable[[tuple[float, float]], None] | None = None,
-            changedTitleCB: Callable[[str], None] | None = None,
-            changedDisplayCB: Callable[[str], None] | None = None
-        ):
-            """
-            Change the states this watchdog is hooked to
-
-            The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
-
-            IMPORTANT: When updating callbacks, remember to set ALL desired callbacks or they will be deactivated
-
-            IMPORTANT: Remember to set ALL desired callbacks every time, or they will be defaulted to None (and unhooked)
-
-            :param isAliveCB: callback to call if window is not alive. Set to None to not to watch this
-                            Returns the new alive status value (False)
-            :param isActiveCB: callback to invoke if window changes its active status. Set to None to not to watch this
-                            Returns the new active status value (True/False)
-            :param isVisibleCB: callback to invoke if window changes its visible status. Set to None to not to watch this
-                            Returns the new visible status value (True/False)
-            :param isMinimizedCB: callback to invoke if window changes its minimized status. Set to None to not to watch this
-                            Returns the new minimized status value (True/False)
-            :param isMaximizedCB: callback to invoke if window changes its maximized status. Set to None to not to watch this
-                            Returns the new maximized status value (True/False)
-            :param resizedCB: callback to invoke if window changes its size. Set to None to not to watch this
-                            Returns the new size (width, height)
-            :param movedCB: callback to invoke if window changes its position. Set to None to not to watch this
-                            Returns the new position (x, y)
-            :param changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
-                            Returns the new title (as string)
-            :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
-                            Returns the new display name (as string)
-            """
-            if self._watchdog:
-                self._watchdog.updateCallbacks(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB,
-                                              resizedCB, movedCB, changedTitleCB, changedDisplayCB)
-
-        def updateInterval(self, interval: float = 0.3):
-            """
-            Change the interval to check changes
-
-            :param interval: set the interval to watch window changes. Default is 0.3 seconds
-            """
-            if self._watchdog:
-                self._watchdog.updateInterval(interval)
-
-        def setTryToFind(self, tryToFind: bool):
-            """
-            In macOS Apple Script version, if set to ''True'' and in case title changes, watchdog will try to find
-            a similar title within same application to continue monitoring it. It will stop if set to ''False'' or
-            a similar title is not found.
-
-            IMPORTANT:
-
-            - It will have no effect in other platforms (Windows and Linux) and classes (MacOSNSWindow)
-            - This behavior is deactivated by default, so you need to explicitly activate it
-
-            :param tryToFind: set to ''True'' to try to find a similar title. Set to ''False'' to deactivate this behavior
-            """
-            if self._watchdog:
-                self._watchdog.setTryToFind(tryToFind)
-
-        def stop(self):
-            """
-            Stop the entire WatchDog and all its hooks
-            """
-            if self._watchdog:
-                self._watchdog.kill()
-
-        def isAlive(self):
-            """Check if watchdog is running
-
-            :return: ''True'' if watchdog is alive
-            """
-            try:
-                alive = bool(self._watchdog and self._watchdog.is_alive())
-            except:
-                alive = False
-            return alive
+        return False
 
     class _Menu:
 
@@ -2150,7 +2007,7 @@ class MacOSNSWindow(BaseWindow):
         self._hWnd = hWnd
         self._parent = hWnd.parentWindow()
         self.__rect = self._rectFactory()
-        self.watchdog = self._WatchDog(self)
+        self.watchdog = _WatchDog(self)
 
     def _getWindowRect(self) -> Rect:
         frame = self._hWnd.frame()
@@ -2237,7 +2094,7 @@ class MacOSNSWindow(BaseWindow):
                 time.sleep(WAIT_DELAY * retries)
         return self.isMaximized
 
-    def restore(self, wait: bool = False, user: bool = True) -> bool:
+    def restore(self, wait: bool = False, user: bool = False) -> bool:
         """
         If maximized or minimized, restores the window to it's normal size
 
@@ -2438,7 +2295,11 @@ class MacOSNSWindow(BaseWindow):
         """
         # https://stackoverflow.com/questions/53248592/stop-nswindow-from-receiving-input-events-temporarily
         # https://stackoverflow.com/questions/12677976/nswindow-ignore-mouse-keyboard-events
-        self._hWnd.setIgnoresMouseEvents_(not setTo)
+        # self._hWnd.setIgnoresMouseEvents_(not setTo)
+        if setTo:
+            self._app.stopModal()
+        else:
+            self._app.runModalForWindow(self._hWnd)
 
     def getAppName(self) -> str:
         """
@@ -2455,6 +2316,17 @@ class MacOSNSWindow(BaseWindow):
         :return: handle of the window parent
         """
         return self._hWnd.parentWindow()
+
+    def setParent(self, parent) -> bool:
+        """
+        Current window will become child of given parent
+        WARNIG: Not implemented in AppleScript (not possible in macOS for foreign (other apps') windows)
+
+        :param parent: window to set as current window parent
+        :return: ''True'' if current window is now child of given parent
+        """
+        parent.addChildWindow(self._hWnd, 1)
+        return bool(self.isChild(parent))
 
     def getChildren(self) -> list[int]:
         """
@@ -2572,173 +2444,13 @@ class MacOSNSWindow(BaseWindow):
             ret = True
         return ret
 
-    class _WatchDog:
+    @property
+    def isAlerting(self) -> bool:
+        """Check if window is flashing on taskbar while demanding user attention
+
+        :return:  ''True'' if window is demanding attention
         """
-        Set a watchdog, in a separate Thread, to be notified when some window states change
-
-        Notice that changes will be notified according to the window status at the very moment of instantiating this class
-
-        IMPORTANT: This can be extremely slow in macOS Apple Script version
-
-         Available methods:
-        :meth start: Initialize and start watchdog and selected callbacks
-        :meth updateCallbacks: Change the states this watchdog is hooked to
-        :meth updateInterval: Change the interval to check changes
-        :meth kill: Stop the entire watchdog and all its hooks
-        :meth isAlive: Check if watchdog is running
-        """
-        def __init__(self, parent: MacOSNSWindow):
-            self._watchdog = None
-            self._parent = parent
-
-        def start(
-            self,
-            isAliveCB: Callable[[bool], None] | None = None,
-            isActiveCB: Callable[[bool], None] | None = None,
-            isVisibleCB: Callable[[bool], None] | None = None,
-            isMinimizedCB: Callable[[bool], None] | None = None,
-            isMaximizedCB: Callable[[bool], None] | None = None,
-            resizedCB: Callable[[tuple[float, float]], None] | None = None,
-            movedCB: Callable[[tuple[float, float]], None] | None = None,
-            changedTitleCB: Callable[[str], None] | None = None,
-            changedDisplayCB: Callable[[str], None] | None = None,
-            interval: float = 0.3
-        ):
-            """
-            Initialize and start watchdog and hooks (callbacks to be invoked when desired window states change)
-
-            Notice that changes will be notified according to the window status at the very moment of execute start()
-
-            The watchdog is asynchronous, so notifications will not be immediate (adjust interval value to your needs)
-
-            The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
-
-            IMPORTANT: This can be extremely slow in macOS Apple Script version
-
-            :param isAliveCB: callback to call if window is not alive. Set to None to not to watch this
-                            Returns the new alive status value (False)
-            :param isActiveCB: callback to invoke if window changes its active status. Set to None to not to watch this
-                            Returns the new active status value (True/False)
-            :param isVisibleCB: callback to invoke if window changes its visible status. Set to None to not to watch this
-                            Returns the new visible status value (True/False)
-            :param isMinimizedCB: callback to invoke if window changes its minimized status. Set to None to not to watch this
-                            Returns the new minimized status value (True/False)
-            :param isMaximizedCB: callback to invoke if window changes its maximized status. Set to None to not to watch this
-                            Returns the new maximized status value (True/False)
-            :param resizedCB: callback to invoke if window changes its size. Set to None to not to watch this
-                            Returns the new size (width, height)
-            :param movedCB: callback to invoke if window changes its position. Set to None to not to watch this
-                            Returns the new position (x, y)
-            :param changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
-                            Returns the new title (as string)
-            :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
-                            Returns the new display name (as string)
-            :param interval: set the interval to watch window changes. Default is 0.3 seconds
-            """
-            if self._parent.isAlive:
-                if not self._watchdog and not self.isAlive():
-                    self._watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB,
-                                                  isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB,
-                                                  interval)
-                if self._watchdog:
-                    self._watchdog.setDaemon(True)
-                    self._watchdog.start()
-            else:
-                self._watchdog = None
-
-        def updateCallbacks(
-            self,
-            isAliveCB: Callable[[bool], None] | None = None,
-            isActiveCB: Callable[[bool], None] | None = None,
-            isVisibleCB: Callable[[bool], None] | None = None,
-            isMinimizedCB: Callable[[bool], None] | None = None,
-            isMaximizedCB: Callable[[bool], None] | None = None,
-            resizedCB: Callable[[tuple[float, float]], None] | None = None,
-            movedCB: Callable[[tuple[float, float]], None] | None = None,
-            changedTitleCB: Callable[[str], None] | None = None,
-            changedDisplayCB: Callable[[str], None] | None = None
-        ):
-            """
-            Change the states this watchdog is hooked to
-
-            The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
-
-            IMPORTANT: When updating callbacks, remember to set ALL desired callbacks or they will be deactivated
-
-            IMPORTANT: Remember to set ALL desired callbacks every time, or they will be defaulted to None (and unhooked)
-
-            :param isAliveCB: callback to call if window is not alive. Set to None to not to watch this
-                            Returns the new alive status value (False)
-            :param isActiveCB: callback to invoke if window changes its active status. Set to None to not to watch this
-                            Returns the new active status value (True/False)
-            :param isVisibleCB: callback to invoke if window changes its visible status. Set to None to not to watch this
-                            Returns the new visible status value (True/False)
-            :param isMinimizedCB: callback to invoke if window changes its minimized status. Set to None to not to watch this
-                            Returns the new minimized status value (True/False)
-            :param isMaximizedCB: callback to invoke if window changes its maximized status. Set to None to not to watch this
-                            Returns the new maximized status value (True/False)
-            :param resizedCB: callback to invoke if window changes its size. Set to None to not to watch this
-                            Returns the new size (width, height)
-            :param movedCB: callback to invoke if window changes its position. Set to None to not to watch this
-                            Returns the new position (x, y)
-            :param changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
-                            Returns the new title (as string)
-            :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
-                            Returns the new display name (as string)
-            """
-            if self._watchdog and self.isAlive():
-                self._watchdog.updateCallbacks(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB,
-                                              resizedCB, movedCB, changedTitleCB, changedDisplayCB)
-            else:
-                self._watchdog = None
-
-        def updateInterval(self, interval: float = 0.3):
-            """
-            Change the interval to check changes
-
-            :param interval: set the interval to watch window changes. Default is 0.3 seconds
-            """
-            if self._watchdog and self.isAlive():
-                self._watchdog.updateInterval(interval)
-            else:
-                self._watchdog = None
-
-        def setTryToFind(self, tryToFind: bool):
-            """
-            In macOS Apple Script version, if set to ''True'' and in case title changes, watchdog will try to find
-            a similar title within same application to continue monitoring it. It will stop if set to ''False'' or
-            similar title not found.
-
-            IMPORTANT:
-
-            - It will have no effect in other platforms (Windows and Linux) and classes (MacOSNSWindow)
-            - This behavior is deactivated by default, so you need to explicitly activate it
-
-            :param tryToFind: set to ''True'' to try to find a similar title. Set to ''False'' to deactivate this behavior
-            """
-            pass
-
-        def stop(self):
-            """
-            Stop the entire WatchDog and all its hooks
-            """
-            if self._watchdog and self.isAlive():
-                self._watchdog.kill()
-            self._watchdog = None
-
-        def isAlive(self):
-            """Check if watchdog is running
-
-            :return: ''True'' if watchdog is alive
-            """
-            alive = False
-            try:
-                alive = bool(self._watchdog and self._watchdog.is_alive())
-            except:
-                pass
-            if not alive:
-                self._watchdog = None
-            return alive
+        return False
 
 
 def getMousePos() -> Point:

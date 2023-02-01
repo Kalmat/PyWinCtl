@@ -10,7 +10,7 @@ import ctypes
 import re
 import threading
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from ctypes import wintypes
 from typing import cast, AnyStr, Any, TYPE_CHECKING
 
@@ -23,14 +23,15 @@ else:
     NotRequired = dict
     from typing import TypedDict
 
-import win32api
-import win32con
-import win32gui
 import win32gui_struct
 import win32process
 from win32com.client import GetObject
+import win32con
+import win32api
+import win32gui
 
-from pywinctl import BaseWindow, Point, Re, Rect, Size, _WinWatchDog, pointInRect
+import pywinauto
+from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -252,30 +253,23 @@ def getTopWindowAt(x: int, y: int):
 
 
 def _findWindowHandles(parent: int | None = None, window_class: str | None = None, title: str | None = None, onlyVisible: bool = False):
-    # https://stackoverflow.com/questions/56973912/how-can-i-set-windows-10-desktop-background-with-smooth-transition
-    # Fixed: original post returned duplicated handles when trying to retrieve all windows (no class nor title)
 
-    def _make_filter(class_name: str | None, title: str | None, onlyVisible: bool = False):
+    handle_list = []
 
-        def enum_windows(handle: int, h_list: list[int]):
-            if class_name and class_name not in win32gui.GetClassName(handle):
-                return True  # continue enumeration
-            if title and title not in win32gui.GetWindowText(handle):
-                return True  # continue enumeration
-            if not onlyVisible or (onlyVisible and win32gui.IsWindowVisible(handle)):
-                h_list.append(handle)
+    def findit(hwnd, ctx):
 
-        return enum_windows
+        if window_class and window_class != win32gui.GetClassName(hwnd):
+            return True
+        if title and title != win32gui.GetWindowText(hwnd):
+            return True
+        if not onlyVisible or (onlyVisible and win32gui.IsWindowVisible(hwnd)):
+            handle_list.append(hwnd)
+        return True
 
-    cb = _make_filter(window_class, title, onlyVisible)
-    handle_list: list[int] = []
-    try:
-        if parent:
-            win32gui.EnumChildWindows(parent, cb, handle_list)
-        else:
-            win32gui.EnumWindows(cb, handle_list)
-    finally:
-        return handle_list
+    if not parent:
+        parent = win32gui.GetDesktopWindow()
+    win32gui.EnumChildWindows(parent, findit, None)
+    return handle_list
 
 
 def _findMainWindowHandles():
@@ -383,7 +377,7 @@ def _getWindowInfo(hWnd: int | str | bytes | bool | None):
     try:
         ctypes.windll.user32.GetWindowInfo(hWnd, ctypes.byref(wi))
     except:
-        wi = None
+        pass
 
     # None of these seem to return the right value, at least not in my system, but might be useful for other metrics
     # xBorder = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CXBORDER)
@@ -417,9 +411,9 @@ class Win32Window(BaseWindow):
         self._hWnd = int(hWnd, base=16) if isinstance(hWnd, str) else hWnd
         self.__rect = self._rectFactory()
         self._parent = win32gui.GetParent(self._hWnd)
-        self._t = None
+        self._t: _SendBottom | None = None
         self.menu = self._Menu(self)
-        self.watchdog = self._WatchDog(self)
+        self.watchdog = _WatchDog(self)
 
     def _getWindowRect(self) -> Rect:
         ctypes.windll.user32.SetProcessDPIAware()
@@ -700,7 +694,7 @@ class Win32Window(BaseWindow):
                                        win32con.SWP_NOSIZE | win32con.SWP_NOMOVE)
         return True
 
-    def sendBehind(self, sb: bool = True) -> bool:
+    def sendBehind(self, sb: bool = True):
         """
         Sends the window to the very bottom, below all other windows, including desktop icons.
         It may also cause that the window does not accept focus nor keyboard/mouse events as well as
@@ -769,7 +763,19 @@ class Win32Window(BaseWindow):
 
         :return: handle of the window parent
         """
-        return win32gui.GetParent(self._hWnd)
+        return win32gui.GetParent(self._hWnd) or 0
+
+    def setParent(self, parent) -> bool:
+        """
+        Current window will become child of given parent
+        WARNIG: Not implemented in AppleScript (not possible in macOS for foreign (other apps') windows)
+
+        :param parent: window to set as current window parent
+        :return: ''True'' if current window is now child of given parent
+        """
+        if win32gui.IsWindow(parent):
+            win32gui.SetParent(self._hWnd, parent)
+        return bool(self.isChild(parent))
 
     def getChildren(self):
         """
@@ -794,7 +800,7 @@ class Win32Window(BaseWindow):
         :param child: handle of the window you want to check if the current window is parent of
         :return: ''True'' if current window is parent of the given window
         """
-        return win32gui.GetParent(child) == self._hWnd
+        return bool(win32gui.GetParent(child) == self._hWnd)
     isParentOf = isParent  # isParentOf is an alias of isParent method
 
     def isChild(self, parent: int) -> bool:
@@ -822,21 +828,6 @@ class Win32Window(BaseWindow):
             pass
         return name
 
-    def _getContent(self):
-        # https://stackoverflow.com/questions/14500026/python-how-to-get-the-text-label-from-another-program-window
-        # Does not work with Terminal or Chrome. Besides, I don't think it can be done in Linux nor macOS
-
-        for childWindow in self.getChildren():
-            bufferSize = win32gui.SendMessage(childWindow, win32con.WM_GETTEXTLENGTH, 0, 0) * 2
-            buffer = b"\x00" * bufferSize
-            win32gui.SendMessage(childWindow, win32con.WM_GETTEXT, bufferSize, buffer)
-            a = buffer.decode('UTF-16', 'replace')
-            if a:
-                b = a.split("\r\n")
-                yield b
-
-
-
     @property
     def isMinimized(self) -> bool:
         """
@@ -844,7 +835,7 @@ class Win32Window(BaseWindow):
 
         :return: ``True`` if the window is minimized
         """
-        return win32gui.IsIconic(self._hWnd) != 0
+        return bool(win32gui.IsIconic(self._hWnd) != 0)
 
     @property
     def isMaximized(self) -> bool:
@@ -854,7 +845,7 @@ class Win32Window(BaseWindow):
         :return: ``True`` if the window is maximized
         """
         state = win32gui.GetWindowPlacement(self._hWnd)
-        return state[1] == win32con.SW_SHOWMAXIMIZED
+        return bool(state[1] == win32con.SW_SHOWMAXIMIZED)
 
     @property
     def isActive(self):
@@ -863,7 +854,7 @@ class Win32Window(BaseWindow):
 
         :return: ``True`` if the window is the active, foreground window
         """
-        return win32gui.GetForegroundWindow() == self._hWnd
+        return bool(win32gui.GetForegroundWindow() == self._hWnd)
 
     @property
     def title(self) -> str:
@@ -875,7 +866,7 @@ class Win32Window(BaseWindow):
         name = win32gui.GetWindowText(self._hWnd)
         if isinstance(name, bytes):
             name = name.decode()
-        return name
+        return name or ""
 
     @property
     def visible(self) -> bool:
@@ -884,7 +875,7 @@ class Win32Window(BaseWindow):
 
         :return: ``True`` if the window is currently visible
         """
-        return win32gui.IsWindowVisible(self._hWnd) != 0
+        return bool(win32gui.IsWindowVisible(self._hWnd) != 0)
 
     # Must cast because mypy thinks the property is a callable
     # https://github.com/python/mypy/issues/2563
@@ -899,178 +890,109 @@ class Win32Window(BaseWindow):
 
         :return: ''True'' if window exists
         """
-        return win32gui.IsWindow(self._hWnd) != 0
+        return bool(win32gui.IsWindow(self._hWnd) != 0)
 
-    class _WatchDog:
-        """
-        Set a watchdog, in a separate Thread, to be notified when some window states change
+    @property
+    def isAlerting(self) -> bool:
 
-        Notice that changes will be notified according to the window status at the very moment of instantiating this class
+        def _getFileDescription(hWnd: int) -> str:
+            # https://stackoverflow.com/questions/31118877/get-application-name-from-exe-file-in-python
 
-        IMPORTANT: This can be extremely slow in macOS Apple Script version
+            _: int = 0
+            pid: int = 0
+            _, pid = win32process.GetWindowThreadProcessId(hWnd)
+            hProc: int = win32api.OpenProcess(win32con.PROCESS_QUERY_INFORMATION | win32con.PROCESS_VM_READ, 0, pid)
+            exeName: str = win32process.GetModuleFileNameEx(hProc, 0)  # pyright: ignore[reportUnknownMemberType]
 
-         Available methods:
-        :meth start: Initialize and start watchdog and selected callbacks
-        :meth updateCallbacks: Change the states this watchdog is hooked to
-        :meth updateInterval: Change the interval to check changes
-        :meth kill: Stop the entire watchdog and all its hooks
-        :meth isAlive: Check if watchdog is running
-        """
-        def __init__(self, parent: Win32Window):
-            self._watchdog = None
-            self._parent = parent
-
-        def start(
-            self,
-            isAliveCB: Callable[[bool], None] | None = None,
-            isActiveCB: Callable[[bool], None] | None = None,
-            isVisibleCB: Callable[[bool], None] | None = None,
-            isMinimizedCB: Callable[[bool], None] | None = None,
-            isMaximizedCB: Callable[[bool], None] | None = None,
-            resizedCB: Callable[[tuple[float, float]], None] | None = None,
-            movedCB: Callable[[tuple[float, float]], None] | None = None,
-            changedTitleCB: Callable[[str], None] | None = None,
-            changedDisplayCB: Callable[[str], None] | None = None,
-            interval: float = 0.3
-        ):
-            """
-            Initialize and start watchdog and hooks (callbacks to be invoked when desired window states change)
-
-            Notice that changes will be notified according to the window status at the very moment of execute start()
-
-            The watchdog is asynchronous, so notifications will not be immediate (adjust interval value to your needs)
-
-            The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
-
-            IMPORTANT: This can be extremely slow in macOS Apple Script version
-
-            :param isAliveCB: callback to call if window is not alive. Set to None to not to watch this
-                            Returns the new alive status value (False)
-            :param isActiveCB: callback to invoke if window changes its active status. Set to None to not to watch this
-                            Returns the new active status value (True/False)
-            :param isVisibleCB: callback to invoke if window changes its visible status. Set to None to not to watch this
-                            Returns the new visible status value (True/False)
-            :param isMinimizedCB: callback to invoke if window changes its minimized status. Set to None to not to watch this
-                            Returns the new minimized status value (True/False)
-            :param isMaximizedCB: callback to invoke if window changes its maximized status. Set to None to not to watch this
-                            Returns the new maximized status value (True/False)
-            :param resizedCB: callback to invoke if window changes its size. Set to None to not to watch this
-                            Returns the new size (width, height)
-            :param movedCB: callback to invoke if window changes its position. Set to None to not to watch this
-                            Returns the new position (x, y)
-            :param changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
-                            Returns the new title (as string)
-            :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
-                            Returns the new display name (as string)
-            :param interval: set the interval to watch window changes. Default is 0.3 seconds
-            """
-            if self._watchdog is None:
-                self._watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB,
-                                              isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB,
-                                              interval)
-                self._watchdog.setDaemon(True)
-                self._watchdog.start()
-            else:
-                self._watchdog.restart(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB,
-                                       isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB,
-                                       interval)
-
-        def updateCallbacks(
-            self,
-            isAliveCB: Callable[[bool], None] | None = None,
-            isActiveCB: Callable[[bool], None] | None = None,
-            isVisibleCB: Callable[[bool], None] | None = None,
-            isMinimizedCB: Callable[[bool], None] | None = None,
-            isMaximizedCB: Callable[[bool], None] | None = None,
-            resizedCB: Callable[[tuple[float, float]], None] | None = None,
-            movedCB: Callable[[tuple[float, float]], None] | None = None,
-            changedTitleCB: Callable[[str], None] | None = None,
-            changedDisplayCB: Callable[[str], None] | None = None
-        ):
-            """
-            Change the states this watchdog is hooked to
-
-            The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
-
-            IMPORTANT: When updating callbacks, remember to set ALL desired callbacks or they will be deactivated
-
-            IMPORTANT: Remember to set ALL desired callbacks every time, or they will be defaulted to None (and unhooked)
-
-            :param isAliveCB: callback to call if window is not alive. Set to None to not to watch this
-                            Returns the new alive status value (False)
-            :param isActiveCB: callback to invoke if window changes its active status. Set to None to not to watch this
-                            Returns the new active status value (True/False)
-            :param isVisibleCB: callback to invoke if window changes its visible status. Set to None to not to watch this
-                            Returns the new visible status value (True/False)
-            :param isMinimizedCB: callback to invoke if window changes its minimized status. Set to None to not to watch this
-                            Returns the new minimized status value (True/False)
-            :param isMaximizedCB: callback to invoke if window changes its maximized status. Set to None to not to watch this
-                            Returns the new maximized status value (True/False)
-            :param resizedCB: callback to invoke if window changes its size. Set to None to not to watch this
-                            Returns the new size (width, height)
-            :param movedCB: callback to invoke if window changes its position. Set to None to not to watch this
-                            Returns the new position (x, y)
-            :param changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
-                            Returns the new title (as string)
-            :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
-                            Returns the new display name (as string)
-            """
-            if self._watchdog:
-                self._watchdog.updateCallbacks(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB,
-                                              resizedCB, movedCB, changedTitleCB, changedDisplayCB)
-
-        def updateInterval(self, interval: float = 0.3):
-            """
-            Change the interval to check changes
-
-            :param interval: set the interval to watch window changes. Default is 0.3 seconds
-            """
-            if self._watchdog:
-                self._watchdog.updateInterval(interval)
-
-        def setTryToFind(self, tryToFind: bool):
-            """
-            In macOS Apple Script version, if set to ''True'' and in case title changes, watchdog will try to find
-            a similar title within same application to continue monitoring it. It will stop if set to ''False'' or
-            similar title not found.
-
-            IMPORTANT:
-
-            - It will have no effect in other platforms (Windows and Linux) and classes (MacOSNSWindow)
-            - This behavior is deactivated by default, so you need to explicitly activate it
-
-            :param tryToFind: set to ''True'' to try to find a similar title. Set to ''False'' to deactivate this behavior
-            """
-            pass
-
-        def stop(self):
-            """
-            Stop the entire WatchDog and all its hooks
-            """
-            if self._watchdog:
-                self._watchdog.kill()
-
-        def isAlive(self):
-            """Check if watchdog is running
-
-            :return: ''True'' if watchdog is alive
-            """
+            description: str = "unknown"
             try:
-                alive = bool(self._watchdog and self._watchdog.is_alive())
+                res: list[tuple[int, int]] = win32api.GetFileVersionInfo(exeName, '\\VarFileInfo\\Translation')  # type: ignore[func-returns-value]
+                if res:
+                    ret: tuple[int, int] = res[0]
+                    language, codepage = ret
+                    stringFileInfo: str = u'\\StringFileInfo\\%04X%04X\\%s' % (language, codepage, "FileDescription")
+                    desc: str = win32api.GetFileVersionInfo(exeName, stringFileInfo)  # type: ignore[func-returns-value]
+                    if desc:
+                        description = desc
             except:
-                alive = False
-            return alive
+                pass
+            return description
+
+        def _find_taskbar_icon() -> None | Rect:
+
+            exStyle: int = win32api.GetWindowLong(self._hWnd, win32con.GWL_EXSTYLE)
+            owner: int = win32gui.GetWindow(self._hWnd, win32con.GW_OWNER)
+            if exStyle & win32con.WS_EX_APPWINDOW != 0 or owner != 0:
+                return None
+
+            name: str = _getFileDescription(self._hWnd)
+
+            try:
+
+                # app: pywinauto.Application = pywinauto.application.Application().connect(path="explorer")
+                # sysTray: pywinauto.application.WindowSpecification = app.ShellTrayWnd.TaskBar
+                app: pywinauto.Application = pywinauto.Application(backend="uia").connect(path="explorer.exe")
+                sysTray: pywinauto.WindowSpecification = app.window(class_name="Shell_TrayWnd")
+                w: pywinauto.WindowSpecification = sysTray.child_window(title_re=name, found_index=0)
+                ret: Rect = w.rectangle()
+                return Rect(ret.left, ret.top, ret.right, ret.bottom)
+            except:
+                return None
+
+        def _intToRGBA(color: int) -> tuple[int, int, int, int]:
+            r: int = color & 255
+            g: int = (color >> 8) & 255
+            b: int = (color >> 16) & 255
+            a: int = 255
+            if color > _intfromRGBA((255, 255, 255, 0)):
+                a = (color >> 24) & 255
+            return r, g, b, a
+
+        def _intfromRGBA(rgba):
+            r = rgba[0]
+            g = rgba[1]
+            b = rgba[2]
+            a = rgba[3]
+            RGBint = (a << 24) + (r << 16) + (g << 8) + b
+            return RGBint
+
+        iconRect: Rect = _find_taskbar_icon()
+        if iconRect:
+
+            xPos: int = iconRect.left + int((iconRect.right - iconRect.left) / 2)
+            color: int = 0
+            desktop: int = win32gui.GetDesktopWindow()
+            dc = win32gui.GetWindowDC(desktop)
+            for i in range(50, 54):
+                color += win32gui.GetPixel(dc, xPos, iconRect.top + i)
+            win32gui.ReleaseDC(desktop, dc)
+            # Not sure if GetSysColor returns colors from taskbar and which value to use to query
+            # flashColor = win32gui.GetSysColor(win32con.COLOR_BTNHIGHLIGHT)
+            # This color is the highlight color for windows, titles and other elements, not the one we seek
+            # pcrColorization = wintypes.DWORD()
+            # pfOpaqueBlend = wintypes.BOOL()
+            # ctypes.windll.dwmapi.DwmGetColorizationColor(ctypes.byref(pcrColorization), ctypes.byref(pfOpaqueBlend))
+            # flashColor = pcrColorization.value
+            flashColor = 10787327  # This value (255, 153, 164) is totally empirical. Find a way to retrieve it!!!!
+
+            if color / 4 == flashColor:
+                return True
+            else:
+                return False
+        else:
+            return False
 
     class _Menu:
 
         def __init__(self, parent: Win32Window):
             self._parent = parent
-            self._hWnd = parent._hWnd
+            self._hWnd = parent.getHandle()
             self._hMenu = win32gui.GetMenu(self._hWnd)
-            self._menuStructure: dict[str, _SubMenuStructure]  = {}
+            self._menuStructure: dict[str, _SubMenuStructure] = {}
             self._sep = "|&|"
 
         def getMenu(self, addItemInfo: bool = False):
+
             """
             Loads and returns Menu options, sub-menus and related information, as dictionary.
 
@@ -1109,7 +1031,7 @@ class Win32Window(BaseWindow):
                         option = cast("dict[str, _SubMenuStructure]", option[section])
 
                 for i in range(win32gui.GetMenuItemCount(parent)):
-                    item_info = self._getMenuItemInfo(hSubMenu=parent, itemPos=i)
+                    item_info: _MENUITEMINFO = self._getMenuItemInfo(hSubMenu=parent, itemPos=i)
                     if not item_info or not item_info.text or item_info.hSubMenu is None:
                         continue
                     text = item_info.text.split("\t")
@@ -1484,6 +1406,176 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0):
         sys.stdout.flush()
 
 
+# def _getSysTrayButtons(window_class: str = ""):
+#     # https://stackoverflow.com/questions/31068541/how-to-use-win32gui-or-similar-to-click-an-other-window-toolstrip1-item-button
+#     # https://github.com/yinkaisheng/Python-UIAutomation-for-Windows
+#
+#     import commctrl
+#
+#     def _getSystemTrayHandle():
+#
+#         # handles = _findWindowHandles()
+#         # # CANDIDATES:
+#         # """
+#         # 65882  ReBarWindow32 (220, 1380, 2316, 1440)  -> Main suspect. Find a way to query for all possible content!!!
+#         # 7 FOUND!!! 1
+#         # 9 FOUND!!! 1
+#         # 10 FOUND!!! 1
+#         # 65884 Aplicaciones en ejecución MSTaskSwWClass (220, 1380, 2316, 1440)  -> Son of 65882 (ReBarWindow32)
+#         # 65890 Aplicaciones en ejecución MSTaskListWClass (220, 1380, 2316, 1440) -> Son of 65884
+#         # """
+#         # # OTHER CANDIDATES:
+#         # """
+#         # 65832  Shell_TrayWnd (0, 1380, 5120, 1440)
+#         # 65838 Inicio Start (55, 1380, 110, 1440)
+#         # 65844  TrayNotifyWnd (2385, 1380, 5120, 1440)
+#         # 66282 DesktopWindowXamlSource Windows.UI.Composition.DesktopWindowContentBridge (2385, 1380, 5120, 1440)
+#         # 66272 DesktopWindowXamlSource Windows.UI.Composition.DesktopWindowContentBridge (0, 1380, 5120, 1440)
+#         # """
+#         # win32gui.SendMessage(hWnd, commctrl.TB_BUTTONCOUNT, None, None)
+#         # doesn't work (furthermore, it actually interacts with some windows!!!).
+#         # Find another thing to look for, not buttons
+#         # for hWnd in handles:
+#         #     klass = win32gui.GetClassName(hWnd)
+#         #     geom = win32gui.GetWindowRect(hWnd)
+#         #     if geom[1] == 1380 and geom[3] == 1440:
+#         #         print(hWnd, win32gui.GetWindowText(hWnd), klass, geom)
+#         #         numIcons = win32gui.SendMessage(hWnd, commctrl.TB_BUTTONCOUNT, None, None)
+#         #         if numIcons > 0:
+#         #             print("1 FOUND!!!", numIcons)
+#         #         numIcons = win32gui.SendMessage(hWnd, commctrl.TVM_GETCOUNT, None, None)
+#         #         if numIcons > 0:
+#         #             print("2 FOUND!!!", numIcons)
+#         #         numIcons = win32gui.SendMessage(hWnd, commctrl.TCM_GETITEMCOUNT, None, None)
+#         #         if numIcons > 0:
+#         #             print("3 FOUND!!!", numIcons)
+#         #         numIcons = win32gui.SendMessage(hWnd, commctrl.LVM_GETITEMCOUNT, None, None)
+#         #         if numIcons > 0:
+#         #             print("4 FOUND!!!", numIcons)
+#         #         numIcons = win32gui.SendMessage(hWnd, commctrl.HDM_GETITEMCOUNT, None, None)
+#         #         if numIcons > 0:
+#         #             print("5 FOUND!!!", numIcons)
+#         #         numIcons = win32gui.SendMessage(hWnd, commctrl.LVM_GETSELECTEDCOUNT, None, None)
+#         #         if numIcons > 0:
+#         #             print("6 FOUND!!!", numIcons)
+#         #         numIcons = win32gui.SendMessage(hWnd, commctrl.RB_GETBANDCOUNT, None, None)
+#         #         if numIcons > 0:
+#         #             print("7 FOUND!!!", numIcons)
+#         #         numIcons = win32gui.SendMessage(hWnd, commctrl.TCM_GETROWCOUNT, None, None)
+#         #         if numIcons > 0:
+#         #             print("8 FOUND!!!", numIcons)
+#         #         numIcons = win32gui.SendMessage(hWnd, commctrl.TTM_GETTOOLCOUNT, None, None)
+#         #         if numIcons > 0:
+#         #             print("9 FOUND!!!", numIcons)
+#         #         numIcons = win32gui.SendMessage(hWnd, commctrl.RB_GETROWCOUNT, None, None)
+#         #         if numIcons > 0:
+#         #             print("10 FOUND!!!", numIcons)
+#         #         numIcons = win32gui.SendMessage(hWnd, commctrl.TVM_GETVISIBLECOUNT, None, None)
+#         #         if numIcons > 0:
+#         #             print("11 FOUND!!!", numIcons)
+#         #         numIcons = win32gui.SendMessage(hWnd, commctrl.LVM_GETCOUNTPERPAGE, None, None)
+#         #         if numIcons > 0:
+#         #             print("12 FOUND!!!", numIcons)
+#
+#         hWndTray = win32gui.FindWindow("Shell_TrayWnd", None)
+#         if hWndTray:
+#             hWndTray = win32gui.FindWindowEx(hWndTray, 0, "TrayNotifyWnd", None)
+#             if hWndTray:
+#                 hWndTray = win32gui.FindWindowEx(hWndTray, 0, "SysPager", None)
+#                 if hWndTray:
+#                     hWndTray = win32gui.FindWindowEx(hWndTray, 0, "ToolbarWindow32", None)
+#                     if hWndTray:
+#                         return hWndTray
+#         return None
+#
+#     class TBBUTTON64(ctypes.Structure):
+#         _pack_ = 1
+#         _fields_ = [
+#             ('iBitmap', ctypes.c_int),
+#             ('idCommand', ctypes.c_int),
+#             ('fsState', ctypes.c_ubyte),
+#             ('fsStyle', ctypes.c_ubyte),
+#             ('bReserved', ctypes.c_ubyte * 6),
+#             ('dwData', ctypes.c_ulong),
+#             ('iString', ctypes.c_int),
+#         ]
+#
+#     class TBBUTTON32(ctypes.Structure):
+#         _pack_ = 1
+#         _fields_ = [
+#             ('iBitmap', ctypes.c_int),
+#             ('idCommand', ctypes.c_int),
+#             ('fsState', ctypes.c_ubyte),
+#             ('fsStyle', ctypes.c_ubyte),
+#             ('bReserved', ctypes.c_ubyte * 2),
+#             ('dwData', ctypes.c_ulong),
+#             ('iString', ctypes.c_int),
+#         ]
+#
+#     class RECT(ctypes.Structure):
+#         _pack_ = 1
+#         _fields_ = [
+#             ('left', ctypes.c_ulong),
+#             ('top', ctypes.c_ulong),
+#             ('right', ctypes.c_ulong),
+#             ('bottom', ctypes.c_ulong),
+#         ]
+#
+#     # get the handle to the system tray
+#     # hWnd = _getSystemTrayHandle()                             # -> This has no buttons (probably it's not the taskbar)
+#     if not window_class:
+#         window_class = "ReBarWindow32"
+#     # hWnd = _findWindowHandles(window_class=window_class)[0]   # -> This returns more than one handle
+#     hWnd = _findWindowHandles(window_class=window_class)[0]     # -> This is promissing, but has no buttons
+#
+#     # get the count of icons in the tray
+#     numIcons = ctypes.windll.user32.SendMessageA(hWnd, commctrl.TB_BUTTONCOUNT, 0, 0)
+#
+#     # allocate memory within the system tray
+#     pid = ctypes.c_ulong()
+#     ctypes.windll.user32.GetWindowThreadProcessId(hWnd, ctypes.byref(pid))
+#     hProcess = ctypes.windll.kernel32.OpenProcess(win32con.PROCESS_ALL_ACCESS, 0, pid)
+#
+#     # init our tool bar button and a handle to it
+#     if struct.calcsize("P") * 8 == 64:
+#         lpPointer = ctypes.windll.kernel32.VirtualAllocEx(hProcess, None, ctypes.sizeof(TBBUTTON64), win32con.MEM_COMMIT, win32con.PAGE_READWRITE)
+#         tbButton = TBBUTTON64()
+#     else:
+#         lpPointer = ctypes.windll.kernel32.VirtualAllocEx(hProcess, None, ctypes.sizeof(TBBUTTON32), win32con.MEM_COMMIT, win32con.PAGE_READWRITE)
+#         tbButton = TBBUTTON32()
+#     tbRead = ctypes.c_ulong(0)
+#     butHandle = ctypes.c_int()
+#     butRead = ctypes.c_ulong(0)
+#
+#     buttons = []
+#     for i in range(numIcons):
+#         # query the button into the memory we allocated
+#         ctypes.windll.user32.SendMessageA(hWnd, commctrl.TB_GETBUTTON, i, lpPointer)
+#         # read the memory into our button struct
+#         ctypes.windll.kernel32.ReadProcessMemory(hProcess, lpPointer, ctypes.byref(tbButton), ctypes.sizeof(tbButton), ctypes.byref(tbRead))
+#         # read the 1st 4 bytes from the dwData into the butHandle var
+#         # these first 4 bytes contain the handle to the button
+#         ctypes.windll.kernel32.ReadProcessMemory(hProcess, tbButton.dwData, ctypes.byref(butHandle), ctypes.sizeof(butHandle), ctypes.byref(butRead))
+#
+#         # use TB_RECT message to get the position and size of the systray icon
+#         idx_rect = RECT()
+#         rectRead = ctypes.c_ulong(0)
+#         rlpPointer = ctypes.windll.kernel32.VirtualAllocEx(hProcess, None, ctypes.sizeof(RECT), win32con.MEM_COMMIT, win32con.PAGE_READWRITE)
+#         ctypes.windll.user32.SendMessageA(hWnd, commctrl.TB_GETRECT, tbButton.idCommand, rlpPointer)
+#         ctypes.windll.kernel32.ReadProcessMemory(hProcess, rlpPointer, ctypes.byref(idx_rect), ctypes.sizeof(idx_rect), ctypes.byref(rectRead))
+#         # xpos = int((idx_rect.right - idx_rect.left) / 2) + idx_rect.left
+#         # ypos = int((idx_rect.bottom - idx_rect.top) / 2) + idx_rect.top
+#         # lParam = ypos << 16 | xpos
+#
+#         # get the pid that created the button
+#         butPid = ctypes.c_ulong()
+#         ctypes.windll.user32.GetWindowThreadProcessId(butHandle, ctypes.byref(butPid))
+#
+#         buttons.append((tbButton.idCommand, idx_rect, butPid))
+#
+#     return hWnd, buttons
+
+
 def main():
     """Run this script from command-line to get windows under mouse pointer"""
     print("PLATFORM:", sys.platform)
@@ -1496,6 +1588,7 @@ def main():
         print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()
     displayWindowsUnderMouse(0, 0)
+    # print(npw.menu.getMenu())  # Not working in windows 11?!?!?!?!
 
 
 if __name__ == "__main__":

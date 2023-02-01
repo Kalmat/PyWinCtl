@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import os
 import sys
+import threading
 
 assert sys.platform == "linux"
 
@@ -11,16 +13,17 @@ import platform
 import re
 import subprocess
 import time
+from ctypes import Structure, byref, c_ulong, cdll, c_uint32, c_int32
+from ctypes.util import find_library
+from typing import Iterable, TYPE_CHECKING, cast, Any
 import tkinter as tk
-from collections.abc import Callable
-from typing import Iterable, TYPE_CHECKING
+
 if TYPE_CHECKING:
     from typing_extensions import TypedDict
 else:
     # Only needed if the import from typing_extensions is used outside of annotations
     from typing import TypedDict
 
-import ewmh
 import Xlib.display
 import Xlib.error
 import Xlib.protocol
@@ -29,20 +32,15 @@ import Xlib.Xatom
 import Xlib.Xutil
 from Xlib.xobject.drawable import Window
 
-from pywinctl import BaseWindow, Point, Re, Rect, Size, _WinWatchDog, pointInRect
-
-DISP = Xlib.display.Display()
-SCREEN = DISP.screen()
-ROOT = SCREEN.root
-EWMH = ewmh.EWMH(_display=DISP, root=ROOT)
+from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
 WAIT_ATTEMPTS = 10
 WAIT_DELAY = 0.025  # Will be progressively increased on every retry
 
-# These _NET_WM_STATE_ constants are used to manage Window state and are documented at
-# https://ewmh.readthedocs.io/en/latest/ewmh.html
+# These values are documented at https://specifications.freedesktop.org/wm-spec/wm-spec-1.3.html
+# WM_STATE values
 WM_CHANGE_STATE = 'WM_CHANGE_STATE'
 WM_STATE = '_NET_WM_STATE'
 STATE_MODAL = '_NET_WM_STATE_MODAL'
@@ -60,20 +58,28 @@ STATE_ATTENTION = '_NET_WM_STATE_DEMANDS_ATTENTION'
 STATE_FOCUSED = '_NET_WM_STATE_FOCUSED'
 STATE_NULL = 0
 
-# EWMH/Xlib set state actions
+# Set state actions
 ACTION_UNSET = 0   # Remove state
 ACTION_SET = 1     # Add state
 ACTION_TOGGLE = 2  # Toggle state
 
-# EWMH/Xlib WINDOW_TYPE values
+# WM_WINDOW_TYPE values
 WM_WINDOW_TYPE = '_NET_WM_WINDOW_TYPE'
 WINDOW_DESKTOP = '_NET_WM_WINDOW_TYPE_DESKTOP'
 WINDOW_NORMAL = '_NET_WM_WINDOW_TYPE_NORMAL'
 
-# EWMH/Xlib State Hints
+# State Hints
 HINT_STATE_WITHDRAWN = 0
 HINT_STATE_NORMAL = 1
 HINT_STATE_ICONIC = 3
+
+# Stacking and Misc Atoms
+WINDOW_LIST_STACKING = '_NET_CLIENT_LIST_STACKING'
+ACTIVE_WINDOW = '_NET_ACTIVE_WINDOW'
+WM_PID = '_NET_WM_PID'
+WORKAREA = '_NET_WORKAREA'
+MOVERESIZE_WINDOW = '_NET_MOVERESIZE_WINDOW'
+CLOSE_WINDOW = '_NET_CLOSE_WINDOW'
 
 
 def checkPermissions(activate: bool = False):
@@ -88,15 +94,20 @@ def checkPermissions(activate: bool = False):
     return True
 
 
-def getActiveWindow():
+def getActiveWindow() -> LinuxWindow | None:
     """
     Get the currently active (focused) Window
 
     :return: Window object or None
     """
-    win_id = EWMH.getActiveWindow()
-    if win_id:
-        return LinuxWindow(win_id)
+    dsp = Xlib.display.Display()
+    root = dsp.screen().root
+    win: Xlib.protocol.request.GetProperty = root.get_full_property(dsp.get_atom(ACTIVE_WINDOW), Xlib.Xatom.WINDOW)
+    dsp.close()
+    if win:
+        win_id = win.value
+        if win_id:
+            return LinuxWindow(win_id[0])
     return None
 
 
@@ -113,7 +124,7 @@ def getActiveWindowTitle():
         return ""
 
 
-def __remove_bad_windows(windows: Iterable[Window | None]):
+def __remove_bad_windows(windows: Iterable[Window | int | None]):
     """
     :param windows: Xlib Windows
     :return: A generator of LinuxWindow that filters out BadWindows
@@ -125,12 +136,22 @@ def __remove_bad_windows(windows: Iterable[Window | None]):
             pass
 
 
+def _getWindowListStacking():
+    dsp = Xlib.display.Display()
+    root = dsp.screen().root
+    atom: int = dsp.get_atom(WINDOW_LIST_STACKING)
+    properties: Xlib.protocol.request.GetProperty = root.get_full_property(atom, Xlib.X.AnyPropertyType)
+    dsp.close()
+    if properties:
+        return [p for p in properties.value]
+
+
 def getAllWindows():
     """
     Get the list of Window objects for all visible windows
     :return: list of Window objects
     """
-    return [window for window in __remove_bad_windows(ROOT.get_full_property(DISP.get_atom('_NET_CLIENT_LIST_STACKING', False), Xlib.X.AnyPropertyType).value)]
+    return [window for window in __remove_bad_windows(_getWindowListStacking())]
 
 
 def getAllTitles() -> list[str]:
@@ -282,182 +303,36 @@ def getTopWindowAt(x: int, y: int):
     :param y: Y screen coordinate of the window
     :return: Window object or None
     """
-    windows = EWMH.getClientListStacking()
-    for window in __remove_bad_windows(reversed(windows)):
+    windows: list[LinuxWindow] = getAllWindows()
+    for window in reversed(windows):
         if pointInRect(x, y, window.left, window.top, window.width, window.height):
             return window
     else:
         return None
 
 
-def _xlibGetAllWindows(parent: Window | None = None, title: str = "", klass: tuple[str, str] | None = None) -> list[Window]:
-
-    parent = parent or ROOT
-    allWindows = [parent]
-
-    def findit(hwnd: Window):
-        query = hwnd.query_tree()
-        for child in query.children:
-            allWindows.append(child)
-            findit(child)
-
-    findit(parent)
-    if not title and not klass:
-        return allWindows
-    else:
-        windows: list[Window] = []
-        for window in allWindows:
-            try:
-                winTitle = window.get_wm_name()
-            except:
-                winTitle = ""
-            try:
-                winClass = window.get_wm_class()
-            except:
-                winClass = ""
-            if (title and winTitle == title) or (klass and winClass == klass):
-                windows.append(window)
-        return windows
-        # return [window for window in allWindows if ((title and window.get_wm_name() == title) or
-        #                                             (klass and window.get_wm_class() == klass))]
-
-
-def _getBorderSizes():
-
-    class App(tk.Tk):
-
-        def __init__(self):
-            super().__init__()
-            self.geometry('0x0+200+200')
-            self.update_idletasks()
-
-            pos = self.geometry().split('+')
-            self.bar_height = self.winfo_rooty() - int(pos[2])
-            self.border_width = self.winfo_rootx() - int(pos[1])
-            self.destroy()
-
-        def getTitlebarHeight(self):
-            return self.bar_height
-
-        def getBorderWidth(self):
-            return self.border_width
-
-    app = App()
-    # app.mainloop()
-    return app.getTitlebarHeight(), app.getBorderWidth()
-
-
-def _getWindowAttributes(hWnd: Window):
-    # Leaving this as reference of using X11 library
-    # https://github.com/evocount/display-management/blob/c4f58f6653f3457396e44b8c6dc97636b18e8d8a/displaymanagement/rotation.py
-    # https://github.com/nathanlopez/Stitch/blob/master/Configuration/mss/linux.py
-    # https://gist.github.com/ssokolow/e7c9aae63fb7973e4d64cff969a78ae8
-    # https://stackoverflow.com/questions/36188154/get-x11-window-caption-height
-    # https://refspecs.linuxfoundation.org/LSB_1.3.0/gLSB/gLSB/libx11-ddefs.html
-
-    from ctypes import Structure, byref, c_int32, c_uint32, c_ulong, cdll
-    from ctypes.util import find_library
-
-    x11 = find_library('X11')
-    xlib = cdll.LoadLibrary(str(x11))
-
-    class XWindowAttributes(Structure):
-
-        _fields_ = [('x', c_int32), ('y', c_int32),
-                    ('width', c_int32), ('height', c_int32), ('border_width', c_int32),
-                    ('depth', c_int32), ('visual', c_ulong), ('root', c_ulong),
-                    ('class', c_int32), ('bit_gravity', c_int32),
-                    ('win_gravity', c_int32), ('backing_store', c_int32),
-                    ('backing_planes', c_ulong), ('backing_pixel', c_ulong),
-                    ('save_under', c_int32), ('colourmap', c_ulong),
-                    ('mapinstalled', c_uint32), ('map_state', c_uint32),
-                    ('all_event_masks', c_ulong), ('your_event_mask', c_ulong),
-                    ('do_not_propagate_mask', c_ulong), ('override_redirect', c_int32), ('screen', c_ulong)]
-
-    attr = XWindowAttributes()
-    d = xlib.XOpenDisplay(0)
-    # s = xlib.XDefaultScreen(d)
-    # root = xlib.XDefaultRootWindow(d)
-    # fg = xlib.XBlackPixel(d, s)
-    # bg = xlib.XWhitePixel(d, s)
-    # w = xlib.XCreateSimpleWindow(d, root, 600, 300, 400, 200, 0, fg, bg)
-    # xlib.XMapWindow(d, w)
-    # time.sleep(4)
-    # a = xlib.XInternAtom(d, "_GTK_FRAME_EXTENTS", True)
-    # if not a:
-    #     a = xlib.XInternAtom(d, "_NET_FRAME_EXTENTS", True)
-    # t = c_int()
-    # f = c_int()
-    # n = c_ulong()
-    # b = c_ulong()
-    # xlib.XGetWindowProperty(d, w, a, 0, 4, False, Xlib.X.AnyPropertyType, byref(t), byref(f), byref(n), byref(b), byref(attr))
-    xlib.XGetWindowAttributes(d, hWnd.id, byref(attr))
-    # r = c_ulong()
-    # x = c_int()
-    # y = c_int()
-    # w = c_uint()
-    # h = c_uint()
-    # b = c_uint()
-    # d = c_uint()
-    # xlib.XGetGeometry(d, hWnd.id, byref(r), byref(x), byref(y), byref(w), byref(h), byref(b), byref(d))
-    # print(x, y, w, h)
-    xlib.XCloseDisplay(d)
-
-    # Other references (send_event and setProperty):
-    # prop = DISP.intern_atom(WM_CHANGE_STATE, False)
-    # data = (32, [Xlib.Xutil.IconicState, 0, 0, 0, 0])
-    # ev = Xlib.protocol.event.ClientMessage(window=self._hWnd.id, client_type=prop, data=data)
-    # mask = Xlib.X.SubstructureRedirectMask | Xlib.X.SubstructureNotifyMask
-    # DISP.send_event(destination=ROOT, event=ev, event_mask=mask)
-    # data = [Xlib.Xutil.IconicState, 0, 0, 0, 0]
-    # EWMH._setProperty(_type="WM_CHANGE_STATE", data=data, mask=mask)
-    # for atom in w.list_properties():
-    #     print(DISP.atom_name(atom))
-    # props = DISP.xrandr_list_output_properties(output)
-    # for atom in props.atoms:
-    #     print(atom, DISP.get_atom_name(atom))
-    #     print(DISP.xrandr_get_output_property(output, atom, 0, 0, 1000)._data['value'])
-    return attr
-
-
 class LinuxWindow(BaseWindow):
+
     @property
-    def _rect(self):
+    def _rect(self) -> Rect:
         return self.__rect
 
     def __init__(self, hWnd: Window | int | str):
         super().__init__()
-        if isinstance(hWnd, int):
-            self._hWnd = DISP.create_resource_object('window', hWnd)
-        elif isinstance(hWnd, str):
-            self._hWnd = DISP.create_resource_object('window', int(hWnd, base=16))
-        else:
-            self._hWnd = hWnd
-        assert isinstance(self._hWnd, Window)
-        self._parent: Window = self._hWnd.query_tree().parent
-        self.__rect = self._rectFactory()
-        # self._saveWindowInitValues()  # Store initial Window parameters to allow reset and other actions
-        self.watchdog = self._WatchDog(self)
+
+        self._windowWrapper = _XWindowWrapper(hWnd)
+        self._hWnd: int = self._windowWrapper.id
+        self._windowObject = self._windowWrapper.getWindow()
+
+        assert isinstance(self._hWnd, int)
+        assert isinstance(self._windowObject, Window)
+
+        self.__rect: Rect = self._rectFactory()
+        self.watchdog = _WatchDog(self)
 
     def _getWindowRect(self) -> Rect:
         # https://stackoverflow.com/questions/12775136/get-window-position-and-size-in-python-with-xlib - mgalgs
-        win = self._hWnd
-        geom = win.get_geometry()
-        x = geom.x
-        y = geom.y
-        while True:
-            parent = win.query_tree().parent
-            pgeom = parent.get_geometry()
-            x += pgeom.x
-            y += pgeom.y
-            if parent.id == ROOT.id:
-                break
-            win = parent
-        w = geom.width
-        h = geom.height
-        # ww = DISP.create_resource_object('window', self._hWnd.id)
-        # ret = ww.translate_coords(self._hWnd, x, y)
-        return Rect(x, y, x + w, y + h)
+        return self._windowWrapper.getWindowRect()
 
     def getExtraFrameSize(self, includeBorder: bool = True) -> tuple[int, int, int, int]:
         """
@@ -465,40 +340,18 @@ class LinuxWindow(BaseWindow):
         Notice not all applications/windows will use this property values
 
         :param includeBorder: set to ''False'' to avoid including borders
-        :return: (left, top, right, bottom) frame size as a tuple of int
+        :return: (left, top, right, bottom) additional frame size in pixels, as a tuple of int
         """
-        a = DISP.intern_atom("_GTK_FRAME_EXTENTS", True)
-        if not a:
-            a = DISP.intern_atom("_NET_FRAME_EXTENTS", True)
-        get_property = self._hWnd.get_property(a, Xlib.X.AnyPropertyType, 0, 32)
-        ret: tuple[int, int, int, int] = get_property.value if get_property else (0, 0, 0, 0)
-        borderWidth = 0
-        if includeBorder:
-            titleHeight, borderWidth = _getBorderSizes()
-        frame = (ret[0] + borderWidth, ret[2] + borderWidth, ret[1] + borderWidth, ret[3] + borderWidth)
-        return frame
+        return self._windowWrapper.getExtraFrameSize()
 
-    def getClientFrame(self):
+    def getClientFrame(self) -> Rect:
         """
         Get the client area of window including scroll, menu and status bars, as a Rect (x, y, right, bottom)
         Notice that this method won't match non-standard window decoration sizes
 
         :return: Rect struct
         """
-        geom = self._hWnd.get_geometry()
-        borderWidth = geom.border_width
-        # Didn't find a way to get title bar height using Xlib
-        titleHeight, borderWidth = _getBorderSizes()
-        res = Rect(int(self.left + borderWidth), int(self.top + titleHeight), int(self.right - borderWidth), int(self.bottom - borderWidth))
-        return res
-
-    # def _saveWindowInitValues(self) -> None:
-    #     # Saves initial rect values to allow reset to original position, size, state and hints.
-    #     self._init_rect = self._getWindowRect()
-    #     self._init_state = self._hWnd.get_wm_state()
-    #     self._init_hints = self._hWnd.get_wm_hints()
-    #     self._init_normal_hints = self._hWnd.get_wm_normal_hints()
-    #     # self._init_attributes = self._hWnd.get_attributes()  # can't be modified, so not saving it
+        return self._windowWrapper.getClientFrame()
 
     def __repr__(self):
         return '%s(hWnd=%s)' % (self.__class__.__name__, self._hWnd)
@@ -515,9 +368,9 @@ class LinuxWindow(BaseWindow):
 
         :return: ''True'' if window is closed
         """
-        EWMH.setCloseWindow(self._hWnd)
-        EWMH.display.flush()
-        return self._hWnd not in EWMH.getClientList()
+        self._windowWrapper.close()
+        ids = [w._hWnd for w in getAllWindows()]
+        return self._hWnd not in ids
 
     def minimize(self, wait: bool = False) -> bool:
         """
@@ -527,12 +380,7 @@ class LinuxWindow(BaseWindow):
         :return: ''True'' if window minimized
         """
         if not self.isMinimized:
-            prop = DISP.intern_atom(WM_CHANGE_STATE, False)
-            data = (32, [Xlib.Xutil.IconicState, 0, 0, 0, 0])
-            ev = Xlib.protocol.event.ClientMessage(window=self._hWnd.id, client_type=prop, data=data)
-            mask = Xlib.X.SubstructureRedirectMask | Xlib.X.SubstructureNotifyMask
-            ROOT.send_event(event=ev, event_mask=mask)
-            DISP.flush()
+            self._windowWrapper.sendMessage(WM_CHANGE_STATE, [Xlib.Xutil.IconicState])
             retries = 0
             while wait and retries < WAIT_ATTEMPTS and not self.isMinimized:
                 retries += 1
@@ -547,31 +395,31 @@ class LinuxWindow(BaseWindow):
         :return: ''True'' if window maximized
         """
         if not self.isMaximized:
-            EWMH.setWmState(self._hWnd, ACTION_SET, STATE_MAX_VERT, STATE_MAX_HORZ)
-            EWMH.display.flush()
+            self._windowWrapper.setWmState(ACTION_SET, STATE_MAX_VERT, STATE_MAX_HORZ)
             retries = 0
             while wait and retries < WAIT_ATTEMPTS and not self.isMaximized:
                 retries += 1
                 time.sleep(WAIT_DELAY * retries)
         return self.isMaximized
 
-    def restore(self, wait: bool = False, user: bool = True) -> bool:
+    def restore(self, wait: bool = False, user: bool = False) -> bool:
         """
         If maximized or minimized, restores the window to it's normal size
 
         :param wait: set to ''True'' to confirm action requested (in a reasonable time)
-        :param user: ''True'' indicates a direct user request, as required by some WMs to comply.
+        :param user: ignored on Windows platform
         :return: ''True'' if window restored
         """
-        self.activate(wait=wait, user=user)
-        if self.isMaximized:
-            EWMH.setWmState(self._hWnd, ACTION_UNSET, STATE_MAX_VERT, STATE_MAX_HORZ)
-            EWMH.display.flush()
+        if self.isMinimized:
+            # self._windowWrapper.sendMessage(WM_CHANGE_STATE, [Xlib.Xutil.NormalState])
+            self.activate()
+        elif self.isMaximized:
+            self._windowWrapper.setWmState(ACTION_UNSET, STATE_MAX_VERT, STATE_MAX_HORZ)
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and (self.isMaximized or self.isMinimized):
             retries += 1
             time.sleep(WAIT_DELAY * retries)
-        return not self.isMaximized and not self.isMinimized
+        return bool(not self.isMaximized and not self.isMinimized)
 
     def show(self, wait: bool = False) -> bool:
         """
@@ -580,11 +428,7 @@ class LinuxWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window showed
         """
-        win = DISP.create_resource_object('window', self._hWnd.id)
-        win.map()
-        DISP.flush()
-        win.map_sub_windows()
-        DISP.flush()
+        self._windowWrapper.show()
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and not self._isMapped:
             retries += 1
@@ -598,18 +442,14 @@ class LinuxWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window hidden
         """
-        win = DISP.create_resource_object('window', self._hWnd.id)
-        win.unmap_sub_windows()
-        DISP.flush()
-        win.unmap()
-        DISP.flush()
+        self._windowWrapper.hide()
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and self._isMapped:
             retries += 1
             time.sleep(WAIT_DELAY * retries)
         return not self._isMapped
 
-    def activate(self, wait: bool = False, user: bool = True) -> bool:
+    def activate(self, wait: bool = False, user: bool = False, ) -> bool:
         """
         Activate this window and make it the foreground (focused) window
 
@@ -618,21 +458,18 @@ class LinuxWindow(BaseWindow):
         :return: ''True'' if window activated
         """
         if "arm" in platform.platform():
-            EWMH.setWmState(self._hWnd, ACTION_UNSET, STATE_BELOW, STATE_NULL)
-            EWMH.display.flush()
-            EWMH.setWmState(self._hWnd, ACTION_SET, STATE_ABOVE, STATE_FOCUSED)
+            self._windowWrapper.setWmState(ACTION_UNSET, STATE_BELOW, STATE_NULL)
+            self._windowWrapper.setWmState(ACTION_SET, STATE_ABOVE, STATE_FOCUSED)
         else:
-            # https://specifications.freedesktop.org/wm-spec/wm-spec-latest.html#sourceindication
-            source = 2 if user else 1
-            EWMH._setProperty('_NET_ACTIVE_WINDOW',  # noqa : W0212
-                              [source, Xlib.X.CurrentTime, self._hWnd.id],
-                              self._hWnd)
-        EWMH.display.flush()
+            # This was not working as expected in Unity
+            # Thanks to MestreLion (https://github.com/MestreLion) for his solution!!!!
+            sourceInd = 2 if user else 1
+            self._windowWrapper.sendMessage(ACTIVE_WINDOW, [sourceInd, Xlib.X.CurrentTime, self._hWnd])
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and not self.isActive:
             retries += 1
             time.sleep(WAIT_DELAY * retries)
-        return self.isActive
+        return bool(self.isActive)
 
     def resize(self, widthOffset: int, heightOffset: int, wait: bool = False):
         """
@@ -652,8 +489,7 @@ class LinuxWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
-        EWMH.setMoveResizeWindow(self._hWnd, x=int(self.left), y=int(self.top), w=newWidth, h=newHeight)
-        EWMH.display.flush()
+        self._windowWrapper.setMoveResize(x=self.left, y=self.top, width=newWidth, height=newHeight)
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and (self.width != newWidth or self.height != newHeight):
             retries += 1
@@ -667,7 +503,7 @@ class LinuxWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
-        newLeft = max(0, self.left + xOffset)  # Xlib/EWMH won't accept negative positions
+        newLeft = max(0, self.left + xOffset)  # Xlib won't accept negative positions
         newTop = max(0, self.top + yOffset)
         return self.moveTo(int(newLeft), int(newTop), wait)
 
@@ -680,10 +516,9 @@ class LinuxWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
-        newLeft = max(0, newLeft)  # Xlib/EWMH won't accept negative positions
+        newLeft = max(0, newLeft)  # Xlib won't accept negative positions
         newTop = max(0, newTop)
-        EWMH.setMoveResizeWindow(self._hWnd, x=newLeft, y=newTop, w=int(self.width), h=int(self.height))
-        EWMH.display.flush()
+        self._windowWrapper.setMoveResize(x=newLeft, y=newTop, width=self.width, height=self.height)
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and (self.left != newLeft or self.top != newTop):
             retries += 1
@@ -691,10 +526,9 @@ class LinuxWindow(BaseWindow):
         return self.left == newLeft and self.top == newTop
 
     def _moveResizeTo(self, newLeft: int, newTop: int, newWidth: int, newHeight: int):
-        newLeft = max(0, newLeft)  # Xlib/EWMH won't accept negative positions
+        newLeft = max(0, newLeft)  # Xlib won't accept negative positions
         newTop = max(0, newTop)
-        EWMH.setMoveResizeWindow(self._hWnd, x=newLeft, y=newTop, w=newWidth, h=newHeight)
-        EWMH.display.flush()
+        self._windowWrapper.setMoveResize(x=newLeft, y=newTop, width=newWidth, height=newHeight)
         return newLeft == self.left and newTop == self.top and newWidth == self.width and newHeight == self.height
 
     def alwaysOnTop(self, aot: bool = True) -> bool:
@@ -705,9 +539,8 @@ class LinuxWindow(BaseWindow):
         :return: ''True'' if command succeeded
         """
         action = ACTION_SET if aot else ACTION_UNSET
-        EWMH.setWmState(self._hWnd, action, STATE_ABOVE)
-        EWMH.display.flush()
-        return STATE_ABOVE in EWMH.getWmState(self._hWnd, str=True)
+        self._windowWrapper.setWmState(action, STATE_ABOVE)
+        return STATE_ABOVE in self._windowWrapper.getWmState()
 
     def alwaysOnBottom(self, aob: bool = True) -> bool:
         """
@@ -717,9 +550,8 @@ class LinuxWindow(BaseWindow):
         :return: ''True'' if command succeeded
         """
         action = ACTION_SET if aob else ACTION_UNSET
-        EWMH.setWmState(self._hWnd, action, STATE_BELOW)
-        EWMH.display.flush()
-        return STATE_BELOW in EWMH.getWmState(self._hWnd, str=True)
+        self._windowWrapper.setWmState(action, STATE_BELOW)
+        return STATE_BELOW in self._windowWrapper.getWmState()
 
     def lowerWindow(self) -> bool:
         """
@@ -727,10 +559,8 @@ class LinuxWindow(BaseWindow):
 
         :return: ''True'' if window lowered
         """
-        w = DISP.create_resource_object('window', self._hWnd.id)
-        w.configure(stack_mode=Xlib.X.Below)
-        DISP.flush()
-        windows = EWMH.getClientListStacking()
+        self._windowWrapper.setStacking(stack_mode=Xlib.X.Below)
+        windows = [w for w in _getWindowListStacking()]
         return bool(windows and self._hWnd == windows[-1])
 
     def raiseWindow(self) -> bool:
@@ -739,10 +569,8 @@ class LinuxWindow(BaseWindow):
 
         :return: ''True'' if window raised
         """
-        w = DISP.create_resource_object('window', self._hWnd.id)
-        w.configure(stack_mode=Xlib.X.Above)
-        DISP.flush()
-        windows = EWMH.getClientListStacking()
+        self._windowWrapper.setStacking(stack_mode=Xlib.X.Above)
+        windows = [w for w in _getWindowListStacking()]
         return bool(windows and self._hWnd == windows[0])
 
     def sendBehind(self, sb: bool = True) -> bool:
@@ -757,67 +585,43 @@ class LinuxWindow(BaseWindow):
         Notes:
             - On GNOME it will obscure desktop icons... by the moment
         """
-        if sb and WINDOW_DESKTOP not in EWMH.getWmWindowType(self._hWnd, str=True):
+        if sb and WINDOW_DESKTOP not in self._windowWrapper.getWmWindowType():
             # https://stackoverflow.com/questions/58885803/can-i-use-net-wm-window-type-dock-ewhm-extension-in-openbox
 
             # This sends window below all others, but not behind the desktop icons
-            win = DISP.create_resource_object('window', self._hWnd.id)
-            win.unmap()
-            win.change_property(DISP.intern_atom(WM_WINDOW_TYPE, False), Xlib.Xatom.ATOM,
-                              32, [DISP.intern_atom(WINDOW_DESKTOP, False), ],
-                              Xlib.X.PropModeReplace)
-            DISP.flush()
-            win.map()
-
+            self._windowWrapper.setWmType(WINDOW_DESKTOP)
             # This will try to raise the desktop icons layer on top of the window
             # Ubuntu: "@!0,0;BDHF" is the new desktop icons NG extension on Ubuntu
             # Mint: "Desktop" name is language-dependent. Using its class instead
             # TODO: Test / find in other OS
             desktop = _xlibGetAllWindows(title="@!0,0;BDHF", klass=('nemo-desktop', 'Nemo-desktop'))
             # if not desktop:
-            #     for win in EWMH.getClientListStacking():  --> Should _xlibGetWindows() be used instead?
-            #         state = EWMH.getWmState(win)
-            #         winType = EWMH.getWmWindowType(win)
+            #     for win in _getRooTPropertty(ROOT, WINDOW_LIST_STACKING):  --> Should _xlibGetWindows() be used instead?
+            #         state = _getWmState(win)
+            #         winType = _getWmWindowType(win)
             #         if STATE_SKIP_PAGER in state and STATE_SKIP_TASKBAR in state and WINDOW_DESKTOP in winType:
             #             desktop.append(win)
+            dsp = Xlib.display.Display()
             for d in desktop:
-                win = DISP.create_resource_object('window', d.id)
-                win.raise_window()
+                w: Window = dsp.create_resource_object('window', d.id)
+                w.raise_window()
+            dsp.close()
+            return WINDOW_DESKTOP in self._windowWrapper.getWmWindowType()
 
-            return WINDOW_DESKTOP in EWMH.getWmWindowType(self._hWnd, str=True)
         else:
-            win = DISP.create_resource_object('window', self._hWnd.id)
             pos = self.topleft
-            win.unmap()
-            win.change_property(DISP.intern_atom(WM_WINDOW_TYPE, False), Xlib.Xatom.ATOM,
-                              32, [DISP.intern_atom(WINDOW_NORMAL, False), ],
-                              Xlib.X.PropModeReplace)
-            DISP.flush()
-            win.change_property(DISP.intern_atom(WM_STATE, False), Xlib.Xatom.ATOM,
-                              32, [DISP.intern_atom(STATE_FOCUSED, False), ],
-                              Xlib.X.PropModeAppend)
-            DISP.flush()
-            win.map()
-            EWMH.setActiveWindow(self._hWnd)
-            EWMH.display.flush()
+            self._windowWrapper.setWmType(WINDOW_NORMAL)
+            self.activate(user=True)
             self.moveTo(pos.x, pos.y)
-            return WINDOW_NORMAL in EWMH.getWmWindowType(self._hWnd, str=True) and self.isActive
+            return WINDOW_NORMAL in self._windowWrapper.getWmWindowType() and self.isActive
 
-    def acceptInput(self, setTo: bool) -> None:
+    def acceptInput(self, setTo: bool = True) -> None:
         """Toggles the window transparent to input and focus
 
         :param setTo: True/False to toggle window transparent to input and focus
         :return: None
         """
-        if setTo:
-            mask = Xlib.X.SubstructureRedirectMask | Xlib.X.SubstructureNotifyMask | Xlib.X.EnableAccess
-        else:
-            mask = Xlib.X.SubstructureRedirectMask | Xlib.X.SubstructureNotifyMask | Xlib.X.DisableAccess
-        prop = DISP.intern_atom(WM_CHANGE_STATE, False)
-        data = (32, [Xlib.Xutil.VisualScreenMask, 0, 0, 0, 0])  # it seems to work with any atom (like Xlib.Xutil.IconicState)
-        ev = Xlib.protocol.event.ClientMessage(window=self._hWnd.id, client_type=prop, data=data)
-        # TODO: Xlib stubs need to be updated to accept xobjects in structs/Requests, not just ids
-        DISP.send_event(destination=ROOT, event=ev, event_mask=mask)  # type: ignore[call-overload]
+        self._windowWrapper.setAcceptInput(setTo)
 
     def getAppName(self) -> str:
         """
@@ -825,21 +629,17 @@ class LinuxWindow(BaseWindow):
 
         :return: name of the app as string
         """
-        # https://stackoverflow.com/questions/32295395/how-to-get-the-process-name-by-pid-in-linux-using-python
-        try:
-            pid: int | None = EWMH.getWmPid(self._hWnd)
-        # Workaround a bug in ewmh. Fixed upstream but never released
-        # See https://github.com/parkouss/pyewmh/commit/acd58697
-        except TypeError:
-            return ""
-
-        # if the above fix is ever released, EWMH.getWmPid() might return None
-        if pid is None:
-            return ""
-
-        with subprocess.Popen(f"ps -q {pid} -o comm=", shell=True, stdout=subprocess.PIPE) as p:
-            stdout, stderr = p.communicate()
-        return stdout.decode(encoding="utf8").replace("\n", "")
+        pids = self._windowWrapper.getProperty(WM_PID)
+        pid = 0
+        if pids:
+            pid = pids[0]
+        if pid != 0:
+            with subprocess.Popen(f"ps -q {pid} -o comm=", shell=True, stdout=subprocess.PIPE) as p:
+                stdout, stderr = p.communicate()
+            name = stdout.decode(encoding="utf8").replace("\n", "")
+        else:
+            name = ""
+        return name
 
     def getParent(self) -> Window:
         """
@@ -847,7 +647,18 @@ class LinuxWindow(BaseWindow):
 
         :return: handle of the window parent
         """
-        return self._hWnd.query_tree().parent  # type: ignore[no-any-return]
+        return self._windowWrapper.query_tree().parent  # type: ignore[no-any-return]
+
+    def setParent(self, parent) -> bool:
+        """
+        Current window will become child of given parent
+        WARNIG: Not implemented in AppleScript (not possible in macOS for foreign (other apps') windows)
+
+        :param parent: window to set as current window parent
+        :return: ''True'' if current window is now child of given parent
+        """
+        self._windowObject.reparent(parent, 0, 0)
+        return bool(self.isChild(parent))
 
     def getChildren(self) -> list[int]:
         """
@@ -855,10 +666,9 @@ class LinuxWindow(BaseWindow):
 
         :return: list of handles
         """
-        w = DISP.create_resource_object('window', self._hWnd.id)
-        return w.query_tree().children  # type: ignore[no-any-return]
+        return self._windowWrapper.query_tree().children  # type: ignore[no-any-return]
 
-    def getHandle(self):
+    def getHandle(self) -> int:
         """
         Get the current window handle
 
@@ -873,7 +683,7 @@ class LinuxWindow(BaseWindow):
         ----
             ''child'' handle of the window you want to check if the current window is parent of
         """
-        return child.query_tree().parent == self._hWnd  # type: ignore[no-any-return]
+        return bool(child.query_tree().parent.id == self._hWnd)  # type: ignore[no-any-return]
     isParentOf = isParent  # isParentOf is an alias of isParent method
 
     def isChild(self, parent: Window):
@@ -883,7 +693,7 @@ class LinuxWindow(BaseWindow):
         :param parent: handle of the window/app you want to check if the current window is child of
         :return: ''True'' if current window is child of the given window
         """
-        return parent == self.getParent()
+        return bool(parent.id == self.getParent().id)
     isChildOf = isChild  # isChildOf is an alias of isParent method
 
     def getDisplay(self):
@@ -907,8 +717,8 @@ class LinuxWindow(BaseWindow):
 
         :return: ``True`` if the window is minimized
         """
-        state = EWMH.getWmState(self._hWnd, str=True)
-        return STATE_HIDDEN in state
+        state = self._windowWrapper.getWmState()
+        return bool(STATE_HIDDEN in state)
 
     @property
     def isMaximized(self) -> bool:
@@ -917,18 +727,18 @@ class LinuxWindow(BaseWindow):
 
         :return: ``True`` if the window is maximized
         """
-        state = EWMH.getWmState(self._hWnd, str=True)
-        return STATE_MAX_VERT in state and STATE_MAX_HORZ in state
+        state = self._windowWrapper.getWmState()
+        return bool(STATE_MAX_VERT in state and STATE_MAX_HORZ in state)
 
     @property
-    def isActive(self) -> bool:
+    def isActive(self):
         """
         Check if current window is currently the active, foreground window
 
         :return: ``True`` if the window is the active, foreground window
         """
-        win = EWMH.getActiveWindow()
-        return bool(win == self._hWnd)
+        win = getActiveWindow()
+        return bool(win and win.getHandle() == self._hWnd)
 
     @property
     def title(self) -> str:
@@ -937,7 +747,7 @@ class LinuxWindow(BaseWindow):
 
         :return: title as a string
         """
-        name = EWMH.getWmName(self._hWnd)
+        name: str | bytes = self._windowWrapper.getWmName()
         if isinstance(name, bytes):
             name = name.decode()
         return name
@@ -949,11 +759,11 @@ class LinuxWindow(BaseWindow):
 
         :return: ``True`` if the window is currently visible
         """
-        win = DISP.create_resource_object('window', self._hWnd.id)
-        state = win.get_attributes().map_state
-        return state == Xlib.X.IsViewable  # type: ignore[no-any-return]
+        attr = self._windowWrapper.getAttributes()
+        state = attr.map_state
+        return bool(state == Xlib.X.IsViewable)  # type: ignore[no-any-return]
 
-    isVisible = visible  # isVisible is an alias for the visible property.
+    isVisible: bool = cast(bool, visible)  # isVisible is an alias for the visible property.
 
     @property
     def isAlive(self) -> bool:
@@ -963,179 +773,513 @@ class LinuxWindow(BaseWindow):
         :return: ''True'' if window exists
         """
         try:
-            win = DISP.create_resource_object('window', self._hWnd.id)
-            state = win.get_attributes().map_state
+            _ = self._windowWrapper.getAttributes().map_state
         except Xlib.error.BadWindow:
             return False
         else:
             return True
 
     @property
+    def isAlerting(self) -> bool:
+        """Check if window is flashing/bouncing/demanding attetion on taskbar while demanding user attention
+
+        :return:  ''True'' if window is demanding attention
+        """
+        return bool(STATE_ATTENTION in self._windowWrapper.getWmState())
+
+    @property
     def _isMapped(self) -> bool:
         # Returns ``True`` if the window is currently mapped
-        win = DISP.create_resource_object('window', self._hWnd.id)
-        state = win.get_attributes().map_state
-        return state != Xlib.X.IsUnmapped  # type: ignore[no-any-return]
+        state: int = self._windowWrapper.getAttributes().map_state
+        return bool(state != Xlib.X.IsUnmapped)
 
-    class _WatchDog:
-        """
-        Set a watchdog, in a separate Thread, to be notified when some window states change
 
-        Notice that changes will be notified according to the window status at the very moment of instantiating this class
+class _XWindowWrapper:
 
-        IMPORTANT: This can be extremely slow in macOS Apple Script version
+    def __init__(self, win: str | int | Window = None, display: Xlib.display.Display = None, root: Window = None):
 
-         Available methods:
-        :meth start: Initialize and start watchdog and selected callbacks
-        :meth updateCallbacks: Change the states this watchdog is hooked to
-        :meth updateInterval: Change the interval to check changes
-        :meth kill: Stop the entire watchdog and all its hooks
-        :meth isAlive: Check if watchdog is running
-        """
-        def __init__(self, parent: LinuxWindow):
-            self._watchdog = None
-            self._parent = parent
+        if not display:
+            display = Xlib.display.Display()
+        self.display = display
 
-        def start(
-            self,
-            isAliveCB: Callable[[bool], None] | None = None,
-            isActiveCB: Callable[[bool], None] | None = None,
-            isVisibleCB: Callable[[bool], None] | None = None,
-            isMinimizedCB: Callable[[bool], None] | None = None,
-            isMaximizedCB: Callable[[bool], None] | None = None,
-            resizedCB: Callable[[tuple[float, float]], None] | None = None,
-            movedCB: Callable[[tuple[float, float]], None] | None = None,
-            changedTitleCB: Callable[[str], None] | None = None,
-            changedDisplayCB: Callable[[str], None] | None = None,
-            interval: float = 0.3
-        ):
-            """
-            Initialize and start watchdog and hooks (callbacks to be invoked when desired window states change)
+        if not root:
+            root = self.display.screen().root
+        self.root = root
+        self.rid = self.root.id
+        self.xlib = None
 
-            Notice that changes will be notified according to the window status at the very moment of execute start()
+        if not win:
+            win = self.display.create_resource_object('window', self.rid)
+        elif isinstance(win, int):
+            win = self.display.create_resource_object('window', win)
+        elif isinstance(win, str):
+            win = display.create_resource_object('window', int(win, base=16))
+        self.win: Window = win
+        assert isinstance(self.win, Window)
+        self.id = self.win.id
+        # self._saveWindowInitValues()  # Store initial Window parameters to allow reset and other actions
+        self.transientWindow: _XWindowWrapper | None = None
+        self.keepCheckin: bool = False
 
-            The watchdog is asynchronous, so notifications will not be immediate (adjust interval value to your needs)
+    def _saveWindowInitValues(self) -> None:
+        # Saves initial rect values to allow reset to original position, size, state and hints.
+        self._init_rect = self.getWindowRect()
+        self._init_state = self.getWmState()
+        self._init_hints = self.win.get_wm_hints()
+        self._init_normal_hints = self.win.get_wm_normal_hints()
+        self._init_attributes = self.getAttributes()  # can't be modified
+        self._init_xAttributes = self.XlibAttributes()
+        self._init_wm_prots = self.win.get_wm_protocols()
+        self._init_states = self.getWmState()
+        self._init_types = self.getWmWindowType()
 
-            The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
+    def renewWindowObject(self) -> _XWindowWrapper:
+        # Not sure if this is necessary.
+        #     - Window object may change (I can't remember in which cases, but it did)
+        #     - It's assuming at least id doesn't change... if it does, well, nothing to do with that window anymore
+        self.display.close()  # -> Is this necessary... and when?
+        self.display = Xlib.display.Display()
+        self.root = self.display.screen().root
+        self.rid = self.root.id
+        self.win = self.display.create_resource_object('window', self.id)
+        return self
 
-            IMPORTANT: This can be extremely slow in macOS Apple Script version
+    def getWindow(self) -> Window:
+        return self.win
 
-            :param isAliveCB: callback to call if window is not alive. Set to None to not to watch this
-                            Returns the new alive status value (False)
-            :param isActiveCB: callback to invoke if window changes its active status. Set to None to not to watch this
-                            Returns the new active status value (True/False)
-            :param isVisibleCB: callback to invoke if window changes its visible status. Set to None to not to watch this
-                            Returns the new visible status value (True/False)
-            :param isMinimizedCB: callback to invoke if window changes its minimized status. Set to None to not to watch this
-                            Returns the new minimized status value (True/False)
-            :param isMaximizedCB: callback to invoke if window changes its maximized status. Set to None to not to watch this
-                            Returns the new maximized status value (True/False)
-            :param resizedCB: callback to invoke if window changes its size. Set to None to not to watch this
-                            Returns the new size (width, height)
-            :param movedCB: callback to invoke if window changes its position. Set to None to not to watch this
-                            Returns the new position (x, y)
-            :param changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
-                            Returns the new title (as string)
-            :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
-                            Returns the new display name (as string)
-            :param interval: set the interval to watch window changes. Default is 0.3 seconds
-            """
-            if self._watchdog is None:
-                self._watchdog = _WinWatchDog(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB,
-                                              isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB,
-                                              interval)
-                self._watchdog.setDaemon(True)
-                self._watchdog.start()
+    def getDisplay(self) -> Xlib.display.Display:
+        return self.display
+
+    def getScreen(self) -> Xlib.protocol.rq.DictWrapper:
+        return cast(Xlib.protocol.rq.DictWrapper, self.display.screen())
+
+    def getRoot(self) -> Window:
+        return self.root
+
+    def getProperty(self, name: str, prop_type: int = Xlib.X.AnyPropertyType) -> list[int]:
+
+        atom: int = self.display.get_atom(name)
+        properties: Xlib.protocol.request.GetProperty = self.win.get_full_property(atom, prop_type)
+        if properties:
+            props: list[int] = properties.value
+            return [p for p in props]
+        return []
+
+    def getWmState(self, text: bool = True) -> list[str] | list[int] | list[Any]:
+
+        states = self.win.get_full_property(self.display.get_atom(WM_STATE, False), Xlib.X.AnyPropertyType)
+        if states:
+            stats: list[int] = states.value
+            if not text:
+                return [s for s in stats]
             else:
-                self._watchdog.restart(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB,
-                                       isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB,
-                                       interval)
+                return [self.display.get_atom_name(s) for s in stats]
+        return []
 
-        def updateCallbacks(
-            self,
-            isAliveCB: Callable[[bool], None] | None = None,
-            isActiveCB: Callable[[bool], None] | None = None,
-            isVisibleCB: Callable[[bool], None] | None = None,
-            isMinimizedCB: Callable[[bool], None] | None = None,
-            isMaximizedCB: Callable[[bool], None] | None = None,
-            resizedCB: Callable[[tuple[float, float]], None] | None = None,
-            movedCB: Callable[[tuple[float, float]], None] | None = None,
-            changedTitleCB: Callable[[str], None] | None = None,
-            changedDisplayCB: Callable[[str], None] | None = None
-        ):
-            """
-            Change the states this watchdog is hooked to
+    def getWmWindowType(self, text: bool = True) -> list[str] | list[int]:
+        types = self.getProperty(WM_WINDOW_TYPE)
+        if not text:
+            return [t for t in types]
+        else:
+            return [self.display.get_atom_name(t) for t in types]
 
-            The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
+    def sendMessage(self, prop: str | int, data: list[int]):
 
-            IMPORTANT: When updating callbacks, remember to set ALL desired callbacks or they will be deactivated
+        if isinstance(prop, str):
+            prop = self.display.get_atom(prop)
 
-            IMPORTANT: Remember to set ALL desired callbacks every time, or they will be defaulted to None (and unhooked)
+        if type(data) is str:
+            dataSize = 8
+        else:
+            data = (data + [0] * (5 - len(data)))[:5]
+            dataSize = 32
 
-            :param isAliveCB: callback to call if window is not alive. Set to None to not to watch this
-                            Returns the new alive status value (False)
-            :param isActiveCB: callback to invoke if window changes its active status. Set to None to not to watch this
-                            Returns the new active status value (True/False)
-            :param isVisibleCB: callback to invoke if window changes its visible status. Set to None to not to watch this
-                            Returns the new visible status value (True/False)
-            :param isMinimizedCB: callback to invoke if window changes its minimized status. Set to None to not to watch this
-                            Returns the new minimized status value (True/False)
-            :param isMaximizedCB: callback to invoke if window changes its maximized status. Set to None to not to watch this
-                            Returns the new maximized status value (True/False)
-            :param resizedCB: callback to invoke if window changes its size. Set to None to not to watch this
-                            Returns the new size (width, height)
-            :param movedCB: callback to invoke if window changes its position. Set to None to not to watch this
-                            Returns the new position (x, y)
-            :param changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
-                            Returns the new title (as string)
-            :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
-                            Returns the new display name (as string)
-            """
-            if self._watchdog:
-                self._watchdog.updateCallbacks(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB,
-                                              resizedCB, movedCB, changedTitleCB, changedDisplayCB)
+        ev = Xlib.protocol.event.ClientMessage(window=self.win, client_type=prop, data=(dataSize, data))
+        mask = Xlib.X.SubstructureRedirectMask | Xlib.X.SubstructureNotifyMask
+        self.display.send_event(destination=self.rid, event=ev, event_mask=mask)
+        self.display.flush()
 
-        def updateInterval(self, interval: float = 0.3):
-            """
-            Change the interval to check changes
+    def setProperty(self, prop: str | int, data: list[int], mode: int = Xlib.X.PropModeReplace):
 
-            :param interval: set the interval to watch window changes. Default is 0.3 seconds
-            """
-            if self._watchdog:
-                self._watchdog.updateInterval(interval)
+        if isinstance(prop, str):
+            prop = self.display.get_atom(prop)
 
-        def setTryToFind(self, tryToFind: bool):
-            """
-            In macOS Apple Script version, if set to ''True'' and in case title changes, watchdog will try to find
-            a similar title within same application to continue monitoring it. It will stop if set to ''False'' or
-            similar title not found.
+        # Format value can be 8, 16 or 32... depending on the content of data
+        format = 32
+        self.win.change_property(prop, Xlib.Xatom.ATOM, format, data, mode)
+        self.display.flush()
 
-            IMPORTANT:
+    def setWmState(self, action: int, state: str | int, state2: str | int = 0):
 
-            - It will have no effect in other platforms (Windows and Linux) and classes (MacOSNSWindow)
-            - This behavior is deactivated by default, so you need to explicitly activate it
+        if isinstance(state, str):
+            state = self.display.get_atom(state, True)
+        if isinstance(state2, str):
+            state2 = self.display.get_atom(state2, True)
+        self.setProperty(WM_STATE, [action, state, state2, 1])
+        self.display.flush()
 
-            :param tryToFind: set to ''True'' to try to find a similar title. Set to ''False'' to deactivate this behavior
-            """
-            pass
+    def setWmType(self, prop: str | int, mode: int = Xlib.X.PropModeReplace):
 
-        def stop(self):
-            """
-            Stop the entire WatchDog and all its hooks
-            """
-            if self._watchdog:
-                self._watchdog.kill()
+        if isinstance(prop, str):
+            prop = self.display.get_atom(prop, False)
 
-        def isAlive(self):
-            """Check if watchdog is running
+        geom = self.win.get_geometry()
+        self.win.unmap()
+        self.setProperty(WM_WINDOW_TYPE, [prop], mode)
+        self.win.map()
+        self.display.flush()
+        self.setMoveResize(x=geom.x, y=geom.y, width=geom.width, height=geom.height)
 
-            :return: ''True'' if watchdog is alive
-            """
+    def setMoveResize(self, x: int, y: int, width: int, height: int):
+        self.win.configure(x=x, y=y, width=width, height=height)
+        self.display.flush()
+
+    def setStacking(self, stack_mode: int):
+        self.win.configure(stack_mode=stack_mode)
+        self.display.flush()
+
+    def hide(self):
+        self.win.unmap_sub_windows()
+        self.display.flush()
+        self.win.unmap()
+        self.display.flush()
+
+    def show(self):
+        self.win.map()
+        self.display.flush()
+        self.win.map_sub_windows()
+        self.display.flush()
+
+    def close(self):
+        self.sendMessage(CLOSE_WINDOW, [])
+
+    def getWmName(self) -> str | None:
+        return self.win.get_wm_name()
+
+    # def _globalEventListener(self, events):
+    #
+    #     from Xlib import X
+    #     from Xlib.ext import record
+    #     from Xlib.display import Display
+    #     from Xlib.protocol import rq
+    #
+    #     def handler(reply):
+    #         data = reply.data
+    #         while len(data):
+    #             event, data = rq.EventField(None).parse_binary_value(data, display.display, None, None)
+    #
+    #             if event.type == X.KeyPress:
+    #                 print('pressed')
+    #             elif event.type == X.KeyRelease:
+    #                 print('released')
+    #
+    #     display = Display()
+    #     context = display.record_create_context(0, [record.AllClients], [{
+    #         'core_requests': (0, 0),
+    #         'core_replies': (0, 0),
+    #         'ext_requests': (0, 0, 0, 0),
+    #         'ext_replies': (0, 0, 0, 0),
+    #         'delivered_events': (0, 0),
+    #         'device_events': (X.KeyReleaseMask, X.ButtonReleaseMask),
+    #         'errors': (0, 0),
+    #         'client_started': False,
+    #         'client_died': False,
+    #     }])
+    #     display.record_enable_context(context, handler)
+    #     display.record_free_context(context)
+    #
+    #     while True:
+    #         display.screen().root.display.next_event()
+
+    def _createTransient(self, parent, d):
+
+        if self.transientWindow is not None:
+            self._closeTransientWindow(d)
+
+        geom = self.win.get_geometry()
+        window = self.xlib.XCreateSimpleWindow(
+            d,
+            self.id,
+            0, 0, geom.width, geom.height,
+            0,
+            0,
+            0
+        )
+        self.xlib.XSelectInput(d, window,
+                               Xlib.X.ButtonPressMask | Xlib.X.ButtonReleaseMask | Xlib.X.KeyPressMask | Xlib.X.KeyReleaseMask)
+        self.xlib.XFlush(d)
+        self.xlib.XMapWindow(d, window)
+        self.xlib.XFlush(d)
+        self.xlib.XSetTransientForHint(d, window, parent)
+        self.xlib.XFlush(d)
+        self.xlib.XRaiseWindow(d, window)
+        self.xlib.XFlush(d)
+        return window
+
+    def _closeTransientWindow(self, d):
+
+        if self.transientWindow is not None:
+            self.transientWindow.win.unmap()
+            self.transientWindow.close()
+            self.xlib.XFlush(d)
+            self.xlib.XClearWindow(d, self.id)
+            self.xlib.XFlush(d)
+            time.sleep(0.1)
+            self.transientWindow = None
+
+    def _checkDisplayEvents(self, events: list[int], keep, d):
+
+        self.keep = keep
+        self.root.change_attributes(event_mask=Xlib.X.PropertyChangeMask | Xlib.X.SubstructureNotifyMask)
+
+        while keep.is_set():
+            if self.root.display.pending_events():
+                event = self.root.display.next_event()
+                try:
+                    child = event.child
+                except:
+                    child = None
+                if self.win in (event.window, child) and event.type in events:
+                    if event.type == Xlib.X.ConfigureNotify:
+                        self.transientWindow = _XWindowWrapper(self._createTransient(self.id, d))
+                        # Should be enough just moving/resizing transient window, but it's not
+                        # self.transientWindow.win.configure(x=0, y=0, width=event.width, height=event.height, stack_mode=Xlib.X.Above)
+                        # xlib.XFlush(d)
+                    elif event.type == Xlib.X.DestroyNotify:
+                        if self.transientWindow is not None:
+                            self.transientWindow.close()
+                            self.transientWindow = None
+                        keep.is_set.clear()
+            time.sleep(0.1)
+
+    def setAcceptInput(self, setTo: bool):
+
+        if self.xlib is None:
+            x11 = find_library('X11')
+            self.xlib = cdll.LoadLibrary(str(x11))
+        d = self.xlib.XOpenDisplay(0)
+        root = self.xlib.XRootWindow(d, self.xlib.XDefaultScreen(d))
+
+        if setTo:
+            if self.transientWindow is not None:
+                self.keep.clear()
+                self.checkThread.join()
+                self._closeTransientWindow(d)
+        else:
+            window = self._createTransient(self.id, d)
+            self.transientWindow = _XWindowWrapper(window)
+            self.keep = threading.Event()
+            self.keep.set()
+            self.checkThread: threading.Thread = threading.Thread(target=self._checkDisplayEvents, args=([Xlib.X.ConfigureNotify, Xlib.X.DestroyNotify], self.keep, d, ))
+            self.checkThread.daemon = True
+            self.checkThread.start()
+
+    def setWmHints(self, hint):
+        # Leaving this as an example
+        # {'flags': 103, 'input': 1, 'initial_state': 1, 'icon_pixmap': <Pixmap 0x02a22304>, 'icon_window': <Window 0x00000000>, 'icon_x': 0, 'icon_y': 0, 'icon_mask': <Pixmap 0x02a2230b>, 'window_group': <Window 0x02a00001>}
+        hints: Xlib.protocol.rq.DictWrapper = self.win.get_wm_hints()
+        if hints:
+            hints.input = 1
+        self.win.set_wm_hints(hints)
+        self.display.flush()
+
+    def addWmProtocol(self, atom):
+        prots = self.win.get_wm_protocols()
+        if atom not in prots:
+            prots.append(atom)
+        self.win.set_wm_protocols(prots)
+        self.display.flush()
+
+    def delWmProtocol(self, atom):
+        prots = self.win.get_wm_protocols()
+        new_prots = [p for p in prots if p != atom]
+        prots = new_prots
+        self.win.set_wm_protocols(prots)
+
+    def getAttributes(self) -> Xlib.protocol.request.GetWindowAttributes:
+        return self.win.get_attributes()
+
+    class _XWindowAttributes(Structure):
+        _fields_ = [('x', c_int32), ('y', c_int32),
+                    ('width', c_int32), ('height', c_int32), ('border_width', c_int32),
+                    ('depth', c_int32), ('visual', c_ulong), ('root', c_ulong),
+                    ('class', c_int32), ('bit_gravity', c_int32),
+                    ('win_gravity', c_int32), ('backing_store', c_int32),
+                    ('backing_planes', c_ulong), ('backing_pixel', c_ulong),
+                    ('save_under', c_int32), ('colourmap', c_ulong),
+                    ('mapinstalled', c_uint32), ('map_state', c_uint32),
+                    ('all_event_masks', c_ulong), ('your_event_mask', c_ulong),
+                    ('do_not_propagate_mask', c_ulong), ('override_redirect', c_int32), ('screen', c_ulong)]
+
+    def XlibAttributes(self) -> tuple[bool, _XWindowWrapper._XWindowAttributes]:
+        attr = _XWindowWrapper._XWindowAttributes()
+        try:
+            if self.xlib is None:
+                x11 = find_library('X11')
+                self.xlib = cdll.LoadLibrary(str(x11))
+            d = self.xlib.XOpenDisplay(0)
+            self.xlib.XGetWindowAttributes(d, self.id, byref(attr))
+            self.xlib.XCloseDisplay(d)
+            resOK = True
+        except:
+            resOK = False
+        return resOK, attr
+
+        # Leaving this as reference of using X11 library
+        # https://github.com/evocount/display-management/blob/c4f58f6653f3457396e44b8c6dc97636b18e8d8a/displaymanagement/rotation.py
+        # https://github.com/nathanlopez/Stitch/blob/master/Configuration/mss/linux.py
+        # https://gist.github.com/ssokolow/e7c9aae63fb7973e4d64cff969a78ae8
+        # https://stackoverflow.com/questions/36188154/get-x11-window-caption-height
+        # https://refspecs.linuxfoundation.org/LSB_1.3.0/gLSB/gLSB/libx11-ddefs.html
+        # s = xlib.XDefaultScreen(d)
+        # root = xlib.XDefaultRootWindow(d)
+        # fg = xlib.XBlackPixel(d, s)
+        # bg = xlib.XWhitePixel(d, s)
+        # w = xlib.XCreateSimpleWindow(d, root, 600, 300, 400, 200, 0, fg, bg)
+        # xlib.XMapWindow(d, w)
+        # time.sleep(4)
+        # a = xlib.XInternAtom(d, "_GTK_FRAME_EXTENTS", True)
+        # if not a:
+        #     a = xlib.XInternAtom(d, "_NET_FRAME_EXTENTS", True)
+        # t = c_int()
+        # f = c_int()
+        # n = c_ulong()
+        # b = c_ulong()
+        # xlib.XGetWindowProperty(d, w, a, 0, 4, False, Xlib.X.AnyPropertyType, byref(t), byref(f), byref(n), byref(b), byref(attr))
+        # r = c_ulong()
+        # x = c_int()
+        # y = c_int()
+        # w = c_uint()
+        # h = c_uint()
+        # b = c_uint()
+        # d = c_uint()
+        # xlib.XGetGeometry(d, hWnd.id, byref(r), byref(x), byref(y), byref(w), byref(h), byref(b), byref(d))
+        # print(x, y, w, h)
+        # Other references (send_event and setProperty):
+        # prop = DISP.intern_atom(WM_CHANGE_STATE, False)
+        # data = (32, [Xlib.Xutil.IconicState, 0, 0, 0, 0])
+        # ev = Xlib.protocol.event.ClientMessage(window=self._hWnd.id, client_type=prop, data=data)
+        # mask = Xlib.X.SubstructureRedirectMask | Xlib.X.SubstructureNotifyMask
+        # DISP.send_event(destination=ROOT, event=ev, event_mask=mask)
+        # data = [Xlib.Xutil.IconicState, 0, 0, 0, 0]
+        # _setProperty(_type="WM_CHANGE_STATE", data=data, mask=mask)
+        # for atom in w.list_properties():
+        #     print(DISP.atom_name(atom))
+        # props = DISP.xrandr_list_output_properties(output)
+        # for atom in props.atoms:
+        #     print(atom, DISP.get_atom_name(atom))
+        #     print(DISP.xrandr_get_output_property(output, atom, 0, 0, 1000)._data['value'])
+
+    def _getBorderSizes(self):
+
+        class App(tk.Tk):
+
+            def __init__(self):
+                super().__init__()
+                self.geometry('0x0+200+200')
+                self.update_idletasks()
+
+                pos = self.geometry().split('+')
+                self.bar_height = self.winfo_rooty() - int(pos[2])
+                self.border_width = self.winfo_rootx() - int(pos[1])
+                self.destroy()
+
+            def getTitlebarHeight(self):
+                return self.bar_height
+
+            def getBorderWidth(self):
+                return self.border_width
+
+        app = App()
+        # app.mainloop()
+        return app.getTitlebarHeight(), app.getBorderWidth()
+
+    def getExtraFrameSize(self, includeBorder: bool = True) -> tuple[int, int, int, int]:
+        """
+        Get the extra space, in pixels, around the window, including or not the border.
+        Notice not all applications/windows will use this property values
+
+        :param includeBorder: set to ''False'' to avoid including borders
+        :return: (left, top, right, bottom) additional frame size in pixels, as a tuple of int
+        """
+        display = self.display
+        prop = "_GTK_FRAME_EXTENTS"
+        atom = display.intern_atom(prop, True)
+        if not atom:
+            prop = "_NET_FRAME_EXTENTS"
+        ret: list[int] = self.getProperty(prop)
+        if not ret: ret = [0, 0, 0, 0]
+        borderWidth = 0
+        if includeBorder:
+            # _, a = self.XlibAttributes()
+            # borderWidth = a.border_width
+            if includeBorder:
+                titleHeight, borderWidth = self._getBorderSizes()
+        frame = (ret[0] + borderWidth, ret[2] + borderWidth, ret[1] + borderWidth, ret[3] + borderWidth)
+        return frame
+
+    def getClientFrame(self) -> Rect:
+        """
+        Get the client area of window including scroll, menu and status bars, as a Rect (x, y, right, bottom)
+        Notice that this method won't match non-standard window decoration sizes
+
+        :return: Rect struct
+        """
+        # res, a = self.XlibAttributes()
+        # if res:
+        #     ret = Rect(a.x, a.y, a.x + a.width, a.y + a.height)
+        # else:
+        #     ret = Rect(self.left, self.top, self.right, self.bottom)
+        # Didn't find a way to get title bar height using Xlib
+        titleHeight, borderWidth = self._getBorderSizes()
+        geom = self.win.get_geometry()
+        ret = Rect(int(geom.left + borderWidth), int(geom.y + titleHeight), int(geom.x + geom.width - borderWidth), int(geom.y + geom.widh - borderWidth))
+        return ret
+
+    def getWindowRect(self) -> Rect:
+        # https://stackoverflow.com/questions/12775136/get-window-position-and-size-in-python-with-xlib - mgalgs
+        win = self.win
+        geom = win.get_geometry()
+        x = geom.x
+        y = geom.y
+        while True:
+            parent = win.query_tree().parent
+            pgeom = parent.get_geometry()
+            x += pgeom.x
+            y += pgeom.y
+            if parent.id == self.rid:
+                break
+            win = parent
+        w = geom.width
+        h = geom.height
+        return Rect(x, y, x + w, y + h)
+
+
+def _xlibGetAllWindows(parent: Window | None = None, title: str = "", klass: tuple[str, str] | None = None) -> list[Window]:
+
+    dsp = Xlib.display.Display()
+    parent = parent or dsp.screen().root
+    allWindows = [parent]
+
+    def findit(hwnd: Window):
+        query = hwnd.query_tree()
+        for child in query.children:
             try:
-                alive = bool(self._watchdog and self._watchdog.is_alive())
+                winTitle = child.get_wm_name()
             except:
-                alive = False
-            return alive
+                winTitle = ""
+            try:
+                winClass = child.get_wm_class()
+            except:
+                winClass = ""
+            if (not title and not klass) or (title and winTitle == title) or (klass and winClass == klass):
+                allWindows.append(child)
+            findit(child)
+
+    findit(parent)
+    dsp.close()
+    return allWindows
+
 
 class _ScreenValue(TypedDict):
     id: int
@@ -1183,59 +1327,73 @@ def getAllScreens():
     """
     # https://stackoverflow.com/questions/8705814/get-display-count-and-resolution-for-each-display-in-python-without-xrandr
     # https://www.x.org/releases/X11R7.7/doc/libX11/libX11/libX11.html#Obtaining_Information_about_the_Display_Image_Formats_or_Screens
-    result: dict[str, _ScreenValue] = {}
-    for i in range(DISP.screen_count()):
-        try:
-            screen = DISP.screen(i)
-            root = screen.root
-        except:
-            continue
 
-        res = root.xrandr_get_screen_resources()
-        modes = res.modes
-        wa = EWMH.getWorkArea() or [0, 0, 0, 0]
-        for output in res.outputs:
-            params = DISP.xrandr_get_output_info(output, res.config_timestamp)
-            crtc = None
+    displays = []
+    try:
+        files = os.listdir("/tmp/.X11-unix")
+    except:
+        files = []
+    for f in files:
+        if f.startswith("X"):
+            displays.append(":"+f[1:])
+    if not displays:
+        displays = [":0"]
+    result: dict[str, _ScreenValue] = {}
+    for display in displays:
+        dsp = Xlib.display.Display(display)
+        for i in range(dsp.screen_count()):
             try:
-                crtc = DISP.xrandr_get_crtc_info(params.crtc, res.config_timestamp)
+                screen = dsp.screen(i)
+                root = screen.root
             except:
                 continue
 
-            if crtc and crtc.mode:  # displays with empty (0) mode seem not to be valid
-                name = params.name
-                if name in result:
-                    name = name + str(i)
-                id = crtc.sequence_number
-                x, y, w, h = crtc.x, crtc.y, crtc.width, crtc.height
-                wx, wy, wr, wb = x + wa[0], y + wa[1], x + w - (screen.width_in_pixels - wa[2] - wa[0]), y + h - (screen.height_in_pixels - wa[3] - wa[1])
-                # check all these values using dpi, mms or other possible values or props
-                dpiX = dpiY = 0
+            res = root.xrandr_get_screen_resources()
+            modes = res.modes
+            wa = root.get_full_property(dsp.get_atom(WORKAREA, True), Xlib.X.AnyPropertyType).value
+            for output in res.outputs:
+                params = dsp.xrandr_get_output_info(output, res.config_timestamp)
+                crtc = None
                 try:
-                    dpiX, dpiY = round(crtc.width * 25.4 / params.mm_width), round(crtc.height * 25.4 / params.mm_height)
+                    crtc = dsp.xrandr_get_crtc_info(params.crtc, res.config_timestamp)
                 except:
-                    dpiX, dpiY = round(w * 25.4 / screen.width_in_mms), round(h * 25.4 / screen.height_in_mms)
-                scaleX, scaleY = round(dpiX / 96 * 100), round(dpiY / 96 * 100)
-                rot = int(math.log(crtc.rotation, 2))
-                freq = 0.0
-                for mode in modes:
-                    if crtc.mode == mode.id:
-                        freq = mode.dot_clock / (mode.h_total * mode.v_total)
-                        break
-                depth = screen.root_depth
+                    continue
 
-                result[name] = {
-                    'id': id,
-                    'is_primary': (x, y) == (0, 0),
-                    'pos': Point(x, y),
-                    'size': Size(w, h),
-                    'workarea': Rect(wx, wy, wr, wb),
-                    'scale': (scaleX, scaleY),
-                    'dpi': (dpiX, dpiY),
-                    'orientation': rot,
-                    'frequency': freq,
-                    'colordepth': depth
-                }
+                if crtc and crtc.mode:  # displays with empty (0) mode seem not to be valid
+                    name = params.name
+                    if name in result:
+                        name = name + str(i)
+                    id = crtc.sequence_number
+                    x, y, w, h = crtc.x, crtc.y, crtc.width, crtc.height
+                    wx, wy, wr, wb = x + wa[0], y + wa[1], x + w - (screen.width_in_pixels - wa[2] - wa[0]), y + h - (screen.height_in_pixels - wa[3] - wa[1])
+                    # check all these values using dpi, mms or other possible values or props
+                    dpiX = dpiY = 0
+                    try:
+                        dpiX, dpiY = round(crtc.width * 25.4 / params.mm_width), round(crtc.height * 25.4 / params.mm_height)
+                    except:
+                        dpiX, dpiY = round(w * 25.4 / screen.width_in_mms), round(h * 25.4 / screen.height_in_mms)
+                    scaleX, scaleY = round(dpiX / 96 * 100), round(dpiY / 96 * 100)
+                    rot = int(math.log(crtc.rotation, 2))
+                    freq = 0.0
+                    for mode in modes:
+                        if crtc.mode == mode.id:
+                            freq = mode.dot_clock / (mode.h_total * mode.v_total)
+                            break
+                    depth = screen.root_depth
+
+                    result[name] = {
+                        'id': id,
+                        'is_primary': (x, y) == (0, 0),
+                        'pos': Point(x, y),
+                        'size': Size(w, h),
+                        'workarea': Rect(wx, wy, wr, wb),
+                        'scale': (scaleX, scaleY),
+                        'dpi': (dpiX, dpiY),
+                        'orientation': rot,
+                        'frequency': freq,
+                        'colordepth': depth
+                    }
+        dsp.close()
     return result
 
 
@@ -1245,7 +1403,9 @@ def getMousePos() -> Point:
 
     :return: Point struct
     """
-    mp = ROOT.query_pointer()
+    dsp = Xlib.display.Display()
+    mp = dsp.screen().root.query_pointer()
+    dsp.close()
     return Point(mp.root_x, mp.root_y)
 cursor = getMousePos  # cursor is an alias for getMousePos
 
