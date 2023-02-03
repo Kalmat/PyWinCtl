@@ -492,22 +492,60 @@ def _getWindowTitles() -> list[list[str]]:
     return result
 
 
-def _getBorderSizes():
-    try:  # This will fail if not called on main thread!
-        a = AppKit.NSApplication.sharedApplication()
-        frame = AppKit.NSMakeRect(400, 800, 250, 100)
-        mask = AppKit.NSWindowStyleMaskTitled | AppKit.NSWindowStyleMaskClosable | AppKit.NSWindowStyleMaskMiniaturizable | AppKit.NSWindowStyleMaskResizable
-        w = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(frame, mask, AppKit.NSBackingStoreBuffered, False)
-        titlebarHeight = int(w.titlebarHeight())
-        borderWidth = int(w.frame().size.width - w.contentRectForFrameRect_(frame).size.width)
-        # w.display()
-        # a.run()
-        # w.setReleasedWhenClosed_(True)  # Method not found (?!)
-        w.close()
-    except:
-        titlebarHeight = 0
-        borderWidth = 0
-    return titlebarHeight, borderWidth
+def _getTitleBarHeightAndBorderWidth() -> tuple[int, int]:
+    cmd = r"""
+    use AppleScript version "2.4" -- Yosemite (10.10) or later
+    use framework "Foundation"
+
+    on run
+        set theResult to {0, 0}
+        tell (current application)
+            my performSelectorOnMainThread:"getTitleBarHeightAndBorderWidth" withObject:0 waitUntilDone:true
+        end tell
+        return theResult
+    end run
+
+    on getTitleBarHeightAndBorderWidth()
+        
+        set |⌘| to current application
+        
+        set theFrameWidth to 250
+        
+        tell (|⌘|'s NSWindow's alloc()'s ¬
+            initWithContentRect:{{400, 800}, {theFrameWidth, 100}} ¬
+                styleMask:(|⌘|'s NSTitledWindowMask) ¬
+                backing:(|⌘|'s NSBackingStoreBuffered) ¬
+                defer:true)
+            set theWindow to it
+            set its releasedWhenClosed to true
+            set its excludedFromWindowsMenu to true
+        end tell
+        
+        set theFrame to theWindow's frame()
+        
+        set theTitleHeight to theWindow's titlebarHeight() as integer
+        
+        set theContentRect to theWindow's contentRectForFrameRect:theFrame
+        
+        set x1 to (|⌘|'s NSMinX(theContentRect)) as integer
+        set x2 to (|⌘|'s NSMaxX(theContentRect)) as integer
+        
+        set theBorderWidth to (theFrameWidth - (x2 - x1)) as integer
+        
+        set my theResult to {theTitleHeight, theBorderWidth}
+        
+        theWindow's |close|()
+        return
+    end getTitleBarHeightAndBorderWidth"""
+    proc = subprocess.Popen(
+        ['osascript'],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, encoding='utf8',
+    )
+    ret, _ = proc.communicate(cmd)
+    values = ret.replace("\n", "").strip().split(", ")
+    return int(values[0]), int(values[1])
 
 
 _ItemInfoValue = TypedDict("_ItemInfoValue", {"value": str, "class": str, "settable": bool})
@@ -586,7 +624,7 @@ class MacOSWindow(BaseWindow):
         """
         # https://www.macscripter.net/viewtopic.php?id=46336 --> Won't allow access to NSWindow objects, but interesting
         # Didn't find a way to get menu bar height using Apple Script
-        titleHeight, borderWidth = _getBorderSizes()
+        titleHeight, borderWidth = _getTitleBarHeightAndBorderWidth()
         res = Rect(int(self.left + borderWidth), int(self.top + titleHeight), int(self.right - borderWidth), int(self.bottom - borderWidth))
         return res
 
