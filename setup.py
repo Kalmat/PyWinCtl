@@ -37,7 +37,7 @@ setup(
     install_requires=[
         "PyRect>=0.2",
         "pywin32>=302; sys_platform == 'win32'",
-        "pywinauto>=0.6.8; sys_platform == 'win32'",
+        # "pywinauto>=0.6.8; sys_platform == 'win32'",
         "xlib>=0.21; sys_platform == 'linux'",
         "pyobjc>=8.1; sys_platform == 'darwin'"
     ],

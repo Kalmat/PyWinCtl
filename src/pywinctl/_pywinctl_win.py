@@ -30,7 +30,6 @@ import win32con
 import win32api
 import win32gui
 
-import pywinauto
 from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
@@ -892,95 +891,94 @@ class Win32Window(BaseWindow):
         """
         return bool(win32gui.IsWindow(self._hWnd) != 0)
 
-    @property
-    def isAlerting(self) -> bool:
-
-        def _getFileDescription(hWnd: int) -> str:
-            # https://stackoverflow.com/questions/31118877/get-application-name-from-exe-file-in-python
-
-            _: int = 0
-            pid: int = 0
-            _, pid = win32process.GetWindowThreadProcessId(hWnd)
-            hProc: int = win32api.OpenProcess(win32con.PROCESS_QUERY_INFORMATION | win32con.PROCESS_VM_READ, 0, pid)
-            exeName: str = win32process.GetModuleFileNameEx(hProc, 0)  # pyright: ignore[reportUnknownMemberType]
-
-            description: str = "unknown"
-            try:
-                res: list[tuple[int, int]] = win32api.GetFileVersionInfo(exeName, '\\VarFileInfo\\Translation')  # type: ignore[func-returns-value]
-                if res:
-                    ret: tuple[int, int] = res[0]
-                    language, codepage = ret
-                    stringFileInfo: str = u'\\StringFileInfo\\%04X%04X\\%s' % (language, codepage, "FileDescription")
-                    desc: str = win32api.GetFileVersionInfo(exeName, stringFileInfo)  # type: ignore[func-returns-value]
-                    if desc:
-                        description = desc
-            except:
-                pass
-            return description
-
-        def _find_taskbar_icon() -> None | Rect:
-
-            exStyle: int = win32api.GetWindowLong(self._hWnd, win32con.GWL_EXSTYLE)
-            owner: int = win32gui.GetWindow(self._hWnd, win32con.GW_OWNER)
-            if exStyle & win32con.WS_EX_APPWINDOW != 0 or owner != 0:
-                return None
-
-            name: str = _getFileDescription(self._hWnd)
-
-            try:
-
-                # app: pywinauto.Application = pywinauto.application.Application().connect(path="explorer")
-                # sysTray: pywinauto.application.WindowSpecification = app.ShellTrayWnd.TaskBar
-                app: pywinauto.Application = pywinauto.Application(backend="uia").connect(path="explorer.exe")
-                sysTray: pywinauto.WindowSpecification = app.window(class_name="Shell_TrayWnd")
-                w: pywinauto.WindowSpecification = sysTray.child_window(title_re=name, found_index=0)
-                ret: Rect = w.rectangle()
-                return Rect(ret.left, ret.top, ret.right, ret.bottom)
-            except:
-                return None
-
-        def _intToRGBA(color: int) -> tuple[int, int, int, int]:
-            r: int = color & 255
-            g: int = (color >> 8) & 255
-            b: int = (color >> 16) & 255
-            a: int = 255
-            if color > _intfromRGBA((255, 255, 255, 0)):
-                a = (color >> 24) & 255
-            return r, g, b, a
-
-        def _intfromRGBA(rgba):
-            r = rgba[0]
-            g = rgba[1]
-            b = rgba[2]
-            a = rgba[3]
-            RGBint = (a << 24) + (r << 16) + (g << 8) + b
-            return RGBint
-
-        iconRect: Rect = _find_taskbar_icon()
-        if iconRect:
-
-            xPos: int = iconRect.left + int((iconRect.right - iconRect.left) / 2)
-            color: int = 0
-            desktop: int = win32gui.GetDesktopWindow()
-            dc = win32gui.GetWindowDC(desktop)
-            for i in range(50, 54):
-                color += win32gui.GetPixel(dc, xPos, iconRect.top + i)
-            win32gui.ReleaseDC(desktop, dc)
-            # Not sure if GetSysColor returns colors from taskbar and which value to use to query
-            # flashColor = win32gui.GetSysColor(win32con.COLOR_BTNHIGHLIGHT)
-            # This color is the highlight color for windows, titles and other elements, not the one we seek
-            # pcrColorization = wintypes.DWORD()
-            # pfOpaqueBlend = wintypes.BOOL()
-            # ctypes.windll.dwmapi.DwmGetColorizationColor(ctypes.byref(pcrColorization), ctypes.byref(pfOpaqueBlend))
-            # flashColor = pcrColorization.value
-            flashColor = 10787327  # This value (255, 153, 164) is totally empirical. Find a way to retrieve it!!!!
-
-            if color / 4 == flashColor:
-                return True
-            else:
-                return False
-        else:
-            return False
+    # @property
+    # def isAlerting(self) -> bool:
+    #     import pywinauto
+    #     def _getFileDescription(hWnd: int) -> str:
+    #         # https://stackoverflow.com/questions/31118877/get-application-name-from-exe-file-in-python
+    #
+    #         _: int = 0
+    #         pid: int = 0
+    #         _, pid = win32process.GetWindowThreadProcessId(hWnd)
+    #         hProc: int = win32api.OpenProcess(win32con.PROCESS_QUERY_INFORMATION | win32con.PROCESS_VM_READ, 0, pid)
+    #         exeName: str = win32process.GetModuleFileNameEx(hProc, 0)  # pyright: ignore[reportUnknownMemberType]
+    #
+    #         description: str = "unknown"
+    #         try:
+    #             res: list[tuple[int, int]] = win32api.GetFileVersionInfo(exeName, '\\VarFileInfo\\Translation')  # type: ignore[func-returns-value]
+    #             if res:
+    #                 ret: tuple[int, int] = res[0]
+    #                 language, codepage = ret
+    #                 stringFileInfo: str = u'\\StringFileInfo\\%04X%04X\\%s' % (language, codepage, "FileDescription")
+    #                 desc: str = win32api.GetFileVersionInfo(exeName, stringFileInfo)  # type: ignore[func-returns-value]
+    #                 if desc:
+    #                     description = desc
+    #         except:
+    #             pass
+    #         return description
+    #
+    #     def _find_taskbar_icon() -> None | Rect:
+    #
+    #         exStyle: int = win32api.GetWindowLong(self._hWnd, win32con.GWL_EXSTYLE)
+    #         owner: int = win32gui.GetWindow(self._hWnd, win32con.GW_OWNER)
+    #         if exStyle & win32con.WS_EX_APPWINDOW != 0 or owner != 0:
+    #             return None
+    #
+    #         name: str = _getFileDescription(self._hWnd)
+    #
+    #         try:
+    #             # app: pywinauto.Application = pywinauto.application.Application().connect(path="explorer")
+    #             # sysTray: pywinauto.application.WindowSpecification = app.ShellTrayWnd.TaskBar
+    #             app: pywinauto.Application = pywinauto.Application(backend="uia").connect(path="explorer.exe")
+    #             sysTray: pywinauto.WindowSpecification = app.window(class_name="Shell_TrayWnd")
+    #             w: pywinauto.WindowSpecification = sysTray.child_window(title_re=name, found_index=0)
+    #             ret: Rect = w.rectangle()
+    #             return Rect(ret.left, ret.top, ret.right, ret.bottom)
+    #         except:
+    #             return None
+    #
+    #     def _intToRGBA(color: int) -> tuple[int, int, int, int]:
+    #         r: int = color & 255
+    #         g: int = (color >> 8) & 255
+    #         b: int = (color >> 16) & 255
+    #         a: int = 255
+    #         if color > _intfromRGBA((255, 255, 255, 0)):
+    #             a = (color >> 24) & 255
+    #         return r, g, b, a
+    #
+    #     def _intfromRGBA(rgba):
+    #         r = rgba[0]
+    #         g = rgba[1]
+    #         b = rgba[2]
+    #         a = rgba[3]
+    #         RGBint = (a << 24) + (r << 16) + (g << 8) + b
+    #         return RGBint
+    #
+    #     iconRect: Rect = _find_taskbar_icon()
+    #     if iconRect:
+    #
+    #         xPos: int = iconRect.left + int((iconRect.right - iconRect.left) / 2)
+    #         color: int = 0
+    #         desktop: int = win32gui.GetDesktopWindow()
+    #         dc = win32gui.GetWindowDC(desktop)
+    #         for i in range(50, 54):
+    #             color += win32gui.GetPixel(dc, xPos, iconRect.top + i)
+    #         win32gui.ReleaseDC(desktop, dc)
+    #         # Not sure if GetSysColor returns colors from taskbar and which value to use to query
+    #         # flashColor = win32gui.GetSysColor(win32con.COLOR_BTNHIGHLIGHT)
+    #         # This color is the highlight color for windows, titles and other elements, not the one we seek
+    #         # pcrColorization = wintypes.DWORD()
+    #         # pfOpaqueBlend = wintypes.BOOL()
+    #         # ctypes.windll.dwmapi.DwmGetColorizationColor(ctypes.byref(pcrColorization), ctypes.byref(pfOpaqueBlend))
+    #         # flashColor = pcrColorization.value
+    #         flashColor = 10787327  # This value (255, 153, 164) is totally empirical. Find a way to retrieve it!!!!
+    #
+    #         if color / 4 == flashColor:
+    #             return True
+    #         else:
+    #             return False
+    #     else:
+    #         return False
 
     class _Menu:
 
@@ -992,7 +990,6 @@ class Win32Window(BaseWindow):
             self._sep = "|&|"
 
         def getMenu(self, addItemInfo: bool = False):
-
             """
             Loads and returns Menu options, sub-menus and related information, as dictionary.
 

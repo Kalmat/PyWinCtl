@@ -1,8 +1,12 @@
 Linux:
 - Test other combinations (especially for sendBehind()). Tested OK: Ubuntu/GNOME and Mint/Cinnamon
+- acceptInput()
+    - Test in all cases:  moving, resizing, remap, close, ...
+    - Find a way to match python-xlib and Xlib display
+    - Find a smarter (xlib or similar) way to get title bar height
 
 Windows:
-- win32gui.GetMenu() not working in Windows 11 (?!?!?!?!): check github site and find/open issue
+- win32gui.GetMenu() not working in Windows 11 (?!?!?!?!)
 - isAlerting
       - Find a way to retrieve the size and position of the taskbar icons (now using pywinauto)
       - Find a way to retrieve the alerting color
@@ -31,10 +35,11 @@ macOS / AppleScript:
 - alwaysOnBottom(): Try to find other smarter methods to keep window at the bottom (now it's a thread)
 - sendBehind(): Is it even possible???
 - acceptInput(): Is it even possible???
+- isAlerting(): Is it even possible???
 
 macOS / NSWindow:
-- Check acceptInput() (not sure if it really works now)
-- Find a way to detect if the icon is bouncing in dock
+- acceptInput(): check (not sure if it really works now)
+- isAlerting: Find a way to detect if the icon is bouncing in dock
 
 General:
 - [Type_check] PyRect: Create type stubs or add to base library

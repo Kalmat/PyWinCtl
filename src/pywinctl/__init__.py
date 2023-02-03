@@ -396,10 +396,10 @@ class BaseWindow(ABC):
     def isAlive(self) -> bool:
         raise NotImplementedError
 
-    @property
-    @abstractmethod
-    def isAlerting(self) -> bool:
-        raise NotImplementedError
+    # @property
+    # @abstractmethod
+    # def isAlerting(self) -> bool:
+    #     raise NotImplementedError
 
     # Wrappers for pyrect.Rect object's properties:
     @property
@@ -585,7 +585,7 @@ class BaseWindow(ABC):
 
     @property
     def bbox(self) -> BoundingBox:
-        return BoundingBox(self.left, self.top, self.right, self.bottom)
+        return BoundingBox(self._rect.left, self._rect.top, self._rect.right, self._rect.bottom)
 
     @bbox.setter
     def bbox(self, value: BoundingBox):

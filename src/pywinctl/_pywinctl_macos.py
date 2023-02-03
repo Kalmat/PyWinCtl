@@ -492,7 +492,9 @@ def _getWindowTitles() -> list[list[str]]:
     return result
 
 
-def _getTitleBarHeightAndBorderWidth() -> tuple[int, int]:
+def _getBorderSizes() -> tuple[int, int]:
+    # Previous version (creating "dummy" window) was failing if not called on main thread!
+    # Many thanks to super-ibby (https://github.com/super-ibby) for his solution!!!!
     cmd = r"""
     use AppleScript version "2.4" -- Yosemite (10.10) or later
     use framework "Foundation"
@@ -506,11 +508,11 @@ def _getTitleBarHeightAndBorderWidth() -> tuple[int, int]:
     end run
 
     on getTitleBarHeightAndBorderWidth()
-        
+
         set |⌘| to current application
-        
+
         set theFrameWidth to 250
-        
+
         tell (|⌘|'s NSWindow's alloc()'s ¬
             initWithContentRect:{{400, 800}, {theFrameWidth, 100}} ¬
                 styleMask:(|⌘|'s NSTitledWindowMask) ¬
@@ -520,20 +522,20 @@ def _getTitleBarHeightAndBorderWidth() -> tuple[int, int]:
             set its releasedWhenClosed to true
             set its excludedFromWindowsMenu to true
         end tell
-        
+
         set theFrame to theWindow's frame()
-        
+
         set theTitleHeight to theWindow's titlebarHeight() as integer
-        
+
         set theContentRect to theWindow's contentRectForFrameRect:theFrame
-        
+
         set x1 to (|⌘|'s NSMinX(theContentRect)) as integer
         set x2 to (|⌘|'s NSMaxX(theContentRect)) as integer
-        
+
         set theBorderWidth to (theFrameWidth - (x2 - x1)) as integer
-        
+
         set my theResult to {theTitleHeight, theBorderWidth}
-        
+
         theWindow's |close|()
         return
     end getTitleBarHeightAndBorderWidth"""
@@ -541,14 +543,15 @@ def _getTitleBarHeightAndBorderWidth() -> tuple[int, int]:
         ['osascript'],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE, encoding='utf8',
+        stderr=subprocess.PIPE,
+        encoding='utf8',
     )
     ret, _ = proc.communicate(cmd)
     values = ret.replace("\n", "").strip().split(", ")
     return int(values[0]), int(values[1])
 
-
 _ItemInfoValue = TypedDict("_ItemInfoValue", {"value": str, "class": str, "settable": bool})
+
 class _SubMenuStructure(TypedDict, total=False):
     hSubMenu: int
     wID: int
@@ -624,7 +627,7 @@ class MacOSWindow(BaseWindow):
         """
         # https://www.macscripter.net/viewtopic.php?id=46336 --> Won't allow access to NSWindow objects, but interesting
         # Didn't find a way to get menu bar height using Apple Script
-        titleHeight, borderWidth = _getTitleBarHeightAndBorderWidth()
+        titleHeight, borderWidth = _getBorderSizes()
         res = Rect(int(self.left + borderWidth), int(self.top + titleHeight), int(self.right - borderWidth), int(self.bottom - borderWidth))
         return res
 
@@ -1418,13 +1421,13 @@ class MacOSWindow(BaseWindow):
             ret = ret.replace("\n", "")
         return ret == "true"
 
-    @property
-    def isAlerting(self) -> bool:
-        """Check if window is flashing on taskbar while demanding user attention
-
-        :return:  ''True'' if window is demanding attention
-        """
-        return False
+    # @property
+    # def isAlerting(self) -> bool:
+    #     """Check if window is flashing on taskbar while demanding user attention
+    #
+    #     :return:  ''True'' if window is demanding attention
+    #     """
+    #     return False
 
     class _Menu:
 
@@ -2482,13 +2485,13 @@ class MacOSNSWindow(BaseWindow):
             ret = True
         return ret
 
-    @property
-    def isAlerting(self) -> bool:
-        """Check if window is flashing on taskbar while demanding user attention
-
-        :return:  ''True'' if window is demanding attention
-        """
-        return False
+    # @property
+    # def isAlerting(self) -> bool:
+    #     """Check if window is flashing on taskbar while demanding user attention
+    #
+    #     :return:  ''True'' if window is demanding attention
+    #     """
+    #     return False
 
 
 def getMousePos() -> Point:

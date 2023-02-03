@@ -15,7 +15,7 @@ import subprocess
 import time
 from ctypes import Structure, byref, c_ulong, cdll, c_uint32, c_int32
 from ctypes.util import find_library
-from typing import Iterable, TYPE_CHECKING, cast, Any
+from typing import Iterable, TYPE_CHECKING, cast, Any, NamedTuple
 import tkinter as tk
 
 if TYPE_CHECKING:
@@ -30,7 +30,7 @@ import Xlib.protocol
 import Xlib.X
 import Xlib.Xatom
 import Xlib.Xutil
-from Xlib.xobject.drawable import Window
+from Xlib.xobject.drawable import Window as XWindow
 
 from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect
 
@@ -124,7 +124,7 @@ def getActiveWindowTitle():
         return ""
 
 
-def __remove_bad_windows(windows: Iterable[Window | int | None]):
+def __remove_bad_windows(windows: Iterable[XWindow | int | None]):
     """
     :param windows: Xlib Windows
     :return: A generator of LinuxWindow that filters out BadWindows
@@ -317,7 +317,7 @@ class LinuxWindow(BaseWindow):
     def _rect(self) -> Rect:
         return self.__rect
 
-    def __init__(self, hWnd: Window | int | str):
+    def __init__(self, hWnd: XWindow | int | str):
         super().__init__()
 
         self._windowWrapper = _XWindowWrapper(hWnd)
@@ -325,7 +325,7 @@ class LinuxWindow(BaseWindow):
         self._windowObject = self._windowWrapper.getWindow()
 
         assert isinstance(self._hWnd, int)
-        assert isinstance(self._windowObject, Window)
+        assert isinstance(self._windowObject, XWindow)
 
         self.__rect: Rect = self._rectFactory()
         self.watchdog = _WatchDog(self)
@@ -603,7 +603,7 @@ class LinuxWindow(BaseWindow):
             #             desktop.append(win)
             dsp = Xlib.display.Display()
             for d in desktop:
-                w: Window = dsp.create_resource_object('window', d.id)
+                w: XWindow = dsp.create_resource_object('window', d.id)
                 w.raise_window()
             dsp.close()
             return WINDOW_DESKTOP in self._windowWrapper.getWmWindowType()
@@ -641,13 +641,13 @@ class LinuxWindow(BaseWindow):
             name = ""
         return name
 
-    def getParent(self) -> Window:
+    def getParent(self) -> XWindow:
         """
         Get the handle of the current window parent. It can be another window or an application
 
         :return: handle of the window parent
         """
-        return self._windowWrapper.query_tree().parent  # type: ignore[no-any-return]
+        return self._windowObject.query_tree().parent  # type: ignore[no-any-return]
 
     def setParent(self, parent) -> bool:
         """
@@ -676,7 +676,7 @@ class LinuxWindow(BaseWindow):
         """
         return self._hWnd
 
-    def isParent(self, child: Window) -> bool:
+    def isParent(self, child: XWindow) -> bool:
         """Returns ''True'' if the window is parent of the given window as input argument
 
         Args:
@@ -686,7 +686,7 @@ class LinuxWindow(BaseWindow):
         return bool(child.query_tree().parent.id == self._hWnd)  # type: ignore[no-any-return]
     isParentOf = isParent  # isParentOf is an alias of isParent method
 
-    def isChild(self, parent: Window):
+    def isChild(self, parent: XWindow):
         """
         Check if current window is child of given window/app (handle)
 
@@ -779,13 +779,13 @@ class LinuxWindow(BaseWindow):
         else:
             return True
 
-    @property
-    def isAlerting(self) -> bool:
-        """Check if window is flashing/bouncing/demanding attetion on taskbar while demanding user attention
-
-        :return:  ''True'' if window is demanding attention
-        """
-        return bool(STATE_ATTENTION in self._windowWrapper.getWmState())
+    # @property
+    # def isAlerting(self) -> bool:
+    #     """Check if window is flashing/bouncing/demanding attetion on taskbar while demanding user attention
+    #
+    #     :return:  ''True'' if window is demanding attention
+    #     """
+    #     return bool(STATE_ATTENTION in self._windowWrapper.getWmState())
 
     @property
     def _isMapped(self) -> bool:
@@ -796,7 +796,7 @@ class LinuxWindow(BaseWindow):
 
 class _XWindowWrapper:
 
-    def __init__(self, win: str | int | Window = None, display: Xlib.display.Display = None, root: Window = None):
+    def __init__(self, win: str | int | XWindow = None, display: Xlib.display.Display = None, root: XWindow = None):
 
         if not display:
             display = Xlib.display.Display()
@@ -814,8 +814,8 @@ class _XWindowWrapper:
             win = self.display.create_resource_object('window', win)
         elif isinstance(win, str):
             win = display.create_resource_object('window', int(win, base=16))
-        self.win: Window = win
-        assert isinstance(self.win, Window)
+        self.win: XWindow = win
+        assert isinstance(self.win, XWindow)
         self.id = self.win.id
         # self._saveWindowInitValues()  # Store initial Window parameters to allow reset and other actions
         self.transientWindow: _XWindowWrapper | None = None
@@ -828,7 +828,7 @@ class _XWindowWrapper:
         self._init_hints = self.win.get_wm_hints()
         self._init_normal_hints = self.win.get_wm_normal_hints()
         self._init_attributes = self.getAttributes()  # can't be modified
-        self._init_xAttributes = self.XlibAttributes()
+        # self._init_xAttributes = self.XlibAttributes()
         self._init_wm_prots = self.win.get_wm_protocols()
         self._init_states = self.getWmState()
         self._init_types = self.getWmWindowType()
@@ -844,7 +844,7 @@ class _XWindowWrapper:
         self.win = self.display.create_resource_object('window', self.id)
         return self
 
-    def getWindow(self) -> Window:
+    def getWindow(self) -> XWindow:
         return self.win
 
     def getDisplay(self) -> Xlib.display.Display:
@@ -853,7 +853,7 @@ class _XWindowWrapper:
     def getScreen(self) -> Xlib.protocol.rq.DictWrapper:
         return cast(Xlib.protocol.rq.DictWrapper, self.display.screen())
 
-    def getRoot(self) -> Window:
+    def getRoot(self) -> XWindow:
         return self.root
 
     def getProperty(self, name: str, prop_type: int = Xlib.X.AnyPropertyType) -> list[int]:
@@ -866,22 +866,34 @@ class _XWindowWrapper:
         return []
 
     def getWmState(self, text: bool = True) -> list[str] | list[int] | list[Any]:
-
-        states = self.win.get_full_property(self.display.get_atom(WM_STATE, False), Xlib.X.AnyPropertyType)
+        states = self.getProperty(WM_STATE)
         if states:
-            stats: list[int] = states.value
             if not text:
-                return [s for s in stats]
+                return [s for s in states]
             else:
-                return [self.display.get_atom_name(s) for s in stats]
+                ret = []
+                for s in states:
+                    try:
+                        ret.append(self.display.get_atom_name(s))
+                    except:
+                        ret.append(str(s))
+                return ret
         return []
 
     def getWmWindowType(self, text: bool = True) -> list[str] | list[int]:
         types = self.getProperty(WM_WINDOW_TYPE)
-        if not text:
-            return [t for t in types]
-        else:
-            return [self.display.get_atom_name(t) for t in types]
+        if types:
+            if not text:
+                return [t for t in types]
+            else:
+                ret = []
+                for t in types:
+                    try:
+                        ret.append(self.display.get_atom_name(t))
+                    except:
+                        ret.append(str(t))
+                return ret
+        return []
 
     def sendMessage(self, prop: str | int, data: list[int]):
 
@@ -915,7 +927,7 @@ class _XWindowWrapper:
             state = self.display.get_atom(state, True)
         if isinstance(state2, str):
             state2 = self.display.get_atom(state2, True)
-        self.setProperty(WM_STATE, [action, state, state2, 1])
+        self.sendMessage(WM_STATE, [action, state, state2, 1])
         self.display.flush()
 
     def setWmType(self, prop: str | int, mode: int = Xlib.X.PropModeReplace):
@@ -923,12 +935,14 @@ class _XWindowWrapper:
         if isinstance(prop, str):
             prop = self.display.get_atom(prop, False)
 
-        geom = self.win.get_geometry()
-        self.win.unmap()
+        # Is it necessary to unmap -> map or just map for the change to take effect?
+        # geom = self.win.get_geometry()
+        # self.win.unmap()
+        # self.display.flush()
         self.setProperty(WM_WINDOW_TYPE, [prop], mode)
         self.win.map()
         self.display.flush()
-        self.setMoveResize(x=geom.x, y=geom.y, width=geom.width, height=geom.height)
+        # self.setMoveResize(x=geom.x, y=geom.y, width=geom.width, height=geom.height)
 
     def setMoveResize(self, x: int, y: int, width: int, height: int):
         self.win.configure(x=x, y=y, width=width, height=height)
@@ -940,13 +954,11 @@ class _XWindowWrapper:
 
     def hide(self):
         self.win.unmap_sub_windows()
-        self.display.flush()
         self.win.unmap()
         self.display.flush()
 
     def show(self):
         self.win.map()
-        self.display.flush()
         self.win.map_sub_windows()
         self.display.flush()
 
@@ -1057,29 +1069,33 @@ class _XWindowWrapper:
         if self.xlib is None:
             x11 = find_library('X11')
             self.xlib = cdll.LoadLibrary(str(x11))
-        d = self.xlib.XOpenDisplay(0)
-        root = self.xlib.XRootWindow(d, self.xlib.XDefaultScreen(d))
+        # This is getting default display, which might not be the window's display
+        # Using self.display.display_name() doesn't work... How to match both???
+        self.XDisplay = self.xlib.XOpenDisplay(0)
+        # root = self.xlib.XRootWindow(d, self.xlib.XDefaultScreen(d))
 
         if setTo:
             if self.transientWindow is not None:
                 self.keep.clear()
                 self.checkThread.join()
-                self._closeTransientWindow(d)
+                self._closeTransientWindow(self.XDisplay)
+                self.xlib.XCloseDisplay(self.XDisplay)
         else:
-            window = self._createTransient(self.id, d)
+            window = self._createTransient(self.id, self.XDisplay)
             self.transientWindow = _XWindowWrapper(window)
             self.keep = threading.Event()
             self.keep.set()
-            self.checkThread: threading.Thread = threading.Thread(target=self._checkDisplayEvents, args=([Xlib.X.ConfigureNotify, Xlib.X.DestroyNotify], self.keep, d, ))
+            self.checkThread: threading.Thread = threading.Thread(target=self._checkDisplayEvents, args=([Xlib.X.ConfigureNotify, Xlib.X.DestroyNotify], self.keep, self.XDisplay, ))
             self.checkThread.daemon = True
             self.checkThread.start()
 
-    def setWmHints(self, hint):
+    def setWmHints(self, hint: str, value: Any):
         # Leaving this as an example
         # {'flags': 103, 'input': 1, 'initial_state': 1, 'icon_pixmap': <Pixmap 0x02a22304>, 'icon_window': <Window 0x00000000>, 'icon_x': 0, 'icon_y': 0, 'icon_mask': <Pixmap 0x02a2230b>, 'window_group': <Window 0x02a00001>}
         hints: Xlib.protocol.rq.DictWrapper = self.win.get_wm_hints()
         if hints:
-            hints.input = 1
+            hints[hint] = value
+            # We should also re-calculate flags
         self.win.set_wm_hints(hints)
         self.display.flush()
 
@@ -1099,76 +1115,76 @@ class _XWindowWrapper:
     def getAttributes(self) -> Xlib.protocol.request.GetWindowAttributes:
         return self.win.get_attributes()
 
-    class _XWindowAttributes(Structure):
-        _fields_ = [('x', c_int32), ('y', c_int32),
-                    ('width', c_int32), ('height', c_int32), ('border_width', c_int32),
-                    ('depth', c_int32), ('visual', c_ulong), ('root', c_ulong),
-                    ('class', c_int32), ('bit_gravity', c_int32),
-                    ('win_gravity', c_int32), ('backing_store', c_int32),
-                    ('backing_planes', c_ulong), ('backing_pixel', c_ulong),
-                    ('save_under', c_int32), ('colourmap', c_ulong),
-                    ('mapinstalled', c_uint32), ('map_state', c_uint32),
-                    ('all_event_masks', c_ulong), ('your_event_mask', c_ulong),
-                    ('do_not_propagate_mask', c_ulong), ('override_redirect', c_int32), ('screen', c_ulong)]
-
-    def XlibAttributes(self) -> tuple[bool, _XWindowWrapper._XWindowAttributes]:
-        attr = _XWindowWrapper._XWindowAttributes()
-        try:
-            if self.xlib is None:
-                x11 = find_library('X11')
-                self.xlib = cdll.LoadLibrary(str(x11))
-            d = self.xlib.XOpenDisplay(0)
-            self.xlib.XGetWindowAttributes(d, self.id, byref(attr))
-            self.xlib.XCloseDisplay(d)
-            resOK = True
-        except:
-            resOK = False
-        return resOK, attr
-
-        # Leaving this as reference of using X11 library
-        # https://github.com/evocount/display-management/blob/c4f58f6653f3457396e44b8c6dc97636b18e8d8a/displaymanagement/rotation.py
-        # https://github.com/nathanlopez/Stitch/blob/master/Configuration/mss/linux.py
-        # https://gist.github.com/ssokolow/e7c9aae63fb7973e4d64cff969a78ae8
-        # https://stackoverflow.com/questions/36188154/get-x11-window-caption-height
-        # https://refspecs.linuxfoundation.org/LSB_1.3.0/gLSB/gLSB/libx11-ddefs.html
-        # s = xlib.XDefaultScreen(d)
-        # root = xlib.XDefaultRootWindow(d)
-        # fg = xlib.XBlackPixel(d, s)
-        # bg = xlib.XWhitePixel(d, s)
-        # w = xlib.XCreateSimpleWindow(d, root, 600, 300, 400, 200, 0, fg, bg)
-        # xlib.XMapWindow(d, w)
-        # time.sleep(4)
-        # a = xlib.XInternAtom(d, "_GTK_FRAME_EXTENTS", True)
-        # if not a:
-        #     a = xlib.XInternAtom(d, "_NET_FRAME_EXTENTS", True)
-        # t = c_int()
-        # f = c_int()
-        # n = c_ulong()
-        # b = c_ulong()
-        # xlib.XGetWindowProperty(d, w, a, 0, 4, False, Xlib.X.AnyPropertyType, byref(t), byref(f), byref(n), byref(b), byref(attr))
-        # r = c_ulong()
-        # x = c_int()
-        # y = c_int()
-        # w = c_uint()
-        # h = c_uint()
-        # b = c_uint()
-        # d = c_uint()
-        # xlib.XGetGeometry(d, hWnd.id, byref(r), byref(x), byref(y), byref(w), byref(h), byref(b), byref(d))
-        # print(x, y, w, h)
-        # Other references (send_event and setProperty):
-        # prop = DISP.intern_atom(WM_CHANGE_STATE, False)
-        # data = (32, [Xlib.Xutil.IconicState, 0, 0, 0, 0])
-        # ev = Xlib.protocol.event.ClientMessage(window=self._hWnd.id, client_type=prop, data=data)
-        # mask = Xlib.X.SubstructureRedirectMask | Xlib.X.SubstructureNotifyMask
-        # DISP.send_event(destination=ROOT, event=ev, event_mask=mask)
-        # data = [Xlib.Xutil.IconicState, 0, 0, 0, 0]
-        # _setProperty(_type="WM_CHANGE_STATE", data=data, mask=mask)
-        # for atom in w.list_properties():
-        #     print(DISP.atom_name(atom))
-        # props = DISP.xrandr_list_output_properties(output)
-        # for atom in props.atoms:
-        #     print(atom, DISP.get_atom_name(atom))
-        #     print(DISP.xrandr_get_output_property(output, atom, 0, 0, 1000)._data['value'])
+    # class _XWindowAttributes(Structure):
+    #     _fields_ = [('x', c_int32), ('y', c_int32),
+    #                 ('width', c_int32), ('height', c_int32), ('border_width', c_int32),
+    #                 ('depth', c_int32), ('visual', c_ulong), ('root', c_ulong),
+    #                 ('class', c_int32), ('bit_gravity', c_int32),
+    #                 ('win_gravity', c_int32), ('backing_store', c_int32),
+    #                 ('backing_planes', c_ulong), ('backing_pixel', c_ulong),
+    #                 ('save_under', c_int32), ('colourmap', c_ulong),
+    #                 ('mapinstalled', c_uint32), ('map_state', c_uint32),
+    #                 ('all_event_masks', c_ulong), ('your_event_mask', c_ulong),
+    #                 ('do_not_propagate_mask', c_ulong), ('override_redirect', c_int32), ('screen', c_ulong)]
+    #
+    # def XlibAttributes(self) -> tuple[bool, _XWindowWrapper._XWindowAttributes]:
+    #     attr = _XWindowWrapper._XWindowAttributes()
+    #     try:
+    #         if self.xlib is None:
+    #             x11 = find_library('X11')
+    #             self.xlib = cdll.LoadLibrary(str(x11))
+    #         d = self.xlib.XOpenDisplay(0)
+    #         self.xlib.XGetWindowAttributes(d, self.id, byref(attr))
+    #         self.xlib.XCloseDisplay(d)
+    #         resOK = True
+    #     except:
+    #         resOK = False
+    #     return resOK, attr
+    #
+    #     # Leaving this as reference of using X11 library
+    #     # https://github.com/evocount/display-management/blob/c4f58f6653f3457396e44b8c6dc97636b18e8d8a/displaymanagement/rotation.py
+    #     # https://github.com/nathanlopez/Stitch/blob/master/Configuration/mss/linux.py
+    #     # https://gist.github.com/ssokolow/e7c9aae63fb7973e4d64cff969a78ae8
+    #     # https://stackoverflow.com/questions/36188154/get-x11-window-caption-height
+    #     # https://refspecs.linuxfoundation.org/LSB_1.3.0/gLSB/gLSB/libx11-ddefs.html
+    #     # s = xlib.XDefaultScreen(d)
+    #     # root = xlib.XDefaultRootWindow(d)
+    #     # fg = xlib.XBlackPixel(d, s)
+    #     # bg = xlib.XWhitePixel(d, s)
+    #     # w = xlib.XCreateSimpleWindow(d, root, 600, 300, 400, 200, 0, fg, bg)
+    #     # xlib.XMapWindow(d, w)
+    #     # time.sleep(4)
+    #     # a = xlib.XInternAtom(d, "_GTK_FRAME_EXTENTS", True)
+    #     # if not a:
+    #     #     a = xlib.XInternAtom(d, "_NET_FRAME_EXTENTS", True)
+    #     # t = c_int()
+    #     # f = c_int()
+    #     # n = c_ulong()
+    #     # b = c_ulong()
+    #     # xlib.XGetWindowProperty(d, w, a, 0, 4, False, Xlib.X.AnyPropertyType, byref(t), byref(f), byref(n), byref(b), byref(attr))
+    #     # r = c_ulong()
+    #     # x = c_int()
+    #     # y = c_int()
+    #     # w = c_uint()
+    #     # h = c_uint()
+    #     # b = c_uint()
+    #     # d = c_uint()
+    #     # xlib.XGetGeometry(d, hWnd.id, byref(r), byref(x), byref(y), byref(w), byref(h), byref(b), byref(d))
+    #     # print(x, y, w, h)
+    #     # Other references (send_event and setProperty):
+    #     # prop = DISP.intern_atom(WM_CHANGE_STATE, False)
+    #     # data = (32, [Xlib.Xutil.IconicState, 0, 0, 0, 0])
+    #     # ev = Xlib.protocol.event.ClientMessage(window=self._hWnd.id, client_type=prop, data=data)
+    #     # mask = Xlib.X.SubstructureRedirectMask | Xlib.X.SubstructureNotifyMask
+    #     # DISP.send_event(destination=ROOT, event=ev, event_mask=mask)
+    #     # data = [Xlib.Xutil.IconicState, 0, 0, 0, 0]
+    #     # _setProperty(_type="WM_CHANGE_STATE", data=data, mask=mask)
+    #     # for atom in w.list_properties():
+    #     #     print(DISP.atom_name(atom))
+    #     # props = DISP.xrandr_list_output_properties(output)
+    #     # for atom in props.atoms:
+    #     #     print(atom, DISP.get_atom_name(atom))
+    #     #     print(DISP.xrandr_get_output_property(output, atom, 0, 0, 1000)._data['value'])
 
     def _getBorderSizes(self):
 
@@ -1229,11 +1245,11 @@ class _XWindowWrapper:
         # if res:
         #     ret = Rect(a.x, a.y, a.x + a.width, a.y + a.height)
         # else:
-        #     ret = Rect(self.left, self.top, self.right, self.bottom)
+        #     ret = self.getWindowRect()
         # Didn't find a way to get title bar height using Xlib
         titleHeight, borderWidth = self._getBorderSizes()
         geom = self.win.get_geometry()
-        ret = Rect(int(geom.left + borderWidth), int(geom.y + titleHeight), int(geom.x + geom.width - borderWidth), int(geom.y + geom.widh - borderWidth))
+        ret = Rect(int(geom.x + borderWidth), int(geom.y + titleHeight), int(geom.x + geom.width - borderWidth), int(geom.y + geom.width - borderWidth))
         return ret
 
     def getWindowRect(self) -> Rect:
@@ -1255,13 +1271,13 @@ class _XWindowWrapper:
         return Rect(x, y, x + w, y + h)
 
 
-def _xlibGetAllWindows(parent: Window | None = None, title: str = "", klass: tuple[str, str] | None = None) -> list[Window]:
+def _xlibGetAllWindows(parent: XWindow | None = None, title: str = "", klass: tuple[str, str] | None = None) -> list[XWindow]:
 
     dsp = Xlib.display.Display()
     parent = parent or dsp.screen().root
     allWindows = [parent]
 
-    def findit(hwnd: Window):
+    def findit(hwnd: XWindow):
         query = hwnd.query_tree()
         for child in query.children:
             try:
