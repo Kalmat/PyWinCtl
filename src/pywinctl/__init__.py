@@ -591,7 +591,6 @@ class BaseWindow(ABC):
     def bbox(self, value: BoundingBox):
         self._rect.box  # Run rect's onRead to update the Rect object.
         self._rect.box = Box(value.left, value.top, value.right - value.left, value.bottom - value.top)
-        # self._rect.bbox = value
 
 
 class _WatchDog:
@@ -637,23 +636,23 @@ class _WatchDog:
 
         IMPORTANT: This can be extremely slow in macOS Apple Script version
 
-        :param isAliveCB: callback to call if window is not alive. Set to None to not to watch this
+        :param isAliveCB: callback to call if window is not alive. Set to None to not watch this
                         Returns the new alive status value (False)
-        :param isActiveCB: callback to invoke if window changes its active status. Set to None to not to watch this
+        :param isActiveCB: callback to invoke if window changes its active status. Set to None to not watch this
                         Returns the new active status value (True/False)
-        :param isVisibleCB: callback to invoke if window changes its visible status. Set to None to not to watch this
+        :param isVisibleCB: callback to invoke if window changes its visible status. Set to None to not watch this
                         Returns the new visible status value (True/False)
-        :param isMinimizedCB: callback to invoke if window changes its minimized status. Set to None to not to watch this
+        :param isMinimizedCB: callback to invoke if window changes its minimized status. Set to None to not watch this
                         Returns the new minimized status value (True/False)
-        :param isMaximizedCB: callback to invoke if window changes its maximized status. Set to None to not to watch this
+        :param isMaximizedCB: callback to invoke if window changes its maximized status. Set to None to not watch this
                         Returns the new maximized status value (True/False)
-        :param resizedCB: callback to invoke if window changes its size. Set to None to not to watch this
+        :param resizedCB: callback to invoke if window changes its size. Set to None to not watch this
                         Returns the new size (width, height)
-        :param movedCB: callback to invoke if window changes its position. Set to None to not to watch this
+        :param movedCB: callback to invoke if window changes its position. Set to None to not watch this
                         Returns the new position (x, y)
-        :param changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
+        :param changedTitleCB: callback to invoke if window changes its title. Set to None to not watch this
                         Returns the new title (as string)
-        :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
+        :param changedDisplayCB: callback to invoke if window changes display. Set to None to not watch this
                         Returns the new display name (as string)
         :param interval: set the interval to watch window changes. Default is 0.3 seconds
         """
@@ -689,23 +688,23 @@ class _WatchDog:
 
         IMPORTANT: Remember to set ALL desired callbacks every time, or they will be defaulted to None (and unhooked)
 
-        :param isAliveCB: callback to call if window is not alive. Set to None to not to watch this
+        :param isAliveCB: callback to call if window is not alive. Set to None to not watch this
                         Returns the new alive status value (False)
-        :param isActiveCB: callback to invoke if window changes its active status. Set to None to not to watch this
+        :param isActiveCB: callback to invoke if window changes its active status. Set to None to not watch this
                         Returns the new active status value (True/False)
-        :param isVisibleCB: callback to invoke if window changes its visible status. Set to None to not to watch this
+        :param isVisibleCB: callback to invoke if window changes its visible status. Set to None to not watch this
                         Returns the new visible status value (True/False)
-        :param isMinimizedCB: callback to invoke if window changes its minimized status. Set to None to not to watch this
+        :param isMinimizedCB: callback to invoke if window changes its minimized status. Set to None to not watch this
                         Returns the new minimized status value (True/False)
-        :param isMaximizedCB: callback to invoke if window changes its maximized status. Set to None to not to watch this
+        :param isMaximizedCB: callback to invoke if window changes its maximized status. Set to None to not watch this
                         Returns the new maximized status value (True/False)
-        :param resizedCB: callback to invoke if window changes its size. Set to None to not to watch this
+        :param resizedCB: callback to invoke if window changes its size. Set to None to not watch this
                         Returns the new size (width, height)
-        :param movedCB: callback to invoke if window changes its position. Set to None to not to watch this
+        :param movedCB: callback to invoke if window changes its position. Set to None to not watch this
                         Returns the new position (x, y)
-        :param changedTitleCB: callback to invoke if window changes its title. Set to None to not to watch this
+        :param changedTitleCB: callback to invoke if window changes its title. Set to None to not watch this
                         Returns the new title (as string)
-        :param changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
+        :param changedDisplayCB: callback to invoke if window changes display. Set to None to not watch this
                         Returns the new display name (as string)
         """
         if self._watchdog:

@@ -16,7 +16,6 @@ from AppKit import (
 
 import pywinctl
 
-
 # Cocoa prefers composition to inheritance. The members of an object's
 # delegate will be called upon the happening of certain events. Once we define
 # methods with particular names, they will be called automatically
@@ -39,7 +38,7 @@ class Delegate(NSObject):
         # Set it as the frontmost application
         NSApp().activateIgnoringOtherApps_(True)
         for win in NSApp().orderedWindows():
-            print(win.title(), win.frame())
+            print(win.title(), win.frame(), type(win.frame().origin))
 
         if self.demoMode:
 
@@ -284,7 +283,7 @@ def demo():
     a.setDelegate_(delegate)
 
     # Now we can start to create the window ...
-    frame = NSMakeRect(400, 800, 250, 100)
+    frame = NSMakeRect(400, pywinctl.getScreenSize().height - 400, 250, 100)
     # (Don't worry about these parameters for the moment. They just specify
     # the type of window, its size and position etc)
     mask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable
@@ -299,7 +298,7 @@ def demo():
     w.orderFrontRegardless()
 
     # ... and start the application
-    w.display()
+    w._display()
     a.run()
     #AppHelper.runEventLoop()
 

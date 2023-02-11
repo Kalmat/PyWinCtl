@@ -41,7 +41,7 @@ WAIT_DELAY = 0.025  # Will be progressively increased on every retry
 SEP = "|&|"
 
 
-def checkPermissions(activate: bool = False):
+def checkPermissions(activate: bool = False) -> bool:
     """
     macOS ONLY: Check Apple Script permissions for current script/app and, optionally, shows a
     warning dialog and opens security preferences
@@ -1343,7 +1343,7 @@ class MacOSWindow(BaseWindow):
         return active is not None and active._app == self._app and active.title == self.title
 
     @property
-    def title(self) -> str | None:  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    def title(self) -> str | None:
         """
         Get the current window title, as string.
         IMPORTANT: window title may change. In that case, it will return None.
