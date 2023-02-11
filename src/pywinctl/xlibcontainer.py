@@ -351,8 +351,7 @@ class RootWindow:
     def __init__(self, root: Union[XWindow, None] = None):
 
         if root:
-            self.display = getDisplayFromRoot(root.id)
-            self.root = root
+            self.display, self.screen, self.root = getDisplayFromRoot(root.id)
         else:
             self.display = defaultDisplay
             self.root = defaultRoot
@@ -1290,8 +1289,8 @@ class _XlibUtils:
 
         input_pm = win.create_pixmap(width, height, 1)
         gc = input_pm.create_gc(foreground=0, background=0)
-        input_pm.fill_rectangle(gc, 0, 0, width, height)
-        win.shape_mask(Xlib.ext.shape.SO.Set, Xlib.ext.shape.SK.Input, 0, 0, input_pm)
+        input_pm.fill_rectangle(gc, 0, 0, width, height)  # type: ignore[arg-type]
+        win.shape_mask(Xlib.ext.shape.SO.Set, Xlib.ext.shape.SK.Input, 0, 0, input_pm)  # type: ignore[attr-defined]
         # win.shape_select_input(1)
         win.map()
 

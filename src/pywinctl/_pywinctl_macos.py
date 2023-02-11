@@ -16,7 +16,7 @@ import subprocess
 import threading
 import time
 from collections.abc import Iterable
-from typing import Any, AnyStr, overload, cast, Sequence, TYPE_CHECKING
+from typing import Any, AnyStr, overload, cast, Sequence, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from typing_extensions import TypeAlias, TypedDict, Literal
@@ -1343,7 +1343,7 @@ class MacOSWindow(BaseWindow):
         return active is not None and active._app == self._app and active.title == self.title
 
     @property
-    def title(self) -> str | None:
+    def title(self) -> Union[str, None]:
         """
         Get the current window title, as string.
         IMPORTANT: window title may change. In that case, it will return None.

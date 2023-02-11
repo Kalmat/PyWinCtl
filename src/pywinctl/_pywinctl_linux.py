@@ -12,7 +12,7 @@ import platform
 import re
 import subprocess
 import time
-from typing import Iterable, TYPE_CHECKING, cast, Union
+from typing import Iterable, TYPE_CHECKING, cast, Union, List
 import tkinter as tk
 
 if TYPE_CHECKING:
@@ -34,8 +34,7 @@ try:
 except:
     from xlibcontainer import RootWindow, Window as EWMHWindow, Props, getDisplayFromWindow, getDisplayFromRoot, xlibGetAllWindows, defaultRootWindow, _Extensions
 
-from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect, \
-    RootWindow, EWMHWindow, Props, getDisplayFromWindow, getDisplayFromRoot, xlibGetAllWindows, defaultRootWindow
+from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -80,7 +79,7 @@ def getActiveWindowTitle():
         return ""
 
 
-def __remove_bad_windows(windows: Iterable[XWindow | int | None]):
+def __remove_bad_windows(windows: Iterable[XWindow | int | str]):
     """
     :param windows: Xlib Windows
     :return: A generator of LinuxWindow that filters out BadWindows
@@ -622,7 +621,8 @@ class LinuxWindow(BaseWindow):
             return Props.Window.WindowType.NORMAL in self._win.getWmWindowType(True) and self.isActive
 
     def _manageEvents(self, event: Xlib.protocol.rq.Event):
-        self._transientWindow.xWindow.configure(x=0, y=0, width=self.width, height=self.height)
+        if self._transientWindow is not None:
+            self._transientWindow.xWindow.configure(x=0, y=0, width=self.width, height=self.height)
 
     def acceptInput(self, setTo: bool):
         """Toggles the window transparent to input and focus
@@ -643,7 +643,7 @@ class LinuxWindow(BaseWindow):
                 self._win.root.set_input_focus(Xlib.X.PointerRoot, Xlib.X.CurrentTime)
             self._win.setWmWindowType(Props.Window.WindowType.DESKTOP)
             if self._transientWindow is None:
-                self._transientWindow: EWMHWindow = self._win.xlibutils.createTransient(
+                self._transientWindow = self._win.xlibutils.createTransient(
                     self._win.root,
                     self.left, max(0, self.top-20), max(1, self.width-40), max(1, self.height-80),
                     override=False,
@@ -672,13 +672,13 @@ class LinuxWindow(BaseWindow):
             name = ""
         return name
 
-    def getParent(self) -> XWindow:
+    def getParent(self) -> int:
         """
         Get the handle of the current window parent. It can be another window or an application
 
         :return: handle of the window parent
         """
-        return self._xWin.query_tree().parent
+        return cast(int, self._xWin.query_tree().parent)
 
     def setParent(self, parent) -> bool:
         """
@@ -691,13 +691,13 @@ class LinuxWindow(BaseWindow):
         self._xWin.reparent(parent, 0, 0)
         return bool(self.isChild(parent))
 
-    def getChildren(self) -> list[int]:
+    def getChildren(self) -> List[int]:
         """
         Get the children handles of current window
 
         :return: list of handles
         """
-        return self._xWin.query_tree().children
+        return cast(List[int], self._xWin.query_tree().children)
 
     def getHandle(self) -> int:
         """
