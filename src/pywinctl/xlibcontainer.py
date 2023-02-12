@@ -19,7 +19,7 @@ defaultScreen = defaultDisplay.screen()
 defaultRoot = defaultScreen.root
 
 
-def getAllDisplaysInfo() -> dict:
+def getAllDisplaysInfo():
     """
     Gets relevant information on all present displays, including its screens and roots
 
@@ -36,8 +36,8 @@ def getAllDisplaysInfo() -> dict:
 
     :return: dict with all displays, screens and roots info
     """
-    dspInfo: dict = {}
     displays: List[str] = os.listdir("/tmp/.X11-unix")
+    dspInfo = {}
     for i, d in enumerate(displays):
         dspKey: str = str(i)
         if d.startswith("X"):
@@ -141,7 +141,7 @@ def xlibGetAllWindows(parent: Union[XWindow, None] = None, title: str = "", klas
     parent = parent or defaultRoot
     allWindows = []
 
-    def findit(hwnd: XWindow):
+    def findit(hwnd: XWindow) -> None:
         try:
             query = hwnd.query_tree()
             children = query.children
@@ -357,7 +357,7 @@ class RootWindow:
             self.root = defaultRoot
         self.id: int = self.root.id
 
-    def getProperty(self, prop: Union[str, int]) -> Union[List[int], List[str], str, None]:
+    def getProperty(self, prop: Union[str, int]) -> Union[List[int], List[str], str, Any]:
 
         if isinstance(prop, str):
             prop = self.display.get_atom(prop, True)
@@ -699,7 +699,7 @@ class Window:
         self.extensions = _Extensions(winId, self.display, self.root)
         self.xlibutils = _XlibUtils(winId, self.display, self.root)
 
-    def getProperty(self, prop: Union[str, int]) -> Union[List[int], List[str], str, None]:
+    def getProperty(self, prop: Union[str, int]) -> Union[List[int], List[str], str, Any]:
 
         if isinstance(prop, str):
             prop = self.display.get_atom(prop, True)
@@ -912,7 +912,7 @@ class Window:
 
     def getAllowedActions(self, text=False):
         acts = self.getProperty(Props.Window.ALLOWED_ACTIONS)
-        if text:
+        if text and acts is not None:
             ret = []
             for a in acts:
                 try:
