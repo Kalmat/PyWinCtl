@@ -26,34 +26,34 @@ You need a Window object to manipulate/control the target window on screen. It's
 
 These functions are available at the moment, in all three platforms (Windows, Linux and macOS):
 
-|  General, independent functions:  |  Window class methods:  |  Window class properties:  |
-|  :---:  |  :---:  |  :---:  |  
-|  getActiveWindow  |  close  |  title  |  
-|  getActiveWindowTitle  |  minimize  |  updatedTitle (MacOSWindow only)  |  
-|  getAllWindows  |  maximize  |  isMaximized  |  
-|  getAllTitles  |  restore  |  isMinimized  |  
-|  getWindowsWithTitle  |  hide  |  isActive  |  
-|  getAllAppsNames  |  show  |  isVisible  |  
-|  getAppsWithName  |  activate  |  isAlive  |  
-|  getAllAppsWindowsTitles  |  resize / resizeRel  |  |  
-|  getWindowsAt  |  resizeTo  |  |  
-|  getAllScreens  |  move / moveRel  |  |  
-|  getMousePos |  moveTo  |  |  
-|  getScreenSize  |  raiseWindow  |    |  
-|  getWorkArea  |  lowerWindow  |    |  
-|  version  |  alwaysOnTop  |    |  
-|  checkPermissions (macOS only)  |  alwaysOnBottom  |    |
-|  |  sendBehind  |    |  
-|  |  acceptInput  |    |  
-|  |  getAppName  |    |  
-|  |  getHandle  |    |  
-|  |  getParent  |    |  
-|  |  getChildren  |    |  
-|  |  isParent  |    |  
-|  |  isChild  |    |  
-|  |  getDisplay  |    |  
-|  |  getExtraFrame  |    |  
-|  |  getClientFrame  |    |  
+| General, independent functions: | Window class methods: |    Window class properties:     |
+|:-------------------------------:|:---------------------:|:-------------------------------:|
+|         getActiveWindow         |         close         |              title              |
+|      getActiveWindowTitle       |       minimize        | updatedTitle (MacOSWindow only) |
+|          getAllWindows          |       maximize        |           isMaximized           |
+|          getAllTitles           |        restore        |           isMinimized           |
+|       getWindowsWithTitle       |         hide          |            isActive             |
+|         getAllAppsNames         |         show          |            isVisible            |
+|         getAppsWithName         |       activate        |             isAlive             |
+|     getAllAppsWindowsTitles     |  resize / resizeRel   |                                 |
+|          getWindowsAt           |       resizeTo        |                                 |
+|          getAllScreens          |    move / moveRel     |                                 |
+|           getMousePos           |        moveTo         |                                 |
+|          getScreenSize          |      raiseWindow      |                                 |
+|           getWorkArea           |      lowerWindow      |                                 |
+|             version             |      alwaysOnTop      |                                 |
+|  checkPermissions (macOS only)  |    alwaysOnBottom     |                                 |
+|                                 |      sendBehind       |                                 |
+|                                 |      acceptInput      |                                 |
+|                                 |      getAppName       |                                 |
+|                                 |       getHandle       |                                 |
+|                                 |       getParent       |                                 |
+|                                 |      getChildren      |                                 |
+|                                 |       isParent        |                                 |
+|                                 |        isChild        |                                 |
+|                                 |      getDisplay       |                                 |
+|                                 |     getExtraFrame     |                                 |
+|                                 |    getClientFrame     |                                 |
 
 ***Important macOS notice <a name="macos-notice"></a>***
 
@@ -103,14 +103,14 @@ The watchdog will automatically stop when window doesn't exist anymore or main p
     changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
                       Passes the new display name (as string)
 
-|  watchdog sub-module methods:  |
-|  :---:  |
-|  start  |
-|  updateCallbacks  |
-|  updateInterval  |
-|  setTryToFind  |
-|  isAlive  |
-|  stop  |
+| watchdog sub-module methods: |
+|:----------------------------:|
+|            start             |
+|       updateCallbacks        |
+|        updateInterval        |
+|         setTryToFind         |
+|           isAlive            |
+|             stop             |
 
 Example:
 
@@ -163,14 +163,14 @@ Example:
 
 menu sub-class for Menu info and control methods, accessible through 'menu' submodule.
 
-|  menu sub-module methods:  |
-|  :---:  |
-|  getMenu  |
-|  getMenuInfo  |
-|  getMenuItemCount  |
-|  getMenuItemInfo  |
-|  getMenuItemRect  |
-|  clickMenuItem  |
+| menu sub-module methods: |
+|:------------------------:|
+|         getMenu          |
+|       getMenuInfo        |
+|     getMenuItemCount     |
+|     getMenuItemInfo      |
+|     getMenuItemRect      |
+|      clickMenuItem       |
 
 MS-Windows example (notice it is language-dependent):
 
