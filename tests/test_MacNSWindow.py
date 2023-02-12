@@ -298,7 +298,6 @@ def demo():
     w.orderFrontRegardless()
 
     # ... and start the application
-    w._display()
     a.run()
     #AppHelper.runEventLoop()
 
