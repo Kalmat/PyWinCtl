@@ -19,7 +19,6 @@ with open("src/pywinctl/__init__.py", "r") as fileObj:
 with io.open("README.md", encoding="utf-8") as fileObj:
     long_description = fileObj.read()
 
-
 setup(
     name='PyWinCtl',
     version=version,
@@ -33,14 +32,14 @@ setup(
     license='BSD 3',
     packages=find_packages(where='src'),
     package_dir={'': 'src'},
-    package_data={"pywinctl": ["py.typed"], "ewmhlib": ["py.typed"]},
+    package_data={"pywinctl": ["src/pywinctl/py.typed"]},
     test_suite='tests',
     install_requires=[
+        "PyRect>=0.2",
         "pywin32>=302; sys_platform == 'win32'",
+        # "pywinauto>=0.6.8; sys_platform == 'win32'",
         "python-xlib>=0.21; sys_platform == 'linux'",
-        "pyobjc>=8.1; sys_platform == 'darwin'",
-        "pywinbox>=0.4",
-        "pymonctl>=0.1"
+        "pyobjc>=8.1; sys_platform == 'darwin'"
     ],
     extras_require={
         'dev': [
@@ -64,10 +63,12 @@ setup(
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3 :: Only',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10',
-        'Programming Language :: Python :: 3.11'
+        'Programming Language :: Python :: 3.10'
     ],
 )

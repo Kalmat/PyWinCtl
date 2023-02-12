@@ -2,17 +2,24 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import os
 import sys
 
 assert sys.platform == "linux"
 
-import os
+import math
 import platform
 import re
 import subprocess
 import time
-from typing import cast, Optional, Union, List, Tuple
+from typing import Iterable, TYPE_CHECKING, cast, Union, List
+import tkinter as tk
 
+if TYPE_CHECKING:
+    from typing_extensions import TypedDict
+else:
+    # Only needed if the import from typing_extensions is used outside of annotations
+    from typing import TypedDict
 import Xlib.display
 import Xlib.error
 import Xlib.protocol
@@ -22,10 +29,9 @@ import Xlib.Xutil
 import Xlib.ext
 from Xlib.xobject.drawable import Window as XWindow
 
-from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
-from pywinbox import Box, Size, Point, Rect, pointInBox
-from ewmhlib import Props, RootWindow, EwmhWindow, defaultRootWindow
-from ewmhlib._ewmhlib import _xlibGetAllWindows
+from pywinctl.xlibcontainer import RootWindow, Window as EWMHWindow, Props, xlibGetAllWindows, defaultRootWindow
+
+from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -45,7 +51,7 @@ def checkPermissions(activate: bool = False) -> bool:
     return True
 
 
-def getActiveWindow() -> Optional[LinuxWindow]:
+def getActiveWindow() -> Union[LinuxWindow, None]:
     """
     Get the currently active (focused) Window in default root
 
@@ -55,35 +61,6 @@ def getActiveWindow() -> Optional[LinuxWindow]:
     if win_id:
         return LinuxWindow(win_id)
     return None
-
-# The code above doesn't work in Wayland (new GNOME X server since Ubuntu 22.04)
-# Looking for an alternative to get active window and window titles
-# Even this stopped working in new GNOME...
-# https://unix.stackexchange.com/questions/399753/how-to-get-a-list-of-active-windows-when-using-wayland
-# https://stackoverflow.com/questions/45465016/how-do-i-get-the-active-window-on-gnome-wayland
-# https://askubuntu.com/questions/1412130/dbus-calls-to-gnome-shell-dont-work-under-ubuntu-22-04
-# def DBUS_getWindows():
-#     import pydbus
-#     bus = pydbus.SessionBus()
-#
-#     shell = bus.get('org.gnome.Shell')
-#     windows = shell.Eval("global.get_window_actors()")
-#     print(windows)
-#
-#     # gdbus call \
-#     #   --session \
-#     #   --dest org.gnome.Shell \
-#     #   --object-path /org/gnome/Shell \
-#     #   --method org.gnome.Shell.Eval "
-#     #     global
-#     #       .get_window_actors()
-#     #       .map(a=>a.meta_window)
-#     #       .map(w=>({class: w.get_wm_class(), title: w.get_title()}))" \
-#     #   | sed -E -e "s/^\(\S+, '//" -e "s/'\)$//" \
-#     #   | jq .
-#
-#     # This needs WindowsExt to be installed. Not suitable.
-#     # gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell/Extensions/WindowsExt --method org.gnome.Shell.Extensions.WindowsExt.FocusPID | sed -E "s/\\('(.*)',\\)/\\1/g"
 
 
 def getActiveWindowTitle():
@@ -99,19 +76,16 @@ def getActiveWindowTitle():
         return ""
 
 
-def __remove_bad_windows(windows: Optional[List[int]]):
+def __remove_bad_windows(windows: Iterable[XWindow | int | str]):
     """
     :param windows: Xlib Windows
     :return: A generator of LinuxWindow that filters out BadWindows
     """
-    if windows is not None:
-        for window in windows:
-            try:
-                yield LinuxWindow(window)
-            except Xlib.error.XResourceError:
-                pass
-    else:
-        return []
+    for window in windows:
+        try:
+            yield LinuxWindow(window)
+        except Xlib.error.XResourceError:
+            pass
 
 
 def getAllWindows():
@@ -122,7 +96,7 @@ def getAllWindows():
     return [window for window in __remove_bad_windows(defaultRootWindow.getClientListStacking())]
 
 
-def getAllTitles() -> List[str]:
+def getAllTitles() -> list[str]:
     """
     Get the list of titles of all visible windows
 
@@ -131,7 +105,7 @@ def getAllTitles() -> List[str]:
     return [window.title for window in getAllWindows()]
 
 
-def getWindowsWithTitle(title: Union[str, re.Pattern[str]], app: Optional[Tuple[str, ...]] = (), condition: int = Re.IS, flags: int = 0):
+def getWindowsWithTitle(title: str | re.Pattern[str], app: tuple[str, ...] | None = (), condition: int = Re.IS, flags: int = 0):
     """
     Get the list of window objects whose title match the given string with condition and flags.
     Use ''condition'' to delimit the search. Allowed values are stored in pywinctl.Re sub-class (e.g. pywinctl.Re.CONTAINS)
@@ -156,7 +130,7 @@ def getWindowsWithTitle(title: Union[str, re.Pattern[str]], app: Optional[Tuple[
     :param flags: (optional) specific flags to apply to condition. Defaults to 0 (no flags)
     :return: list of Window objects
     """
-    matches: List[LinuxWindow] = []
+    matches: list[LinuxWindow] = []
     if title and condition in Re._cond_dic:
         lower = False
         if condition in (Re.MATCH, Re.NOTMATCH):
@@ -176,7 +150,7 @@ def getWindowsWithTitle(title: Union[str, re.Pattern[str]], app: Optional[Tuple[
     return matches
 
 
-def getAllAppsNames() -> List[str]:
+def getAllAppsNames() -> list[str]:
     """
     Get the list of names of all visible apps
 
@@ -185,7 +159,7 @@ def getAllAppsNames() -> List[str]:
     return list(getAllAppsWindowsTitles())
 
 
-def getAppsWithName(name: Union[str, re.Pattern[str]], condition: int = Re.IS, flags: int = 0):
+def getAppsWithName(name: str | re.Pattern[str], condition: int = Re.IS, flags: int = 0):
     """
     Get the list of app names which match the given string using the given condition and flags.
     Use ''condition'' to delimit the search. Allowed values are stored in pywinctl.Re sub-class (e.g. pywinctl.Re.CONTAINS)
@@ -209,7 +183,7 @@ def getAppsWithName(name: Union[str, re.Pattern[str]], condition: int = Re.IS, f
     :param flags: (optional) specific flags to apply to condition. Defaults to 0 (no flags)
     :return: list of app names
     """
-    matches: List[str] = []
+    matches: list[str] = []
     if name and condition in Re._cond_dic:
         lower = False
         if condition in (Re.MATCH, Re.NOTMATCH):
@@ -239,7 +213,7 @@ def getAllAppsWindowsTitles():
 
     :return: python dictionary
     """
-    result: dict[str, List[str]] = {}
+    result: dict[str, list[str]] = {}
     for win in getAllWindows():
         appName = win.getAppName()
         if appName in result.keys():
@@ -257,11 +231,10 @@ def getWindowsAt(x: int, y: int):
     :param y: Y screen coordinate of the window(s)
     :return: list of Window objects
     """
-    windowBoxGenerator = ((window, window.box) for window in getAllWindows())
     return [
-        window for (window, box)
-        in windowBoxGenerator
-        if pointInBox(x, y, box)]
+        window for window
+        in getAllWindows()
+        if pointInRect(x, y, window.left, window.top, window.width, window.height)]
 
 
 def getTopWindowAt(x: int, y: int):
@@ -272,9 +245,9 @@ def getTopWindowAt(x: int, y: int):
     :param y: Y screen coordinate of the window
     :return: Window object or None
     """
-    windows: List[LinuxWindow] = getAllWindows()
+    windows: list[LinuxWindow] = getAllWindows()
     for window in reversed(windows):
-        if pointInBox(x, y, window.box):
+        if pointInRect(x, y, window.left, window.top, window.width, window.height):
             return window
     else:
         return None
@@ -282,8 +255,12 @@ def getTopWindowAt(x: int, y: int):
 
 class LinuxWindow(BaseWindow):
 
-    def __init__(self, hWnd: Union[XWindow, int, str]):
-        super().__init__(hWnd)
+    @property
+    def _rect(self) -> Rect:
+        return self.__rect
+
+    def __init__(self, hWnd: XWindow | int | str):
+        super().__init__()
 
         if isinstance(hWnd, XWindow):
             self._hWnd = hWnd.id
@@ -291,16 +268,66 @@ class LinuxWindow(BaseWindow):
             self._hWnd = int(hWnd, base=16)
         else:
             self._hWnd = int(hWnd)
-        self._win = EwmhWindow(self._hWnd)
-        self._display: Xlib.display.Display = self._win.display
+        self._win = EWMHWindow(self._hWnd)
         self._rootWin: RootWindow = self._win.rootWindow
+        self._display: Xlib.display.Display = self._win.display
         self._xWin: XWindow = self._win.xWindow
+
+        assert isinstance(self._hWnd, int)
+        assert isinstance(self._win, EWMHWindow)
+        assert isinstance(self._display, Xlib.display.Display)
+        assert isinstance(self._rootWin, RootWindow)
+        assert isinstance(self._xWin, XWindow)
+
+        self.__rect: Rect = self._rectFactory()
         self.watchdog = _WatchDog(self)
 
-        self._currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()
-        self._motifHints: List[int] = []
+        self._transientWindow: Union[EWMHWindow, None] = None
+        self._checkEvents = None
 
-    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
+    def _getWindowRect(self) -> Rect:
+        # https://stackoverflow.com/questions/12775136/get-window-position-and-size-in-python-with-xlib - mgalgs
+        win = self._xWin
+        geom = win.get_geometry()
+        x = geom.x
+        y = geom.y
+        while True:
+            parent = win.query_tree().parent
+            pgeom = parent.get_geometry()
+            x += pgeom.x
+            y += pgeom.y
+            if parent.id == self._rootWin.id:
+                break
+            win = parent
+        w = geom.width
+        h = geom.height
+        return Rect(x, y, x + w, y + h)
+
+    def _getBorderSizes(self):
+
+        class App(tk.Tk):
+
+            def __init__(self):
+                super().__init__()
+                self.geometry('0x0+200+200')
+                self.update_idletasks()
+
+                pos = self.geometry().split('+')
+                self.bar_height = self.winfo_rooty() - int(pos[2])
+                self.border_width = self.winfo_rootx() - int(pos[1])
+                self.destroy()
+
+            def getTitlebarHeight(self):
+                return self.bar_height
+
+            def getBorderWidth(self):
+                return self.border_width
+
+        app = App()
+        # app.mainloop()
+        return app.getTitlebarHeight(), app.getBorderWidth()
+
+    def getExtraFrameSize(self, includeBorder: bool = True) -> tuple[int, int, int, int]:
         """
         Get the extra space, in pixels, around the window, including or not the border.
         Notice not all applications/windows will use this property values
@@ -308,11 +335,14 @@ class LinuxWindow(BaseWindow):
         :param includeBorder: set to ''False'' to avoid including borders
         :return: (left, top, right, bottom) additional frame size in pixels, as a tuple of int
         """
-        ret: List[int] = self._win.getFrameExtents() or [0, 0, 0, 0]
+        ret: list[int] = self._win.getFrameExtents()
+        if not ret: ret = [0, 0, 0, 0]
         borderWidth = 0
         if includeBorder:
-            geom = self._xWin.get_geometry()
-            borderWidth = geom.border_width
+            # _, a = self.XlibAttributes()
+            # borderWidth = a.border_width
+            if includeBorder:
+                titleHeight, borderWidth = self._getBorderSizes()
         frame = (ret[0] + borderWidth, ret[2] + borderWidth, ret[1] + borderWidth, ret[3] + borderWidth)
         return frame
 
@@ -323,23 +353,15 @@ class LinuxWindow(BaseWindow):
 
         :return: Rect struct
         """
-        box = self.box
-        x = box.left
-        y = box.top
-        w = box.width
-        h = box.height
-        # Thanks to roym899 (https://github.com/roym899) for his HELP!!!!
-        _net_extents = self._win._getNetFrameExtents()
-        if _net_extents and len(_net_extents) >= 4:
-            x = x + int(_net_extents[0])
-            y = y + int(_net_extents[2])
-            w = w - int(_net_extents[0]) + int(_net_extents[1])
-            h = h - int(_net_extents[2]) + int(_net_extents[3])
-            ret = Rect(x, y, x + w, y + h)
-        else:
-            # TODO: Find a way to find window title and borders sizes in GNOME
-            # Don't add / subtract anything to avoid missing window parts (for windows not following WM standards)
-            ret = Rect(x, y, x + w, y + h)
+        # res, a = self.XlibAttributes()  -> Should return client area, but it doesn't...
+        # if res:
+        #     ret = Rect(a.x, a.y, a.x + a.width, a.y + a.height)
+        # else:
+        #     ret = self.getWindowRect()
+        # Didn't find a way to get title bar height using Xlib
+        titleHeight, borderWidth = self._getBorderSizes()
+        geom = self._xWin.get_geometry()
+        ret = Rect(int(geom.x + borderWidth), int(geom.y + titleHeight), int(geom.x + geom.width - borderWidth), int(geom.y + geom.width - borderWidth))
         return ret
 
     def __repr__(self):
@@ -400,7 +422,7 @@ class LinuxWindow(BaseWindow):
         :return: ''True'' if window restored
         """
         if self.isMaximized:
-            self._win.changeWmState(Props.StateAction.REMOVE, Props.State.MAXIMIZED_HORZ, Props.State.MAXIMIZED_VERT)
+            self._win.changeWmState(Props.Window.State.Action.REMOVE, Props.Window.State.MAXIMIZED_HORZ, Props.Window.State.MAXIMIZED_VERT)
         self.activate()
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and (self.isMaximized or self.isMinimized):
@@ -449,8 +471,8 @@ class LinuxWindow(BaseWindow):
         :return: ''True'' if window activated
         """
         if "arm" in platform.platform():
-            self._win.changeWmState(Props.StateAction.REMOVE, Props.State.ABOVE)
-            self._win.changeWmState(Props.StateAction.ADD, Props.State.ABOVE, Props.State.FOCUSED)
+            self._win.changeWmState(Props.Window.State.Action.REMOVE, Props.Window.State.ABOVE)
+            self._win.changeWmState(Props.Window.State.Action.ADD, Props.Window.State.ABOVE, Props.Window.State.FOCUSED)
         else:
             # This was not working as expected in Unity
             # Thanks to MestreLion (https://github.com/MestreLion) for his solution!!!!
@@ -465,13 +487,10 @@ class LinuxWindow(BaseWindow):
         """
         Resizes the window relative to its current size
 
-        :param widthOffset: offset to add to current window width as target width
-        :param heightOffset: offset to add to current window height as target height
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
-        box = self.box
-        return self.resizeTo(box.width + widthOffset, box.height + heightOffset, wait)
+        return self.resizeTo(int(self.width + widthOffset), int(self.height + heightOffset), wait)
 
     resizeRel = resize  # resizeRel is an alias for the resize() method.
 
@@ -479,33 +498,26 @@ class LinuxWindow(BaseWindow):
         """
         Resizes the window to a new width and height
 
-        :param newWidth: target window width
-        :param newHeight: target window height
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
-        self.size = Size(newWidth, newHeight)
-        box = self.box
+        self._win.setMoveResize(gravity=0, x=self.left, y=self.top, width=newWidth, height=newHeight)
         retries = 0
-        while wait and retries < WAIT_ATTEMPTS and (box.width != newWidth or box.height != newHeight):
+        while wait and retries < WAIT_ATTEMPTS and (self.width != newWidth or self.height != newHeight):
             retries += 1
             time.sleep(WAIT_DELAY * retries)
-            box = self.box
-        return box.width == newWidth and box.height == newHeight
+        return self.width == newWidth and self.height == newHeight
 
     def move(self, xOffset: int, yOffset: int, wait: bool = False):
         """
         Moves the window relative to its current position
 
-        :param xOffset: offset relative to current X coordinate to move the window to
-        :param yOffset: offset relative to current Y coordinate to move the window to
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
-        box = self.box
-        newLeft = max(0, box.left + xOffset)  # Xlib won't accept negative positions
-        newTop = max(0, box.top + yOffset)
-        return self.moveTo(newLeft, newTop, wait)
+        newLeft = max(0, self.left + xOffset)  # Xlib won't accept negative positions
+        newTop = max(0, self.top + yOffset)
+        return self.moveTo(int(newLeft), int(newTop), wait)
 
     moveRel = move  # moveRel is an alias for the move() method.
 
@@ -513,21 +525,23 @@ class LinuxWindow(BaseWindow):
         """
         Moves the window to new coordinates on the screen
 
-        :param newLeft: target X coordinate to move the window to
-        :param newTop: target Y coordinate to move the window to
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
         newLeft = max(0, newLeft)  # Xlib won't accept negative positions
         newTop = max(0, newTop)
-        self.topleft = Point(newLeft, newTop)
-        box = self.box
+        self._win.setMoveResize(gravity=0, x=newLeft, y=newTop, width=self.width, height=self.height)
         retries = 0
-        while wait and retries < WAIT_ATTEMPTS and (box.left != newLeft or box.top != newTop):
+        while wait and retries < WAIT_ATTEMPTS and (self.left != newLeft or self.top != newTop):
             retries += 1
             time.sleep(WAIT_DELAY * retries)
-            box = self.box
-        return box.left == newLeft and box.top == newTop
+        return self.left == newLeft and self.top == newTop
+
+    def _moveResizeTo(self, newLeft: int, newTop: int, newWidth: int, newHeight: int):
+        newLeft = max(0, newLeft)  # Xlib won't accept negative positions
+        newTop = max(0, newTop)
+        self._win.setMoveResize(gravity=0, x=newLeft, y=newTop, width=newWidth, height=newHeight)
+        return newLeft == self.left and newTop == self.top and newWidth == self.width and newHeight == self.height
 
     def alwaysOnTop(self, aot: bool = True) -> bool:
         """
@@ -536,10 +550,9 @@ class LinuxWindow(BaseWindow):
         :param aot: set to ''False'' to deactivate always-on-top behavior
         :return: ''True'' if command succeeded
         """
-        action = Props.StateAction.ADD if aot else Props.StateAction.REMOVE
-        self._win.changeWmState(action, Props.State.ABOVE)
-        states = self._win.getWmState(True)
-        return bool(states and Props.State.ABOVE in states)
+        action = Props.Window.State.Action.ADD if aot else Props.Window.State.Action.REMOVE
+        self._win.changeWmState(action, Props.Window.State.ABOVE)
+        return Props.Window.State.ABOVE in self._win.getWmState(True)
 
     def alwaysOnBottom(self, aob: bool = True) -> bool:
         """
@@ -548,10 +561,9 @@ class LinuxWindow(BaseWindow):
         :param aob: set to ''False'' to deactivate always-on-bottom behavior
         :return: ''True'' if command succeeded
         """
-        action = Props.StateAction.ADD if aob else Props.StateAction.REMOVE
-        self._win.changeWmState(action, Props.State.BELOW)
-        states = self._win.getWmState(True)
-        return bool(states and Props.State.BELOW in states)
+        action = Props.Window.State.Action.ADD if aob else Props.Window.State.Action.REMOVE
+        self._win.changeWmState(action, Props.Window.State.BELOW)
+        return Props.Window.State.BELOW in self._win.getWmState(True)
 
     def lowerWindow(self) -> bool:
         """
@@ -587,66 +599,60 @@ class LinuxWindow(BaseWindow):
         """
         if sb:
             # This sends window below all others, but not behind the desktop icons
-            self._win.setWmWindowType(Props.WindowType.DESKTOP)
-
+            self._win.setWmWindowType(Props.Window.WindowType.DESKTOP)
+            # self._transientWindow2 = self._win.xlibutils.createTransient(self._xWin, 0, 0, 10, 10, True, False)
             # This will try to raise the desktop icons layer on top of the window
             # Ubuntu: "@!0,0;BDHF" is the new desktop icons NG extension on Ubuntu 22.04
-            # Mint: "Desktop" title is language-dependent. Using its class instead
-            # KDE: desktop and icons seem to be the same window. Likely it's not possible to place a window in between
+            # Mint: "Desktop" name is language-dependent. Using its class instead
             # TODO: Test / find in other OS
-            desktop = _xlibGetAllWindows(title="@!0,0;BDHF", klass=('nemo-desktop', 'Nemo-desktop'))
-            self.lowerWindow()
+            desktop = xlibGetAllWindows(title="@!0,0;BDHF", klass=('nemo-desktop', 'Nemo-desktop'))
+            dsp = Xlib.display.Display()
             for d in desktop:
-                w: XWindow = self._display.create_resource_object('window', d.id)
+                w: XWindow = dsp.create_resource_object('window', d.id)
                 w.raise_window()
-                self._display.flush()
-            types = self._win.getWmWindowType(True)
-            return bool(types and Props.WindowType.DESKTOP in types)
+            dsp.close()
+            return Props.Window.WindowType.DESKTOP in self._win.getWmWindowType(True)
 
         else:
-            self._win.setWmWindowType(Props.WindowType.NORMAL)
-            types = self._win.getWmWindowType(True)
-            return bool(types and Props.WindowType.NORMAL in types and self.isActive)
+            self._win.setWmWindowType(Props.Window.WindowType.NORMAL)
+            return Props.Window.WindowType.NORMAL in self._win.getWmWindowType(True) and self.isActive
+
+    def _manageEvents(self, event: Xlib.protocol.rq.Event):
+        if self._transientWindow is not None:
+            self._transientWindow.xWindow.configure(x=0, y=0, width=self.width, height=self.height)
 
     def acceptInput(self, setTo: bool):
-        """
-        Toggles the window to accept input and focus
+        """Toggles the window transparent to input and focus
+           WARNING: In Linux systems, this effect is not permanent (will work while program is running)
 
         :param setTo: True/False to toggle window ignoring input and focus
         :return: None
         """
-        # TODO: Is it possible to make the window completely transparent to input (click-thru) in GNOME?
         if setTo:
-
-            if "gnome" in self._currDesktop:
-
-                self._win.changeWmState(Props.StateAction.REMOVE, Props.State.BELOW)
-
-                onebyte = int(0xFF)
-                fourbytes = onebyte | (onebyte << 8) | (onebyte << 16) | (onebyte << 24)
-                self._win.changeProperty("_NET_WM_WINDOW_OPACITY", [fourbytes], Xlib.Xatom.CARDINAL)
-
-                if self._motifHints:
-                    self._win.changeProperty("_MOTIF_WM_HINTS", self._motifHints)
-
-            self._win.setWmWindowType(Props.WindowType.NORMAL)
-
+            if self._transientWindow is not None and self._checkEvents is not None:
+                self._checkEvents.stop()
+                self._checkEvents = None
+                self._win.xlibutils.closeTransient(self._transientWindow)
+                self._transientWindow = None
+            self._win.setWmWindowType(Props.Window.WindowType.NORMAL)
         else:
-
-            if "gnome" in self._currDesktop:
-
-                self._win.changeWmState(Props.StateAction.ADD, Props.State.BELOW)
-
-                onebyte = int(0xFA)  # Calculate as 0xff * target_opacity
-                fourbytes = onebyte | (onebyte << 8) | (onebyte << 16) | (onebyte << 24)
-                self._win.changeProperty("_NET_WM_WINDOW_OPACITY", [fourbytes], Xlib.Xatom.CARDINAL)
-
-                ret = self._win.getProperty("_MOTIF_WM_HINTS")
-                # Cinnamon uses this as default: [2, 1, 1, 0, 0]
-                self._motifHints = [a for a in ret.value] if ret and hasattr(ret, "value") else [2, 0, 0, 0, 0]
-                self._win.changeProperty("_MOTIF_WM_HINTS", [0, 0, 0, 0, 0])
-
-            self._win.setWmWindowType(Props.WindowType.DESKTOP)
+            if self._xWin.id == self._display.get_input_focus().focus.id:
+                self._win.root.set_input_focus(Xlib.X.PointerRoot, Xlib.X.CurrentTime)
+            self._win.setWmWindowType(Props.Window.WindowType.DESKTOP)
+            if self._transientWindow is None:
+                self._transientWindow = self._win.xlibutils.createTransient(
+                    self._win.root,
+                    self.left, max(0, self.top-20), max(1, self.width-40), max(1, self.height-80),
+                    override=False,
+                    inputOnly=True
+                )
+                self._checkEvents = self._transientWindow.extensions.checkEvents(
+                    [Xlib.X.ConfigureNotify],
+                    Xlib.X.StructureNotifyMask | Xlib.X.SubstructureNotifyMask,
+                    self._manageEvents,
+                    self._xWin.id
+                )
+                self._checkEvents.start()
 
     def getAppName(self) -> str:
         """
@@ -669,9 +675,9 @@ class LinuxWindow(BaseWindow):
 
         :return: handle of the window parent
         """
-        return int(self._xWin.query_tree().parent.id)
+        return cast(int, self._xWin.query_tree().parent)
 
-    def setParent(self, parent: int) -> bool:
+    def setParent(self, parent) -> bool:
         """
         Current window will become child of given parent
         WARNIG: Not implemented in AppleScript (not possible in macOS for foreign (other apps') windows)
@@ -698,33 +704,39 @@ class LinuxWindow(BaseWindow):
         """
         return self._hWnd
 
-    def isParent(self, child: int) -> bool:
+    def isParent(self, child: XWindow) -> bool:
         """Returns ''True'' if the window is parent of the given window as input argument
 
-        :param child: handle of the window you want to check if the current window is parent of
+        Args:
+        ----
+            ''child'' handle of the window you want to check if the current window is parent of
         """
-        win = self._display.create_resource_object('window', child)
-        return bool(win.query_tree().parent.id == self._hWnd)
+        return bool(child.query_tree().parent.id == self._hWnd)
     isParentOf = isParent  # isParentOf is an alias of isParent method
 
-    def isChild(self, parent: int):
+    def isChild(self, parent: XWindow):
         """
         Check if current window is child of given window/app (handle)
 
         :param parent: handle of the window/app you want to check if the current window is child of
         :return: ''True'' if current window is child of the given window
         """
-        return bool(parent == self.getParent())
+        return bool(parent.id == self.getParent().id)
     isChildOf = isChild  # isChildOf is an alias of isParent method
 
-    def getDisplay(self) -> str:
+    def getDisplay(self):
         """
         Get display name in which current window space is mostly visible
 
-        :return: display name as string or empty (couldn't retrieve it or window is offscreen)
+        :return: display name as string
         """
-        x, y = self.center
-        return str(_findMonitorName(x, y))
+        screens = getAllScreens()
+        name = ""
+        for key in screens:
+            if pointInRect(self.centerx, self.centery, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
+                name = key
+                break
+        return name
 
     @property
     def isMinimized(self) -> bool:
@@ -734,7 +746,7 @@ class LinuxWindow(BaseWindow):
         :return: ``True`` if the window is minimized
         """
         state = self._win.getWmState(True)
-        return bool(state and Props.State.HIDDEN in state)
+        return bool(Props.Window.State.HIDDEN in state)
 
     @property
     def isMaximized(self) -> bool:
@@ -744,7 +756,7 @@ class LinuxWindow(BaseWindow):
         :return: ``True`` if the window is maximized
         """
         state = self._win.getWmState(True)
-        return bool(state and Props.State.MAXIMIZED_HORZ in state and Props.State.MAXIMIZED_VERT in state)
+        return bool(Props.Window.State.MAXIMIZED_HORZ in state and Props.Window.State.MAXIMIZED_VERT in state)
 
     @property
     def isActive(self):
@@ -763,10 +775,13 @@ class LinuxWindow(BaseWindow):
 
         :return: title as a string
         """
-        name: Union[str, bytes] = self._win.getName()
+        name: str | bytes = self._win.getName()
         if isinstance(name, bytes):
             name = name.decode()
         return name
+
+    def _getAttributes(self) -> Xlib.protocol.request.GetWindowAttributes:
+        return self._xWin.get_attributes()
 
     @property
     def visible(self) -> bool:
@@ -775,7 +790,8 @@ class LinuxWindow(BaseWindow):
 
         :return: ``True`` if the window is currently visible
         """
-        state: int = self._xWin.get_attributes().map_state
+        attr = self._getAttributes()
+        state = attr.map_state
         return bool(state == Xlib.X.IsViewable)
 
     isVisible: bool = cast(bool, visible)  # isVisible is an alias for the visible property.
@@ -788,7 +804,7 @@ class LinuxWindow(BaseWindow):
         :return: ''True'' if window exists
         """
         try:
-            state: int = self._xWin.get_attributes().map_state
+            _ = self._getAttributes().map_state
         except Xlib.error.BadWindow:
             return False
         else:
@@ -805,26 +821,213 @@ class LinuxWindow(BaseWindow):
     @property
     def _isMapped(self) -> bool:
         # Returns ``True`` if the window is currently mapped
-        state: int = self._xWin.get_attributes().map_state
+        state: int = self._getAttributes().map_state
         return bool(state != Xlib.X.IsUnmapped)
+
+
+class _ScreenValue(TypedDict):
+    id: int
+    is_primary: bool
+    pos: Point
+    size: Size
+    workarea: Rect
+    scale: tuple[int, int]
+    dpi: tuple[int, int]
+    orientation: int
+    frequency: float
+    colordepth: int
+
+
+def getAllScreens():
+    """
+    load all monitors plugged to the pc, as a dict
+
+    :return: Monitors info as python dictionary
+
+    Output Format:
+        Key:
+            Display name
+
+        Values:
+            "id":
+                display sequence_number as identified by Xlib.Display()
+            "is_primary":
+                ''True'' if monitor is primary (shows clock and notification area, sign in, lock, CTRL+ALT+DELETE screens...)
+            "pos":
+                Point(x, y) struct containing the display position ((0, 0) for the primary screen)
+            "size":
+                Size(width, height) struct containing the display size, in pixels
+            "workarea":
+                Rect(left, top, right, bottom) struct with the screen workarea, in pixels
+            "scale":
+                Scale ratio, as a tuple of (x, y) scale percentage
+            "dpi":
+                Dots per inch, as a tuple of (x, y) dpi values
+            "orientation":
+                Display orientation: 0 - Landscape / 1 - Portrait / 2 - Landscape (reversed) / 3 - Portrait (reversed) / 4 - Reflect X / 5 - Reflect Y
+            "frequency":
+                Refresh rate of the display, in Hz
+            "colordepth":
+                Bits per pixel referred to the display color depth
+    """
+    # https://stackoverflow.com/questions/8705814/get-display-count-and-resolution-for-each-display-in-python-without-xrandr
+    # https://www.x.org/releases/X11R7.7/doc/libX11/libX11/libX11.html#Obtaining_Information_about_the_Display_Image_Formats_or_Screens
+
+    displays = []
+    try:
+        files = os.listdir("/tmp/.X11-unix")
+    except:
+        files = []
+    for f in files:
+        if f.startswith("X"):
+            displays.append(":"+f[1:])
+    if not displays:
+        displays = [":0"]
+    result: dict[str, _ScreenValue] = {}
+    for display in displays:
+        dsp = Xlib.display.Display(display)
+        for i in range(dsp.screen_count()):
+            try:
+                screen = dsp.screen(i)
+                root = screen.root
+            except:
+                continue
+
+            res = root.xrandr_get_screen_resources()
+            modes = res.modes
+            wa = root.get_full_property(dsp.get_atom(Props.Root.WORKAREA, True), Xlib.X.AnyPropertyType).value
+            for output in res.outputs:
+                params = dsp.xrandr_get_output_info(output, res.config_timestamp)
+                crtc = None
+                try:
+                    crtc = dsp.xrandr_get_crtc_info(params.crtc, res.config_timestamp)
+                except:
+                    continue
+
+                if crtc and crtc.mode:  # displays with empty (0) mode seem not to be valid
+                    name = params.name
+                    if name in result:
+                        name = name + str(i)
+                    id = crtc.sequence_number
+                    x, y, w, h = crtc.x, crtc.y, crtc.width, crtc.height
+                    wx, wy, wr, wb = x + wa[0], y + wa[1], x + w - (screen.width_in_pixels - wa[2] - wa[0]), y + h - (screen.height_in_pixels - wa[3] - wa[1])
+                    # check all these values using dpi, mms or other possible values or props
+                    dpiX = dpiY = 0
+                    try:
+                        dpiX, dpiY = round(crtc.width * 25.4 / params.mm_width), round(crtc.height * 25.4 / params.mm_height)
+                    except:
+                        dpiX, dpiY = round(w * 25.4 / screen.width_in_mms), round(h * 25.4 / screen.height_in_mms)
+                    scaleX, scaleY = round(dpiX / 96 * 100), round(dpiY / 96 * 100)
+                    rot = int(math.log(crtc.rotation, 2))
+                    freq = 0.0
+                    for mode in modes:
+                        if crtc.mode == mode.id:
+                            freq = mode.dot_clock / (mode.h_total * mode.v_total)
+                            break
+                    depth = screen.root_depth
+
+                    result[name] = {
+                        'id': id,
+                        'is_primary': (x, y) == (0, 0),
+                        'pos': Point(x, y),
+                        'size': Size(w, h),
+                        'workarea': Rect(wx, wy, wr, wb),
+                        'scale': (scaleX, scaleY),
+                        'dpi': (dpiX, dpiY),
+                        'orientation': rot,
+                        'frequency': freq,
+                        'colordepth': depth
+                    }
+        dsp.close()
+    return result
+
+
+def getMousePos() -> Point:
+    """
+    Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
+
+    :return: Point struct
+    """
+    mp = defaultRootWindow.root.query_pointer()
+    return Point(mp.root_x, mp.root_y)
+cursor = getMousePos  # cursor is an alias for getMousePos
+
+
+def getScreenSize(name: str = "") -> Size:
+    """
+    Get the width and height, in pixels, of the given screen, or main screen if no screen given or not found
+
+    :param name: name of screen as returned by getAllScreens() and getDisplay()
+    :return: Size struct or None
+    """
+    screens = getAllScreens()
+    res = Size(0, 0)
+    for key in screens:
+        if (name and key == name) or (not name):
+            res = screens[key]["size"]
+            break
+    return res
+resolution = getScreenSize  # resolution is an alias for getScreenSize
+
+
+def getWorkArea(name: str = "") -> Rect:
+    """
+    Get the Rect struct (left, top, right, bottom) of the working (usable by windows) area of the screen, in pixels
+
+    :param name: name of screen as returned by getAllScreens() and getDisplay()
+    :return: Rect struct or None
+    """
+    screens = getAllScreens()
+    res = Rect(0, 0, 0, 0)
+    for key in screens:
+        if (name and key == name) or (not name):
+            res = screens[key]["workarea"]
+            break
+    return res
+
+
+def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
+    """
+    This function is meant to be run from the command line. It will
+    automatically display the position of mouse pointer and the titles
+    of the windows under it
+    """
+    if xOffset != 0 or yOffset != 0:
+        print('xOffset: %s yOffset: %s' % (xOffset, yOffset))
+    try:
+        prevWindows = None
+        while True:
+            x, y = getMousePos()
+            positionStr = 'X: ' + str(x - xOffset).rjust(4) + ' Y: ' + str(y - yOffset).rjust(4) + '  (Press Ctrl-C to quit)'
+            windows = getWindowsAt(x, y)
+            if windows != prevWindows:
+                print('\n')
+                prevWindows = windows
+                for win in windows:
+                    name = win.title
+                    eraser = '' if len(name) >= len(positionStr) else ' ' * (len(positionStr) - len(name))
+                    sys.stdout.write(name + eraser + '\n')
+            sys.stdout.write(positionStr)
+            sys.stdout.write('\b' * len(positionStr))
+            sys.stdout.flush()
+            time.sleep(0.3)
+    except KeyboardInterrupt:
+        sys.stdout.write('\n\n')
+        sys.stdout.flush()
 
 
 def main():
     """Run this script from command-line to get windows under mouse pointer"""
     print("PLATFORM:", sys.platform)
+    print("SCREEN SIZE:", resolution())
     print("ALL WINDOWS", getAllTitles())
-    print("MONITORS:", getAllScreens())
     npw = getActiveWindow()
     if npw is None:
         print("ACTIVE WINDOW:", None)
     else:
         print("ACTIVE WINDOW:", npw.title, "/", npw.box)
-        dpy = npw.getDisplay()
-        print("DISPLAY", dpy)
-        print("SCREEN SIZE:", getScreenSize(dpy))
-        print("WORKAREA:", getWorkArea(dpy))
     print()
-    displayWindowsUnderMouse()
+    displayWindowsUnderMouse(0, 0)
 
 
 if __name__ == "__main__":

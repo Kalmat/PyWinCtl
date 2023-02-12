@@ -16,7 +16,6 @@ from AppKit import (
 
 import pywinctl
 
-
 # Cocoa prefers composition to inheritance. The members of an object's
 # delegate will be called upon the happening of certain events. Once we define
 # methods with particular names, they will be called automatically
