@@ -19,46 +19,46 @@ defaultScreen = defaultDisplay.screen()
 defaultRoot = defaultScreen.root
 
 
-def getAllDisplaysInfo():
-    """
-    Gets relevant information on all present displays, including its screens and roots
-
-    Returned dictionary has the following structure:
-
-    "N": Sequential number to separate displays (not related to any actual value)
-        "name": display name (use Xlib.display.Display(name) to get a connection)
-        "is_default": ''True'' if it's the default display, ''False'' otherwise
-        "screens": sub-dict containing all screens owned by the display
-            "M": sequential number to separate screens
-            "screen": Struct containing all screen info
-            "root": root window (Xlib Window) which belongs to the screen
-            "is_default": ''True'' if it's the default screen/root, ''False'' otherwise
-
-    :return: dict with all displays, screens and roots info
-    """
-    displays: List[str] = os.listdir("/tmp/.X11-unix")
-    dspInfo = {}
-    for i, d in enumerate(displays):
-        dspKey: str = str(i)
-        if d.startswith("X"):
-            dspInfo[dspKey] = {}
-            name: str = ":" + d[1:]
-            display: Xlib.display.Display = Xlib.display.Display(name)
-            dspInfo[dspKey]["name"] = name
-            dspInfo[dspKey]["is_default"] = (display.get_display_name() == defaultDisplay.get_display_name())
-            dspInfo[dspKey]["screens"] = {}
-            for s in range(display.screen_count()):
-                scrKey: str = str(s)
-                try:
-                    dspInfo[dspKey]["screens"][scrKey] = {}
-                    screen: Struct = display.screen(s)
-                    dspInfo[dspKey]["screens"][scrKey]["screen"] = screen
-                    dspInfo[dspKey]["screens"][scrKey]["root"] = screen.root
-                    dspInfo[dspKey]["screens"][scrKey]["is_default"] = (screen.root.id == defaultRoot.id)
-                except:
-                    pass
-            display.close()
-    return dspInfo
+# def getAllDisplaysInfo():
+#     """
+#     Gets relevant information on all present displays, including its screens and roots
+#
+#     Returned dictionary has the following structure:
+#
+#     "N": Sequential number to separate displays (not related to any actual value)
+#         "name": display name (use Xlib.display.Display(name) to get a connection)
+#         "is_default": ''True'' if it's the default display, ''False'' otherwise
+#         "screens": sub-dict containing all screens owned by the display
+#             "M": sequential number to separate screens
+#             "screen": Struct containing all screen info
+#             "root": root window (Xlib Window) which belongs to the screen
+#             "is_default": ''True'' if it's the default screen/root, ''False'' otherwise
+#
+#     :return: dict with all displays, screens and roots info
+#     """
+#     displays: List[str] = os.listdir("/tmp/.X11-unix")
+#     dspInfo = {}
+#     for i, d in enumerate(displays):
+#         dspKey: str = str(i)
+#         if d.startswith("X"):
+#             dspInfo[dspKey] = {}
+#             name: str = ":" + d[1:]
+#             display: Xlib.display.Display = Xlib.display.Display(name)
+#             dspInfo[dspKey]["name"] = name
+#             dspInfo[dspKey]["is_default"] = (display.get_display_name() == defaultDisplay.get_display_name())
+#             dspInfo[dspKey]["screens"] = {}
+#             for s in range(display.screen_count()):
+#                 scrKey: str = str(s)
+#                 try:
+#                     dspInfo[dspKey]["screens"][scrKey] = {}
+#                     screen: Struct = display.screen(s)
+#                     dspInfo[dspKey]["screens"][scrKey]["screen"] = screen
+#                     dspInfo[dspKey]["screens"][scrKey]["root"] = screen.root
+#                     dspInfo[dspKey]["screens"][scrKey]["is_default"] = (screen.root.id == defaultRoot.id)
+#                 except:
+#                     pass
+#             display.close()
+#     return dspInfo
 
 
 def getDisplayFromWindow(winId: int) -> Tuple[Xlib.display.Display, Struct, XWindow]:
@@ -911,7 +911,7 @@ class Window:
             self.sendMessage(atom, [Xlib.Xutil.IconicState])
 
     def getAllowedActions(self, text=False):
-        acts = self.getProperty(Props.Window.ALLOWED_ACTIONS)
+        acts: List[int] = self.getProperty(Props.Window.ALLOWED_ACTIONS)
         if text and acts is not None:
             ret = []
             for a in acts:
@@ -1147,7 +1147,7 @@ class _Extensions:
         self.win = self.display.create_resource_object('window', winId)
 
     def getWmHints(self) -> Structs.WmHints:
-        return self.win.get_wm_hints()
+        return cast(Structs.WmHints, self.win.get_wm_hints())
 
     def setWmHints(self, hint: str, value: Any):
         hints: Xlib.protocol.rq.DictWrapper = self.win.get_wm_hints()
@@ -1297,7 +1297,7 @@ class _XlibUtils:
         win.set_wm_transient_for(self.win)
         self.display.flush()
 
-        window = cast(Window, Window(win.id))
+        window = Window(win.id)
         window.changeWmState(Props.Window.State.Action.ADD, Props.Window.State.BELOW,
                                             Props.Window.State.SKIP_TASKBAR)
         # Removing actions, but NOT decoration since it causes not to capture keyboard and mouse:
@@ -1336,9 +1336,9 @@ def main():
     print("SUPPORTING WM CHECK")
     print(root.getSupportingWMCheck())
     w = root.getActiveWindow()
-    print("REQ FRAME EXTENTS")
-    print(root.requestFrameExtents(w))
     if w:
+        print("REQ FRAME EXTENTS")
+        print(root.requestFrameExtents(w))
         win = Window(w)
         print("NAME", win.getName())
         print("TYPE", win.getWmWindowType())

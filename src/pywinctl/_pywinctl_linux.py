@@ -29,7 +29,7 @@ import Xlib.Xutil
 import Xlib.ext
 from Xlib.xobject.drawable import Window as XWindow
 
-from pywinctl.xlibcontainer import RootWindow, Window as EWMHWindow, Props, getDisplayFromWindow, getDisplayFromRoot, xlibGetAllWindows, defaultRootWindow, _Extensions
+from pywinctl.xlibcontainer import RootWindow, Window as EWMHWindow, Props, xlibGetAllWindows, defaultRootWindow
 
 from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect
 

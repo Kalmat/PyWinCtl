@@ -572,7 +572,7 @@ class MacOSWindow(BaseWindow):
         self._app = app
         self._appName: str = app.localizedName()
         self._appPID = app.processIdentifier()
-        self._winTitle = title
+        self._winTitle: str = title
         # self._parent = self.getParent()  # It is slow and not required by now
         self.__rect = self._rectFactory(bounds=bounds)
         v = platform.mac_ver()[0].split(".")
@@ -1343,7 +1343,7 @@ class MacOSWindow(BaseWindow):
         return active is not None and active._app == self._app and active.title == self.title
 
     @property
-    def title(self) -> Union[str, None]:
+    def title(self) -> str:
         """
         Get the current window title, as string.
         IMPORTANT: window title may change. In that case, it will return None.
