@@ -2334,13 +2334,7 @@ class MacOSNSWindow(BaseWindow):
         :param setTo: True/False to toggle window transparent to input and focus
         :return: None
         """
-        # https://stackoverflow.com/questions/53248592/stop-nswindow-from-receiving-input-events-temporarily
-        # https://stackoverflow.com/questions/12677976/nswindow-ignore-mouse-keyboard-events
-        # self._hWnd.setIgnoresMouseEvents_(not setTo)
-        if setTo:
-            self._app.stopModal()
-        else:
-            self._app.runModalForWindow_(self._hWnd)
+        self._hWnd.setIgnoresMouseEvents_(not setTo)
 
     def getAppName(self) -> str:
         """

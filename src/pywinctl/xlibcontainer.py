@@ -79,7 +79,9 @@ def getAllDisplaysInfo() -> _DisplaySeq:
                 "screens": screens
             }
             display.close()
-            dspInfo[name] = displayInfo  # type: ignore[literal-required]  # How to use variables as keys to add new items???
+            # How to use variables as keys to add new items???
+            # https://github.com/python/mypy/issues/7178
+            dspInfo[name] = displayInfo  # type: ignore[literal-required]
     return dspInfo
 
 

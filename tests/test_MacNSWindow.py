@@ -77,9 +77,8 @@ class Delegate(NSObject):
 
             # Test acceptInput
             print("INPUT OFF")
-            # This silently fails. Must investigate why!
-            # self.npw.acceptInput(False)
-            # time.sleep(5)
+            self.npw.acceptInput(False)
+            time.sleep(3)
             print("INPUT ON")
             self.npw.acceptInput(True)
 
