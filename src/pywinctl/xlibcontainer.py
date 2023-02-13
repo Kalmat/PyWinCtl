@@ -938,7 +938,7 @@ class Window:
             ret = []
             for a in acts:
                 try:
-                    if a is not None:
+                    if isinstance(a, int):
                         ret.append(self.display.get_atom_name(a))
                 except:
                     pass
