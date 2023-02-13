@@ -1027,7 +1027,39 @@ def main():
     else:
         print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()
-    displayWindowsUnderMouse(0, 0)
+    # displayWindowsUnderMouse(0, 0)
+
+    # npw.acceptInput(False)
+    npw.sendBehind(True)
+    for i in range(5):
+        print(i)
+        # if i == 5:
+        #     print("MOVE")
+        #     npw.moveTo(100, 100)
+        # if i == 10:
+        #     print("MIN")
+        #     npw.minimize()
+        # if i == 15:
+        #     print("RST")
+        #     npw.restore()
+        # if i == 20:
+        #     print("MAX")
+        #     npw.maximize()
+        # if i == 25:
+        #     print("RST")
+        #     npw.restore()
+        # if i == 30:
+        #     print("HID")
+        #     npw.hide()
+        # if i == 35:
+        #     print("SHW")
+        #     npw.show()
+        # if i == 40:
+        #     print("RESIZE")
+        #     print(npw.resizeTo(800, 600))
+        time.sleep(1)
+    npw.sendBehind(False)
+    # npw.acceptInput(True)
 
 
 if __name__ == "__main__":

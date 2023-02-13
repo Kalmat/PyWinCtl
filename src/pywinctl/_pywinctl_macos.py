@@ -2340,7 +2340,7 @@ class MacOSNSWindow(BaseWindow):
         if setTo:
             self._app.stopModal()
         else:
-            self._app.runModalForWindow(self._hWnd)
+            self._app.runModalForWindow_(self._hWnd)
 
     def getAppName(self) -> str:
         """

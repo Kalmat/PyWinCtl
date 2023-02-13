@@ -1536,7 +1536,7 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0):
 #     ctypes.windll.user32.GetWindowThreadProcessId(hWnd, ctypes.byref(pid))
 #     hProcess = ctypes.windll.kernel32.OpenProcess(win32con.PROCESS_ALL_ACCESS, 0, pid)
 #
-#     # init our tool bar button and a handle to it
+#     # init our toolbar button and a handle to it
 #     if struct.calcsize("P") * 8 == 64:
 #         lpPointer = ctypes.windll.kernel32.VirtualAllocEx(hProcess, None, ctypes.sizeof(TBBUTTON64), win32con.MEM_COMMIT, win32con.PAGE_READWRITE)
 #         tbButton = TBBUTTON64()

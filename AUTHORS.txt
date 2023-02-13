@@ -3,6 +3,7 @@ PyWinCtl authors, contributors and maintainers:
 Kalmat https://github.com/Kalmat
 Rodrigo Silva (MestreLion) https://github.com/MestreLion
 Samuel T. (Avasam) https://github.com/Avasam
+super-ibby (ibby) https://github.com/super-ibby
 macdeport https://github.com/macdeport
 holychowders https://github.com/holychowders
 Anthony Molinaro (djnym) https://github.com/djnym

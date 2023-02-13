@@ -4,7 +4,7 @@
 import os
 import threading
 import time
-from typing import Union, List, Any, Iterable, TypedDict, Optional, Tuple, cast, Callable
+from typing import Union, List, Any, Iterable, TypedDict, Optional, Tuple, cast, Callable, Dict
 
 import Xlib.display
 import Xlib.protocol
@@ -19,46 +19,76 @@ defaultScreen = defaultDisplay.screen()
 defaultRoot = defaultScreen.root
 
 
-# def getAllDisplaysInfo():
-#     """
-#     Gets relevant information on all present displays, including its screens and roots
-#
-#     Returned dictionary has the following structure:
-#
-#     "N": Sequential number to separate displays (not related to any actual value)
-#         "name": display name (use Xlib.display.Display(name) to get a connection)
-#         "is_default": ''True'' if it's the default display, ''False'' otherwise
-#         "screens": sub-dict containing all screens owned by the display
-#             "M": sequential number to separate screens
-#             "screen": Struct containing all screen info
-#             "root": root window (Xlib Window) which belongs to the screen
-#             "is_default": ''True'' if it's the default screen/root, ''False'' otherwise
-#
-#     :return: dict with all displays, screens and roots info
-#     """
-#     displays: List[str] = os.listdir("/tmp/.X11-unix")
-#     dspInfo = {}
-#     for i, d in enumerate(displays):
-#         dspKey: str = str(i)
-#         if d.startswith("X"):
-#             dspInfo[dspKey] = {}
-#             name: str = ":" + d[1:]
-#             display: Xlib.display.Display = Xlib.display.Display(name)
-#             dspInfo[dspKey]["name"] = name
-#             dspInfo[dspKey]["is_default"] = (display.get_display_name() == defaultDisplay.get_display_name())
-#             dspInfo[dspKey]["screens"] = {}
-#             for s in range(display.screen_count()):
-#                 scrKey: str = str(s)
-#                 try:
-#                     dspInfo[dspKey]["screens"][scrKey] = {}
-#                     screen: Struct = display.screen(s)
-#                     dspInfo[dspKey]["screens"][scrKey]["screen"] = screen
-#                     dspInfo[dspKey]["screens"][scrKey]["root"] = screen.root
-#                     dspInfo[dspKey]["screens"][scrKey]["is_default"] = (screen.root.id == defaultRoot.id)
-#                 except:
-#                     pass
-#             display.close()
-#     return dspInfo
+class _ScreenInfo(TypedDict):
+    screen: Struct
+    root: XWindow
+    is_default: bool
+
+
+class _ScreenSeq(TypedDict):
+    scrSeq: str
+    screenInfo: Optional[_ScreenInfo]
+
+
+class _DisplayInfo(TypedDict):
+    is_default: bool
+    screens: Optional[List[_ScreenSeq]]
+
+
+class _DisplaySeq(TypedDict):
+    name: str
+    displayInfo: Optional[_DisplayInfo]
+
+
+def getAllDisplaysInfo() -> Dict[str, _DisplaySeq]:
+    """
+    Gets relevant information on all present displays, including its screens and roots
+
+    Returned dictionary has the following structure:
+
+    "N": Sequential number to separate displays (not related to any actual value)
+        "name": display name (use Xlib.display.Display(name) to get a connection)
+        "is_default": ''True'' if it's the default display, ''False'' otherwise
+        "screens": sub-dict containing all screens owned by the display
+            "M": sequential number to separate screens
+            "screen": Struct containing all screen info
+            "root": root window (Xlib Window) which belongs to the screen
+            "is_default": ''True'' if it's the default screen/root, ''False'' otherwise
+
+    :return: dict with all displays, screens and roots info
+    """
+    displays: List[str] = os.listdir("/tmp/.X11-unix")
+    dspInfo: dict[str, _DisplaySeq] = {}
+    for i, d in enumerate(displays):
+        displayInfo: dict[str, _DisplayInfo] = {}
+        if d.startswith("X"):
+            name: str = ":" + d[1:]
+            display: Xlib.display.Display = Xlib.display.Display(name)
+            screens: List[_ScreenSeq] = []
+            for s in range(display.screen_count()):
+                try:
+                    screen: Struct = display.screen(s)
+                    screenSeq: _ScreenSeq = {
+                        "scrSeq": str(s),
+                        "screenInfo": {
+                            "screen": screen,
+                            "root": screen.root,
+                            "is_default": (screen.root.id == defaultRoot.id)
+                        }
+                    }
+                    screens.append(screenSeq)
+                except:
+                    pass
+            displayInfo: _DisplayInfo = {
+                "is_default": (display.get_display_name() == defaultDisplay.get_display_name()),
+                "screens": screens
+            }
+            display.close()
+            dspInfo: _DisplaySeq = {
+                "name": name,
+                "displayInfo": displayInfo
+            }
+    return dspInfo
 
 
 def getDisplayFromWindow(winId: int) -> Tuple[Xlib.display.Display, Struct, XWindow]:
@@ -266,7 +296,7 @@ class Props:
         # These are Root properties, but always related to a specific window
         ACTIVE = "_NET_ACTIVE_WINDOW"
         CLOSE = "_NET_CLOSE_WINDOW"
-        
+
         MOVERESIZE = "_NET_MOVERESIZE_WINDOW"
         class MoveResize:
             SIZE_TOPLEFT = 0
@@ -280,7 +310,7 @@ class Props:
             MOVE = 8            # movement only
             SIZE_KEYBOARD = 9   # size via keyboard
             MOVE_KEYBOARD = 10  # move via keyboard
-            
+
         WM_MOVERESIZE = "_NET_WM_MOVERESIZE"
         RESTACK = "_NET_RESTACK_WINDOW"
         REQ_FRAME_EXTENTS = "_NET_REQUEST_FRAME_EXTENTS"
@@ -875,7 +905,7 @@ class Window:
     def setMaximized(self, maxHorz: bool, maxVert: bool):
         state1 = 0
         state2 = 0
-        states = self.getWmState(True)
+        states: Union[List[int], List[str]] = self.getWmState(True)
         if maxHorz and maxVert:
             if Props.Window.State.MAXIMIZED_HORZ not in states:
                 state1 = self.display.get_atom(Props.Window.State.MAXIMIZED_HORZ, True)
@@ -1313,7 +1343,7 @@ class _XlibUtils:
 
 def main():
     print("ALL DISPLAYS")
-    # print(getAllDisplaysInfo())
+    print(getAllDisplaysInfo())
     root = RootWindow()
     print("DESKTOP LAYOUT")
     print(root.getDesktopLayout())
