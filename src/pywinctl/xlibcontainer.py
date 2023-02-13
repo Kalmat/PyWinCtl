@@ -4,7 +4,7 @@
 import os
 import threading
 import time
-from typing import Union, List, Any, Iterable, TypedDict, Optional, Tuple, cast, Callable, Dict
+from typing import Union, List, Any, Iterable, TypedDict, Optional, Tuple, cast, Callable, Dict, TYPE_CHECKING, Mapping
 
 import Xlib.display
 import Xlib.protocol
@@ -26,8 +26,7 @@ class _ScreenInfo(TypedDict):
 
 
 class _ScreenSeq(TypedDict):
-    scrSeq: str
-    screenInfo: Optional[_ScreenInfo]
+    scrSeq: Optional[_ScreenInfo]
 
 
 class _DisplayInfo(TypedDict):
@@ -36,21 +35,19 @@ class _DisplayInfo(TypedDict):
 
 
 class _DisplaySeq(TypedDict):
-    name: str
-    displayInfo: Optional[_DisplayInfo]
+    name: Optional[_DisplayInfo]
 
 
-def getAllDisplaysInfo() -> Dict[str, _DisplaySeq]:
+def getAllDisplaysInfo() -> _DisplaySeq:
     """
     Gets relevant information on all present displays, including its screens and roots
 
     Returned dictionary has the following structure:
 
-    "N": Sequential number to separate displays (not related to any actual value)
-        "name": display name (use Xlib.display.Display(name) to get a connection)
+    "name": display name (use Xlib.display.Display(name) to get a connection)
         "is_default": ''True'' if it's the default display, ''False'' otherwise
         "screens": sub-dict containing all screens owned by the display
-            "M": sequential number to separate screens
+            "M": sequential number of the screen (as per display.screen(M))
             "screen": Struct containing all screen info
             "root": root window (Xlib Window) which belongs to the screen
             "is_default": ''True'' if it's the default screen/root, ''False'' otherwise
@@ -58,9 +55,8 @@ def getAllDisplaysInfo() -> Dict[str, _DisplaySeq]:
     :return: dict with all displays, screens and roots info
     """
     displays: List[str] = os.listdir("/tmp/.X11-unix")
-    dspInfo: dict[str, _DisplaySeq] = {}
+    dspInfo: _DisplaySeq = cast(_DisplaySeq, {})
     for i, d in enumerate(displays):
-        displayInfo: dict[str, _DisplayInfo] = {}
         if d.startswith("X"):
             name: str = ":" + d[1:]
             display: Xlib.display.Display = Xlib.display.Display(name)
@@ -68,14 +64,13 @@ def getAllDisplaysInfo() -> Dict[str, _DisplaySeq]:
             for s in range(display.screen_count()):
                 try:
                     screen: Struct = display.screen(s)
-                    screenSeq: _ScreenSeq = {
-                        "scrSeq": str(s),
-                        "screenInfo": {
-                            "screen": screen,
-                            "root": screen.root,
-                            "is_default": (screen.root.id == defaultRoot.id)
-                        }
+                    screenInfo: _ScreenInfo = {
+                        "screen": screen,
+                        "root": screen.root,
+                        "is_default": (screen.root.id == defaultRoot.id)
                     }
+                    scrSeq = str(s)
+                    screenSeq: _ScreenSeq = cast(_ScreenSeq, {scrSeq: screenInfo})
                     screens.append(screenSeq)
                 except:
                     pass
@@ -84,10 +79,7 @@ def getAllDisplaysInfo() -> Dict[str, _DisplaySeq]:
                 "screens": screens
             }
             display.close()
-            dspInfo: _DisplaySeq = {
-                "name": name,
-                "displayInfo": displayInfo
-            }
+            dspInfo[name] = displayInfo  # type: ignore[literal-required]  # How to use variables as keys to add new items???
     return dspInfo
 
 
@@ -729,7 +721,7 @@ class Window:
         self.extensions = _Extensions(winId, self.display, self.root)
         self.xlibutils = _XlibUtils(winId, self.display, self.root)
 
-    def getProperty(self, prop: Union[str, int]) -> Union[List[int], List[str], str, Any]:
+    def getProperty(self, prop: Union[str, int]) -> Union[List[int], List[str], str, None]:
 
         if isinstance(prop, str):
             prop = self.display.get_atom(prop, True)
@@ -740,10 +732,10 @@ class Window:
                 # Can also ask for getattr(ret, "value")[0] to check returned data format, but don't see much benefit
                 if isinstance(ret.value, bytes):
                     return ret.value.decode()
-                elif isinstance(ret.value, Iterable):
+                elif isinstance(ret.value, list) or isinstance(ret.value, Iterable):
                     return [a for a in ret.value]
                 else:
-                    return ret.value
+                    return str(ret.value)
         return None
 
     def sendMessage(self, prop: Union[str, int], data: Union[List[int], str]):
@@ -941,7 +933,7 @@ class Window:
             self.sendMessage(atom, [Xlib.Xutil.IconicState])
 
     def getAllowedActions(self, text=False):
-        acts: List[int] = self.getProperty(Props.Window.ALLOWED_ACTIONS)
+        acts = self.getProperty(Props.Window.ALLOWED_ACTIONS)
         if text and acts is not None:
             ret = []
             for a in acts:
