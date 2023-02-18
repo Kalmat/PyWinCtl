@@ -1900,7 +1900,7 @@ class _Extensions:
 
         See getWmNormalHints() documentation for more info about hints.
 
-        ---> TODO: this function to accept hints as input params and recalculate flags according to it.
+        ---> TODO:CHANGE this function to accept hints as input params and recalculate flags according to it.
         """
         pass
 
@@ -2182,7 +2182,7 @@ def _getPropertyValue(display: Xlib.display.Display, ret: Union[Xlib.protocol.re
                 for a in ret.value:
                     if isinstance(a, int) and a != 0:
                         result2.append(display.get_atom_name(a))
-                return res
+                return result2
             else:
                 result3: List[int] = [a for a in ret.value]
                 return result3

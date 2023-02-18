@@ -606,8 +606,8 @@ class LinuxWindow(BaseWindow):
 
             # This will try to raise the desktop icons layer on top of the window
             # Ubuntu: "@!0,0;BDHF" is the new desktop icons NG extension on Ubuntu 22.04
-            # Mint: "Desktop" name is language-dependent. Using its class instead
-            # KDE: desktop and icons seem to be the same window, likely it's not possible to place a window in between
+            # Mint: "Desktop" title is language-dependent. Using its class instead
+            # KDE: desktop and icons seem to be the same window. Likely it's not possible to place a window in between
             # TODO: Test / find in other OS
             desktop = _xlibGetAllWindows(title="@!0,0;BDHF", klass=('nemo-desktop', 'Nemo-desktop'))
             self.lowerWindow()
@@ -625,6 +625,7 @@ class LinuxWindow(BaseWindow):
 
     def _manageEvents(self, event: Xlib.protocol.rq.Event):
         if self._transientWindow is not None:
+            # These values are required in Mint/Cinnamon to adapt transient to actual window size
             self._transientWindow.setMoveResize(x=self.left - 2, y=self.top - 2, width=self.width + 4, height=self.height + 32)
 
     def acceptInput(self, setTo: bool):
@@ -695,7 +696,6 @@ class LinuxWindow(BaseWindow):
 
         :return: list of handles
         """
-        # TODO: Check if children is actually a List[int]
         return cast(List[int], self._xWin.query_tree().children)
 
     def getHandle(self) -> int:
