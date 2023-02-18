@@ -2320,7 +2320,7 @@ def _createTransient(display: Xlib.display.Display, parent: XWindow, transient_f
     return window, checkEvents, normal_hints
 
 
-def _closeTransient(display: Xlib.display.Display, transientWindow: Window, checkEvents, transient_for: XWindow, normal_hints: Xlib.protocol.rq.DictWrapper):
+def _closeTransient(display: Xlib.display.Display, transientWindow: Window, checkEvents: Union[_Extensions._CheckEvents, None], transient_for: XWindow, normal_hints: Union[Xlib.protocol.rq.DictWrapper, None]):
     if checkEvents is not None:
         checkEvents.stop()
     transientWindow.xWindow.unmap()  # It seems not to properly close if not unmapped first

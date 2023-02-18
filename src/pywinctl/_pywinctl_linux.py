@@ -550,7 +550,8 @@ class LinuxWindow(BaseWindow):
         """
         action = Props.Window.State.Action.ADD if aot else Props.Window.State.Action.REMOVE
         self._win.changeWmState(action, Props.Window.State.ABOVE)
-        return Props.Window.State.ABOVE in self._win.getWmState(True)
+        states = self._win.getWmState(True)
+        return states and Props.Window.State.ABOVE in states
 
     def alwaysOnBottom(self, aob: bool = True) -> bool:
         """
@@ -561,7 +562,8 @@ class LinuxWindow(BaseWindow):
         """
         action = Props.Window.State.Action.ADD if aob else Props.Window.State.Action.REMOVE
         self._win.changeWmState(action, Props.Window.State.BELOW)
-        return Props.Window.State.BELOW in self._win.getWmState(True)
+        states = self._win.getWmState(True)
+        return states and Props.Window.State.BELOW in states
 
     def lowerWindow(self) -> bool:
         """
@@ -610,11 +612,13 @@ class LinuxWindow(BaseWindow):
                 w: XWindow = self._display.create_resource_object('window', d.id)
                 w.raise_window()
                 self._display.flush()
-            return Props.Window.WindowType.DESKTOP in self._win.getWmWindowType(True)
+            types = self._win.getWmWindowType(True)
+            return types and Props.Window.WindowType.DESKTOP in types
 
         else:
             self._win.setWmWindowType(Props.Window.WindowType.NORMAL)
-            return Props.Window.WindowType.NORMAL in self._win.getWmWindowType(True) and self.isActive
+            types = self._win.getWmWindowType(True)
+            return types and Props.Window.WindowType.NORMAL in types and self.isActive
 
     def _manageEvents(self, event: Xlib.protocol.rq.Event):
         if self._transientWindow is not None:
@@ -669,7 +673,7 @@ class LinuxWindow(BaseWindow):
 
         :return: handle of the window parent
         """
-        return self._xWin.query_tree().parent.id
+        return int(self._xWin.query_tree().parent.id)
 
     def setParent(self, parent: int) -> bool:
         """
@@ -740,7 +744,7 @@ class LinuxWindow(BaseWindow):
         :return: ``True`` if the window is minimized
         """
         state = self._win.getWmState(True)
-        return bool(Props.Window.State.HIDDEN in state)
+        return bool(state and Props.Window.State.HIDDEN in state)
 
     @property
     def isMaximized(self) -> bool:
@@ -750,7 +754,7 @@ class LinuxWindow(BaseWindow):
         :return: ``True`` if the window is maximized
         """
         state = self._win.getWmState(True)
-        return bool(Props.Window.State.MAXIMIZED_HORZ in state and Props.Window.State.MAXIMIZED_VERT in state)
+        return bool(state and Props.Window.State.MAXIMIZED_HORZ in state and Props.Window.State.MAXIMIZED_VERT in state)
 
     @property
     def isActive(self):
