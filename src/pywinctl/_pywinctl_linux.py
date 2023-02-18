@@ -29,7 +29,8 @@ import Xlib.Xutil
 import Xlib.ext
 from Xlib.xobject.drawable import Window as XWindow
 
-from pywinctl.xlibcontainer import RootWindow, Window as EWMHWindow, Props, xlibGetAllWindows, defaultRootWindow
+from pywinctl.xlibcontainer import RootWindow, Window as EWMHWindow, Props, defaultRootWindow, \
+    _xlibGetAllWindows, _createSimpleWindow, _createTransient, _closeTransient, _Extensions, Structs
 
 from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect
 
@@ -269,21 +270,16 @@ class LinuxWindow(BaseWindow):
         else:
             self._hWnd = int(hWnd)
         self._win = EWMHWindow(self._hWnd)
-        self._rootWin: RootWindow = self._win.rootWindow
         self._display: Xlib.display.Display = self._win.display
+        self._rootWin: RootWindow = self._win.rootWindow
         self._xWin: XWindow = self._win.xWindow
-
-        assert isinstance(self._hWnd, int)
-        assert isinstance(self._win, EWMHWindow)
-        assert isinstance(self._display, Xlib.display.Display)
-        assert isinstance(self._rootWin, RootWindow)
-        assert isinstance(self._xWin, XWindow)
 
         self.__rect: Rect = self._rectFactory()
         self.watchdog = _WatchDog(self)
 
         self._transientWindow: Union[EWMHWindow, None] = None
-        self._checkEvents = None
+        self._checkEvents: Union[_Extensions._CheckEvents, None] = None
+        self._normal_hints: Union[Xlib.protocol.rq.DictWrapper, None] = None
 
     def _getWindowRect(self) -> Rect:
         # https://stackoverflow.com/questions/12775136/get-window-position-and-size-in-python-with-xlib - mgalgs
@@ -293,6 +289,8 @@ class LinuxWindow(BaseWindow):
         y = geom.y
         while True:
             parent = win.query_tree().parent
+            if not isinstance(parent, XWindow):
+                break
             pgeom = parent.get_geometry()
             x += pgeom.x
             y += pgeom.y
@@ -360,8 +358,8 @@ class LinuxWindow(BaseWindow):
         #     ret = self.getWindowRect()
         # Didn't find a way to get title bar height using Xlib
         titleHeight, borderWidth = self._getBorderSizes()
-        geom = self._xWin.get_geometry()
-        ret = Rect(int(geom.x + borderWidth), int(geom.y + titleHeight), int(geom.x + geom.width - borderWidth), int(geom.y + geom.width - borderWidth))
+        geom = self._win.xWindow.get_geometry()
+        ret = Rect(int(geom.x + borderWidth), int(geom.y - titleHeight), int(geom.x + geom.width - borderWidth * 2), int(geom.y + geom.height - borderWidth))
         return ret
 
     def __repr__(self):
@@ -600,17 +598,18 @@ class LinuxWindow(BaseWindow):
         if sb:
             # This sends window below all others, but not behind the desktop icons
             self._win.setWmWindowType(Props.Window.WindowType.DESKTOP)
-            # self._transientWindow2 = self._win.xlibutils.createTransient(self._xWin, 0, 0, 10, 10, True, False)
+
             # This will try to raise the desktop icons layer on top of the window
             # Ubuntu: "@!0,0;BDHF" is the new desktop icons NG extension on Ubuntu 22.04
             # Mint: "Desktop" name is language-dependent. Using its class instead
+            # KDE: desktop and icons seem to be the same window, likely it's not possible to place a window in between
             # TODO: Test / find in other OS
-            desktop = xlibGetAllWindows(title="@!0,0;BDHF", klass=('nemo-desktop', 'Nemo-desktop'))
-            dsp = Xlib.display.Display()
+            desktop = _xlibGetAllWindows(title="@!0,0;BDHF", klass=('nemo-desktop', 'Nemo-desktop'))
+            self.lowerWindow()
             for d in desktop:
-                w: XWindow = dsp.create_resource_object('window', d.id)
+                w: XWindow = self._display.create_resource_object('window', d.id)
                 w.raise_window()
-            dsp.close()
+                self._display.flush()
             return Props.Window.WindowType.DESKTOP in self._win.getWmWindowType(True)
 
         else:
@@ -619,40 +618,35 @@ class LinuxWindow(BaseWindow):
 
     def _manageEvents(self, event: Xlib.protocol.rq.Event):
         if self._transientWindow is not None:
-            self._transientWindow.xWindow.configure(x=0, y=0, width=self.width, height=self.height)
+            self._transientWindow.setMoveResize(x=self.left - 2, y=self.top - 2, width=self.width + 4, height=self.height + 32)
 
     def acceptInput(self, setTo: bool):
-        """Toggles the window transparent to input and focus
-           WARNING: In Linux systems, this effect is not permanent (will work while program is running)
+        """
+        Toggles the window to accept input and focus
+        WARNING: In Linux systems, this effect is not permanent (will work while program is running)
 
         :param setTo: True/False to toggle window ignoring input and focus
         :return: None
         """
+        # TODO: Is it possible to make it completely transparent to input (e.g. click-thru)?
         if setTo:
-            if self._transientWindow is not None and self._checkEvents is not None:
-                self._checkEvents.stop()
-                self._checkEvents = None
-                self._win.xlibutils.closeTransient(self._transientWindow)
+            if self._transientWindow is not None:
+                _closeTransient(self._display, self._transientWindow, self._checkEvents, self._xWin, self._normal_hints)
                 self._transientWindow = None
-            self._win.setWmWindowType(Props.Window.WindowType.NORMAL)
+                self._checkEvents = None
+                self._normal_hints = None
         else:
-            if self._xWin.id == self._display.get_input_focus().focus.id:
-                self._win.root.set_input_focus(Xlib.X.PointerRoot, Xlib.X.CurrentTime)
-            self._win.setWmWindowType(Props.Window.WindowType.DESKTOP)
             if self._transientWindow is None:
-                self._transientWindow = self._win.xlibutils.createTransient(
-                    self._win.root,
-                    self.left, max(0, self.top-20), max(1, self.width-40), max(1, self.height-80),
+                self._transientWindow, self._checkEvents, self._normal_hints = _createTransient(
+                    self._display,
+                    self._rootWin.root,
+                    self._xWin,
+                    self._manageEvents,
+                    # These values are required in Ubuntu/GNOME to adapt transient to actual window size
+                    self.left, max(0, self.top-32), max(1, self.width-40), max(1, self.height-80),
                     override=False,
                     inputOnly=True
                 )
-                self._checkEvents = self._transientWindow.extensions.checkEvents(
-                    [Xlib.X.ConfigureNotify],
-                    Xlib.X.StructureNotifyMask | Xlib.X.SubstructureNotifyMask,
-                    self._manageEvents,
-                    self._xWin.id
-                )
-                self._checkEvents.start()
 
     def getAppName(self) -> str:
         """
@@ -675,9 +669,9 @@ class LinuxWindow(BaseWindow):
 
         :return: handle of the window parent
         """
-        return cast(int, self._xWin.query_tree().parent)
+        return self._xWin.query_tree().parent.id
 
-    def setParent(self, parent) -> bool:
+    def setParent(self, parent: int) -> bool:
         """
         Current window will become child of given parent
         WARNIG: Not implemented in AppleScript (not possible in macOS for foreign (other apps') windows)
@@ -694,6 +688,7 @@ class LinuxWindow(BaseWindow):
 
         :return: list of handles
         """
+        # TODO: Check if children is actually a List[int]
         return cast(List[int], self._xWin.query_tree().children)
 
     def getHandle(self) -> int:
@@ -704,24 +699,23 @@ class LinuxWindow(BaseWindow):
         """
         return self._hWnd
 
-    def isParent(self, child: XWindow) -> bool:
+    def isParent(self, child: int) -> bool:
         """Returns ''True'' if the window is parent of the given window as input argument
 
-        Args:
-        ----
-            ''child'' handle of the window you want to check if the current window is parent of
+        :param child: handle of the window you want to check if the current window is parent of
         """
-        return bool(child.query_tree().parent.id == self._hWnd)
+        win = self._display.create_resource_object('window', child)
+        return bool(win.query_tree().parent.id == self._hWnd)
     isParentOf = isParent  # isParentOf is an alias of isParent method
 
-    def isChild(self, parent: XWindow):
+    def isChild(self, parent: int):
         """
         Check if current window is child of given window/app (handle)
 
         :param parent: handle of the window/app you want to check if the current window is child of
         :return: ''True'' if current window is child of the given window
         """
-        return bool(parent.id == self.getParent().id)
+        return bool(parent == self.getParent())
     isChildOf = isChild  # isChildOf is an alias of isParent method
 
     def getDisplay(self):
@@ -872,7 +866,6 @@ def getAllScreens():
     """
     # https://stackoverflow.com/questions/8705814/get-display-count-and-resolution-for-each-display-in-python-without-xrandr
     # https://www.x.org/releases/X11R7.7/doc/libX11/libX11/libX11.html#Obtaining_Information_about_the_Display_Image_Formats_or_Screens
-
     displays = []
     try:
         files = os.listdir("/tmp/.X11-unix")
@@ -882,7 +875,9 @@ def getAllScreens():
         if f.startswith("X"):
             displays.append(":"+f[1:])
     if not displays:
-        displays = [":0"]
+        d = Xlib.display.Display()
+        displays = [d.get_display_name()]
+        d.close()
     result: dict[str, _ScreenValue] = {}
     for display in displays:
         dsp = Xlib.display.Display(display)
@@ -912,11 +907,13 @@ def getAllScreens():
                     x, y, w, h = crtc.x, crtc.y, crtc.width, crtc.height
                     wx, wy, wr, wb = x + wa[0], y + wa[1], x + w - (screen.width_in_pixels - wa[2] - wa[0]), y + h - (screen.height_in_pixels - wa[3] - wa[1])
                     # check all these values using dpi, mms or other possible values or props
-                    dpiX = dpiY = 0
                     try:
                         dpiX, dpiY = round(crtc.width * 25.4 / params.mm_width), round(crtc.height * 25.4 / params.mm_height)
                     except:
-                        dpiX, dpiY = round(w * 25.4 / screen.width_in_mms), round(h * 25.4 / screen.height_in_mms)
+                        try:
+                            dpiX, dpiY = round(w * 25.4 / screen.width_in_mms), round(h * 25.4 / screen.height_in_mms)
+                        except:
+                            dpiX = dpiY = 0
                     scaleX, scaleY = round(dpiX / 96 * 100), round(dpiY / 96 * 100)
                     rot = int(math.log(crtc.rotation, 2))
                     freq = 0.0
@@ -1026,40 +1023,8 @@ def main():
         print("ACTIVE WINDOW:", None)
     else:
         print("ACTIVE WINDOW:", npw.title, "/", npw.box)
-        print()
-        # displayWindowsUnderMouse(0, 0)
-
-        # npw.acceptInput(False)
-        npw.sendBehind(True)
-        for i in range(5):
-            print(i)
-            # if i == 5:
-            #     print("MOVE")
-            #     npw.moveTo(100, 100)
-            # if i == 10:
-            #     print("MIN")
-            #     npw.minimize()
-            # if i == 15:
-            #     print("RST")
-            #     npw.restore()
-            # if i == 20:
-            #     print("MAX")
-            #     npw.maximize()
-            # if i == 25:
-            #     print("RST")
-            #     npw.restore()
-            # if i == 30:
-            #     print("HID")
-            #     npw.hide()
-            # if i == 35:
-            #     print("SHW")
-            #     npw.show()
-            # if i == 40:
-            #     print("RESIZE")
-            #     print(npw.resizeTo(800, 600))
-            time.sleep(1)
-        npw.sendBehind(False)
-        # npw.acceptInput(True)
+    print()
+    displayWindowsUnderMouse(0, 0)
 
 
 if __name__ == "__main__":
