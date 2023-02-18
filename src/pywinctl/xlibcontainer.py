@@ -1323,7 +1323,8 @@ class Window:
 
         Unlike maximized, this action can only be reverted by using activate() or restore() methods.
         """
-        if Props.Window.State.HIDDEN not in self.getWmState():
+        states = self.getWmState(True)
+        if not states or (states and Props.Window.State.HIDDEN not in states):
             atom = self.display.get_atom(Props.Window.CHANGE_STATE, True)
             self.sendMessage(atom, [Xlib.Xutil.IconicState])
 
@@ -2170,21 +2171,23 @@ def _getPropertyValue(display: Xlib.display.Display, ret: Union[Xlib.protocol.re
                       text: bool = False) -> Union[List[int], List[str], None]:
     # Can also ask for getattr(ret, "value")[0] to check returned data format, but don't see much benefit
     if ret and hasattr(ret, "value"):
-        res = ret.value
+        res: Union[List[int], List[str], None] = ret.value
         if isinstance(res, bytes):
-            res = ret.value.decode().split("\x00")
-            if res and isinstance(res, list) and res[-1] == "":
-                res = res[:-1]
+            result: List[int] = ret.value.decode().split("\x00")
+            if result and isinstance(res, list) and res[-1] == "":
+                return result[:-1]
         elif isinstance(res, Iterable) and not isinstance(res, str):
             if text:
-                res = []
+                result2: List[str] = []
                 for a in ret.value:
                     if isinstance(a, int) and a != 0:
-                        res.append(display.get_atom_name(a))
+                        result2.append(display.get_atom_name(a))
+                return res
             else:
-                res = [a for a in ret.value]
+                result3: List[int] = [a for a in ret.value]
+                return result3
         if res and (isinstance(res, int) or isinstance(res, str)):
-            res = [res]
+            return [res]
         return res
     return None
 
