@@ -551,7 +551,7 @@ class LinuxWindow(BaseWindow):
         action = Props.Window.State.Action.ADD if aot else Props.Window.State.Action.REMOVE
         self._win.changeWmState(action, Props.Window.State.ABOVE)
         states = self._win.getWmState(True)
-        return states and Props.Window.State.ABOVE in states
+        return bool(states and Props.Window.State.ABOVE in states)
 
     def alwaysOnBottom(self, aob: bool = True) -> bool:
         """
@@ -563,7 +563,7 @@ class LinuxWindow(BaseWindow):
         action = Props.Window.State.Action.ADD if aob else Props.Window.State.Action.REMOVE
         self._win.changeWmState(action, Props.Window.State.BELOW)
         states = self._win.getWmState(True)
-        return states and Props.Window.State.BELOW in states
+        return bool(states and Props.Window.State.BELOW in states)
 
     def lowerWindow(self) -> bool:
         """
@@ -613,12 +613,12 @@ class LinuxWindow(BaseWindow):
                 w.raise_window()
                 self._display.flush()
             types = self._win.getWmWindowType(True)
-            return types and Props.Window.WindowType.DESKTOP in types
+            return bool(types and Props.Window.WindowType.DESKTOP in types)
 
         else:
             self._win.setWmWindowType(Props.Window.WindowType.NORMAL)
             types = self._win.getWmWindowType(True)
-            return types and Props.Window.WindowType.NORMAL in types and self.isActive
+            return bool(types and Props.Window.WindowType.NORMAL in types and self.isActive)
 
     def _manageEvents(self, event: Xlib.protocol.rq.Event):
         if self._transientWindow is not None:
