@@ -492,63 +492,36 @@ def _getWindowTitles() -> list[list[str]]:
     return result
 
 
-def _getBorderSizes() -> tuple[int, int]:
-    # Previous version (creating "dummy" window) was failing if not called on main thread!
-    # Many thanks to super-ibby (https://github.com/super-ibby) for his solution!!!!
-    cmd = r"""
-    use AppleScript version "2.4" -- Yosemite (10.10) or later
-    use framework "Foundation"
+class WindowDelegate(AppKit.NSObject):  # Cannot put into a closure as subsequent calls will cause a re-registration error due to subclassing NSObject.
+    """Helps run window operations on the main thread."""
 
-    on run
-        set theResult to {0, 0}
-        tell (current application)
-            my performSelectorOnMainThread:"getTitleBarHeightAndBorderWidth" withObject:0 waitUntilDone:true
-        end tell
-        return theResult
-    end run
+    results = {}  # Store results here. Not ideal, but may be better than using a global.
 
-    on getTitleBarHeightAndBorderWidth()
+    @staticmethod
+    def run_on_main_thread(selector, obj=None, wait=True):
+        """Runs a method of this object on the main thread."""
+        WindowDelegate.alloc().performSelectorOnMainThread_withObject_waitUntilDone_(selector, obj, wait)
+        return WindowDelegate.results.get(selector)
+        
+    def getTitleBarHeightAndBorderWidth(self):
+        """Updates results with title bar height and border width."""
+        frame_width = 100
+        window = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
+            ((0, 0), (frame_width, 100)), 
+            AppKit.NSTitledWindowMask, 
+            AppKit.NSBackingStoreBuffered, 
+            False,
+        )
+        titlebar_height = int(window.titlebarHeight())
+        # print(titlebar_height)
+        content_rect = window.contentRectForFrameRect_(window.frame())
+        x1 = AppKit.NSMinX(content_rect)
+        x2 = AppKit.NSMaxX(content_rect)
+        border_width = int(frame_width - (x2 - x1))
+        # print(border_width)
+        result = titlebar_height, border_width
+        WindowDelegate.results[b'getTitleBarHeightAndBorderWidth'] = result
 
-        set |⌘| to current application
-
-        set theFrameWidth to 250
-
-        tell (|⌘|'s NSWindow's alloc()'s ¬
-            initWithContentRect:{{400, 800}, {theFrameWidth, 100}} ¬
-                styleMask:(|⌘|'s NSTitledWindowMask) ¬
-                backing:(|⌘|'s NSBackingStoreBuffered) ¬
-                defer:true)
-            set theWindow to it
-            set its releasedWhenClosed to true
-            set its excludedFromWindowsMenu to true
-        end tell
-
-        set theFrame to theWindow's frame()
-
-        set theTitleHeight to theWindow's titlebarHeight() as integer
-
-        set theContentRect to theWindow's contentRectForFrameRect:theFrame
-
-        set x1 to (|⌘|'s NSMinX(theContentRect)) as integer
-        set x2 to (|⌘|'s NSMaxX(theContentRect)) as integer
-
-        set theBorderWidth to (theFrameWidth - (x2 - x1)) as integer
-
-        set my theResult to {theTitleHeight, theBorderWidth}
-
-        theWindow's |close|()
-        return
-    end getTitleBarHeightAndBorderWidth"""
-    proc = subprocess.Popen(
-        ['osascript'],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        encoding='utf8',
-    )
-    ret, _ = proc.communicate(cmd)
-    values = ret.replace("\n", "").strip().split(", ")
-    return int(values[0]), int(values[1])
 
 _ItemInfoValue = TypedDict("_ItemInfoValue", {"value": str, "class": str, "settable": bool})
 
@@ -622,12 +595,8 @@ class MacOSWindow(BaseWindow):
         Notice that this method won't match non-standard window decoration style sizes
 
         :return: Rect struct
-
-        WARNING: it will fail if not called within main thread
         """
-        # https://www.macscripter.net/viewtopic.php?id=46336 --> Won't allow access to NSWindow objects, but interesting
-        # Didn't find a way to get menu bar height using Apple Script
-        titleHeight, borderWidth = _getBorderSizes()
+        titleHeight, borderWidth = WindowDelegate.run_on_main_thread(b'getTitleBarHeightAndBorderWidth')
         res = Rect(int(self.left + borderWidth), int(self.top + titleHeight), int(self.right - borderWidth), int(self.bottom - borderWidth))
         return res
 
