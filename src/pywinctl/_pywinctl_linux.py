@@ -12,7 +12,7 @@ import platform
 import re
 import subprocess
 import time
-from typing import Iterable, TYPE_CHECKING, cast, Union, List
+from typing import Iterable, TYPE_CHECKING, cast, Union, List, Optional
 import tkinter as tk
 
 if TYPE_CHECKING:
@@ -77,16 +77,19 @@ def getActiveWindowTitle():
         return ""
 
 
-def __remove_bad_windows(windows: Iterable[XWindow | int | str]):
+def __remove_bad_windows(windows: Union[List[int], None]):
     """
     :param windows: Xlib Windows
     :return: A generator of LinuxWindow that filters out BadWindows
     """
-    for window in windows:
-        try:
-            yield LinuxWindow(window)
-        except Xlib.error.XResourceError:
-            pass
+    if windows:
+        for window in windows:
+            try:
+                yield LinuxWindow(window)
+            except Xlib.error.XResourceError:
+                pass
+    else:
+        return []
 
 
 def getAllWindows():
