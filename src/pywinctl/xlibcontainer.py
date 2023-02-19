@@ -428,7 +428,7 @@ class RootWindow:
         ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.CLIENT_LIST_STACKING)
         res = _getPropertyValue(self.display, ret)
         if res is not None:
-            res = cast(List[int], ret)
+            res = cast(List[int], res)
         return res
 
     def getNumberOfDesktops(self) -> Union[int, None]:
@@ -1687,7 +1687,7 @@ class Window:
         else:
             gravity_flags = gravity_flags | 0b0000000010000000
 
-        if self.xWindow.get_wm_transient_for() or True:
+        if self.xWindow.get_wm_transient_for():
             # sendMessage doesn't properly work for transient windows???
             self.xWindow.configure(x=x, y=y, width=width, height=height)
             self.display.flush()
@@ -1771,11 +1771,11 @@ class _Extensions:
      Additional, non-EWMH features, related to low-level window properties like hints, protocols and events
     """
 
-    def __init__(self, winId: int, display, root):
+    def __init__(self, winId: int, display: Xlib.display.Display, root: XWindow):
         self.winId = winId
         self.display = display
         self.root = root
-        self.win = self.display.create_resource_object('window', winId)
+        self.xWindow = self.display.create_resource_object('window', winId)
 
     def getWmHints(self) -> Structs.WmHints:
         """
@@ -1815,7 +1815,7 @@ class _Extensions:
 
         :return: Hints struct
         """
-        return cast(Structs.WmHints, self.win.get_wm_hints())
+        return cast(Structs.WmHints, self.xWindow.get_wm_hints())
 
     def setWmHints(self, hint: str, value: Any):
         """
@@ -1825,12 +1825,17 @@ class _Extensions:
 
         ---> TODO: CHANGE this function to accept hints as input params and recalculate flags according to it.
         """
-        hints: Xlib.protocol.rq.DictWrapper = self.win.get_wm_hints()
+        hints: Union[Xlib.protocol.rq.DictWrapper, None] = self.xWindow.get_wm_hints()
         if hints:
             hints[hint] = value
             # We should also re-calculate and re-write flags
-        self.win.set_wm_hints(hints)
-        self.display.flush()
+            # print(normal_hints.flags, bin(normal_hints.flags), bin(808), bin(Xlib.Xutil.PMinSize), bin(Xlib.Xutil.PMaxSize),
+            #       normal_hints.flags | Xlib.Xutil.PMinSize, normal_hints.flags | Xlib.Xutil.PMaxSize, normal_hints.flags | Xlib.Xutil.PMinSize | Xlib.Xutil.PMaxSize,
+            #       bin(normal_hints.flags | Xlib.Xutil.PMinSize), bin(normal_hints.flags | Xlib.Xutil.PMaxSize), bin(normal_hints.flags | Xlib.Xutil.PMinSize | Xlib.Xutil.PMaxSize))
+            # 848 0b1101010000 0b1100101000 0b10000 0b100000 848 880 880 0b1101010000 0b1101110000 0b1101110000
+            # flags = normal_hints.flags | Xlib.Xutil.PMinSize | Xlib.Xutil.PMaxSize
+            self.xWindow.set_wm_hints(hints)
+            self.display.flush()
 
     def getWmNormalHints(self):
         """
@@ -1892,7 +1897,7 @@ class _Extensions:
         client asked, the position on the parent window's border named by the win_gravity will be placed where
         the client window would have been placed in the absence of a window manager.
         """
-        return self.win.get_wm_normal_hints()
+        return self.xWindow.get_wm_normal_hints()
 
     def setWmNormalHints(self, hint, value):
         """
@@ -1930,7 +1935,7 @@ class _Extensions:
         :param text: select whether the procols will be returned as integers or strings
         :return: List of protocols in integer or string format
         """
-        ret = self.win.get_wm_protocols()
+        ret = self.xWindow.get_wm_protocols()
         prots = ret if ret else []
         if text:
             res = []
@@ -1951,10 +1956,10 @@ class _Extensions:
 
         :param atom: protocol to be added
         """
-        prots = self.win.get_wm_protocols()
+        prots = self.xWindow.get_wm_protocols()
         if atom not in prots:
             prots.append(atom)
-        self.win.set_wm_protocols(prots)
+        self.xWindow.set_wm_protocols(prots)
         self.display.flush()
 
     def delWmProtocol(self, atom: int):
@@ -1965,10 +1970,9 @@ class _Extensions:
 
         :param atom: protocol to be deleted
         """
-        prots = self.win.get_wm_protocols()
-        new_prots = [p for p in prots if p != atom]
-        prots = new_prots
-        self.win.set_wm_protocols(prots)
+        prots = self.xWindow.get_wm_protocols()
+        new_prots: List[int] = [p for p in prots if p != atom]
+        self.xWindow.set_wm_protocols(new_prots)
 
     class _CheckEvents:
         """
@@ -2034,7 +2038,7 @@ class _Extensions:
             self._keep.clear()
 
         def stop(self):
-            if self._threadStarted:
+            if self._threadStarted and self._checkThread is not None:
                 self._threadStarted = False
                 self._stopRequested = True
                 self._keep.set()
@@ -2105,7 +2109,7 @@ class _Extensions:
 def _getWindowParent(win: XWindow, rootId: int) -> int:
     while True:
         parent = win.query_tree().parent
-        if parent.id == rootId or parent == 0:
+        if parent.id == rootId or not isinstance(parent, XWindow):
             break
         win = parent
     return win.id
@@ -2169,25 +2173,24 @@ def _xlibGetAllWindows(parent: Union[XWindow, None] = None, title: str = "", kla
 
 def _getPropertyValue(display: Xlib.display.Display, ret: Union[Xlib.protocol.request.GetProperty, None],
                       text: bool = False) -> Union[List[int], List[str], None]:
-    # Can also ask for getattr(ret, "value")[0] to check returned data format, but don't see much benefit
     if ret and hasattr(ret, "value"):
-        res: Union[List[int], List[str], None] = ret.value
+        res: Union[List[int], bytes] = ret.value
         if isinstance(res, bytes):
-            result: List[int] = ret.value.decode().split("\x00")
-            if result and isinstance(res, list) and res[-1] == "":
+            result: List[str] = ret.value.decode().split("\x00")
+            if result and isinstance(result, list) and result[-1] == "":
                 return result[:-1]
-        elif isinstance(res, Iterable) and not isinstance(res, str):
-            if text:
-                result2: List[str] = []
-                for a in ret.value:
-                    if isinstance(a, int) and a != 0:
-                        result2.append(display.get_atom_name(a))
-                return result2
             else:
-                result3: List[int] = [a for a in ret.value]
-                return result3
-        if res and (isinstance(res, int) or isinstance(res, str)):
-            return [res]
+                return result
+        elif isinstance(res, Iterable):
+            if text:
+                resultStr: List[str] = []
+                for a in res:
+                    if isinstance(a, int) and a != 0:
+                        resultStr.append(display.get_atom_name(a))
+                return resultStr
+            else:
+                resultInt: List[int] = [int(a) for a in res]
+                return resultInt
         return res
     return None
 
@@ -2199,7 +2202,7 @@ def _getProperty(display: Xlib.display.Display, window: XWindow, prop: Union[str
         prop = display.get_atom(prop, False)
 
     if prop != 0:
-        return window.get_full_property(prop, Xlib.X.AnyPropertyType)
+        return window.get_full_property(prop, prop_type)
     return None
 
 
@@ -2290,7 +2293,7 @@ def _createTransient(display: Xlib.display.Display, parent: XWindow, transient_f
 
     checkEvents = None
     currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()
-    # otherDesktop = os.environ.get("DESKTOP_SESSION".lower())  # -> Returns None
+    # otherDesktop = os.environ.get("DESKTOP_SESSION").lower()  # -> Returns None
     if "cinnamon" in currDesktop:
         # In Mint/Cinnamon the transient window is not placing itself in the same coordinates that its transient_for window
         pgeom = transient_for.get_geometry()
@@ -2309,11 +2312,16 @@ def _createTransient(display: Xlib.display.Display, parent: XWindow, transient_f
         # TODO: KDE has a totally different behavior. Must investigate/test
         pass
 
-    normal_hints = transient_for.get_wm_normal_hints()
+    # normal_hints = transient_for.get_wm_normal_hints()
+    # transient_for.set_wm_normal_hints(flags=flags, min_width=width, max_width=width, min_height=height, max_height=height)
+    normal_hints = None
     window.changeProperty(display.get_atom("_MOTIF_WM_HINTS"), [1, 0, 1, 0, 0])
+    # print(normal_hints.flags, bin(normal_hints.flags), bin(808), bin(Xlib.Xutil.PMinSize), bin(Xlib.Xutil.PMaxSize),
+    #       normal_hints.flags | Xlib.Xutil.PMinSize, normal_hints.flags | Xlib.Xutil.PMaxSize, normal_hints.flags | Xlib.Xutil.PMinSize | Xlib.Xutil.PMaxSize,
+    #       bin(normal_hints.flags | Xlib.Xutil.PMinSize), bin(normal_hints.flags | Xlib.Xutil.PMaxSize), bin(normal_hints.flags | Xlib.Xutil.PMinSize | Xlib.Xutil.PMaxSize))
+    # 848 0b1101010000 0b1100101000 0b10000 0b100000 848 880 880 0b1101010000 0b1101110000 0b1101110000
     # flags = normal_hints.flags | Xlib.Xutil.PMinSize | Xlib.Xutil.PMaxSize
     flags = 808  # Empirically found... no idea about how to calculate it in Python
-    transient_for.set_wm_normal_hints(flags=flags, min_width=width, max_width=width, min_height=height, max_height=height)
     win.set_wm_normal_hints(flags=flags, min_width=width, max_width=width, min_height=height, max_height=height)
     window.changeWmState(Props.Window.State.Action.ADD, Props.Window.State.MODAL)
 

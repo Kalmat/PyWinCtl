@@ -82,7 +82,7 @@ def __remove_bad_windows(windows: Union[List[int], None]):
     :param windows: Xlib Windows
     :return: A generator of LinuxWindow that filters out BadWindows
     """
-    if windows:
+    if windows is not None:
         for window in windows:
             try:
                 yield LinuxWindow(window)
@@ -643,8 +643,10 @@ class LinuxWindow(BaseWindow):
                 self._transientWindow = None
                 self._checkEvents = None
                 self._normal_hints = None
+                self._win.setWmWindowType(Props.Window.WindowType.NORMAL)
         else:
             if self._transientWindow is None:
+                self._win.setWmWindowType(Props.Window.WindowType.DESKTOP)
                 self._transientWindow, self._checkEvents, self._normal_hints = _createTransient(
                     self._display,
                     self._rootWin.root,
@@ -900,11 +902,10 @@ def getAllScreens():
             wa = root.get_full_property(dsp.get_atom(Props.Root.WORKAREA, True), Xlib.X.AnyPropertyType).value
             for output in res.outputs:
                 params = dsp.xrandr_get_output_info(output, res.config_timestamp)
-                crtc = None
                 try:
                     crtc = dsp.xrandr_get_crtc_info(params.crtc, res.config_timestamp)
                 except:
-                    continue
+                    crtc = None
 
                 if crtc and crtc.mode:  # displays with empty (0) mode seem not to be valid
                     name = params.name
@@ -1031,7 +1032,15 @@ def main():
     else:
         print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()
-    displayWindowsUnderMouse(0, 0)
+    # displayWindowsUnderMouse(0, 0)
+
+    npw.acceptInput(False)
+    for i in range(20):
+        print(i)
+        if i == 5:
+            npw.moveTo(100, 100)
+        time.sleep(1)
+    npw.acceptInput(True)
 
 
 if __name__ == "__main__":
