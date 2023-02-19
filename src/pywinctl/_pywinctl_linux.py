@@ -1032,15 +1032,7 @@ def main():
     else:
         print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()
-    # displayWindowsUnderMouse(0, 0)
-
-    npw.acceptInput(False)
-    for i in range(20):
-        print(i)
-        if i == 5:
-            npw.moveTo(100, 100)
-        time.sleep(1)
-    npw.acceptInput(True)
+    displayWindowsUnderMouse(0, 0)
 
 
 if __name__ == "__main__":

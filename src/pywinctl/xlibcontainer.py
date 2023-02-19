@@ -2189,7 +2189,7 @@ def _getPropertyValue(display: Xlib.display.Display, ret: Union[Xlib.protocol.re
                         resultStr.append(display.get_atom_name(a))
                 return resultStr
             else:
-                resultInt: List[int] = [int(a) for a in res]
+                resultInt: List[int] = [a for a in res]
                 return resultInt
         return res
     return None
