@@ -288,8 +288,13 @@ class LinuxWindow(BaseWindow):
         geom = win.get_geometry()
         x = geom.x
         y = geom.y
+        w = geom.width
+        h = geom.height
         while True:
-            parent = win.query_tree().parent
+            try:
+                parent = win.query_tree().parent
+            except:
+                break
             if not isinstance(parent, XWindow):
                 break
             pgeom = parent.get_geometry()
@@ -298,8 +303,6 @@ class LinuxWindow(BaseWindow):
             if parent.id == self._rootWin.id:
                 break
             win = parent
-        w = geom.width
-        h = geom.height
         return Rect(x, y, x + w, y + h)
 
     def _getBorderSizes(self):
@@ -624,7 +627,7 @@ class LinuxWindow(BaseWindow):
     def _manageEvents(self, event: Xlib.protocol.rq.Event):
         if self._transientWindow is not None:
             # These values are required in Mint/Cinnamon to adapt transient to actual window size
-            self._transientWindow.setMoveResize(x=self.left-2, y=self.top-2, width=self.width+4, height=self.height-30)
+            self._transientWindow.setMoveResize(x=self.left-2, y=self.top-2, width=self.width+4, height=self.height-24)
 
     def acceptInput(self, setTo: bool):
         """
@@ -1028,14 +1031,7 @@ def main():
     else:
         print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()
-    # displayWindowsUnderMouse(0, 0)
-    npw.acceptInput(False)
-    for i in range(10):
-        print(i)
-        if i == 3:
-            npw.moveTo(100, 100)
-        time.sleep(1)
-    npw.acceptInput(True)
+    displayWindowsUnderMouse(0, 0)
 
 
 if __name__ == "__main__":

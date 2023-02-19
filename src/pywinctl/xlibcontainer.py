@@ -2009,12 +2009,9 @@ class _Extensions:
             self._winId = winId
             self._display = display
             self._root = root
-            self._events = None
-            self._mask = None
 
             self._keep = threading.Event()
             self._stopRequested = False
-            self._callback = None
             self._checkThread = None
             self._threadStarted = False
 
@@ -2116,9 +2113,19 @@ class _Extensions:
                 self._checkThread.start()
 
         def pause(self):
+            """
+            Pause the watchdog so the callback is not invoked.
+
+            Restart the watchdog just invoking start() again.
+            """
             self._keep.clear()
 
         def stop(self):
+            """
+            Stop the watchdog so the thread is ended.
+
+            Start a new watchdog using start() again.
+            """
             if self._threadStarted and self._checkThread is not None:
                 self._threadStarted = False
                 self._stopRequested = True
@@ -2141,8 +2148,13 @@ def _getWindowGeom(win: XWindow, rootId: int = defaultRoot.id) -> Tuple[int, int
     geom = win.get_geometry()
     x = geom.x
     y = geom.y
+    w = geom.width
+    h = geom.height
     while True:
-        parent = win.query_tree().parent
+        try:
+            parent = win.query_tree().parent
+        except:
+            break
         if not isinstance(parent, XWindow):
             break
         pgeom = parent.get_geometry()
@@ -2151,8 +2163,6 @@ def _getWindowGeom(win: XWindow, rootId: int = defaultRoot.id) -> Tuple[int, int
         if parent.id == rootId:
             break
         win = parent
-    w = geom.width
-    h = geom.height
     return x, y, w, h
 
 
