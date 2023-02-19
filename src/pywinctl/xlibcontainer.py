@@ -2476,10 +2476,9 @@ def main():
         def callback(event):
             print("EVENT RECEIVED", event)
 
-        eventLoop = win.extensions.checkEvents([Xlib.X.ConfigureNotify],
-                                               Xlib.X.StructureNotifyMask | Xlib.X.SubstructureNotifyMask,
-                                               callback)
-        eventLoop.start()
+        win.extensions.checkEvents.start([Xlib.X.ConfigureNotify],
+                                         Xlib.X.StructureNotifyMask | Xlib.X.SubstructureNotifyMask,
+                                         callback)
 
         print("BELOW ON")
         win.changeWmState(Props.Window.State.Action.ADD, Props.Window.State.BELOW)
