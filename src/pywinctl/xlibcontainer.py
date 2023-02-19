@@ -2513,7 +2513,7 @@ def main():
         win.setActive()
         time.sleep(4)
         print("END EVENT LOOP")
-        eventLoop.stop()
+        win.extensions.checkEvents.stop()
 
         print("WM HINTS")
         print(win.extensions.getWmHints())
