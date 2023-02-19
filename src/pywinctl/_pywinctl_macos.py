@@ -574,7 +574,7 @@ class WindowDelegate(AppKit.NSObject):  # Cannot put into a closure as subsequen
 #     return int(values[0]), int(values[1])
 
 
-_ItemInfoValue = TypedDict["_ItemInfoValue", {"value": str, "class": str, "settable": bool}]
+_ItemInfoValue = TypedDict("_ItemInfoValue", {"value": str, "class": str, "settable": bool})
 
 
 class _SubMenuStructure(TypedDict, total=False):
