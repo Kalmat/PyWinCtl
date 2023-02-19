@@ -281,8 +281,6 @@ class LinuxWindow(BaseWindow):
         self.watchdog = _WatchDog(self)
 
         self._transientWindow: Union[EWMHWindow, None] = None
-        self._checkEvents: Union[_Extensions._CheckEvents, None] = None
-        self._normal_hints: Union[Xlib.protocol.rq.DictWrapper, None] = None
 
     def _getWindowRect(self) -> Rect:
         # https://stackoverflow.com/questions/12775136/get-window-position-and-size-in-python-with-xlib - mgalgs
@@ -626,7 +624,7 @@ class LinuxWindow(BaseWindow):
     def _manageEvents(self, event: Xlib.protocol.rq.Event):
         if self._transientWindow is not None:
             # These values are required in Mint/Cinnamon to adapt transient to actual window size
-            self._transientWindow.setMoveResize(x=self.left - 2, y=self.top - 2, width=self.width + 4, height=self.height + 32)
+            self._transientWindow.setMoveResize(x=self.left-2, y=self.top-2, width=self.width+4, height=self.height-30)
 
     def acceptInput(self, setTo: bool):
         """
@@ -639,15 +637,13 @@ class LinuxWindow(BaseWindow):
         # TODO: Is it possible to make it completely transparent to input (e.g. click-thru)?
         if setTo:
             if self._transientWindow is not None:
-                _closeTransient(self._display, self._transientWindow, self._checkEvents, self._xWin, self._normal_hints)
+                _closeTransient(self._transientWindow)
                 self._transientWindow = None
-                self._checkEvents = None
-                self._normal_hints = None
                 self._win.setWmWindowType(Props.Window.WindowType.NORMAL)
         else:
             if self._transientWindow is None:
                 self._win.setWmWindowType(Props.Window.WindowType.DESKTOP)
-                self._transientWindow, self._checkEvents, self._normal_hints = _createTransient(
+                self._transientWindow = _createTransient(
                     self._display,
                     self._rootWin.root,
                     self._xWin,
@@ -1032,7 +1028,14 @@ def main():
     else:
         print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()
-    displayWindowsUnderMouse(0, 0)
+    # displayWindowsUnderMouse(0, 0)
+    npw.acceptInput(False)
+    for i in range(10):
+        print(i)
+        if i == 3:
+            npw.moveTo(100, 100)
+        time.sleep(1)
+    npw.acceptInput(True)
 
 
 if __name__ == "__main__":

@@ -1066,7 +1066,6 @@ class Window:
 
         :param name: new visible icon name as string
         """
-
         self.sendMessage(Props.Window.VISIBLE_ICON_NAME, name)
 
     def getDesktop(self) -> Union[int, None]:
@@ -1100,7 +1099,7 @@ class Window:
         :param newDesktop: target desktop index (as per getNumberOfDesktops())
         :param userAction: source indication (user or pager/manager action). Defaults to True
         """
-        if newDesktop <= self.rootWindow.getNumberOfDesktops() and newDesktop != self.rootWindow.getCurrentDesktop():
+        if 0 <= newDesktop <= self.rootWindow.getNumberOfDesktops() and newDesktop != self.rootWindow.getCurrentDesktop():
             self.sendMessage(Props.Window.DESKTOP, [newDesktop, Xlib.X.CurrentTime, 2 if userAction else 1])
 
     def getWmWindowType(self, text: bool = False) -> Union[List[int], List[str], None]:
@@ -1387,7 +1386,7 @@ class Window:
 
         :param newActions: List of new actions allowed, in integer or string format
         """
-        # Can this be set??? Investigate wm_protocols, which might be related (e.g. 'WM_DELETE_WINDOW')
+        # Can this be set??? If not, investigate wm_protocols, which might be related (e.g. 'WM_DELETE_WINDOW')
         pass
 
     def getStrut(self) -> Union[List[int], None]:
@@ -1397,7 +1396,8 @@ class Window:
         than _NET_WM_STRUT, however, so clients MAY set this property in addition to _NET_WM_STRUT_PARTIAL to
         ensure backward compatibility with Window Managers supporting older versions of the Specification.
 
-        :return:
+        :return: List of integers (left, right, top, bottom) defining the width of the reserved area at each border of
+        the screen
         """
         ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.STRUT)
         res = _getPropertyValue(self.display, ret)
@@ -1405,7 +1405,17 @@ class Window:
             res = cast(List[int], res)
         return res
 
-    def setStrut(self, left, right, top, bottom):
+    def setStrut(self, left: int, right: int, top: int, bottom: int):
+        """
+        Set a new desktop strut (reserved space at the screen borders)
+
+        See getStrut() and getStrutPartial() documentation for more info on this feature
+
+        :param left: left coordinate of strut
+        :param right: left coordinate of strut
+        :param top: top coordinate of strut
+        :param bottom: bottom coordinate of strut
+        """
         # Need to understand this
         self.sendMessage(Props.Window.STRUT, [left, right, top, bottom])
 
@@ -1445,7 +1455,10 @@ class Window:
         Notes: An auto-hide panel SHOULD set the strut to be its minimum, hidden size. A "corner" panel that does not
         extend for the full length of a screen border SHOULD only set one strut.
 
-        :return:
+        :return: List of integers containing 4 cardinals specifying the width of the reserved area at each border of
+        the screen, and an additional 8 cardinals specifying the beginning and end corresponding to each of the
+        four struts. The order of the values is left, right, top, bottom, left_start_y, left_end_y, right_start_y,
+        right_end_y, top_start_x, top_end_x, bottom_start_x, bottom_end_x
         """
         ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.STRUT_PARTIAL)
         res = _getPropertyValue(self.display, ret)
@@ -1453,15 +1466,15 @@ class Window:
             res = cast(List[int], res)
         return res
 
-    def setStrutPartial(self, left, right, top, bottom,
-                        left_start_y, left_end_y, right_start_y, right_end_y,
-                        top_start_x, top_end_x, bottom_start_x, bottom_end_x,):
+    def setStrutPartial(self, left: int, right: int, top: int, bottom: int,
+                        left_start_y: int, left_end_y: int, right_start_y: int, right_end_y: int,
+                        top_start_x: int, top_end_x: int, bottom_start_x: int, bottom_end_x: int):
         """
         Set new Strut Partial property.
 
         See getStrutPartial() documentation for more information on this property.
         """
-        # Need to understand this
+        # Need to understand this / Can it be set???
         pass
 
     def getIconGeometry(self) -> Union[List[int], None]:
@@ -1606,7 +1619,7 @@ class Window:
         atom = self.display.get_atom(Props.Window.CLOSE, True)
         self.sendMessage(atom, [Xlib.X.CurrentTime, 2 if userAction else 1])
 
-    def changeStacking(self, mode: int):
+    def changeStacking(self, mode: int, sibling: XWindow = None):
         """
         Changes current window position (stacking) in relation to its siblings.
 
@@ -1631,7 +1644,10 @@ class Window:
 
         :param mode: allowed values are Above / Below
         """
-        self.xWindow.configure(stack_mode=mode)
+        if sibling:
+            self.xWindow.configure(sibling=sibling, stack_mode=mode)
+        else:
+            self.xWindow.configure(stack_mode=mode)
         self.display.flush()
 
     def setMoveResize(self, gravity: int = 0, x: Union[int, None] = None, y: Union[int, None] = None, width: Union[int, None] = None, height: Union[int, None] = None, userAction: bool = True):
@@ -1776,8 +1792,9 @@ class _Extensions:
         self.display = display
         self.root = root
         self.xWindow = self.display.create_resource_object('window', winId)
+        self.checkEvents = self._CheckEvents(winId, display, root)
 
-    def getWmHints(self) -> Structs.WmHints:
+    def getWmHints(self) -> Union[Xlib.protocol.rq.DictWrapper, None]:
         """
         Get window hints.
 
@@ -1815,9 +1832,9 @@ class _Extensions:
 
         :return: Hints struct
         """
-        return cast(Structs.WmHints, self.xWindow.get_wm_hints())
+        return self.xWindow.get_wm_hints()
 
-    def setWmHints(self, hint: str, value: Any):
+    def setWmHints(self, hint: str, value: Union[int, XWindow, Xlib.xobject.drawable.Pixmap]):
         """
         Set new hints for current window.
 
@@ -1834,10 +1851,11 @@ class _Extensions:
             #       bin(normal_hints.flags | Xlib.Xutil.PMinSize), bin(normal_hints.flags | Xlib.Xutil.PMaxSize), bin(normal_hints.flags | Xlib.Xutil.PMinSize | Xlib.Xutil.PMaxSize))
             # 848 0b1101010000 0b1100101000 0b10000 0b100000 848 880 880 0b1101010000 0b1101110000 0b1101110000
             # flags = normal_hints.flags | Xlib.Xutil.PMinSize | Xlib.Xutil.PMaxSize
+            # flags = 808  # affects min/max_size values (empirically found)
             self.xWindow.set_wm_hints(hints)
             self.display.flush()
 
-    def getWmNormalHints(self):
+    def getWmNormalHints(self) -> Union[Xlib.protocol.rq.DictWrapper, None]:
         """
         Xlib provides functions that you can use to set or read the WM_NORMAL_HINTS property for a given window.
         The functions use the flags and the XSizeHints structure, as defined in the X11/Xutil.h header file.
@@ -1899,7 +1917,7 @@ class _Extensions:
         """
         return self.xWindow.get_wm_normal_hints()
 
-    def setWmNormalHints(self, hint, value):
+    def setWmNormalHints(self, hint: str, value: int):
         """
         Set new normal hints for current window.
 
@@ -1909,7 +1927,7 @@ class _Extensions:
         """
         pass
 
-    def getWmProtocols(self, text: bool = False) -> Union[List[int], List[str]]:
+    def getWmProtocols(self, text: bool = False) -> Union[List[int], List[str], None]:
         """
         Get the protocols supported by current window.
 
@@ -1935,20 +1953,15 @@ class _Extensions:
         :param text: select whether the procols will be returned as integers or strings
         :return: List of protocols in integer or string format
         """
-        ret = self.xWindow.get_wm_protocols()
-        prots = ret if ret else []
-        if text:
-            res = []
-            for p in prots:
-                try:
-                    res.append(self.display.get_atom_name(p))
-                except:
-                    pass
-            return res
-        else:
-            return [p for p in prots]
+        prots: Union[List[int], None] = self.xWindow.get_wm_protocols()
+        if prots is not None:
+            if text:
+                return [self.display.get_atom_name(p) for p in prots if isinstance(p, int) and p != 0]
+            else:
+                return [p for p in prots]
+        return prots
 
-    def addWmProtocol(self, atom: int):
+    def addWmProtocol(self, atom: Union[str, int]):
         """
         Adds a new protocol for current window.
 
@@ -1956,13 +1969,19 @@ class _Extensions:
 
         :param atom: protocol to be added
         """
-        prots = self.xWindow.get_wm_protocols()
-        if atom not in prots:
-            prots.append(atom)
-        self.xWindow.set_wm_protocols(prots)
-        self.display.flush()
+        prots: Union[List[int], None] = self.xWindow.get_wm_protocols()
+        if prots is not None:
+            new_prots: List[int] = prots
+        else:
+            new_prots = []
+        if isinstance(atom, str):
+            atom = self.display.get_atom(atom)
+        if atom not in new_prots:
+            new_prots.append(atom)
+            self.xWindow.set_wm_protocols(new_prots)
+            self.display.flush()
 
-    def delWmProtocol(self, atom: int):
+    def delWmProtocol(self, atom: Union[str, int]):
         """
         Deletes existing protocol for current window.
 
@@ -1970,9 +1989,13 @@ class _Extensions:
 
         :param atom: protocol to be deleted
         """
-        prots = self.xWindow.get_wm_protocols()
-        new_prots: List[int] = [p for p in prots if p != atom]
-        self.xWindow.set_wm_protocols(new_prots)
+        prots: Union[List[int], None] = self.xWindow.get_wm_protocols()
+        if prots:
+            if isinstance(atom, str):
+                atom = self.display.get_atom(atom)
+            new_prots: List[int] = [p for p in prots if p != atom]
+            if len(new_prots) != len(prots):
+                self.xWindow.set_wm_protocols(new_prots)
 
     class _CheckEvents:
         """
@@ -1981,21 +2004,17 @@ class _Extensions:
         It's important to define proper mask and event list accordingly. See checkEvents() documentation.
         """
 
-        def __init__(self, winId: int, display: Xlib.display.Display, root: XWindow, events: List[int], mask: int,
-                     callback: Callable[[Xlib.protocol.rq.Event], None]):
+        def __init__(self, winId: int, display: Xlib.display.Display, root: XWindow):
 
             self._winId = winId
             self._display = display
             self._root = root
-            self._events = events
-            self._mask = mask
-
-            self._root.change_attributes(event_mask=self._mask)
-            self._display.flush()
+            self._events = None
+            self._mask = None
 
             self._keep = threading.Event()
             self._stopRequested = False
-            self._callback = callback
+            self._callback = None
             self._checkThread = None
             self._threadStarted = False
 
@@ -2026,8 +2045,70 @@ class _Extensions:
                     self._display.flush()
                     break
 
-        def start(self):
+        def start(self, events: List[int], mask: int, callback: Callable[[Xlib.protocol.rq.Event], None]):
+            """
+            Activate a watchdog to be notified on given events (to provided callback function).
+
+            It's possible to update target events, mask or callback function just invoking start() again.
+
+            It's important to define proper mask and event list accordingly:
+
+            Clients select event reporting of most events relative to a window. To do this, pass an event mask to an
+            Xlib event-handling function that takes an event_mask argument. The bits of the event mask are defined in
+            X11/X.h. Each bit in the event mask maps to an event mask name, which describes the event or events you
+            want the X server to return to a client application.
+
+            Unless the client has specifically asked for them, most events are not reported to clients when they are
+            generated. Unless the client suppresses them by setting graphics-exposures in the GC to False ,
+            GraphicsExpose and NoExpose are reported by default as a result of XCopyPlane() and XCopyArea().
+            SelectionClear, SelectionRequest, SelectionNotify, or ClientMessage cannot be masked. Selection related
+            events are only sent to clients cooperating with selections (see section "Selections"). When the keyboard
+            or pointer mapping is changed, MappingNotify is always sent to clients.
+
+            The following table lists the event mask constants you can pass to the event_mask argument and the
+            circumstances in which you would want to specify the event mask:
+
+            NoEventMask	                No events wanted
+            KeyPressMask	            Keyboard down events wanted
+            KeyReleaseMask	            Keyboard up events wanted
+            ButtonPressMask	            Pointer button down events wanted
+            ButtonReleaseMask	        Pointer button up events wanted
+            EnterWindowMask	            Pointer window entry events wanted
+            LeaveWindowMask	            Pointer window leave events wanted
+            PointerMotionMask	        Pointer motion events wanted
+            PointerMotionHintMask	    Pointer motion hints wanted
+            Button1MotionMask	        Pointer motion while button 1 down
+            Button2MotionMask	        Pointer motion while button 2 down
+            Button3MotionMask	        Pointer motion while button 3 down
+            Button4MotionMask	        Pointer motion while button 4 down
+            Button5MotionMask	        Pointer motion while button 5 down
+            ButtonMotionMask	        Pointer motion while any button down
+            KeymapStateMask	            Keyboard state wanted at window entry and focus in
+            ExposureMask	            Any exposure wanted
+            VisibilityChangeMask	    Any change in visibility wanted
+            StructureNotifyMask	        Any change in window structure wanted
+            ResizeRedirectMask	        Redirect resize of this window
+            SubstructureNotifyMask	    Substructure notification wanted
+            SubstructureRedirectMask	Redirect structure requests on children
+            FocusChangeMask	            Any change in input focus wanted
+            PropertyChangeMask	        Any change in property wanted
+            ColormapChangeMask	        Any change in colormap wanted
+            OwnerGrabButtonMask	        Automatic grabs should activate with owner_events set to True
+
+            --> TODO: Calculate mask from given events list
+
+            :param events: List of events to be notified on
+            :param mask: Events mask according to selected events
+            :param callback: Function to be invoked when a selected event is received
+            """
             self._keep.set()
+            self._events = events
+            self._mask = mask
+            self._callback = callback
+
+            self._root.change_attributes(event_mask=self._mask)
+            self._display.flush()
+
             if not self._threadStarted and self._checkThread is None:
                 self._checkThread = threading.Thread(target=self._checkDisplayEvents)
                 self._checkThread.daemon = True
@@ -2044,66 +2125,6 @@ class _Extensions:
                 self._keep.set()
                 self._checkThread.join()
                 self._checkThread = None
-
-    def checkEvents(self, events: List[int], mask: int, callback: Callable[[Xlib.protocol.rq.Event], None], winId: int = 0) -> _CheckEvents:
-        """
-        Activate a watchdog to be notified on given events (to provided callback function).
-
-        It's important to define proper mask and event list accordingly:
-
-        Clients select event reporting of most events relative to a window. To do this, pass an event mask to an
-        Xlib event-handling function that takes an event_mask argument. The bits of the event mask are defined in
-        X11/X.h. Each bit in the event mask maps to an event mask name, which describes the event or events you
-        want the X server to return to a client application.
-
-        Unless the client has specifically asked for them, most events are not reported to clients when they are
-        generated. Unless the client suppresses them by setting graphics-exposures in the GC to False ,
-        GraphicsExpose and NoExpose are reported by default as a result of XCopyPlane() and XCopyArea().
-        SelectionClear, SelectionRequest, SelectionNotify, or ClientMessage cannot be masked. Selection related
-        events are only sent to clients cooperating with selections (see section "Selections"). When the keyboard
-        or pointer mapping is changed, MappingNotify is always sent to clients.
-
-        The following table lists the event mask constants you can pass to the event_mask argument and the
-        circumstances in which you would want to specify the event mask:
-
-        NoEventMask	                No events wanted
-        KeyPressMask	            Keyboard down events wanted
-        KeyReleaseMask	            Keyboard up events wanted
-        ButtonPressMask	            Pointer button down events wanted
-        ButtonReleaseMask	        Pointer button up events wanted
-        EnterWindowMask	            Pointer window entry events wanted
-        LeaveWindowMask	            Pointer window leave events wanted
-        PointerMotionMask	        Pointer motion events wanted
-        PointerMotionHintMask	    Pointer motion hints wanted
-        Button1MotionMask	        Pointer motion while button 1 down
-        Button2MotionMask	        Pointer motion while button 2 down
-        Button3MotionMask	        Pointer motion while button 3 down
-        Button4MotionMask	        Pointer motion while button 4 down
-        Button5MotionMask	        Pointer motion while button 5 down
-        ButtonMotionMask	        Pointer motion while any button down
-        KeymapStateMask	            Keyboard state wanted at window entry and focus in
-        ExposureMask	            Any exposure wanted
-        VisibilityChangeMask	    Any change in visibility wanted
-        StructureNotifyMask	        Any change in window structure wanted
-        ResizeRedirectMask	        Redirect resize of this window
-        SubstructureNotifyMask	    Substructure notification wanted
-        SubstructureRedirectMask	Redirect structure requests on children
-        FocusChangeMask	            Any change in input focus wanted
-        PropertyChangeMask	        Any change in property wanted
-        ColormapChangeMask	        Any change in colormap wanted
-        OwnerGrabButtonMask	        Automatic grabs should activate with owner_events set to True
-
-        --> TODO: Calculate mask from given events list
-
-        :param events: List of events to be notified on
-        :param mask: Events mask according to selected events
-        :param callback: Function to be invoked when a selected event is received
-        :param winId: id of window whose events must be watched
-        """
-        if not winId:
-            winId = self.winId
-        eventsObject = self._CheckEvents(winId, self.display, self.root, events, mask, callback)
-        return eventsObject
 
 
 def _getWindowParent(win: XWindow, rootId: int) -> int:
@@ -2176,17 +2197,14 @@ def _getPropertyValue(display: Xlib.display.Display, ret: Union[Xlib.protocol.re
     if ret and hasattr(ret, "value"):
         res: Union[List[int], bytes] = ret.value
         if isinstance(res, bytes):
-            result: List[str] = ret.value.decode().split("\x00")
+            result: List[str] = res.decode().split("\x00")
             if result and isinstance(result, list) and result[-1] == "":
                 return result[:-1]
             else:
                 return result
         elif isinstance(res, Iterable):
             if text:
-                resultStr: List[str] = []
-                for a in res:
-                    if isinstance(a, int) and a != 0:
-                        resultStr.append(display.get_atom_name(a))
+                resultStr: List[str] = [display.get_atom_name(a) for a in res if isinstance(a, int) and a != 0]
                 return resultStr
             else:
                 resultInt: List[int] = [a for a in res]
@@ -2267,28 +2285,27 @@ def _createSimpleWindow(display: Xlib.display.Display, parent: XWindow, x: int, 
 
 def _createTransient(display: Xlib.display.Display, parent: XWindow, transient_for: XWindow,
                      callback: Callable[[Xlib.protocol.rq.Event], None], x: int, y: int, width: int, height: int,
-                     override: bool = False, inputOnly: bool = False) \
-        -> Tuple[Window, Union[_Extensions._CheckEvents, None], Union[Xlib.protocol.rq.DictWrapper, None]]:
+                     override: bool = False, inputOnly: bool = False) -> Window:
     # https://shallowsky.com/blog/programming/click-thru-translucent-update.html
     # https://github.com/python-xlib/python-xlib/issues/200
 
-    window: Window = _createSimpleWindow(display, parent, x, y, width, height, override, inputOnly)
-    win: XWindow = window.xWindow
+    transientWindow: Window = _createSimpleWindow(display, parent, x, y, width, height, override, inputOnly)
+    xWin: XWindow = transientWindow.xWindow
 
     onebyte = int(0x01)  # Calculate as 0xff * target_opacity
     fourbytes = onebyte | (onebyte << 8) | (onebyte << 16) | (onebyte << 24)
-    win.change_property(display.get_atom('_NET_WM_WINDOW_OPACITY'), Xlib.Xatom.CARDINAL, 32, [fourbytes])
+    xWin.change_property(display.get_atom('_NET_WM_WINDOW_OPACITY'), Xlib.Xatom.CARDINAL, 32, [fourbytes])
 
-    input_pm = win.create_pixmap(width, height, 1)
+    input_pm = xWin.create_pixmap(width, height, 1)
     gc = input_pm.create_gc(foreground=0, background=0)
     input_pm.fill_rectangle(gc.id, 0, 0, width, height)
-    win.shape_mask(Xlib.ext.shape.SO.Set, Xlib.ext.shape.SK.Input, 0, 0, input_pm)  # type: ignore[attr-defined]
-    # win.shape_select_input(0)  # type: ignore[attr-defined]
+    xWin.shape_mask(Xlib.ext.shape.SO.Set, Xlib.ext.shape.SK.Input, 0, 0, input_pm)  # type: ignore[attr-defined]
+    # xWin.shape_select_input(0)  # type: ignore[attr-defined]
 
-    win.map()
+    xWin.map()
     display.flush()
 
-    win.set_wm_transient_for(transient_for)
+    xWin.set_wm_transient_for(transient_for)
     display.flush()
 
     checkEvents = None
@@ -2297,46 +2314,31 @@ def _createTransient(display: Xlib.display.Display, parent: XWindow, transient_f
     if "cinnamon" in currDesktop:
         # In Mint/Cinnamon the transient window is not placing itself in the same coordinates that its transient_for window
         pgeom = transient_for.get_geometry()
-        win.configure(x=x-2, y=y-32, width=pgeom.width + 40 + 6, height=pgeom.height + 80 + 32)
+        xWin.configure(x=x-2, y=y-32, width=pgeom.width + 40 + 6, height=pgeom.height + 80 + 32)
         display.flush()
 
-        checkEvents = window.extensions.checkEvents(
+        transientWindow.extensions.checkEvents.start(
             [Xlib.X.ConfigureNotify],
             Xlib.X.StructureNotifyMask | Xlib.X.SubstructureNotifyMask,
-            callback,
-            transient_for.id
+            callback
         )
-        checkEvents.start()
 
     elif "kde" in currDesktop:
         # TODO: KDE has a totally different behavior. Must investigate/test
         pass
 
-    # normal_hints = transient_for.get_wm_normal_hints()
-    # transient_for.set_wm_normal_hints(flags=flags, min_width=width, max_width=width, min_height=height, max_height=height)
-    normal_hints = None
-    window.changeProperty(display.get_atom("_MOTIF_WM_HINTS"), [1, 0, 1, 0, 0])
-    # print(normal_hints.flags, bin(normal_hints.flags), bin(808), bin(Xlib.Xutil.PMinSize), bin(Xlib.Xutil.PMaxSize),
-    #       normal_hints.flags | Xlib.Xutil.PMinSize, normal_hints.flags | Xlib.Xutil.PMaxSize, normal_hints.flags | Xlib.Xutil.PMinSize | Xlib.Xutil.PMaxSize,
-    #       bin(normal_hints.flags | Xlib.Xutil.PMinSize), bin(normal_hints.flags | Xlib.Xutil.PMaxSize), bin(normal_hints.flags | Xlib.Xutil.PMinSize | Xlib.Xutil.PMaxSize))
-    # 848 0b1101010000 0b1100101000 0b10000 0b100000 848 880 880 0b1101010000 0b1101110000 0b1101110000
-    # flags = normal_hints.flags | Xlib.Xutil.PMinSize | Xlib.Xutil.PMaxSize
-    flags = 808  # Empirically found... no idea about how to calculate it in Python
-    win.set_wm_normal_hints(flags=flags, min_width=width, max_width=width, min_height=height, max_height=height)
-    window.changeWmState(Props.Window.State.Action.ADD, Props.Window.State.MODAL)
+    # Removing actions but not decoration, since it causes not to capture Keyboard and mouse (like DOCK or override_redirect)
+    transientWindow.changeProperty(display.get_atom("_MOTIF_WM_HINTS"), [1, 0, 1, 0, 0], Props.Mode.APPEND)
+    transientWindow.changeWmState(Props.Window.State.Action.ADD, Props.Window.State.MODAL)
 
-    return window, checkEvents, normal_hints
+    return transientWindow
 
 
-def _closeTransient(display: Xlib.display.Display, transientWindow: Window, checkEvents: Union[_Extensions._CheckEvents, None], transient_for: XWindow, normal_hints: Union[Xlib.protocol.rq.DictWrapper, None]):
-    if checkEvents is not None:
-        checkEvents.stop()
+def _closeTransient(transientWindow: Window):
+    transientWindow.extensions.checkEvents.stop()
     transientWindow.xWindow.unmap()  # It seems not to properly close if not unmapped first
-    display.flush()
+    transientWindow.display.flush()
     transientWindow.setClosed()
-    if normal_hints is not None:
-        transient_for.set_wm_normal_hints(normal_hints)
-        display.flush()
 
 
 # from ctypes import cdll
