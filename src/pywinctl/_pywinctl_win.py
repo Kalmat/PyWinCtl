@@ -12,16 +12,10 @@ import threading
 import time
 from collections.abc import Sequence
 from ctypes import wintypes
-from typing import cast, AnyStr, Any, TYPE_CHECKING, List, Tuple, Union, Optional
-
+from typing import cast, Any, TYPE_CHECKING, List, Tuple, Union, Optional
+from typing_extensions import NotRequired, TypedDict
 if TYPE_CHECKING:
-    from typing_extensions import NotRequired, TypedDict
     from win32.lib.win32gui_struct import _MENUITEMINFO, _MENUINFO
-else:
-    # Only needed if the import from typing_extensions is used outside of annotations
-    Literal = AnyStr
-    NotRequired = dict
-    from typing import TypedDict
 
 import win32gui_struct
 import win32process
@@ -392,6 +386,7 @@ def _getWindowInfo(hWnd: int | str | bytes | bool | None) -> tagWINDOWINFO:
     # menuSize = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CYMENUSIZE)
     # titleSize = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CYCAPTION)
     return wi
+
 
 class _SubMenuStructure(TypedDict):
     hSubMenu: int
@@ -1224,6 +1219,7 @@ class _SendBottom(threading.Thread):
         self._keep.set()
         self.run()
 
+
 class _ScreenValue(TypedDict):
     id: int
     is_primary: bool
@@ -1235,6 +1231,7 @@ class _ScreenValue(TypedDict):
     orientation: int
     frequency: float
     colordepth: int
+
 
 def getAllScreens() -> dict[str, _ScreenValue]:
     """

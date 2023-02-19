@@ -4,7 +4,7 @@
 import os
 import threading
 import time
-from typing import Union, List, Any, Iterable, TypedDict, Optional, Tuple, cast, Callable
+from typing import Union, List, Iterable, TypedDict, Optional, Tuple, cast, Callable
 
 import Xlib.display
 import Xlib.protocol
@@ -2151,10 +2151,7 @@ def _getWindowGeom(win: XWindow, rootId: int = defaultRoot.id) -> Tuple[int, int
     w = geom.width
     h = geom.height
     while True:
-        try:
-            parent = win.query_tree().parent
-        except:
-            break
+        parent = win.query_tree().parent
         if not isinstance(parent, XWindow):
             break
         pgeom = parent.get_geometry()
@@ -2346,6 +2343,8 @@ def _createTransient(display: Xlib.display.Display, parent: XWindow, transient_f
 
 def _closeTransient(transientWindow: Window):
     transientWindow.extensions.checkEvents.stop()
+    transientWindow.xWindow.set_wm_transient_for(transientWindow.root)
+    transientWindow.display.flush()
     transientWindow.xWindow.unmap()  # It seems not to properly close if not unmapped first
     transientWindow.display.flush()
     transientWindow.setClosed()

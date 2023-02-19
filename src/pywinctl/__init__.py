@@ -408,7 +408,6 @@ class BaseWindow(ABC):
 
     @left.setter
     def left(self, value: int):
-        # import pdb; pdb.set_trace()
         self._rect.left  # Run rect's onRead to update the Rect object.
         self._rect.left = value
 

@@ -12,14 +12,10 @@ import platform
 import re
 import subprocess
 import time
-from typing import Iterable, TYPE_CHECKING, cast, Union, List, Optional
 import tkinter as tk
+from typing import cast, Union, List
+from typing_extensions import TypedDict
 
-if TYPE_CHECKING:
-    from typing_extensions import TypedDict
-else:
-    # Only needed if the import from typing_extensions is used outside of annotations
-    from typing import TypedDict
 import Xlib.display
 import Xlib.error
 import Xlib.protocol
@@ -30,7 +26,7 @@ import Xlib.ext
 from Xlib.xobject.drawable import Window as XWindow
 
 from pywinctl.xlibcontainer import RootWindow, Window as EWMHWindow, Props, defaultRootWindow, \
-    _xlibGetAllWindows, _createTransient, _closeTransient, _Extensions
+    _xlibGetAllWindows, _createTransient, _closeTransient
 
 from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect
 
@@ -291,10 +287,7 @@ class LinuxWindow(BaseWindow):
         w = geom.width
         h = geom.height
         while True:
-            try:
-                parent = win.query_tree().parent
-            except:
-                break
+            parent = win.query_tree().parent
             if not isinstance(parent, XWindow):
                 break
             pgeom = parent.get_geometry()
@@ -1031,7 +1024,15 @@ def main():
     else:
         print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()
-    displayWindowsUnderMouse(0, 0)
+    # displayWindowsUnderMouse(0, 0)
+
+    npw.acceptInput(False)
+    for i in range(10):
+        print(i)
+        if i == 3:
+            npw.moveTo(100, 100)
+        time.sleep(1)
+    npw.acceptInput(True)
 
 
 if __name__ == "__main__":
