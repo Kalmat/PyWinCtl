@@ -2697,7 +2697,6 @@ def main():
             print("ACTIVE WINDOW:", npw.title, "/", npw.box)
         print()
         displayWindowsUnderMouse(0, 0)
-        print(npw.getClientFrame())
 
 
 if __name__ == "__main__":
