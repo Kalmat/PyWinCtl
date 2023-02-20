@@ -16,7 +16,7 @@ import subprocess
 import threading
 import time
 from collections.abc import Iterable
-from typing import Any, AnyStr, overload, cast, Sequence, TYPE_CHECKING, Union
+from typing import Any, AnyStr, Dict, overload, cast, Optional, Sequence, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from typing_extensions import TypeAlias, TypedDict, Literal
@@ -495,15 +495,15 @@ def _getWindowTitles() -> list[list[str]]:
 class WindowDelegate(AppKit.NSObject):  # Cannot put into a closure as subsequent calls will cause a re-registration error due to subclassing NSObject.
     """Helps run window operations on the main thread."""
 
-    results = {}  # Store results here. Not ideal, but may be better than using a global.
+    results: Dict[str, Any] = {}  # Store results here. Not ideal, but may be better than using a global.
 
     @staticmethod
-    def run_on_main_thread(selector, obj=None, wait=True):
+    def run_on_main_thread(selector: bytes, obj: Optional[Any]=None, wait: Optional[bool]=True) -> Any:
         """Runs a method of this object on the main thread."""
         WindowDelegate.alloc().performSelectorOnMainThread_withObject_waitUntilDone_(selector, obj, wait)
         return WindowDelegate.results.get(selector)
         
-    def getTitleBarHeightAndBorderWidth(self):
+    def getTitleBarHeightAndBorderWidth(self) -> None:
         """Updates results with title bar height and border width."""
         frame_width = 100
         window = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
