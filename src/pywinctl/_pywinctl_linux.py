@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import array
 import os
 import sys
 

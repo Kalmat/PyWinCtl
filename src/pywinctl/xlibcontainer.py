@@ -2018,10 +2018,6 @@ class _Extensions:
             self._checkThread: Union[threading.Thread, None] = None
             self._threadStarted: bool = False
 
-            self._events: List[int] = []
-            self._mask: int = 0
-            self._callback: Union[Callable[[Xlib.protocol.rq.Event], None], None] = None
-
         def _checkDisplayEvents(self):
 
             while self._keep.wait():
@@ -2107,9 +2103,9 @@ class _Extensions:
             :param callback: Function to be invoked when a selected event is received, passing received event to it.
             """
             self._keep.set()
-            self._events = events
-            self._mask = mask
-            self._callback = callback
+            self._events: List[int] = events
+            self._mask: int = mask
+            self._callback: Callable[[Xlib.protocol.rq.Event], None] = callback
 
             self._root.change_attributes(event_mask=self._mask)
             self._display.flush()
