@@ -86,39 +86,22 @@ def getActiveWindow(app: AppKit.NSApplication | None = None):
     :return: Window object or None
     """
     if not app:
-        # app = WS.frontmostApplication()   # This fails after using .activateWithOptions_()?!?!?!
-        cmd = """on run
-                    set appName to ""
-                    set appID to ""
-                    set winData to {}
-                    try
-                        tell application "System Events"
-                            set appName to name of first application process whose frontmost is true
-                            set appID to unix id of application process appName
-                            tell application process appName
-                                set winData to {position, size, name} of (first window whose value of attribute "AXMain" is true)
-                            end tell
-                        end tell
-                    end try
-                    return {appID, winData}
-                end run"""
-        proc = subprocess.Popen(['osascript'],  stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
-        entries = ret.replace("\n", "").split(", ")
-        try:
-            appID = entries[0]
-            bounds = Rect(int(entries[1]), int(entries[2]), int(entries[3]), int(entries[4]))
-            # Thanks to Anthony Molinaro (djnym) for pointing out this bug and provide the solution!!!
-            # sometimes the title of the window contains ',' characters, so just get the first entry as the appName and join the rest
-            # back together as a string
-            title = ", ".join(entries[5:])
-            if appID:  # and title:
-                activeApps = _getAllApps()
-                for a in activeApps:
-                    if str(a.processIdentifier()) == appID:
-                        return MacOSWindow(a, title, bounds)
-        except Exception as e:
-            print(e)
+        active_app = WS.frontmostApplication()
+        active_app_pid = active_app.processIdentifier()
+        on_screen_window_info_list = Quartz.CGWindowListCopyWindowInfo(Quartz.kCGWindowListOptionOnScreenOnly, Quartz.kCGNullWindowID)
+        active_window_info = next((info for info in on_screen_window_info_list if info.get('kCGWindowOwnerPID', 0) == active_app_pid), None)
+        if active_window_info is None:
+            raise ValueError(f'Could not get window info for process ID: {active_app_pid}')
+        if 'kCGWindowName' not in active_window_info:
+            raise KeyError(f'Could not get window name for active window of application: {active_window_info.get("kCGWindowOwnerName", None)}. Does the application have screen recording permissions?')
+        active_window_bounds = active_window_info['kCGWindowBounds']
+        bounds = Rect(
+            left=active_window_bounds['X'],
+            top=active_window_bounds['Y'],
+            right=active_window_bounds['X'] + active_window_bounds['Width'],
+            bottom=active_window_bounds['Y'] + active_window_bounds['Height'],
+        )
+        return MacOSWindow(active_app, title=active_window_info['kCGWindowName'], bounds=bounds)
     else:
         for win in app.orderedWindows():  # .keyWindow() / .mainWindow() not working?!?!?!
             return MacOSNSWindow(app, win)
