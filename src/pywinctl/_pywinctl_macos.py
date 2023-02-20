@@ -495,7 +495,7 @@ def _getWindowTitles() -> list[list[str]]:
 class WindowDelegate(AppKit.NSObject):  # Cannot put into a closure as subsequent calls will cause a re-registration error due to subclassing NSObject.
     """Helps run window operations on the main thread."""
 
-    results: Dict[str, Any] = {}  # Store results here. Not ideal, but may be better than using a global.
+    results: Dict[bytes, Any] = {}  # Store results here. Not ideal, but may be better than using a global.
 
     @staticmethod
     def run_on_main_thread(selector: bytes, obj: Optional[Any]=None, wait: Optional[bool]=True) -> Any:
