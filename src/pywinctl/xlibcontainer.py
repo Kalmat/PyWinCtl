@@ -4,7 +4,9 @@
 import os
 import threading
 import time
-from typing import Union, List, Iterable, TypedDict, Optional, Tuple, cast, Callable
+from enum import Enum, IntEnum
+from typing import Union, List, Iterable, Optional, Tuple, cast, Callable
+from typing_extensions import TypedDict
 
 import Xlib.display
 import Xlib.protocol
@@ -107,17 +109,14 @@ def getDisplayFromWindow(winId: int) -> Tuple[Xlib.display.Display, Struct, XWin
             if d.startswith("X"):
                 name = ":" + d[1:]
                 display = Xlib.display.Display(name)
-                atom: int = display.get_atom(Props.Root.CLIENT_LIST)
+                atom: int = display.get_atom(Props.Root.CLIENT_LIST.value)
                 for s in range(display.screen_count()):
                     try:
                         scr: Struct = display.screen(s)
                         r: XWindow = scr.root
                         ret: Union[Xlib.protocol.request.GetProperty, None] = r.get_full_property(atom, Xlib.X.AnyPropertyType)
-                        windows = []
                         if ret and hasattr(ret, "value"):
-                            windows = ret.value
-                        for w in windows:
-                            if w == winId:
+                            if winId in ret.value:
                                 return display, scr, r
                     except:
                         pass
@@ -175,9 +174,9 @@ class WmProtocols:
 
 
 class Props:
-
-    class Root:
-
+    
+    class Root(Enum):
+    
         SUPPORTED = "_NET_SUPPORTED"
         CLIENT_LIST = "_NET_CLIENT_LIST"
         CLIENT_LIST_STACKING = "_NET_CLIENT_LIST_STACKING"
@@ -191,64 +190,33 @@ class Props:
         SUPPORTING_WM_CHECK = "_NET_SUPPORTING_WM_CHECK"
         VIRTUAL_ROOTS = "_NET_VIRTUAL_ROOTS"
         SHOWING_DESKTOP = "_NET_SHOWING_DESKTOP"
-
         DESKTOP_LAYOUT = "_NET_DESKTOP_LAYOUT"
-        class DesktopLayout:
-            ORIENTATION_HORZ = 0
-            ORIENTATION_VERT = 1
-            TOPLEFT = 0
-            TOPRIGHT = 1
-            BOTTOMRIGHT = 2
-            BOTTOMLEFT = 3
-
         # Additional Root properties (always related to a specific window)
         CLOSE = "_NET_CLOSE_WINDOW"
         MOVERESIZE = "_NET_MOVERESIZE_WINDOW"
         WM_MOVERESIZE = "_NET_WM_MOVERESIZE"
         RESTACK = "_NET_RESTACK_WINDOW"
         REQ_FRAME_EXTENTS = "_NET_REQUEST_FRAME_EXTENTS"
-
-    class Window:
-
+    
+    class DesktopLayout(IntEnum):
+        ORIENTATION_HORZ = 0
+        ORIENTATION_VERT = 1
+        TOPLEFT = 0
+        TOPRIGHT = 1
+        BOTTOMRIGHT = 2
+        BOTTOMLEFT = 3
+    
+    
+    class Window(Enum):
+    
         NAME = "_NET_WM_NAME"
         VISIBLE_NAME = "_NET_WM_VISIBLE_NAME"
         ICON_NAME = "_NET_WM_ICON_NAME"
         VISIBLE_ICON_NAME = "_NET_WM_VISIBLE_ICON_NAME"
         DESKTOP = "_NET_WM_DESKTOP"
-
         WM_WINDOW_TYPE = "_NET_WM_WINDOW_TYPE"
-        class WindowType:
-            DESKTOP = "_NET_WM_WINDOW_TYPE_DESKTOP"
-            DOCK = "_NET_WM_WINDOW_TYPE_DOCK"
-            TOOLBAR = "_NET_WM_WINDOW_TYPE_TOOLBAR"
-            MENU = "_NET_WM_WINDOW_TYPE_MENU"
-            UTILITY = "_NET_WM_WINDOW_TYPE_UTILITY"
-            SPLASH = "_NET_WM_WINDOW_TYPE_SPLASH"
-            DIALOG = "_NET_WM_WINDOW_TYPE_DIALOG"
-            NORMAL = "_NET_WM_WINDOW_TYPE_NORMAL"
-
         CHANGE_STATE = "WM_CHANGE_STATE"
         WM_STATE = "_NET_WM_STATE"
-        class State:
-            MODAL = "_NET_WM_STATE_MODAL"
-            STICKY = "_NET_WM_STATE_STICKY"
-            MAXIMIZED_VERT = "_NET_WM_STATE_MAXIMIZED_VERT"
-            MAXIMIZED_HORZ = "_NET_WM_STATE_MAXIMIZED_HORZ"
-            SHADED = "_NET_WM_STATE_SHADED"
-            SKIP_TASKBAR = "_NET_WM_STATE_SKIP_TASKBAR"
-            SKIP_PAGER = "_NET_WM_STATE_SKIP_PAGER"
-            HIDDEN = "_NET_WM_STATE_HIDDEN"
-            FULLSCREEN = "_NET_WM_STATE_FULLSCREEN"
-            ABOVE = "_NET_WM_STATE_ABOVE"
-            BELOW = "_NET_WM_STATE_BELOW"
-            DEMANDS_ATTENTION = "_NET_WM_STATE_DEMANDS_ATTENTION"
-            FOCUSED = "_NET_WM_STATE_FOCUSED"
-
-            class Action:
-                REMOVE = 0
-                ADD = 1
-                TOGGLE = 2
-
         ALLOWED_ACTIONS = "_NET_WM_ALLOWED_ACTIONS"
         STRUT = "_NET_WM_STRUT"
         STRUT_PARTIAL = "_NET_WM_STRUT_PARTIAL"
@@ -258,37 +226,72 @@ class Props:
         HANDLED_ICONS = "_NET_WM_HANDLED_ICONS"
         USER_TIME = "_NET_WM_USER_TIME"
         FRAME_EXTENTS = "_NET_FRAME_EXTENTS"
-
         # These are Root properties, but always related to a specific window
         ACTIVE = "_NET_ACTIVE_WINDOW"
         CLOSE = "_NET_CLOSE_WINDOW"
-
         MOVERESIZE = "_NET_MOVERESIZE_WINDOW"
-        class MoveResize:
-            SIZE_TOPLEFT = 0
-            SIZE_TOP = 1
-            SIZE_TOPRIGHT = 2
-            SIZE_RIGHT = 3
-            SIZE_BOTTOMRIGHT = 4
-            SIZE_BOTTOM = 5
-            SIZE_BOTTOMLEFT = 6
-            SIZE_LEFT = 7
-            MOVE = 8            # movement only
-            SIZE_KEYBOARD = 9   # size via keyboard
-            MOVE_KEYBOARD = 10  # move via keyboard
-
         WM_MOVERESIZE = "_NET_WM_MOVERESIZE"
         RESTACK = "_NET_RESTACK_WINDOW"
         REQ_FRAME_EXTENTS = "_NET_REQUEST_FRAME_EXTENTS"
-
-    class Format:
+    
+    class WindowType(Enum):
+        DESKTOP = "_NET_WM_WINDOW_TYPE_DESKTOP"
+        DOCK = "_NET_WM_WINDOW_TYPE_DOCK"
+        TOOLBAR = "_NET_WM_WINDOW_TYPE_TOOLBAR"
+        MENU = "_NET_WM_WINDOW_TYPE_MENU"
+        UTILITY = "_NET_WM_WINDOW_TYPE_UTILITY"
+        SPLASH = "_NET_WM_WINDOW_TYPE_SPLASH"
+        DIALOG = "_NET_WM_WINDOW_TYPE_DIALOG"
+        NORMAL = "_NET_WM_WINDOW_TYPE_NORMAL"
+    
+    class State(Enum):
+        NULL = "0"
+        MODAL = "_NET_WM_STATE_MODAL"
+        STICKY = "_NET_WM_STATE_STICKY"
+        MAXIMIZED_VERT = "_NET_WM_STATE_MAXIMIZED_VERT"
+        MAXIMIZED_HORZ = "_NET_WM_STATE_MAXIMIZED_HORZ"
+        SHADED = "_NET_WM_STATE_SHADED"
+        SKIP_TASKBAR = "_NET_WM_STATE_SKIP_TASKBAR"
+        SKIP_PAGER = "_NET_WM_STATE_SKIP_PAGER"
+        HIDDEN = "_NET_WM_STATE_HIDDEN"
+        FULLSCREEN = "_NET_WM_STATE_FULLSCREEN"
+        ABOVE = "_NET_WM_STATE_ABOVE"
+        BELOW = "_NET_WM_STATE_BELOW"
+        DEMANDS_ATTENTION = "_NET_WM_STATE_DEMANDS_ATTENTION"
+        FOCUSED = "_NET_WM_STATE_FOCUSED"
+    
+    class StateAction(IntEnum):
+        REMOVE = 0
+        ADD = 1
+        TOGGLE = 2
+    
+    class MoveResize(IntEnum):
+        SIZE_TOPLEFT = 0
+        SIZE_TOP = 1
+        SIZE_TOPRIGHT = 2
+        SIZE_RIGHT = 3
+        SIZE_BOTTOMRIGHT = 4
+        SIZE_BOTTOM = 5
+        SIZE_BOTTOMLEFT = 6
+        SIZE_LEFT = 7
+        MOVE = 8            # movement only
+        SIZE_KEYBOARD = 9   # size via keyboard
+        MOVE_KEYBOARD = 10  # move via keyboard
+    
+    
+    class DataFormat(IntEnum):
         STR = 8
         INT = 32
-
-    class Mode:
+    
+    
+    class Mode(IntEnum):
         REPLACE = Xlib.X.PropModeReplace
         APPEND = Xlib.X.PropModeAppend
         PREPEND = Xlib.X.PropModePrepend
+        
+    class StackMode(IntEnum):
+        ABOVE = Xlib.X.Above
+        BELOW = Xlib.X.Below
 
 
 class Structs:
@@ -398,7 +401,7 @@ class RootWindow:
         :param text: if ''True'' the values will be returned as strings, or as integers if ''False''
         :return: supported hints as a list of strings / integers
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.SUPPORTED)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.SUPPORTED.value)
         return _getPropertyValue(self.display, ret, text)
 
     def getClientList(self) -> Union[List[int], None]:
@@ -410,7 +413,7 @@ class RootWindow:
 
         :return: list of integers (XWindows id's)
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.CLIENT_LIST)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.CLIENT_LIST.value)
         res = _getPropertyValue(self.display, ret)
         if res is not None:
             res = cast(List[int], res)
@@ -425,7 +428,7 @@ class RootWindow:
 
         :return: list of integers (XWindows id's)
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.CLIENT_LIST_STACKING)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.CLIENT_LIST_STACKING.value)
         res = _getPropertyValue(self.display, ret)
         if res is not None:
             res = cast(List[int], res)
@@ -437,7 +440,7 @@ class RootWindow:
 
         :return: number of desktops in int format or None
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.NUMBER_OF_DESKTOPS)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.NUMBER_OF_DESKTOPS.value)
         res = _getPropertyValue(self.display, ret)
         if res and isinstance(res[0], int):
             return res[0]
@@ -462,7 +465,7 @@ class RootWindow:
 
         :param number: desired number of desktops to be set by Window Manager
         """
-        self.setProperty(Props.Root.NUMBER_OF_DESKTOPS, [number])
+        self.setProperty(Props.Root.NUMBER_OF_DESKTOPS.value, [number])
 
     def getDesktopGeometry(self) -> Union[List[int], None]:
         """
@@ -472,7 +475,7 @@ class RootWindow:
 
         :return: tuple of integers (width, height) or None if it couldn't be retrieved
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.DESKTOP_GEOMETRY)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.DESKTOP_GEOMETRY.value)
         res = _getPropertyValue(self.display, ret)
         if res is not None:
             res = cast(List[int], res)
@@ -492,7 +495,7 @@ class RootWindow:
         :param newWidth: value for the new target desktop width
         :param newHeight: value for the new target desktop height
         """
-        self.setProperty(Props.Root.DESKTOP_GEOMETRY, [newWidth, newHeight])
+        self.setProperty(Props.Root.DESKTOP_GEOMETRY.value, [newWidth, newHeight])
 
     def getDesktopViewport(self) -> Union[List[Tuple[int, int]], None]:
         """
@@ -501,7 +504,7 @@ class RootWindow:
 
         :return: list of int tuples or None if the value couldn't be retrieved
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.DESKTOP_VIEWPORT)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.DESKTOP_VIEWPORT.value)
         res = _getPropertyValue(self.display, ret)
         if res is not None:
             result = []
@@ -521,7 +524,7 @@ class RootWindow:
         client message to the root window.
         The Window Manager MAY choose to ignore this message, in which case _NET_DESKTOP_VIEWPORT property will remain unchanged.
         """
-        self.setProperty(Props.Root.DESKTOP_VIEWPORT, [newWidth, newHeight])
+        self.setProperty(Props.Root.DESKTOP_VIEWPORT.value, [newWidth, newHeight])
 
     def getCurrentDesktop(self) -> Union[int, None]:
         """
@@ -531,7 +534,7 @@ class RootWindow:
 
         :return: index of current desktop in int format or None if couldn't be retrieved
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.CURRENT_DESKTOP)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.CURRENT_DESKTOP.value)
         res = _getPropertyValue(self.display, ret)
         if res and isinstance(res[0], int):
             return res[0]
@@ -547,7 +550,7 @@ class RootWindow:
         """
         desks = self.getNumberOfDesktops()
         if desks and newDesktop < desks and newDesktop != self.getCurrentDesktop():
-            self.setProperty(Props.Root.CURRENT_DESKTOP, [newDesktop, Xlib.X.CurrentTime])
+            self.setProperty(Props.Root.CURRENT_DESKTOP.value, [newDesktop, Xlib.X.CurrentTime])
 
     def getDesktopNames(self) -> Union[List[str], None]:
         """
@@ -566,7 +569,7 @@ class RootWindow:
 
         :return: list of desktop names in str format
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.DESKTOP_NAMES)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.DESKTOP_NAMES.value)
         res = _getPropertyValue(self.display, ret)
         if res is not None:
             res = cast(List[str], res)
@@ -580,7 +583,7 @@ class RootWindow:
 
         :return: window id or None
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.ACTIVE)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.ACTIVE.value)
         res = _getPropertyValue(self.display, ret)
         if res and isinstance(res[0], int):
             return res[0]
@@ -598,7 +601,7 @@ class RootWindow:
 
         :return: tuple containing workarea coordinates (x, y, width, height)
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.WORKAREA)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.WORKAREA.value)
         res = _getPropertyValue(self.display, ret)
         if res is not None:
             res = cast(List[int], res)
@@ -619,7 +622,7 @@ class RootWindow:
         :return: ''True'' if compliant Window Manager is active or None if it couldn't be retrieved
         """
         # Not sure what this property is intended to return. In my system it returns None!
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.SUPPORTING_WM_CHECK)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.SUPPORTING_WM_CHECK.value)
         res = _getPropertyValue(self.display, ret)
         if res is not None:
             res = cast(List[int], res)
@@ -634,14 +637,14 @@ class RootWindow:
 
         :return: List of virtual roots id's as integers
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.VIRTUAL_ROOTS)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.VIRTUAL_ROOTS.value)
         res = _getPropertyValue(self.display, ret)
         if res is not None:
             res = cast(List[int], res)
         return res
 
     def getDesktopLayout(self) -> Union[List[int], None]:
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.DESKTOP_LAYOUT)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.DESKTOP_LAYOUT.value)
         res = _getPropertyValue(self.display, ret)
         if res is not None:
             res = cast(List[int], res)
@@ -649,7 +652,7 @@ class RootWindow:
 
     def setDesktopLayout(self, orientation, columns, rows, starting_corner):
         """
-        Values (as per Props.RootWindow.DesktopLayout):
+        Values (as per RootWindow.DesktopLayout):
           _NET_WM_ORIENTATION_HORZ 0
           _NET_WM_ORIENTATION_VERT 1
 
@@ -719,7 +722,7 @@ class RootWindow:
          +--+--+--+--+
         The numbers here are the desktop numbers, as for _NET_CURRENT_DESKTOP.
         """
-        self.setProperty(Props.Root.DESKTOP_LAYOUT, [orientation, columns, rows, starting_corner])
+        self.setProperty(Props.Root.DESKTOP_LAYOUT.value, [orientation, columns, rows, starting_corner])
 
     def getShowingDesktop(self) -> Union[bool, None]:
         """
@@ -730,7 +733,7 @@ class RootWindow:
 
         :return: ''True'' if showing desktop
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.SHOWING_DESKTOP)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Root.SHOWING_DESKTOP.value)
         res = _getPropertyValue(self.display, ret)
         if res:
             return res != 0
@@ -747,7 +750,7 @@ class RootWindow:
         :param show: ''True'' to enter showing desktop mode, ''False'' to exit
         """
         if self.getShowingDesktop() != show:
-            self.setProperty(Props.Root.SHOWING_DESKTOP, [1 if show else 0])
+            self.setProperty(Props.Root.SHOWING_DESKTOP.value, [1 if show else 0])
 
     """
     Methods below are always related to a given window. 
@@ -768,7 +771,7 @@ class RootWindow:
         :param winId: id of window to be closed
         :param userAction: set to ''True'' to force action, as if it was requested by an user action
         """
-        atom: int = self.display.get_atom(Props.Root.CLOSE, True)
+        atom: int = self.display.get_atom(Props.Root.CLOSE.value, True)
         self.sendMessage(winId, atom, [Xlib.X.CurrentTime, 2 if userAction else 1])
 
     def setMoveResize(self, winId: int, gravity: int = 0, x: Union[int, None] = None, y: Union[int, None] = None, width: Union[int, None]= None, height: Union[int, None] = None, userAction: bool = True):
@@ -830,7 +833,7 @@ class RootWindow:
             win.configure(x=x, y=y, width=width, height=height)
             self.display.flush()
         else:
-            atom: int = self.display.get_atom(Props.Root.MOVERESIZE, True)
+            atom: int = self.display.get_atom(Props.Root.MOVERESIZE.value, True)
             self.sendMessage(winId, atom, [gravity_flags, x, y, width, height, 2 if userAction else 1])
 
     def setWmMoveResize(self, winId: int, x_root: int, y_root: int, orientation: int, button: int, userAction: bool = True):
@@ -861,7 +864,7 @@ class RootWindow:
         :param userAction: set to ''True'' to force action, as if it was requested by a user action. Defaults to True
         """
         # Need to understand this property
-        atom: int = self.display.get_atom(Props.Root.WM_MOVERESIZE, True)
+        atom: int = self.display.get_atom(Props.Root.WM_MOVERESIZE.value, True)
         self.sendMessage(winId, atom, [x_root, y_root, orientation, button, 2 if userAction else 1])
 
     def setWmStacking(self, winId: int, siblingId: int, detail: int, userAction: bool = True):
@@ -880,7 +883,7 @@ class RootWindow:
         :param userAction: set to ''True'' to force action, as if it was requested by a user action. Defaults to True
         """
         # Need to understand this property
-        atom: int = self.display.get_atom(Props.Root.RESTACK, True)
+        atom: int = self.display.get_atom(Props.Root.RESTACK.value, True)
         self.sendMessage(winId, atom, [2 if userAction else 1, siblingId, detail])
 
     def requestFrameExtents(self, winId: int):
@@ -901,14 +904,14 @@ class RootWindow:
         :param winId: id of window for which estimate the frame extents
         """
         # Need to understand this property
-        atom: int = self.display.get_atom(Props.Root.REQ_FRAME_EXTENTS, True)
+        atom: int = self.display.get_atom(Props.Root.REQ_FRAME_EXTENTS.value, True)
         self.sendMessage(winId, atom, [])
 
 
 defaultRootWindow = RootWindow()
 
 
-class Window:
+class EwmhWindow:
     """
     Base class to access application windows related features.
 
@@ -961,7 +964,7 @@ class Window:
         """
         return _sendMessage(self.display, self.root, self.id, prop, data)
 
-    def changeProperty(self, prop: Union[str, int], data: List[int], propMode: int = Xlib.X.PropModeReplace):
+    def changeProperty(self, prop: Union[str, int], data: List[int], propMode: Props.Mode = Props.Mode.REPLACE):
         """
         Sets given property for the current window. The property is not managed by Window Manager, but returned
         in getProperty() calls together with its data.
@@ -981,7 +984,7 @@ class Window:
 
         :return: name of the window as str or None (nothing obtained)
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.NAME)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.NAME.value)
         res = _getPropertyValue(self.display, ret)
         if res:
             return str(res[0])
@@ -993,7 +996,7 @@ class Window:
 
         :param name: new name as string
         """
-        self.sendMessage(Props.Window.NAME, name)
+        self.sendMessage(Props.Window.NAME.value, name)
 
     def getVisibleName(self) -> Union[str, None]:
         """
@@ -1008,7 +1011,7 @@ class Window:
 
         :return: visible name of the window as str or None (nothing obtained)
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.VISIBLE_NAME)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.VISIBLE_NAME.value)
         res = _getPropertyValue(self.display, ret)
         if res:
             return str(res[0])
@@ -1020,7 +1023,7 @@ class Window:
 
         :param name: new visible name as string
         """
-        self.sendMessage(Props.Window.VISIBLE_NAME, name)
+        self.sendMessage(Props.Window.VISIBLE_NAME.value, name)
 
     def getIconName(self) -> Union[str, None]:
         """
@@ -1031,7 +1034,7 @@ class Window:
 
         :return: icon name as string
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.ICON_NAME)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.ICON_NAME.value)
         res = _getPropertyValue(self.display, ret)
         if res:
             return str(res[0])
@@ -1043,7 +1046,7 @@ class Window:
 
         :param name: new icon name as string
         """
-        self.sendMessage(Props.Window.ICON, name)
+        self.sendMessage(Props.Window.ICON.value, name)
 
     def getVisibleIconName(self) -> Union[str, None]:
         """
@@ -1054,7 +1057,7 @@ class Window:
 
         :return: visible icon name as string
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.VISIBLE_ICON_NAME)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.VISIBLE_ICON_NAME.value)
         res = _getPropertyValue(self.display, ret)
         if res:
             return str(res[0])
@@ -1066,7 +1069,7 @@ class Window:
 
         :param name: new visible icon name as string
         """
-        self.sendMessage(Props.Window.VISIBLE_ICON_NAME, name)
+        self.sendMessage(Props.Window.VISIBLE_ICON_NAME.value, name)
 
     def getDesktop(self) -> Union[int, None]:
         """
@@ -1086,7 +1089,7 @@ class Window:
 
         :return: desktop index on which current window is showing
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.DESKTOP)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.DESKTOP.value)
         res = _getPropertyValue(self.display, ret)
         if res and isinstance(res[0], int):
             return int(res[0])
@@ -1100,7 +1103,7 @@ class Window:
         :param userAction: source indication (user or pager/manager action). Defaults to True
         """
         if 0 <= newDesktop <= self.rootWindow.getNumberOfDesktops() and newDesktop != self.rootWindow.getCurrentDesktop():
-            self.sendMessage(Props.Window.DESKTOP, [newDesktop, Xlib.X.CurrentTime, 2 if userAction else 1])
+            self.sendMessage(Props.Window.DESKTOP.value, [newDesktop, Xlib.X.CurrentTime, 2 if userAction else 1])
 
     def getWmWindowType(self, text: bool = False) -> Union[List[int], List[str], None]:
         """
@@ -1148,10 +1151,10 @@ class Window:
         :param text: if ''True'', the types will be returned in string format, or as integers if ''False''
         :return: List of window types as integer or strings
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.WM_WINDOW_TYPE)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.WM_WINDOW_TYPE.value)
         return _getPropertyValue(self.display, ret, text)
 
-    def setWmWindowType(self, winType: Union[int, str]):
+    def setWmWindowType(self, winType: Props.WindowType):
         """
         Changes the type of current window.
 
@@ -1159,12 +1162,13 @@ class Window:
 
         :param winType: target window type as integer or str
         """
-        if isinstance(winType, str):
-            winType = self.display.get_atom(winType, True)
+        if winType not in Props.WindowType:
+            raise ValueError
+        atom = self.display.get_atom(winType.value, True)
 
         x, y, w, h = _getWindowGeom(self.xWindow, self.root.id)
         self.xWindow.unmap()  # -> Needed in Mint/Cinnamon
-        self.changeProperty(Props.Window.WM_WINDOW_TYPE, [winType])
+        self.changeProperty(Props.Window.WM_WINDOW_TYPE.value, [atom])
         self.xWindow.map()
         self.display.flush()
         self.setMoveResize(x=x, y=y, width=w, height=h)
@@ -1173,7 +1177,7 @@ class Window:
         """
         Get the window states values of current window.
 
-        A list of hints describing the window state. Atoms present in the list MUST be considered set, atoms not
+        A list of hints describing the window Props.State. Atoms present in the list MUST be considered set, atoms not
         present in the list MUST be considered not set. The Window Manager SHOULD honor _NET_WM_STATE whenever a
         withdrawn window requests to be mapped. A Client wishing to change the state of a window MUST send a
         _NET_WM_STATE client message to the root window (see below). The Window Manager MUST keep this property
@@ -1185,7 +1189,7 @@ class Window:
 
         Rationale: Removing the property upon window withdrawal helps legacy applications which want to reuse
         withdrawn windows. Not removing the property upon shutdown allows the next Window Manager to restore
-        windows to their previous state.
+        windows to their previous Props.State.
 
         An implementation MAY add new atoms to this list. Implementations without extensions MUST ignore any
         unknown atoms, effectively removing them from the list. These extension atoms MUST NOT start with the
@@ -1212,13 +1216,13 @@ class Window:
 
         _NET_WM_STATE_HIDDEN should be set by the Window Manager to indicate that a window would not be visible
         on the screen if its desktop/viewport were active and its coordinates were within the screen bounds.
-        The canonical example is that minimized windows should be in the _NET_WM_STATE_HIDDEN state. Pagers and
+        The canonical example is that minimized windows should be in the _NET_WM_STATE_HIDDEN Props.State. Pagers and
         similar applications should use _NET_WM_STATE_HIDDEN instead of WM_STATE to decide whether to display a
         window in miniature representations of the windows on a desktop.
 
         Implementation note: if an Application asks to toggle _NET_WM_STATE_HIDDEN the Window Manager should
         probably just ignore the request, since _NET_WM_STATE_HIDDEN is a function of some other aspect of the
-        window such as minimization, rather than an independent state.
+        window such as minimization, rather than an independent Props.State.
 
         _NET_WM_STATE_FULLSCREEN indicates that the window should fill the entire screen and have no window
         decorations. Additionally the Window Manager is responsible for restoring the original geometry after
@@ -1243,10 +1247,10 @@ class Window:
         :param text: if ''True'', the states will be returned in string format, or as integers if ''False''
         :return: List of integers or strings
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.WM_STATE)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.WM_STATE.value)
         return _getPropertyValue(self.display, ret, text)
 
-    def changeWmState(self, action: int, state: Union[int, str], state2: Union[int, str] = 0, userAction: bool = True):
+    def changeWmState(self, action: Props.StateAction, state: Props.State, state2: Props.State = Props.State.NULL, userAction: bool = True):
         """
         Sets the window states values of current window.
 
@@ -1266,12 +1270,12 @@ class Window:
         :param state2: Up to two states can be changed at once. Defaults to 0 (no second state to change).
         :param userAction: source indication (user or pager/manager action). Defaults to True
         """
-        if action in (Props.Window.State.Action.ADD, Props.Window.State.Action.REMOVE, Props.Window.State.Action.TOGGLE):
-            if isinstance(state, str):
-                state = self.display.get_atom(state, True)
-            if isinstance(state2, str):
-                state2 = self.display.get_atom(state2, True)
-            self.sendMessage(Props.Window.WM_STATE, [action, state, state2, 2 if userAction else 1])
+        if action not in Props.StateAction or \
+                state not in Props.State or state2 not in Props.State:
+            raise ValueError
+        st1: int = self.display.get_atom(state.value)
+        st2: int = self.display.get_atom(state2.value) if state2 != Props.State.NULL else 0
+        self.sendMessage(self.display.get_atom(Props.Window.WM_STATE.value), [action, st1, st2, 2 if userAction else 1])
 
     def setMaximized(self, maxHorz: bool, maxVert: bool):
         """
@@ -1280,41 +1284,39 @@ class Window:
         :param maxHorz: ''True'' / ''False'' to indicate whether the window should be horizontally maximized or not
         :param maxVert: ''True'' / ''False'' to indicate whether the window should be vertically maximized or not
         """
-        state1 = 0
-        state2 = 0
+        NULL = Props.State.NULL
+        state1 = NULL
+        state2 = NULL
         ret: Union[List[int], List[str], None] = self.getWmState(True)
-        if ret is None:
-            states = []
-        else:
-            states = cast(List[str], ret)
+        states: List[str] = [] if ret is None else cast(List[str], ret)
         if maxHorz and maxVert:
-            if Props.Window.State.MAXIMIZED_HORZ not in states:
-                state1 = self.display.get_atom(Props.Window.State.MAXIMIZED_HORZ, True)
-            if Props.Window.State.MAXIMIZED_VERT not in states:
-                state2 = self.display.get_atom(Props.Window.State.MAXIMIZED_VERT, True)
+            if Props.State.MAXIMIZED_HORZ.value not in states:
+                state1 = Props.State.MAXIMIZED_HORZ
+            if Props.State.MAXIMIZED_VERT.value not in states:
+                state2 = Props.State.MAXIMIZED_VERT
             if state1 or state2:
-                self.changeWmState(Props.Window.State.Action.ADD, state1 if state1 else state2, state2 if state1 else 0)
+                self.changeWmState(Props.StateAction.ADD, state1 if state1 != NULL else state2, state2 if state1 != NULL else NULL)
         elif maxHorz:
-            if Props.Window.State.MAXIMIZED_HORZ not in states:
-                state = self.display.get_atom(Props.Window.State.MAXIMIZED_HORZ, True)
-                self.changeWmState(Props.Window.State.Action.ADD, state, 0)
-            if Props.Window.State.MAXIMIZED_VERT in states:
-                state = self.display.get_atom(Props.Window.State.MAXIMIZED_VERT, True)
-                self.changeWmState(Props.Window.State.Action.REMOVE, state, 0)
+            if Props.State.MAXIMIZED_HORZ.value not in states:
+                state = Props.State.MAXIMIZED_HORZ
+                self.changeWmState(Props.StateAction.ADD, state, NULL)
+            if Props.State.MAXIMIZED_VERT.value in states:
+                state = Props.State.MAXIMIZED_VERT
+                self.changeWmState(Props.StateAction.REMOVE, state, NULL)
         elif maxVert:
-            if Props.Window.State.MAXIMIZED_HORZ in states:
-                state = self.display.get_atom(Props.Window.State.MAXIMIZED_HORZ, True)
-                self.changeWmState(Props.Window.State.Action.REMOVE, state, 0)
-            if Props.Window.State.MAXIMIZED_VERT not in states:
-                state = self.display.get_atom(Props.Window.State.MAXIMIZED_VERT, True)
-                self.changeWmState(Props.Window.State.Action.ADD, state, 0)
+            if Props.State.MAXIMIZED_HORZ.value in states:
+                state = Props.State.MAXIMIZED_HORZ
+                self.changeWmState(Props.StateAction.REMOVE, state, NULL)
+            if Props.State.MAXIMIZED_VERT.value not in states:
+                state = Props.State.MAXIMIZED_VERT
+                self.changeWmState(Props.StateAction.ADD, state, NULL)
         else:
-            if Props.Window.State.MAXIMIZED_HORZ in states:
-                state1 = self.display.get_atom(Props.Window.State.MAXIMIZED_HORZ, True)
-            if Props.Window.State.MAXIMIZED_VERT in states:
-                state2 = self.display.get_atom(Props.Window.State.MAXIMIZED_VERT, True)
+            if Props.State.MAXIMIZED_HORZ.value in states:
+                state1 = Props.State.MAXIMIZED_HORZ
+            if Props.State.MAXIMIZED_VERT.value in states:
+                state2 = Props.State.MAXIMIZED_VERT
             if state1 or state2:
-                self.changeWmState(Props.Window.State.Action.REMOVE, state1 if state1 else state2, state2 if state1 else 0)
+                self.changeWmState(Props.StateAction.REMOVE, state1 if state1 != NULL else state2, state2 if state1 != NULL else NULL)
 
     def setMinimized(self):
         """
@@ -1323,8 +1325,8 @@ class Window:
         Unlike maximized, this action can only be reverted by using activate() or restore() methods.
         """
         states = self.getWmState(True)
-        if not states or (states and Props.Window.State.HIDDEN not in states):
-            atom = self.display.get_atom(Props.Window.CHANGE_STATE, True)
+        if not states or (states and Props.State.HIDDEN.value not in states):
+            atom = self.display.get_atom(Props.Window.CHANGE_STATE.value, True)
             self.sendMessage(atom, [Xlib.Xutil.IconicState])
 
     def getAllowedActions(self, text=False) -> Union[List[int], None]:
@@ -1365,7 +1367,7 @@ class Window:
 
         _NET_WM_ACTION_MAXIMIZE_VERT indicates that the window may be maximized vertically.
 
-        _NET_WM_ACTION_FULLSCREEN indicates that the window may be brought to fullscreen state.
+        _NET_WM_ACTION_FULLSCREEN indicates that the window may be brought to fullscreen Props.State.
 
         _NET_WM_ACTION_CHANGE_DESKTOP indicates that the window may be moved between desktops.
 
@@ -1374,7 +1376,7 @@ class Window:
         :param text: if ''True'', the actions will be returned in string format, or as integers if ''False''
         :return: List of integers or strings
         """
-        ret = self.getProperty(Props.Window.ALLOWED_ACTIONS)
+        ret = self.getProperty(Props.Window.ALLOWED_ACTIONS.value)
         res = _getPropertyValue(self.display, ret, text)
         if res is not None:
             res = cast(List[int], res)
@@ -1399,7 +1401,7 @@ class Window:
         :return: List of integers (left, right, top, bottom) defining the width of the reserved area at each border of
         the screen
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.STRUT)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.STRUT.value)
         res = _getPropertyValue(self.display, ret)
         if res is not None:
             res = cast(List[int], res)
@@ -1417,7 +1419,7 @@ class Window:
         :param bottom: bottom coordinate of strut
         """
         # Need to understand this
-        self.sendMessage(Props.Window.STRUT, [left, right, top, bottom])
+        self.sendMessage(Props.Window.STRUT.value, [left, right, top, bottom])
 
     def getStrutPartial(self) -> Union[List[int], None]:
         """
@@ -1460,7 +1462,7 @@ class Window:
         four struts. The order of the values is left, right, top, bottom, left_start_y, left_end_y, right_start_y,
         right_end_y, top_start_x, top_end_x, bottom_start_x, bottom_end_x
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.STRUT_PARTIAL)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.STRUT_PARTIAL.value)
         res = _getPropertyValue(self.display, ret)
         if res is not None:
             res = cast(List[int], res)
@@ -1489,7 +1491,7 @@ class Window:
 
         :return: List of integers containing the icon geometry or None (no obtained)
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.ICON_GEOMETRY)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.ICON_GEOMETRY.value)
         res = _getPropertyValue(self.display, ret)
         if res is not None:
             res = cast(List[int], res)
@@ -1509,7 +1511,7 @@ class Window:
 
         :return: pid of current process as integer
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.PID)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.PID.value)
         res = _getPropertyValue(self.display, ret)
         if res:
             return int(res[0])
@@ -1525,7 +1527,7 @@ class Window:
 
         :return: List of integers or None (not obtained)
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.HANDLED_ICONS)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.HANDLED_ICONS.value)
         res = _getPropertyValue(self.display, ret)
         if res is not None:
             res = cast(List[int], res)
@@ -1559,7 +1561,7 @@ class Window:
 
         :return: timestamp in integer format or None (not obtained)
         """
-        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.USER_TIME)
+        ret: Union[Xlib.protocol.request.GetProperty, None] = self.getProperty(Props.Window.USER_TIME.value)
         res = _getPropertyValue(self.display, ret)
         if res is not None:
             res = cast(List[int], res)
@@ -1600,7 +1602,7 @@ class Window:
 
         :param userAction: source indication (user or pager/manager action). Defaults to True
         """
-        atom = self.display.get_atom(Props.Window.ACTIVE, True)
+        atom = self.display.get_atom(Props.Window.ACTIVE.value, True)
         self.sendMessage(atom, [2 if userAction else 1, Xlib.X.CurrentTime, self.xWindow.id])
 
     def setClosed(self, userAction: bool = True):
@@ -1616,10 +1618,10 @@ class Window:
 
         :param userAction: source indication (user or pager/manager action). Defaults to True
         """
-        atom = self.display.get_atom(Props.Window.CLOSE, True)
+        atom = self.display.get_atom(Props.Window.CLOSE.value, True)
         self.sendMessage(atom, [Xlib.X.CurrentTime, 2 if userAction else 1])
 
-    def changeStacking(self, mode: int, sibling: XWindow = None):
+    def changeStacking(self, mode: int, sibling: Union[XWindow, None] = None):
         """
         Changes current window position (stacking) in relation to its siblings.
 
@@ -1643,8 +1645,9 @@ class Window:
         the user to bring currently a active window to the top and return it back when the window looses focus.
 
         :param mode: allowed values are Above / Below
+        :param sibling: Id of sibling window to which re-stacking action will be related to
         """
-        if sibling:
+        if sibling is not None:
             self.xWindow.configure(sibling=sibling, stack_mode=mode)
         else:
             self.xWindow.configure(stack_mode=mode)
@@ -1708,7 +1711,7 @@ class Window:
             self.xWindow.configure(x=x, y=y, width=width, height=height)
             self.display.flush()
         else:
-            atom = self.display.get_atom(Props.Window.MOVERESIZE, True)
+            atom = self.display.get_atom(Props.Window.MOVERESIZE.value, True)
             self.sendMessage(atom, [gravity_flags, x, y, width, height, 2 if userAction else 1])
 
     def setWmMoveResize(self, x_root, y_root, orientation, button, userAction: bool = True):
@@ -1738,10 +1741,10 @@ class Window:
         :param userAction:
         """
         # Need to understand this property
-        atom = self.display.get_atom(Props.Window.WM_MOVERESIZE, True)
+        atom = self.display.get_atom(Props.Window.WM_MOVERESIZE.value, True)
         self.sendMessage(atom, [x_root, y_root, orientation, button, 2 if userAction else 1])
 
-    def setWmStacking(self):
+    def setWmStacking(self, sibling: int, mode: int, userAction: bool = True):
         """
         This request is similar to ConfigureRequest with CWSibling and CWStackMode flags. It should be used only by
         pagers, applications can use normal ConfigureRequests. The source indication field should be therefore
@@ -1751,14 +1754,14 @@ class Window:
         under some conditions refuse to raise a window. This request makes it clear it comes from a pager or similar
         tool, and therefore the Window Manager should always obey it.
 
-        :param winId: id of window to be restacked
-        :param siblingId: id of sibling window related to restacking action
-        :param detail: ???
+        :param sibling: id of sibling window related to restacking action
+        :param mode: details of action as integer (does this include mode???)
         :param userAction: should be set to 2 (typically used by pagers)
         """
         # Need to understand this property
-        atom = self.display.get_atom(Props.Window.RESTACK, True)
-        self.sendMessage(atom, [])
+        atom = self.display.get_atom(Props.Window.RESTACK.value, True)
+        data: List[int] = [2 if userAction else 1, sibling, mode]
+        self.sendMessage(atom, data)
 
     def requestFrameExtents(self):
         """
@@ -1778,8 +1781,8 @@ class Window:
         The client can track changes to the frame's dimensions by listening for _NET_FRAME_EXTENTS PropertyNotify event
         """
         # Need to understand this property
-        atom = self.display.get_atom(Props.Window.REQ_FRAME_EXTENTS, True)
-        self.sendMessage(atom, [])
+        atom = self.display.get_atom(Props.Window.REQ_FRAME_EXTENTS.value, True)
+        self.sendMessage(atom, [self.id])
 
 
 class _Extensions:
@@ -2006,14 +2009,18 @@ class _Extensions:
 
         def __init__(self, winId: int, display: Xlib.display.Display, root: XWindow):
 
-            self._winId = winId
-            self._display = display
-            self._root = root
+            self._winId: int = winId
+            self._display: Xlib.display.Display = display
+            self._root: XWindow = root
 
-            self._keep = threading.Event()
-            self._stopRequested = False
-            self._checkThread = None
-            self._threadStarted = False
+            self._keep: threading.Event = threading.Event()
+            self._stopRequested: bool = False
+            self._checkThread: Union[threading.Thread, None] = None
+            self._threadStarted: bool = False
+
+            self._events: List[int] = []
+            self._mask: int = 0
+            self._callback: Union[Callable[[Xlib.protocol.rq.Event], None], None] = None
 
         def _checkDisplayEvents(self):
 
@@ -2046,9 +2053,10 @@ class _Extensions:
             """
             Activate a watchdog to be notified on given events (to provided callback function).
 
-            It's possible to update target events, mask or callback function just invoking start() again.
+            It is possible to update target events, mask or callback function just invoking start() again and
+            passing new input params.
 
-            It's important to define proper mask and event list accordingly:
+            Be aware it is important to define proper mask and event list accordingly:
 
             Clients select event reporting of most events relative to a window. To do this, pass an event mask to an
             Xlib event-handling function that takes an event_mask argument. The bits of the event mask are defined in
@@ -2096,7 +2104,7 @@ class _Extensions:
 
             :param events: List of events to be notified on
             :param mask: Events mask according to selected events
-            :param callback: Function to be invoked when a selected event is received
+            :param callback: Function to be invoked when a selected event is received, passing received event to it.
             """
             self._keep.set()
             self._events = events
@@ -2224,7 +2232,7 @@ def _getProperty(display: Xlib.display.Display, window: XWindow, prop: Union[str
                  prop_type: int = Xlib.X.AnyPropertyType) -> Union[Xlib.protocol.request.GetProperty, None]:
 
     if isinstance(prop, str):
-        prop = display.get_atom(prop, False)
+        prop = display.get_atom(prop)
 
     if prop != 0:
         return window.get_full_property(prop, prop_type)
@@ -2232,9 +2240,9 @@ def _getProperty(display: Xlib.display.Display, window: XWindow, prop: Union[str
 
 
 def _changeProperty(display: Xlib.display.Display, window: XWindow, prop: Union[str, int], data: List[int],
-                    propMode: int = Xlib.X.PropModeReplace):
+                    propMode: Props.Mode = Props.Mode.REPLACE):
     if isinstance(prop, str):
-        prop = display.get_atom(prop, True)
+        prop = display.get_atom(prop)
 
     if prop != 0:
         # I think (to be confirmed) that 16 is not used in Python (no difference between short and long int)
@@ -2250,8 +2258,9 @@ def _changeProperty(display: Xlib.display.Display, window: XWindow, prop: Union[
 
 def _sendMessage(display: Xlib.display.Display, root: XWindow, winId: int, prop: Union[str, int],
                  data: Union[List[int], str]):
+
     if isinstance(prop, str):
-        prop = display.get_atom(prop, True)
+        prop = display.get_atom(prop)
 
     if prop != 0:
         # I think (to be confirmed) that 16 is not used in Python (no difference between short and long int)
@@ -2269,7 +2278,7 @@ def _sendMessage(display: Xlib.display.Display, root: XWindow, winId: int, prop:
 
 
 def _createSimpleWindow(display: Xlib.display.Display, parent: XWindow, x: int, y: int, width: int, height: int,
-                        override: bool = False, inputOnly: bool = False) -> Window:
+                        override: bool = False, inputOnly: bool = False) -> EwmhWindow:
     if inputOnly:
         mask = Xlib.X.ButtonPressMask | Xlib.X.ButtonReleaseMask | Xlib.X.KeyPressMask | Xlib.X.KeyReleaseMask
     else:
@@ -2286,17 +2295,17 @@ def _createSimpleWindow(display: Xlib.display.Display, parent: XWindow, x: int, 
                                         )
     win.map()
     display.flush()
-    window: Window = Window(win.id)
+    window: EwmhWindow = EwmhWindow(win.id)
     return window
 
 
 def _createTransient(display: Xlib.display.Display, parent: XWindow, transient_for: XWindow,
                      callback: Callable[[Xlib.protocol.rq.Event], None], x: int, y: int, width: int, height: int,
-                     override: bool = False, inputOnly: bool = False) -> Window:
+                     override: bool = False, inputOnly: bool = False) -> EwmhWindow:
     # https://shallowsky.com/blog/programming/click-thru-translucent-update.html
     # https://github.com/python-xlib/python-xlib/issues/200
 
-    transientWindow: Window = _createSimpleWindow(display, parent, x, y, width, height, override, inputOnly)
+    transientWindow: EwmhWindow = _createSimpleWindow(display, parent, x, y, width, height, override, inputOnly)
     xWin: XWindow = transientWindow.xWindow
 
     onebyte = int(0x01)  # Calculate as 0xff * target_opacity
@@ -2335,13 +2344,13 @@ def _createTransient(display: Xlib.display.Display, parent: XWindow, transient_f
         pass
 
     # Removing actions but not decoration, since it causes not to capture Keyboard and mouse (like DOCK or override_redirect)
-    transientWindow.changeProperty(display.get_atom("_MOTIF_WM_HINTS"), [1, 0, 1, 0, 0], Props.Mode.APPEND)
-    transientWindow.changeWmState(Props.Window.State.Action.ADD, Props.Window.State.MODAL)
+    transientWindow.changeProperty(display.get_atom("_MOTIF_WM_HINTS"), [1, 0, 1, 0, 0], Props.Mode.REPLACE)
+    transientWindow.changeWmState(Props.StateAction.ADD, Props.State.MODAL)
 
     return transientWindow
 
 
-def _closeTransient(transientWindow: Window):
+def _closeTransient(transientWindow: EwmhWindow):
     transientWindow.extensions.checkEvents.stop()
     transientWindow.xWindow.set_wm_transient_for(transientWindow.root)
     transientWindow.display.flush()
@@ -2352,7 +2361,24 @@ def _closeTransient(transientWindow: Window):
 
 # from ctypes import cdll
 # from ctypes.util import find_library
-
+#
+# def _sendBehind(self):
+#
+#     x11 = find_library('X11')
+#     xlib = cdll.LoadLibrary(str(x11))
+#     xcomp = find_library('Xcomposite')
+#     xcomplib = cdll.LoadLibrary(str(xcomp))
+#
+#     d = xlib.XOpenDisplay(0)
+#     print("GET", xcomplib.XCompositeGetOverlayWindow(d, self._win.root.id))
+#     xlib.XFlush(d)
+#     print("REDIR", xcomplib.XCompositeRedirectWindow(d, self._xWin.id, 1))  # update values unknow (CompositeRedirectAutomatic or CompositeRedirectManual)
+#     xlib.XFlush(d)
+#     print("REDSUB", xcomplib.XCompositeRedirectSubwindows(d, self._xWin.id, 1))
+#     xlib.XFlush(d)
+#     print(xcomplib.XCompositeVersion())
+#     # xlib.XCloseDisplay(d)
+#
 # class _XWindowAttributes(Structure):
 #     _fields_ = [('x', c_int32), ('y', c_int32),
 #                 ('width', c_int32), ('height', c_int32), ('border_width', c_int32),
@@ -2399,7 +2425,7 @@ def _closeTransient(transientWindow: Window):
 #     # f = c_int()
 #     # n = c_ulong()
 #     # b = c_ulong()
-#     # xlib.XGetWindowProperty(d, w, a, 0, 4, False, Xlib.X.AnyPropertyType, byref(t), byref(f), byref(n), byref(b), byref(attr))
+#     # xlib.XGetProps.WindowProperty(d, w, a, 0, 4, False, Xlib.X.AnyPropertyType, byref(t), byref(f), byref(n), byref(b), byref(attr))
 #     # r = c_ulong()
 #     # x = c_int()
 #     # y = c_int()
@@ -2420,7 +2446,7 @@ def _closeTransient(transientWindow: Window):
 #     # for atom in w.list_properties():
 #     #     print(DISP.atom_name(atom))
 #     # props = DISP.xrandr_list_output_properties(output)
-#     # for atom in props.atoms:
+#     # for atom in atoms:
 #     #     print(atom, DISP.get_atom_name(atom))
 #     #     print(DISP.xrandr_get_output_property(output, atom, 0, 0, 1000)._data['value'])
 
@@ -2453,7 +2479,7 @@ def main():
     if w:
         print("REQ FRAME EXTENTS")
         print(root.requestFrameExtents(w))
-        win = Window(w)
+        win = EwmhWindow(w)
         print("NAME", win.getName())
         print("TYPE", win.getWmWindowType())
         print("TYPE STR", win.getWmWindowType(text=True))
@@ -2480,16 +2506,16 @@ def main():
                                          callback)
 
         print("BELOW ON")
-        win.changeWmState(Props.Window.State.Action.ADD, Props.Window.State.BELOW)
+        win.changeWmState(Props.StateAction.ADD, Props.State.BELOW)
         time.sleep(4)
         print("BELOW OFF")
-        win.changeWmState(Props.Window.State.Action.REMOVE, Props.Window.State.BELOW)
+        win.changeWmState(Props.StateAction.REMOVE, Props.State.BELOW)
         time.sleep(4)
         print("DESKTOP")
-        win.setWmWindowType(Props.Window.WindowType.DESKTOP)
+        win.setWmWindowType(Props.WindowType.DESKTOP)
         time.sleep(4)
         print("NORMAL")
-        win.setWmWindowType(Props.Window.WindowType.NORMAL)
+        win.setWmWindowType(Props.WindowType.NORMAL)
         print("MAX HORZ ON")
         win.setMaximized(True, False)
         time.sleep(4)

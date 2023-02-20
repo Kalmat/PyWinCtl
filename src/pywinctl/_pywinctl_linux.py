@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import array
 import os
 import sys
 
@@ -13,7 +14,7 @@ import re
 import subprocess
 import time
 import tkinter as tk
-from typing import cast, Union, List
+from typing import cast, Union, List, Tuple
 from typing_extensions import TypedDict
 
 import Xlib.display
@@ -25,8 +26,8 @@ import Xlib.Xutil
 import Xlib.ext
 from Xlib.xobject.drawable import Window as XWindow
 
-from pywinctl.xlibcontainer import RootWindow, Window as EWMHWindow, Props, defaultRootWindow, \
-    _xlibGetAllWindows, _createTransient, _closeTransient
+from pywinctl.xlibcontainer import RootWindow, EwmhWindow, Props, \
+    defaultRootWindow, _xlibGetAllWindows, _createTransient, _closeTransient
 
 from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect
 
@@ -96,7 +97,7 @@ def getAllWindows():
     return [window for window in __remove_bad_windows(defaultRootWindow.getClientListStacking())]
 
 
-def getAllTitles() -> list[str]:
+def getAllTitles() -> List[str]:
     """
     Get the list of titles of all visible windows
 
@@ -105,7 +106,7 @@ def getAllTitles() -> list[str]:
     return [window.title for window in getAllWindows()]
 
 
-def getWindowsWithTitle(title: str | re.Pattern[str], app: tuple[str, ...] | None = (), condition: int = Re.IS, flags: int = 0):
+def getWindowsWithTitle(title: Union[str, re.Pattern[str]], app: Union[Tuple[str, ...], None] = (), condition: int = Re.IS, flags: int = 0):
     """
     Get the list of window objects whose title match the given string with condition and flags.
     Use ''condition'' to delimit the search. Allowed values are stored in pywinctl.Re sub-class (e.g. pywinctl.Re.CONTAINS)
@@ -130,7 +131,7 @@ def getWindowsWithTitle(title: str | re.Pattern[str], app: tuple[str, ...] | Non
     :param flags: (optional) specific flags to apply to condition. Defaults to 0 (no flags)
     :return: list of Window objects
     """
-    matches: list[LinuxWindow] = []
+    matches: List[LinuxWindow] = []
     if title and condition in Re._cond_dic:
         lower = False
         if condition in (Re.MATCH, Re.NOTMATCH):
@@ -150,7 +151,7 @@ def getWindowsWithTitle(title: str | re.Pattern[str], app: tuple[str, ...] | Non
     return matches
 
 
-def getAllAppsNames() -> list[str]:
+def getAllAppsNames() -> List[str]:
     """
     Get the list of names of all visible apps
 
@@ -159,7 +160,7 @@ def getAllAppsNames() -> list[str]:
     return list(getAllAppsWindowsTitles())
 
 
-def getAppsWithName(name: str | re.Pattern[str], condition: int = Re.IS, flags: int = 0):
+def getAppsWithName(name: Union[str, re.Pattern[str]], condition: int = Re.IS, flags: int = 0):
     """
     Get the list of app names which match the given string using the given condition and flags.
     Use ''condition'' to delimit the search. Allowed values are stored in pywinctl.Re sub-class (e.g. pywinctl.Re.CONTAINS)
@@ -268,7 +269,7 @@ class LinuxWindow(BaseWindow):
             self._hWnd = int(hWnd, base=16)
         else:
             self._hWnd = int(hWnd)
-        self._win = EWMHWindow(self._hWnd)
+        self._win = EwmhWindow(self._hWnd)
         self._display: Xlib.display.Display = self._win.display
         self._rootWin: RootWindow = self._win.rootWindow
         self._xWin: XWindow = self._win.xWindow
@@ -276,7 +277,7 @@ class LinuxWindow(BaseWindow):
         self.__rect: Rect = self._rectFactory()
         self.watchdog = _WatchDog(self)
 
-        self._transientWindow: Union[EWMHWindow, None] = None
+        self._transientWindow: Union[EwmhWindow, None] = None
 
     def _getWindowRect(self) -> Rect:
         # https://stackoverflow.com/questions/12775136/get-window-position-and-size-in-python-with-xlib - mgalgs
@@ -417,7 +418,7 @@ class LinuxWindow(BaseWindow):
         :return: ''True'' if window restored
         """
         if self.isMaximized:
-            self._win.changeWmState(Props.Window.State.Action.REMOVE, Props.Window.State.MAXIMIZED_HORZ, Props.Window.State.MAXIMIZED_VERT)
+            self._win.changeWmState(Props.StateAction.REMOVE, Props.State.MAXIMIZED_HORZ, Props.State.MAXIMIZED_VERT)
         self.activate()
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and (self.isMaximized or self.isMinimized):
@@ -466,8 +467,8 @@ class LinuxWindow(BaseWindow):
         :return: ''True'' if window activated
         """
         if "arm" in platform.platform():
-            self._win.changeWmState(Props.Window.State.Action.REMOVE, Props.Window.State.ABOVE)
-            self._win.changeWmState(Props.Window.State.Action.ADD, Props.Window.State.ABOVE, Props.Window.State.FOCUSED)
+            self._win.changeWmState(Props.StateAction.REMOVE, Props.State.ABOVE)
+            self._win.changeWmState(Props.StateAction.ADD, Props.State.ABOVE, Props.State.FOCUSED)
         else:
             # This was not working as expected in Unity
             # Thanks to MestreLion (https://github.com/MestreLion) for his solution!!!!
@@ -545,10 +546,10 @@ class LinuxWindow(BaseWindow):
         :param aot: set to ''False'' to deactivate always-on-top behavior
         :return: ''True'' if command succeeded
         """
-        action = Props.Window.State.Action.ADD if aot else Props.Window.State.Action.REMOVE
-        self._win.changeWmState(action, Props.Window.State.ABOVE)
+        action = Props.StateAction.ADD if aot else Props.StateAction.REMOVE
+        self._win.changeWmState(action, Props.State.ABOVE)
         states = self._win.getWmState(True)
-        return bool(states and Props.Window.State.ABOVE in states)
+        return bool(states and Props.State.ABOVE.value in states)
 
     def alwaysOnBottom(self, aob: bool = True) -> bool:
         """
@@ -557,10 +558,10 @@ class LinuxWindow(BaseWindow):
         :param aob: set to ''False'' to deactivate always-on-bottom behavior
         :return: ''True'' if command succeeded
         """
-        action = Props.Window.State.Action.ADD if aob else Props.Window.State.Action.REMOVE
-        self._win.changeWmState(action, Props.Window.State.BELOW)
+        action = Props.StateAction.ADD if aob else Props.StateAction.REMOVE
+        self._win.changeWmState(action, Props.State.BELOW)
         states = self._win.getWmState(True)
-        return bool(states and Props.Window.State.BELOW in states)
+        return bool(states and Props.State.BELOW.value in states)
 
     def lowerWindow(self) -> bool:
         """
@@ -596,7 +597,8 @@ class LinuxWindow(BaseWindow):
         """
         if sb:
             # This sends window below all others, but not behind the desktop icons
-            self._win.setWmWindowType(Props.Window.WindowType.DESKTOP)
+            self._win.setWmWindowType(Props.WindowType.DESKTOP)
+            # self._sendBehind()
 
             # This will try to raise the desktop icons layer on top of the window
             # Ubuntu: "@!0,0;BDHF" is the new desktop icons NG extension on Ubuntu 22.04
@@ -610,12 +612,12 @@ class LinuxWindow(BaseWindow):
                 w.raise_window()
                 self._display.flush()
             types = self._win.getWmWindowType(True)
-            return bool(types and Props.Window.WindowType.DESKTOP in types)
+            return bool(types and Props.WindowType.DESKTOP.value in types)
 
         else:
-            self._win.setWmWindowType(Props.Window.WindowType.NORMAL)
+            self._win.setWmWindowType(Props.WindowType.NORMAL)
             types = self._win.getWmWindowType(True)
-            return bool(types and Props.Window.WindowType.NORMAL in types and self.isActive)
+            return bool(types and Props.WindowType.NORMAL.value in types and self.isActive)
 
     def _manageEvents(self, event: Xlib.protocol.rq.Event):
         if self._transientWindow is not None:
@@ -635,10 +637,10 @@ class LinuxWindow(BaseWindow):
             if self._transientWindow is not None:
                 _closeTransient(self._transientWindow)
                 self._transientWindow = None
-                self._win.setWmWindowType(Props.Window.WindowType.NORMAL)
+            self._win.setWmWindowType(Props.WindowType.NORMAL)
         else:
+            self._win.setWmWindowType(Props.WindowType.DESKTOP)
             if self._transientWindow is None:
-                self._win.setWmWindowType(Props.Window.WindowType.DESKTOP)
                 self._transientWindow = _createTransient(
                     self._display,
                     self._rootWin.root,
@@ -741,7 +743,7 @@ class LinuxWindow(BaseWindow):
         :return: ``True`` if the window is minimized
         """
         state = self._win.getWmState(True)
-        return bool(state and Props.Window.State.HIDDEN in state)
+        return bool(state and Props.State.HIDDEN.value in state)
 
     @property
     def isMaximized(self) -> bool:
@@ -751,7 +753,7 @@ class LinuxWindow(BaseWindow):
         :return: ``True`` if the window is maximized
         """
         state = self._win.getWmState(True)
-        return bool(state and Props.Window.State.MAXIMIZED_HORZ in state and Props.Window.State.MAXIMIZED_VERT in state)
+        return bool(state and Props.State.MAXIMIZED_HORZ.value in state and Props.State.MAXIMIZED_VERT.value in state)
 
     @property
     def isActive(self):
@@ -891,7 +893,7 @@ def getAllScreens():
 
             res = root.xrandr_get_screen_resources()
             modes = res.modes
-            wa = root.get_full_property(dsp.get_atom(Props.Root.WORKAREA, True), Xlib.X.AnyPropertyType).value
+            wa = root.get_full_property(dsp.get_atom(Props.Root.WORKAREA.value, True), Xlib.X.AnyPropertyType).value
             for output in res.outputs:
                 params = dsp.xrandr_get_output_info(output, res.config_timestamp)
                 try:
@@ -1023,7 +1025,6 @@ def main():
         print("ACTIVE WINDOW:", None)
     else:
         print("ACTIVE WINDOW:", npw.title, "/", npw.box)
-    print()
     displayWindowsUnderMouse(0, 0)
 
 
