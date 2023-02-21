@@ -276,7 +276,7 @@ class LinuxWindow(BaseWindow):
         self.__rect: Rect = self._rectFactory()
         self.watchdog = _WatchDog(self)
 
-        self._motifHints: Union[EwmhWindow, None] = None
+        self._motifHints: List[int] = []
 
     def _getWindowRect(self) -> Rect:
         # https://stackoverflow.com/questions/12775136/get-window-position-and-size-in-python-with-xlib - mgalgs
