@@ -401,13 +401,13 @@ class _SubMenuStructure(TypedDict):
 class Win32Window(BaseWindow):
 
     @property
-    def _rect(self) -> Rect:
+    def _rect(self):
         return self.__rect
 
     def __init__(self, hWnd: int | str):
 
         self._hWnd = int(hWnd, base=16) if isinstance(hWnd, str) else hWnd
-        self.__rect: Rect = self._rectFactory()
+        self.__rect = self._rectFactory()
         self._parent = win32gui.GetParent(self._hWnd)
         self._t: _SendBottom | None = None
         self.menu = self._Menu(self)
@@ -454,10 +454,10 @@ class Win32Window(BaseWindow):
         """
         wi = _getWindowInfo(self._hWnd)
         if wi:
-            rcClient = cast(Rect, wi.rcClient)
+            rcClient: Rect = cast(Rect, wi.rcClient)
         else:
-            rcClient = self._rect
-        return Rect(int(rcClient.left), int(rcClient.top), int(rcClient.right), int(rcClient.bottom))
+            rcClient = cast(Rect, self._rect)
+        return Rect(rcClient.left, rcClient.top, rcClient.right, rcClient.bottom)
 
     def __repr__(self) -> str:
         return '%s(hWnd=%s)' % (self.__class__.__name__, self._hWnd)

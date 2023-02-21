@@ -1142,7 +1142,7 @@ class MacOSWindow(BaseWindow):
             result = role + SEP + parent
         return result
 
-    def setParent(self, parent):
+    def setParent(self, parent: str):
         """
         Current window will become child of given parent
         WARNIG: Not implemented in AppleScript (not possible in macOS for foreign (other apps') windows)

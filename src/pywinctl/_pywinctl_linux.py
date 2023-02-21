@@ -256,7 +256,7 @@ def getTopWindowAt(x: int, y: int):
 class LinuxWindow(BaseWindow):
 
     @property
-    def _rect(self) -> Rect:
+    def _rect(self):
         return self.__rect
 
     def __init__(self, hWnd: XWindow | int | str):
@@ -272,7 +272,7 @@ class LinuxWindow(BaseWindow):
         self._rootWin: RootWindow = self._win.rootWindow
         self._xWin: XWindow = self._win.xWindow
 
-        self.__rect: Rect = self._rectFactory()
+        self.__rect = self._rectFactory()
         self.watchdog = _WatchDog(self)
 
         self._motifHints: List[int] = []

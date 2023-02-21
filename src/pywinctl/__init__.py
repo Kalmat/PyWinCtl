@@ -9,7 +9,7 @@ import sys
 import threading
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any, NamedTuple, cast
+from typing import Any, NamedTuple, cast, Union, Optional
 
 import pyrect  # type: ignore[import]  # pyright: ignore[reportMissingTypeStubs]  # TODO: Create type stubs or add to base library
 
@@ -135,7 +135,7 @@ class BaseWindow(ABC):
     def _rect(self) -> pyrect.Rect:
         raise NotImplementedError
 
-    def _rectFactory(self, bounds: Rect | None = None) -> pyrect.Rect:
+    def _rectFactory(self, bounds: Rect | None = None):
 
         def _onRead(attrName: str):
             r = self._getWindowRect()
@@ -314,7 +314,7 @@ class BaseWindow(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def setParent(self, parent) -> bool:
+    def setParent(self, parent: Optional[int, str]) -> bool:
         """
         Current window will become child of given parent
         WARNIG: Not possible in macOS for foreign (other apps') windows
@@ -585,7 +585,7 @@ class BaseWindow(ABC):
 
     @property
     def bbox(self) -> BoundingBox:
-        return BoundingBox(self._rect.left, self._rect.top, self._rect.right, self._rect.bottom)
+        return BoundingBox(cast(int, self._rect.left), cast(int, self._rect.top), cast(int, self._rect.right), cast(int, self._rect.bottom))
 
     @bbox.setter
     def bbox(self, value: BoundingBox):
