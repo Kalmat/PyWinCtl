@@ -276,7 +276,7 @@ class LinuxWindow(BaseWindow):
         self.__rect: Rect = self._rectFactory()
         self.watchdog = _WatchDog(self)
 
-        self._transientWindow: Union[EwmhWindow, None] = None
+        self._motifHints: Union[EwmhWindow, None] = None
 
     def _getWindowRect(self) -> Rect:
         # https://stackoverflow.com/questions/12775136/get-window-position-and-size-in-python-with-xlib - mgalgs
@@ -618,11 +618,6 @@ class LinuxWindow(BaseWindow):
             types = self._win.getWmWindowType(True)
             return bool(types and Props.WindowType.NORMAL.value in types and self.isActive)
 
-    def _manageEvents(self, event: Xlib.protocol.rq.Event):
-        if self._transientWindow is not None:
-            # These values are required in Mint/Cinnamon to adapt transient to actual window size
-            self._transientWindow.setMoveResize(x=self.left-2, y=self.top-2, width=self.width+4, height=self.height-24)
-
     def acceptInput(self, setTo: bool):
         """
         Toggles the window to accept input and focus
@@ -633,23 +628,26 @@ class LinuxWindow(BaseWindow):
         """
         # TODO: Is it possible to make it completely transparent to input (e.g. click-thru)?
         if setTo:
-            if self._transientWindow is not None:
-                _closeTransient(self._transientWindow)
-                self._transientWindow = None
+            self._win.changeWmState(Props.StateAction.REMOVE, Props.State.BELOW)
+            onebyte = int(0xFF)  # Calculate as 0xff * target_opacity
+            fourbytes = onebyte | (onebyte << 8) | (onebyte << 16) | (onebyte << 24)
+            self._win.xWindow.change_property(self._display.get_atom('_NET_WM_WINDOW_OPACITY'), Xlib.Xatom.CARDINAL, 32, [fourbytes])
+            self._win.changeProperty(self._display.get_atom("_MOTIF_WM_HINTS"), self._motifHints)
+            self._display.flush()
             self._win.setWmWindowType(Props.WindowType.NORMAL)
         else:
+            self._win.changeWmState(Props.StateAction.ADD, Props.State.BELOW)
+            onebyte = int(0xFA)  # Calculate as 0xff * target_opacity
+            fourbytes = onebyte | (onebyte << 8) | (onebyte << 16) | (onebyte << 24)
+            self._win.xWindow.change_property(self._display.get_atom('_NET_WM_WINDOW_OPACITY'), Xlib.Xatom.CARDINAL, 32, [fourbytes])
+            ret = self._win.getProperty(self._display.get_atom("_MOTIF_WM_HINTS"))
+            currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()
+            if "cinnamon" in currDesktop:
+                self._motifHints = [a for a in ret.value] if ret and hasattr(ret, "value") else [2, 1, 1, 0, 0]
+            else:
+                self._motifHints = [a for a in ret.value] if ret and hasattr(ret, "value") else [2, 0, 0, 0, 0]
+            self._win.changeProperty(self._display.get_atom("_MOTIF_WM_HINTS"), [0, 0, 0, 0, 0])
             self._win.setWmWindowType(Props.WindowType.DESKTOP)
-            if self._transientWindow is None:
-                self._transientWindow = _createTransient(
-                    self._display,
-                    self._rootWin.root,
-                    self._xWin,
-                    self._manageEvents,
-                    # These values are required in Ubuntu/GNOME to adapt transient to actual window size
-                    self.left, max(0, self.top-32), max(1, self.width-40), max(1, self.height-80),
-                    override=False,
-                    inputOnly=True
-                )
 
     def getAppName(self) -> str:
         """

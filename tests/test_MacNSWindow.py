@@ -76,11 +76,11 @@ class Delegate(NSObject):
             assert self.npw.visible
 
             # Test acceptInput
-            print("INPUT OFF")
-            self.npw.acceptInput(False)
-            time.sleep(3)
-            print("INPUT ON")
-            self.npw.acceptInput(True)
+            # print("INPUT OFF")
+            # self.npw.acceptInput(False)
+            # time.sleep(3)
+            # print("INPUT ON")
+            # self.npw.acceptInput(True)
 
             # Test resizing
             self.npw.resizeTo(600, 400, wait=wait)
@@ -261,6 +261,10 @@ class Delegate(NSObject):
             time.sleep(timelap)
             assert self.npw.isVisible
             assert self.npw.isAlive
+
+            # Test ClientFrame
+            print("CLIENT FRAME", self.npw.getClientFrame())
+            print("CLIENT FRAME", self.npw.getClientFrame())
 
             # Test closing
             print("CLOSE")

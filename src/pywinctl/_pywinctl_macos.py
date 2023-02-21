@@ -16,7 +16,7 @@ import subprocess
 import threading
 import time
 from collections.abc import Iterable
-from typing import Any, overload, cast, Sequence, Tuple
+from typing import Any, overload, cast, Sequence, Dict, Optional
 from typing_extensions import TypeAlias, TypedDict, Literal
 
 import AppKit
@@ -32,6 +32,8 @@ WAIT_ATTEMPTS = 10
 WAIT_DELAY = 0.025  # Will be progressively increased on every retry
 
 SEP = "|&|"
+
+registered = False
 
 
 def checkPermissions(activate: bool = False) -> bool:
@@ -100,7 +102,7 @@ def getActiveWindow(app: AppKit.NSApplication | None = None):
         entries = ret.replace("\n", "").split(", ")
         try:
             appID = entries[0]
-            bounds = Rect(int(entries[1]), int(entries[2]), int(entries[3]), int(entries[4]))
+            bounds = Rect(int(entries[1]), int(entries[2]), int(entries[1])+int(entries[3]), int(entries[2])+int(entries[4]))
             # Thanks to Anthony Molinaro (djnym) for pointing out this bug and provide the solution!!!
             # sometimes the title of the window contains ',' characters, so just get the first entry as the appName and join the rest
             # back together as a string
@@ -485,36 +487,6 @@ def _getWindowTitles() -> list[list[str]]:
     return result
 
 
-class WindowDelegate(AppKit.NSObject):  # Cannot put into a closure as subsequent calls will cause a re-registration error due to subclassing NSObject.
-    """Helps run window operations on the main thread."""
-
-    results: dict[bytes, Tuple[int, int]] = {}  # Store results here. Not ideal, but may be better than using a global.
-
-    @staticmethod
-    def run_on_main_thread(selector, obj=None, wait=True):
-        """Runs a method of this object on the main thread."""
-        WindowDelegate.alloc().performSelectorOnMainThread_withObject_waitUntilDone_(selector, obj, wait)
-        return WindowDelegate.results.get(selector)
-
-    def getTitleBarHeightAndBorderWidth(self):
-        """Updates results with title bar height and border width."""
-        frame_width = 100
-        window = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
-            ((0, 0), (frame_width, 100)),
-            AppKit.NSTitledWindowMask,
-            AppKit.NSBackingStoreBuffered,
-            False,
-        )
-        titlebar_height = int(window.titlebarHeight())
-        # print(titlebar_height)
-        content_rect = window.contentRectForFrameRect_(window.frame())
-        x1 = AppKit.NSMinX(content_rect)
-        x2 = AppKit.NSMaxX(content_rect)
-        border_width = int(frame_width - (x2 - x1))
-        # print(border_width)
-        result = titlebar_height, border_width
-        WindowDelegate.results[b'getTitleBarHeightAndBorderWidth'] = result
-
 # def _getBorderSizes() -> tuple[int, int]:
 #     # Previous version (creating "dummy" window) was failing if not called on main thread!
 #     # Many thanks to super-ibby (https://github.com/super-ibby) for his solution!!!!
@@ -650,11 +622,41 @@ class MacOSWindow(BaseWindow):
 
         WARNING: it will fail if not called within main thread
         """
+
+        class WindowDelegate(AppKit.NSObject):  # Cannot put into a closure as subsequent calls will cause a re-registration error due to subclassing NSObject.
+            """Helps run window operations on the main thread."""
+
+            results: Dict[bytes, Any] = {}  # Store results here. Not ideal, but may be better than using a global.
+
+            @staticmethod
+            def run_on_main_thread(selector: bytes, obj: Optional[Any] = None, wait: Optional[bool] = True) -> Any:
+                """Runs a method of this object on the main thread."""
+                WindowDelegate.alloc().performSelectorOnMainThread_withObject_waitUntilDone_(selector, obj, wait)
+                return WindowDelegate.results.get(selector)
+
+            def getTitleBarHeightAndBorderWidth(self) -> None:
+                """Updates results with title bar height and border width."""
+                frame_width = 100
+                window = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
+                    ((0, 0), (frame_width, 100)),
+                    AppKit.NSTitledWindowMask,
+                    AppKit.NSBackingStoreBuffered,
+                    False,
+                )
+                titlebar_height = int(window.titlebarHeight())
+                # print(titlebar_height)
+                content_rect = window.contentRectForFrameRect_(window.frame())
+                x1 = AppKit.NSMinX(content_rect)
+                x2 = AppKit.NSMaxX(content_rect)
+                border_width = int(frame_width - (x2 - x1))
+                # print(border_width)
+                result = titlebar_height, border_width
+                WindowDelegate.results[b'getTitleBarHeightAndBorderWidth'] = result
+
         # https://www.macscripter.net/viewtopic.php?id=46336 --> Won't allow access to NSWindow objects, but interesting
         # Didn't find a way to get menu bar height using Apple Script
         # titleHeight, borderWidth = _getBorderSizes()
         titleHeight, borderWidth = WindowDelegate.run_on_main_thread(b'getTitleBarHeightAndBorderWidth')
-        print(titleHeight, borderWidth)
         res = Rect(int(self.left + borderWidth), int(self.top + titleHeight), int(self.right - borderWidth), int(self.bottom - borderWidth))
         return res
 
@@ -1450,7 +1452,8 @@ class MacOSWindow(BaseWindow):
 
     # @property
     # def isAlerting(self) -> bool:
-    #     """Check if window is flashing on taskbar while demanding user attention
+    #     """
+    #     Check if window is flashing on taskbar while demanding user attention
     #
     #     :return:  ''True'' if window is demanding attention
     #     """

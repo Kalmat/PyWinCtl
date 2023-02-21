@@ -6,6 +6,7 @@ import threading
 import time
 from enum import Enum, IntEnum
 from typing import Union, List, Iterable, Optional, Tuple, cast, Callable
+
 from typing_extensions import TypedDict
 
 import Xlib.display
@@ -205,8 +206,7 @@ class Props:
         TOPRIGHT = 1
         BOTTOMRIGHT = 2
         BOTTOMLEFT = 3
-    
-    
+
     class Window(Enum):
     
         NAME = "_NET_WM_NAME"
@@ -277,13 +277,11 @@ class Props:
         MOVE = 8            # movement only
         SIZE_KEYBOARD = 9   # size via keyboard
         MOVE_KEYBOARD = 10  # move via keyboard
-    
-    
+
     class DataFormat(IntEnum):
         STR = 8
         INT = 32
-    
-    
+
     class Mode(IntEnum):
         REPLACE = Xlib.X.PropModeReplace
         APPEND = Xlib.X.PropModeAppend
@@ -973,7 +971,7 @@ class EwmhWindow:
         :param data: Data related to the event. It can be str (format is 8) or a list of up to 5 integers (format is 32)
         :param propMode: whether to Replace/Append/Prepend the property in relation with the rest of existing properties
         """
-        _changeProperty(self.display, self.xWindow, prop, data, propMode)
+        _changeProperty(self.display, self.xWindow, prop, data, propMode.value)
 
     def getName(self) -> Union[str, None]:
         """
@@ -1275,7 +1273,7 @@ class EwmhWindow:
             raise ValueError
         st1: int = self.display.get_atom(state.value)
         st2: int = self.display.get_atom(state2.value) if state2 != Props.State.NULL else 0
-        self.sendMessage(self.display.get_atom(Props.Window.WM_STATE.value), [action, st1, st2, 2 if userAction else 1])
+        self.sendMessage(self.display.get_atom(Props.Window.WM_STATE.value), [action.value, st1, st2, 2 if userAction else 1])
 
     def setMaximized(self, maxHorz: bool, maxVert: bool):
         """
@@ -2020,30 +2018,31 @@ class _Extensions:
 
         def _checkDisplayEvents(self):
 
-            while self._keep.wait():
-                if not self._stopRequested:
-                    if self._root.display.pending_events():
-                        event = self._root.display.next_event()
-                        if event.type in self._events:
-                            if event.window.id == self._winId:
-                                self._callback(event)
-                            elif hasattr(event, "above_sibling"):
-                                # This is needed for Mint/Cinnamon
-                                self._callback(event)
-                                try:
-                                    children = event.above_sibling.query_tree().children
-                                except:
-                                    children = []
-                                for child in children:
-                                    if self._winId == child.id:
-                                        self._callback(event)
-                                        break
-                    time.sleep(0.01)
-                else:
-                    # Is this necessary to somehow "free" the events catching???
-                    self._root.change_attributes(event_mask=Xlib.X.NoEventMask)
-                    self._display.flush()
-                    break
+            while self._keep.wait() and not self._stopRequested:
+                i = self._root.display.pending_events()
+                while i > 0 and not self._stopRequested:
+                    event = self._root.display.next_event()
+                    if event.type in self._events:
+                        if event.window.id == self._winId:
+                            self._callback(event)
+                        elif hasattr(event, "above_sibling"):
+                            # This is needed for Mint/Cinnamon
+                            self._callback(event)
+                            try:
+                                children = event.above_sibling.query_tree().children
+                            except:
+                                children = []
+                            for child in children:
+                                if self._winId == child.id:
+                                    self._callback(event)
+                                    break
+                    i -= 1
+                time.sleep(0.01)
+                # readable, w, e = select.select([self._display], [], [])  # 0.1)
+
+            # Is this necessary to somehow "free" the events catching???
+            self._root.change_attributes(event_mask=Xlib.X.NoEventMask)
+            self._display.flush()
 
         def start(self, events: List[int], mask: int, callback: Callable[[Xlib.protocol.rq.Event], None]):
             """
@@ -2235,8 +2234,7 @@ def _getProperty(display: Xlib.display.Display, window: XWindow, prop: Union[str
     return None
 
 
-def _changeProperty(display: Xlib.display.Display, window: XWindow, prop: Union[str, int], data: List[int],
-                    propMode: Props.Mode = Props.Mode.REPLACE):
+def _changeProperty(display: Xlib.display.Display, window: XWindow, prop: Union[str, int], data: List[int], propMode: int):
     if isinstance(prop, str):
         prop = display.get_atom(prop)
 
@@ -2297,14 +2295,14 @@ def _createSimpleWindow(display: Xlib.display.Display, parent: XWindow, x: int, 
 
 def _createTransient(display: Xlib.display.Display, parent: XWindow, transient_for: XWindow,
                      callback: Callable[[Xlib.protocol.rq.Event], None], x: int, y: int, width: int, height: int,
-                     override: bool = False, inputOnly: bool = False) -> EwmhWindow:
+                     override: bool = False, inputOnly: bool = False) -> Tuple[EwmhWindow, List[int]]:
     # https://shallowsky.com/blog/programming/click-thru-translucent-update.html
     # https://github.com/python-xlib/python-xlib/issues/200
 
     transientWindow: EwmhWindow = _createSimpleWindow(display, parent, x, y, width, height, override, inputOnly)
     xWin: XWindow = transientWindow.xWindow
 
-    onebyte = int(0x01)  # Calculate as 0xff * target_opacity
+    onebyte = int(0xAA)  # Calculate as 0xff * target_opacity
     fourbytes = onebyte | (onebyte << 8) | (onebyte << 16) | (onebyte << 24)
     xWin.change_property(display.get_atom('_NET_WM_WINDOW_OPACITY'), Xlib.Xatom.CARDINAL, 32, [fourbytes])
 
@@ -2312,7 +2310,7 @@ def _createTransient(display: Xlib.display.Display, parent: XWindow, transient_f
     gc = input_pm.create_gc(foreground=0, background=0)
     input_pm.fill_rectangle(gc.id, 0, 0, width, height)
     xWin.shape_mask(Xlib.ext.shape.SO.Set, Xlib.ext.shape.SK.Input, 0, 0, input_pm)  # type: ignore[attr-defined]
-    # xWin.shape_select_input(0)  # type: ignore[attr-defined]
+    xWin.shape_select_input(0)  # type: ignore[attr-defined]
 
     xWin.map()
     display.flush()
@@ -2320,30 +2318,44 @@ def _createTransient(display: Xlib.display.Display, parent: XWindow, transient_f
     xWin.set_wm_transient_for(transient_for)
     display.flush()
 
-    checkEvents = None
     currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()
     # otherDesktop = os.environ.get("DESKTOP_SESSION").lower()  # -> Returns None
-    if "cinnamon" in currDesktop:
-        # In Mint/Cinnamon the transient window is not placing itself in the same coordinates that its transient_for window
-        pgeom = transient_for.get_geometry()
-        xWin.configure(x=x-2, y=y-32, width=pgeom.width + 40 + 6, height=pgeom.height + 80 + 32)
-        display.flush()
-
-        transientWindow.extensions.checkEvents.start(
-            [Xlib.X.ConfigureNotify],
-            Xlib.X.StructureNotifyMask | Xlib.X.SubstructureNotifyMask,
-            callback
-        )
-
+    if "gnome" in currDesktop:
+        gaps = [24, 24, -40, -80]
+    elif "cinnamon" in currDesktop:
+        gaps = [-2, -32, +46, +112]
     elif "kde" in currDesktop:
         # TODO: KDE has a totally different behavior. Must investigate/test
-        pass
+        gaps = [0, 0, 0, 0]
+    else:
+        gaps = [0, 0, 0, 0]
 
-    # Removing actions but not decoration, since it causes not to capture Keyboard and mouse (like DOCK or override_redirect)
-    transientWindow.changeProperty(display.get_atom("_MOTIF_WM_HINTS"), [1, 0, 1, 0, 0], Props.Mode.REPLACE)
-    transientWindow.changeWmState(Props.StateAction.ADD, Props.State.MODAL)
+    pgeom = transient_for.get_geometry()
+    xWin.configure(x=max(0, x + gaps[0]), y=max(0, y + gaps[1]), width=pgeom.width + gaps[2], height=pgeom.height + gaps[3])
+    display.flush()
 
-    return transientWindow
+    transientWindow.extensions.checkEvents.start(
+        [Xlib.X.ConfigureNotify],
+        Xlib.X.StructureNotifyMask | Xlib.X.SubstructureNotifyMask,
+        callback
+    )
+
+    # Removing actions but not decoration, since it causes not to capture Keyboard and mouse,
+    transientWindow.changeProperty(display.get_atom("_MOTIF_WM_HINTS"), [1, 0, 1, 0, 0])
+    # Same happens with DESKTOP (???), SPLASH, DOCK or override_redirect
+    # transientWindow.setWmWindowType(Props.WindowType.DESKTOP)
+    # MODAL doesn't behave as expected (it doesn't block main window)
+    transientWindow.changeWmState(Props.StateAction.ADD, Props.State.MODAL, Props.State.BELOW)
+    # x, y, w, h = _getWindowGeom(transientWindow.xWindow, defaultRoot)
+    # normal_hints = transient_for.get_wm_normal_hints()
+    # normal_hints.flags = 808
+    # normal_hints.min_width = normal_hints.max_width = w + gaps[2]
+    # normal_hints.min_height = normal_hints.max_height = h + gaps[3]
+    # transientWindow.xWindow.set_wm_normal_hints(normal_hints)
+    # hints = transient_for.get_wm_hints()
+    # transientWindow.xWindow.set_wm_hints(hints)
+
+    return transientWindow, gaps
 
 
 def _closeTransient(transientWindow: EwmhWindow):

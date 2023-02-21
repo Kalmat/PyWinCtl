@@ -1402,7 +1402,7 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0):
         sys.stdout.write('\n\n')
         sys.stdout.flush()
 
-
+# Futile attempt to get the taskbar buttons handles without using pywinauto (but useful as "hard" pywin32 example!)
 # def _getSysTrayButtons(window_class: str = ""):
 #     # https://stackoverflow.com/questions/31068541/how-to-use-win32gui-or-similar-to-click-an-other-window-toolstrip1-item-button
 #     # https://github.com/yinkaisheng/Python-UIAutomation-for-Windows
