@@ -487,65 +487,6 @@ def _getWindowTitles() -> list[list[str]]:
     return result
 
 
-# def _getBorderSizes() -> tuple[int, int]:
-#     # Previous version (creating "dummy" window) was failing if not called on main thread!
-#     # Many thanks to super-ibby (https://github.com/super-ibby) for his solution!!!!
-#     cmd = r"""
-#     use AppleScript version "2.4" -- Yosemite (10.10) or later
-#     use framework "Foundation"
-#
-#     on run
-#         set theResult to {0, 0}
-#         tell (current application)
-#             my performSelectorOnMainThread:"getTitleBarHeightAndBorderWidth" withObject:0 waitUntilDone:true
-#         end tell
-#         return theResult
-#     end run
-#
-#     on getTitleBarHeightAndBorderWidth()
-#
-#         set |⌘| to current application
-#
-#         set theFrameWidth to 250
-#
-#         tell (|⌘|'s NSWindow's alloc()'s ¬
-#             initWithContentRect:{{400, 800}, {theFrameWidth, 100}} ¬
-#                 styleMask:(|⌘|'s NSTitledWindowMask) ¬
-#                 backing:(|⌘|'s NSBackingStoreBuffered) ¬
-#                 defer:true)
-#             set theWindow to it
-#             set its releasedWhenClosed to true
-#             set its excludedFromWindowsMenu to true
-#         end tell
-#
-#         set theFrame to theWindow's frame()
-#
-#         set theTitleHeight to theWindow's titlebarHeight() as integer
-#
-#         set theContentRect to theWindow's contentRectForFrameRect:theFrame
-#
-#         set x1 to (|⌘|'s NSMinX(theContentRect)) as integer
-#         set x2 to (|⌘|'s NSMaxX(theContentRect)) as integer
-#
-#         set theBorderWidth to (theFrameWidth - (x2 - x1)) as integer
-#
-#         set my theResult to {theTitleHeight, theBorderWidth}
-#
-#         theWindow's |close|()
-#         return
-#     end getTitleBarHeightAndBorderWidth"""
-#     proc = subprocess.Popen(
-#         ['osascript'],
-#         stdin=subprocess.PIPE,
-#         stdout=subprocess.PIPE,
-#         stderr=subprocess.PIPE,
-#         encoding='utf8',
-#     )
-#     ret, _ = proc.communicate(cmd)
-#     values = ret.replace("\n", "").strip().split(", ")
-#     return int(values[0]), int(values[1])
-
-
 _ItemInfoValue = TypedDict("_ItemInfoValue", {"value": str, "class": str, "settable": bool})
 
 
@@ -565,7 +506,7 @@ class MacOSWindow(BaseWindow):
         return self.__rect
 
     def __init__(self, app: AppKit.NSRunningApplication, title: str, bounds: Rect | None = None):
-        super().__init__()
+
         self._app = app
         self._appName: str = app.localizedName()
         self._appPID = app.processIdentifier()
@@ -1053,7 +994,7 @@ class MacOSWindow(BaseWindow):
             if self._tt is None:
                 self._tt = _SendTop(self, interval=0.3)
                 # Not sure about the best behavior: stop thread when program ends or keeping sending window on top
-                self._tt.setDaemon(True)
+                self._tt.daemon = True
                 self._tt.start()
             else:
                 self._tt.restart()
@@ -1076,7 +1017,7 @@ class MacOSWindow(BaseWindow):
             if self._tb is None:
                 self._tb = _SendBottom(self, interval=0.3)
                 # Not sure about the best behavior: stop thread when program ends or keeping sending window below
-                self._tb.setDaemon(True)
+                self._tb.daemon = True
                 self._tb.start()
             else:
                 self._tb.restart()
@@ -2073,7 +2014,7 @@ class MacOSNSWindow(BaseWindow):
         return self.__rect
 
     def __init__(self, app: AppKit.NSApplication, hWnd: AppKit.NSWindow):
-        super().__init__()
+
         self._app = app
         self._hWnd = hWnd
         self._parent = hWnd.parentWindow()

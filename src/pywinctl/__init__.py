@@ -129,12 +129,13 @@ def _levenshtein(seq1: str, seq2: str) -> float:
     return (1 - dist / max(len(seq1), len(seq2))) * 100
 
 class BaseWindow(ABC):
+
     @property
     @abstractmethod
-    def _rect(self) -> pyrect.Rect:
+    def _rect(self) -> Rect:
         raise NotImplementedError
 
-    def _rectFactory(self, bounds: Rect | None = None):
+    def _rectFactory(self, bounds: Rect | None = None) -> Rect:
 
         def _onRead(attrName: str):
             r = self._getWindowRect()

@@ -260,7 +260,6 @@ class LinuxWindow(BaseWindow):
         return self.__rect
 
     def __init__(self, hWnd: XWindow | int | str):
-        super().__init__()
 
         if isinstance(hWnd, XWindow):
             self._hWnd = hWnd.id

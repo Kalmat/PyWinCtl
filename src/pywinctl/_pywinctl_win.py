@@ -247,7 +247,7 @@ def getTopWindowAt(x: int, y: int) -> Union[Win32Window, None]:
 
 def _findWindowHandles(parent: int | None = None, window_class: str | None = None, title: str | None = None, onlyVisible: bool = False) -> List[int]:
 
-    handle_list = []
+    handle_list: List[int] = []
 
     def findit(hwnd: int, ctx: Any) -> bool:
 
@@ -260,7 +260,7 @@ def _findWindowHandles(parent: int | None = None, window_class: str | None = Non
         return True
 
     if not parent:
-        parent = win32gui.GetDesktopWindow()  # type: ignore[no-untyped-call]
+        parent = win32gui.GetDesktopWindow()  # type: ignore[no-untyped-call]  # pyright: ignore[reportUnknownMemberType]
     win32gui.EnumChildWindows(parent, findit, None)
     return handle_list
 
@@ -399,12 +399,13 @@ class _SubMenuStructure(TypedDict):
 
 
 class Win32Window(BaseWindow):
+
     @property
     def _rect(self) -> Rect:
         return self.__rect
 
     def __init__(self, hWnd: int | str):
-        super().__init__()
+
         self._hWnd = int(hWnd, base=16) if isinstance(hWnd, str) else hWnd
         self.__rect: Rect = self._rectFactory()
         self._parent = win32gui.GetParent(self._hWnd)
@@ -900,7 +901,7 @@ class Win32Window(BaseWindow):
     #         pid: int = 0
     #         _, pid = win32process.GetWindowThreadProcessId(hWnd)
     #         hProc: int = win32api.OpenProcess(win32con.PROCESS_QUERY_INFORMATION | win32con.PROCESS_VM_READ, 0, pid)
-    #         exeName: str = win32process.GetModuleFileNameEx(hProc, 0)  # pyright: ignore[reportUnknownMemberType]
+    #         exeName: str = win32process.GetModuleFileNameEx(hProc, 0)
     #
     #         description: str = "unknown"
     #         try:
