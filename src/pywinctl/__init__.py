@@ -132,10 +132,10 @@ class BaseWindow(ABC):
 
     @property
     @abstractmethod
-    def _rect(self) -> Rect:
+    def _rect(self) -> pyrect.Rect:
         raise NotImplementedError
 
-    def _rectFactory(self, bounds: Rect | None = None) -> Rect:
+    def _rectFactory(self, bounds: Rect | None = None) -> pyrect.Rect:
 
         def _onRead(attrName: str):
             r = self._getWindowRect()
