@@ -9,7 +9,7 @@ import sys
 import threading
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any, NamedTuple, cast, Union, Optional
+from typing import Any, NamedTuple, cast, Union
 
 import pyrect  # type: ignore[import]  # pyright: ignore[reportMissingTypeStubs]  # TODO: Create type stubs or add to base library
 
@@ -248,7 +248,7 @@ class BaseWindow(ABC):
     moveRel = move  # moveRel is an alias for the move() method.
 
     @abstractmethod
-    def moveTo(self, newLeft:int, newTop: int, wait: bool = False) -> bool:
+    def moveTo(self, newLeft: int, newTop: int, wait: bool = False) -> bool:
         """Moves the window to new coordinates on the screen."""
         raise NotImplementedError
 
@@ -314,7 +314,7 @@ class BaseWindow(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def setParent(self, parent: Optional[int, str]) -> bool:
+    def setParent(self, parent) -> bool:
         """
         Current window will become child of given parent
         WARNIG: Not possible in macOS for foreign (other apps') windows

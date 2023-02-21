@@ -769,7 +769,7 @@ class Win32Window(BaseWindow):
         Current window will become child of given parent
         WARNIG: Not implemented in AppleScript (not possible in macOS for foreign (other apps') windows)
 
-        :param parent: window to set as current window parent
+        :param parent: window id to set as current window parent
         :return: ''True'' if current window is now child of given parent
         """
         if win32gui.IsWindow(parent):
