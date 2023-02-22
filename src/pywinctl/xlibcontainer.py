@@ -7,6 +7,7 @@ import time
 from enum import Enum, IntEnum
 from typing import Union, List, Iterable, Optional, Tuple, cast, Callable
 
+import select
 from typing_extensions import TypedDict
 
 import Xlib.display
@@ -373,8 +374,8 @@ class RootWindow:
         Sets the given property for root
 
         :param prop: property to set in int or str format. The property can be either an existing property, known and
-         managed by the Window Manager, o completely  new, non-previously existing property. In this last case, the
-         Wndow Manager will store the property but will also ignore it. The application is therefore responsible to manage it.
+         managed by the Window Manager, or completely new, non-previously existing property. In this last case, the
+         Wndow Manager will store the property and return its values in a getProperty call but will also ignore it.
         :param data: Data related to given property, in List of int or str (like in name) format
         """
         _sendMessage(self.display, self.root, self.root.id, prop, data)
@@ -488,7 +489,8 @@ class RootWindow:
         This property SHOULD be set by the Window Manager.
 
         A Pager can request a change in the desktop geometry by sending a _NET_DESKTOP_GEOMETRY client message
-        to the root window
+        to the root window.
+
         The Window Manager MAY choose to ignore this message, in which case _NET_DESKTOP_GEOMETRY property will
         remain unchanged.
 
@@ -522,7 +524,8 @@ class RootWindow:
 
         A Pager can request to change the viewport for the current desktop by sending a _NET_DESKTOP_VIEWPORT
         client message to the root window.
-        The Window Manager MAY choose to ignore this message, in which case _NET_DESKTOP_VIEWPORT property will remain unchanged.
+        The Window Manager MAY choose to ignore this message, in which case _NET_DESKTOP_VIEWPORT property will
+        remain unchanged.
         """
         self.setProperty(Props.Root.DESKTOP_VIEWPORT.value, [newWidth, newHeight])
 
@@ -559,8 +562,8 @@ class RootWindow:
 
         Note: The number of names could be different from _NET_NUMBER_OF_DESKTOPS. If it is less than
         _NET_NUMBER_OF_DESKTOPS, then the desktops with high numbers are unnamed. If it is larger than
-         _NET_NUMBER_OF_DESKTOPS, then the excess names outside of the _NET_NUMBER_OF_DESKTOPS are considered
-         to be reserved in case the number of desktops is increased.
+        _NET_NUMBER_OF_DESKTOPS, then the excess names outside of the _NET_NUMBER_OF_DESKTOPS are considered
+        to be reserved in case the number of desktops is increased.
 
         Rationale: The name is not a necessary attribute of a virtual desktop. Thus the availability or
         unavailability of names has no impact on virtual desktop functionality. Since names are set by users
@@ -771,8 +774,7 @@ class RootWindow:
         :param winId: id of window to be closed
         :param userAction: set to ''True'' to force action, as if it was requested by an user action
         """
-        atom: int = self.display.get_atom(Props.Root.CLOSE.value, True)
-        self.sendMessage(winId, atom, [Xlib.X.CurrentTime, 2 if userAction else 1])
+        self.sendMessage(winId, Props.Root.CLOSE.value, [Xlib.X.CurrentTime, 2 if userAction else 1])
 
     def setMoveResize(self, winId: int, gravity: int = 0, x: Union[int, None] = None, y: Union[int, None] = None, width: Union[int, None]= None, height: Union[int, None] = None, userAction: bool = True):
         """
@@ -833,8 +835,7 @@ class RootWindow:
             win.configure(x=x, y=y, width=width, height=height)
             self.display.flush()
         else:
-            atom: int = self.display.get_atom(Props.Root.MOVERESIZE.value, True)
-            self.sendMessage(winId, atom, [gravity_flags, x, y, width, height, 2 if userAction else 1])
+            self.sendMessage(winId, Props.Root.MOVERESIZE.value, [gravity_flags, x, y, width, height, 2 if userAction else 1])
 
     def setWmMoveResize(self, winId: int, x_root: int, y_root: int, orientation: int, button: int, userAction: bool = True):
         """
@@ -864,8 +865,7 @@ class RootWindow:
         :param userAction: set to ''True'' to force action, as if it was requested by a user action. Defaults to True
         """
         # Need to understand this property
-        atom: int = self.display.get_atom(Props.Root.WM_MOVERESIZE.value, True)
-        self.sendMessage(winId, atom, [x_root, y_root, orientation, button, 2 if userAction else 1])
+        self.sendMessage(winId, Props.Root.WM_MOVERESIZE.value, [x_root, y_root, orientation, button, 2 if userAction else 1])
 
     def setWmStacking(self, winId: int, siblingId: int, detail: int, userAction: bool = True):
         """
@@ -883,8 +883,7 @@ class RootWindow:
         :param userAction: set to ''True'' to force action, as if it was requested by a user action. Defaults to True
         """
         # Need to understand this property
-        atom: int = self.display.get_atom(Props.Root.RESTACK.value, True)
-        self.sendMessage(winId, atom, [2 if userAction else 1, siblingId, detail])
+        self.sendMessage(winId, Props.Root.RESTACK.value, [2 if userAction else 1, siblingId, detail])
 
     def requestFrameExtents(self, winId: int):
         """
@@ -904,8 +903,7 @@ class RootWindow:
         :param winId: id of window for which estimate the frame extents
         """
         # Need to understand this property
-        atom: int = self.display.get_atom(Props.Root.REQ_FRAME_EXTENTS.value, True)
-        self.sendMessage(winId, atom, [])
+        self.sendMessage(winId, Props.Root.REQ_FRAME_EXTENTS.value, [])
 
 
 defaultRootWindow = RootWindow()
@@ -945,6 +943,8 @@ class EwmhWindow:
         self.xWindow: XWindow = self.display.create_resource_object('window', winId)
         self.id: int = winId
         self.extensions = _Extensions(winId, self.display, self.root)
+
+        self._currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()
 
     def getProperty(self, prop: Union[str, int]) -> Union[Xlib.protocol.request.GetProperty, None]:
         """
@@ -1713,8 +1713,7 @@ class EwmhWindow:
             self.xWindow.configure(x=x, y=y, width=width, height=height)
             self.display.flush()
         else:
-            atom = self.display.get_atom(Props.Window.MOVERESIZE.value, True)
-            self.sendMessage(atom, [gravity_flags, x, y, width, height, 2 if userAction else 1])
+            self.sendMessage(Props.Window.MOVERESIZE.value, [gravity_flags, x, y, width, height, 2 if userAction else 1])
 
     def setWmMoveResize(self, x_root: int, y_root: int, orientation: int, button: int, userAction: bool = True):
         """
@@ -1740,11 +1739,10 @@ class EwmhWindow:
         :param y_root: position of the button press with respect to the root window
         :param orientation: move or resize event
         :param button: button pressed
-        :param userAction:
+        :param userAction: set to ''True'' to force action, as if it was requested by a user action. Defaults to True
         """
         # Need to understand this property
-        atom = self.display.get_atom(Props.Window.WM_MOVERESIZE.value, True)
-        self.sendMessage(atom, [x_root, y_root, orientation, button, 2 if userAction else 1])
+        self.sendMessage(Props.Window.WM_MOVERESIZE.value, [x_root, y_root, orientation, button, 2 if userAction else 1])
 
     def setWmStacking(self, sibling: int, mode: int, userAction: bool = True):
         """
@@ -1761,9 +1759,7 @@ class EwmhWindow:
         :param userAction: should be set to 2 (typically used by pagers)
         """
         # Need to understand this property
-        atom = self.display.get_atom(Props.Window.RESTACK.value, True)
-        data: List[int] = [2 if userAction else 1, sibling, mode]
-        self.sendMessage(atom, data)
+        self.sendMessage(Props.Window.RESTACK.value, [2 if userAction else 1, sibling, mode])
 
     def requestFrameExtents(self):
         """
@@ -1783,13 +1779,12 @@ class EwmhWindow:
         The client can track changes to the frame's dimensions by listening for _NET_FRAME_EXTENTS PropertyNotify event
         """
         # Need to understand this property
-        atom = self.display.get_atom(Props.Window.REQ_FRAME_EXTENTS.value, True)
-        self.sendMessage(atom, [self.id])
+        self.sendMessage(Props.Window.REQ_FRAME_EXTENTS.value, [self.id])
 
 
 class _Extensions:
     """
-     Additional, non-EWMH features, related to low-level window properties like hints, protocols and events
+    Additional, non-EWMH features, related to low-level window properties like hints, protocols and events
     """
 
     def __init__(self, winId: int, display: Xlib.display.Display, root: XWindow):
@@ -1823,17 +1818,38 @@ class _Extensions:
             XID window_group;	/* id of related window group */
             /* this structure may be extended in the future */
         } XWMHints;
-        The input member is used to communicate to the window manager the input focus model used by the application. Applications that expect input but never explicitly set focus to any of their subwindows (that is, use the push model of focus management), such as X Version 10 style applications that use real-estate driven focus, should set this member to True. Similarly, applications that set input focus to their subwindows only when it is given to their top-level window by a window manager should also set this member to True. Applications that manage their own input focus by explicitly setting focus to one of their subwindows whenever they want keyboard input (that is, use the pull model of focus management) should set this member to False. Applications that never expect any keyboard input also should set this member to False.
 
-        Pull model window managers should make it possible for push model applications to get input by setting input focus to the top-level windows of applications whose input member is True. Push model window managers should make sure that pull model applications do not break them by resetting input focus to PointerRoot when it is appropriate (for example, whenever an application whose input member is False sets input focus to one of its subwindows).
+        The input member is used to communicate to the window manager the input focus model used by the application.
+        Applications that expect input but never explicitly set focus to any of their subwindows (that is, use the
+        push model of focus management), such as X Version 10 style applications that use real-estate driven focus,
+        should set this member to True. Similarly, applications that set input focus to their subwindows only when
+        it is given to their top-level window by a window manager should also set this member to True. Applications
+        that manage their own input focus by explicitly setting focus to one of their subwindows whenever they want
+        keyboard input (that is, use the pull model of focus management) should set this member to False.
+        Applications that never expect any keyboard input also should set this member to False.
+
+        Pull model window managers should make it possible for push model applications to get input by setting
+        input focus to the top-level windows of applications whose input member is True. Push model window managers
+        should make sure that pull model applications do not break them by resetting input focus to PointerRoot
+        when it is appropriate (for example, whenever an application whose input member is False sets input focus
+        to one of its subwindows).
 
         The definitions for the initial_state flag are:
 
         #define	WithdrawnState	0
         #define	NormalState	1	/* most applications start this way */
         #define	IconicState	3	/* application wants to start as an icon */
-        The icon_mask specifies which pixels of the icon_pixmap should be used as the icon. This allows for nonrectangular icons. Both icon_pixmap and icon_mask must be bitmaps. The icon_window lets an application provide a window for use as an icon for window managers that support such use. The window_group lets you specify that this window belongs to a group of other windows. For example, if a single application manipulates multiple top-level windows, this allows you to provide enough information that a window manager can iconify all of the windows rather than just the one window.
-        The UrgencyHint flag, if set in the flags field, indicates that the client deems the window contents to be urgent, requiring the timely response of the user. The window manager will make some effort to draw the user's attention to this window while this flag is set. The client must provide some means by which the user can cause the urgency flag to be cleared (either mitigating the condition that made the window urgent or merely shutting off the alarm) or the window to be withdrawn.
+        The icon_mask specifies which pixels of the icon_pixmap should be used as the icon. This allows for
+        nonrectangular icons. Both icon_pixmap and icon_mask must be bitmaps. The icon_window lets an application
+        provide a window for use as an icon for window managers that support such use. The window_group lets you
+        specify that this window belongs to a group of other windows. For example, if a single application
+        manipulates multiple top-level windows, this allows you to provide enough information that a window
+        manager can iconify all the windows rather than just the one window.
+        The UrgencyHint flag, if set in the flags field, indicates that the client deems the window contents
+        to be urgent, requiring the timely response of the user. The window manager will make some effort to
+        draw the user's attention to this window while this flag is set. The client must provide some means
+        by which the user can cause the urgency flag to be cleared (either mitigating the condition that made
+        the window urgent or merely shutting off the alarm) or the window to be withdrawn.
 
         :return: Hints struct
         """
@@ -2014,6 +2030,8 @@ class _Extensions:
             self._checkThread: Union[threading.Thread, None] = None
             self._threadStarted: bool = False
 
+            self._isCinnamon = "cinnamon" in os.environ['XDG_CURRENT_DESKTOP'].lower()
+
         def _checkDisplayEvents(self):
 
             while self._keep.wait() and not self._stopRequested:
@@ -2021,22 +2039,22 @@ class _Extensions:
                 while i > 0 and not self._stopRequested:
                     event = self._root.display.next_event()
                     if event.type in self._events:
-                        if event.window.id == self._winId:
+                        if self._isCinnamon:
+                            # In Mint/Cinnamon target window is inside "above_sibling", not "window"
+                            if hasattr(event, "above_sibling"):
+                                try:
+                                    children: List[XWindow] = event.above_sibling.query_tree().children
+                                except:
+                                    children = []
+                                for child in children:
+                                    if self._winId == child.id:
+                                        self._callback(event)
+                                        break
+                        elif event.window.id == self._winId:
                             self._callback(event)
-                        elif hasattr(event, "above_sibling"):
-                            # This is needed for Mint/Cinnamon
-                            self._callback(event)
-                            try:
-                                children: List[XWindow] = event.above_sibling.query_tree().children
-                            except:
-                                children = []
-                            for child in children:
-                                if self._winId == child.id:
-                                    self._callback(event)
-                                    break
+
                     i -= 1
-                time.sleep(0.01)
-                # readable, w, e = select.select([self._display], [], [])  # 0.1)
+                readable, w, e = select.select([self._display], [], [], 0.1)
 
             # Is this necessary to somehow "free" the events catching???
             self._root.change_attributes(event_mask=Xlib.X.NoEventMask)
@@ -2209,17 +2227,14 @@ def _xlibGetAllWindows(parent: Union[XWindow, None] = None, title: str = "", kla
 
 def _getPropertyValue(display: Xlib.display.Display, ret: Union[Xlib.protocol.request.GetProperty, None],
                       text: bool = False) -> Union[List[int], List[str], None]:
-    if ret and hasattr(ret, "value"):
+    if ret is not None and hasattr(ret, "value"):
         res: Union[List[int], bytes] = ret.value
         if isinstance(res, bytes):
-            result: List[str] = res.decode().split("\x00")
-            if result and isinstance(result, list) and result[-1] == "":
-                return result[:-1]
-            else:
-                return result
+            resultStr: List[str] = [a for a in res.decode().split("\x00") if a]
+            return resultStr
         elif isinstance(res, Iterable):
             if text:
-                resultStr: List[str] = [display.get_atom_name(a) for a in res if isinstance(a, int) and a != 0]
+                resultStr = [display.get_atom_name(a) for a in res if isinstance(a, int) and a != 0]
                 return resultStr
             else:
                 resultInt: List[int] = [a for a in res]

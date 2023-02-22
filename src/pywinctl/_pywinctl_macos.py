@@ -564,39 +564,41 @@ class MacOSWindow(BaseWindow):
         WARNING: it will fail if not called within main thread
         """
 
-        class WindowDelegate(AppKit.NSObject):  # Cannot put into a closure as subsequent calls will cause a re-registration error due to subclassing NSObject.
-            """Helps run window operations on the main thread."""
+        if hasattr(AppKit, "WindowDelegate"):
+            WindowDelegate = AppKit.WindowDelegate
 
-            results: Dict[bytes, Any] = {}  # Store results here. Not ideal, but may be better than using a global.
+        else:
 
-            @staticmethod
-            def run_on_main_thread(selector: bytes, obj: Optional[Any] = None, wait: Optional[bool] = True) -> Any:
-                """Runs a method of this object on the main thread."""
-                WindowDelegate.alloc().performSelectorOnMainThread_withObject_waitUntilDone_(selector, obj, wait)
-                return WindowDelegate.results.get(selector)
+            class WindowDelegate(AppKit.NSObject):
+                """Helps run window operations on the main thread."""
 
-            def getTitleBarHeightAndBorderWidth(self) -> None:
-                """Updates results with title bar height and border width."""
-                frame_width = 100
-                window = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
-                    ((0, 0), (frame_width, 100)),
-                    AppKit.NSTitledWindowMask,
-                    AppKit.NSBackingStoreBuffered,
-                    False,
-                )
-                titlebar_height = int(window.titlebarHeight())
-                # print(titlebar_height)
-                content_rect = window.contentRectForFrameRect_(window.frame())
-                x1 = AppKit.NSMinX(content_rect)
-                x2 = AppKit.NSMaxX(content_rect)
-                border_width = int(frame_width - (x2 - x1))
-                # print(border_width)
-                result = titlebar_height, border_width
-                WindowDelegate.results[b'getTitleBarHeightAndBorderWidth'] = result
+                results: Dict[bytes, Any] = {}  # Store results here. Not ideal, but may be better than using a global.
+
+                @staticmethod
+                def run_on_main_thread(selector: bytes, obj: Optional[Any] = None, wait: Optional[bool] = True) -> Any:
+                    """Runs a method of this object on the main thread."""
+                    WindowDelegate.alloc().performSelectorOnMainThread_withObject_waitUntilDone_(selector, obj, wait)
+                    return WindowDelegate.results.get(selector)
+
+                def getTitleBarHeightAndBorderWidth(self) -> None:
+                    """Updates results with title bar height and border width."""
+                    frame_width = 100
+                    window = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
+                        ((0, 0), (frame_width, 100)),
+                        AppKit.NSTitledWindowMask,
+                        AppKit.NSBackingStoreBuffered,
+                        False,
+                    )
+                    titlebar_height = int(window.titlebarHeight())
+                    content_rect = window.contentRectForFrameRect_(window.frame())
+                    window.close()
+                    x1 = AppKit.NSMinX(content_rect)
+                    x2 = AppKit.NSMaxX(content_rect)
+                    border_width = int(frame_width - (x2 - x1))
+                    result = titlebar_height, border_width
+                    WindowDelegate.results[b'getTitleBarHeightAndBorderWidth'] = result
 
         # https://www.macscripter.net/viewtopic.php?id=46336 --> Won't allow access to NSWindow objects, but interesting
-        # Didn't find a way to get menu bar height using Apple Script
-        # titleHeight, borderWidth = _getBorderSizes()
         titleHeight, borderWidth = WindowDelegate.run_on_main_thread(b'getTitleBarHeightAndBorderWidth')
         res = Rect(int(self.left + borderWidth), int(self.top + titleHeight), int(self.right - borderWidth), int(self.bottom - borderWidth))
         return res

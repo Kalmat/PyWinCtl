@@ -275,6 +275,7 @@ class LinuxWindow(BaseWindow):
         self.__rect = self._rectFactory()
         self.watchdog = _WatchDog(self)
 
+        self._currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()
         self._motifHints: List[int] = []
 
     def _getWindowRect(self) -> Rect:
@@ -625,27 +626,34 @@ class LinuxWindow(BaseWindow):
         :param setTo: True/False to toggle window ignoring input and focus
         :return: None
         """
-        # TODO: Is it possible to make it completely transparent to input (e.g. click-thru)?
+        # TODO: Is it possible to make the window completely transparent to input (click-thru)?
         if setTo:
+
             self._win.changeWmState(Props.StateAction.REMOVE, Props.State.BELOW)
-            onebyte = int(0xFF)  # Calculate as 0xff * target_opacity
+
+            onebyte = int(0xFF)
             fourbytes = onebyte | (onebyte << 8) | (onebyte << 16) | (onebyte << 24)
             self._win.xWindow.change_property(self._display.get_atom('_NET_WM_WINDOW_OPACITY'), Xlib.Xatom.CARDINAL, 32, [fourbytes])
+
             self._win.changeProperty(self._display.get_atom("_MOTIF_WM_HINTS"), self._motifHints)
-            self._display.flush()
+
             self._win.setWmWindowType(Props.WindowType.NORMAL)
+
         else:
+
             self._win.changeWmState(Props.StateAction.ADD, Props.State.BELOW)
+
             onebyte = int(0xFA)  # Calculate as 0xff * target_opacity
             fourbytes = onebyte | (onebyte << 8) | (onebyte << 16) | (onebyte << 24)
             self._win.xWindow.change_property(self._display.get_atom('_NET_WM_WINDOW_OPACITY'), Xlib.Xatom.CARDINAL, 32, [fourbytes])
+
             ret = self._win.getProperty(self._display.get_atom("_MOTIF_WM_HINTS"))
-            currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()
-            if "cinnamon" in currDesktop:
+            if "cinnamon" in self._currDesktop:
                 self._motifHints = [a for a in ret.value] if ret and hasattr(ret, "value") else [2, 1, 1, 0, 0]
             else:
                 self._motifHints = [a for a in ret.value] if ret and hasattr(ret, "value") else [2, 0, 0, 0, 0]
             self._win.changeProperty(self._display.get_atom("_MOTIF_WM_HINTS"), [0, 0, 0, 0, 0])
+
             self._win.setWmWindowType(Props.WindowType.DESKTOP)
 
     def getAppName(self) -> str:
