@@ -569,7 +569,7 @@ class MacOSWindow(BaseWindow):
 
         else:
 
-            class WindowDelegate(AppKit.NSObject):
+            class WindowDelegate(AppKit.NSObject):  # type: ignore[no-redef]
                 """Helps run window operations on the main thread."""
 
                 results: Dict[bytes, Any] = {}  # Store results here. Not ideal, but may be better than using a global.
