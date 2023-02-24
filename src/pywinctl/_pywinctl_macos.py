@@ -388,7 +388,7 @@ def getTopWindowAt(x: int, y: int, app: AppKit.NSApplication, allWindows: Option
 @overload
 def getTopWindowAt(x: int, y: int, app: None = ..., allWindows: Optional[List[MacOSWindow]] = ...) -> Optional[MacOSWindow]: ...
 @overload
-def getTopWindowAt(x: int, y: int, app: Optional[AppKit.NSApplication] = ..., allWindows: Optional[Union[List[Union[MacOSWindow, MacOSNSWindow]], List[MacOSNSWindow], List[MacOSWindow]]] = ...) -> Optional[MacOSWindow, MacOSNSWindow]: ...
+def getTopWindowAt(x: int, y: int, app: Optional[AppKit.NSApplication] = ..., allWindows: Optional[Union[List[Union[MacOSWindow, MacOSNSWindow]], List[MacOSNSWindow], List[MacOSWindow]]] = ...) -> Optional[Union[MacOSWindow, MacOSNSWindow]]: ...
 
 def getTopWindowAt(x: int, y: int, app: Optional[AppKit.NSApplication] = None, allWindows: Optional[Union[List[Union[MacOSNSWindow, MacOSWindow]], List[MacOSNSWindow], List[MacOSWindow]]] = None):
     """
@@ -439,7 +439,7 @@ def _getAllAppWindows(app: AppKit.NSApplication, userLayer: bool = True):
     return windowsInApp
 
 
-def _getAppWindowsTitles(app: AppKit.NSApplication):
+def _getAppWindowsTitles(app: AppKit.NSRunningApplication):
     pid: str = str(app.processIdentifier())
     cmd = """on run arg1
                 set pid to arg1 as integer
@@ -1535,8 +1535,8 @@ class MacOSWindow(BaseWindow):
 
                 def subfillit(
                     subNameList: Iterable[str],
-                    subSizeList: Union[Sequence[Tuple[int, int], Literal["missing value"]]],
-                    subPosList: Union[Sequence[Tuple[int, int], Literal["missing value"]]],
+                    subSizeList: Sequence[Union[Tuple[int, int], Literal["missing value"]]],
+                    subPosList: Sequence[Union[Tuple[int, int], Literal["missing value"]]],
                     subAttrList: Sequence[Attribute],
                     section: str = "",
                     level: int = 0,

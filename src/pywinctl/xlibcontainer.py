@@ -627,7 +627,7 @@ class RootWindow:
 
         :return: index of current desktop in int format or None if couldn't be retrieved
         """
-        ret: Optional[Xlib.protocol.request.GetPropertye] = self.getProperty(Props.Root.CURRENT_DESKTOP.value)
+        ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Root.CURRENT_DESKTOP.value)
         res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res and isinstance(res[0], int):
             return res[0]
@@ -2658,6 +2658,8 @@ def main():
     time.sleep(3)
     print(root.getCurrentDesktop())
     print("BACK TO ORIGINAL DESKTOP")
+    if currDesktop is None:
+        currDesktop = 0
     root.setCurrentDesktop(currDesktop)
     time.sleep(3)
     print(root.getCurrentDesktop())
