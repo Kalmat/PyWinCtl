@@ -16,6 +16,7 @@ from AppKit import (
 
 import pywinctl
 
+
 # Cocoa prefers composition to inheritance. The members of an object's
 # delegate will be called upon the happening of certain events. Once we define
 # methods with particular names, they will be called automatically
@@ -262,7 +263,7 @@ class Delegate(NSObject):
             assert self.npw.isVisible
             assert self.npw.isAlive
 
-            # Test ClientFrame
+            # Test ClientFrame (called twice to assure no re-registration)
             print("CLIENT FRAME", self.npw.getClientFrame())
             print("CLIENT FRAME", self.npw.getClientFrame())
 

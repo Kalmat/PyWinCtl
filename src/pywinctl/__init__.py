@@ -1,7 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # pyright: reportUnknownMemberType=false
-from __future__ import annotations
 
 import difflib
 import re
@@ -9,7 +8,7 @@ import sys
 import threading
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any, NamedTuple, cast, Union
+from typing import Any, NamedTuple, cast, List, Tuple
 
 import pyrect  # type: ignore[import]  # pyright: ignore[reportMissingTypeStubs]  # TODO: Create type stubs or add to base library
 
@@ -172,7 +171,7 @@ class BaseWindow(ABC):
         )
 
     @abstractmethod
-    def getExtraFrameSize(self, includeBorder: bool = True) -> tuple[int, int, int, int]:
+    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
         """
         Get the extra space, in pixels, around the window, including or not the border.
         Notice not all applications/windows will use this property values
@@ -325,7 +324,7 @@ class BaseWindow(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def getChildren(self) -> list[Any]:
+    def getChildren(self) -> List[Any]:
         """
         Get the children handles of current window
 
@@ -444,7 +443,7 @@ class BaseWindow(ABC):
         return cast(Point, self._rect.topleft)  # pyrect.Rect.Point properties are potentially unknown
 
     @topleft.setter
-    def topleft(self, value: tuple[int, int]):
+    def topleft(self, value: Tuple[int, int]):
         self._rect.topleft  # Run rect's onRead to update the Rect object.
         self._rect.topleft = value
 
@@ -453,7 +452,7 @@ class BaseWindow(ABC):
         return cast(Point, self._rect.topright)  # pyrect.Rect.Point properties are potentially unknown
 
     @topright.setter
-    def topright(self, value: tuple[int, int]):
+    def topright(self, value: Tuple[int, int]):
         self._rect.topright  # Run rect's onRead to update the Rect object.
         self._rect.topright = value
 
@@ -462,7 +461,7 @@ class BaseWindow(ABC):
         return cast(Point, self._rect.bottomleft)  # pyrect.Rect.Point properties are potentially unknown
 
     @bottomleft.setter
-    def bottomleft(self, value: tuple[int, int]):
+    def bottomleft(self, value: Tuple[int, int]):
         self._rect.bottomleft  # Run rect's onRead to update the Rect object.
         self._rect.bottomleft = value
 
@@ -471,7 +470,7 @@ class BaseWindow(ABC):
         return cast(Point, self._rect.bottomright)  # pyrect.Rect.Point properties are potentially unknown
 
     @bottomright.setter
-    def bottomright(self, value: tuple[int, int]):
+    def bottomright(self, value: Tuple[int, int]):
         self._rect.bottomright  # Run rect's onRead to update the Rect object.
         self._rect.bottomright = value
 
@@ -480,7 +479,7 @@ class BaseWindow(ABC):
         return cast(Point, self._rect.midleft)  # pyrect.Rect.Point properties are potentially unknown
 
     @midleft.setter
-    def midleft(self, value: tuple[int, int]):
+    def midleft(self, value: Tuple[int, int]):
         self._rect.midleft  # Run rect's onRead to update the Rect object.
         self._rect.midleft = value
 
@@ -489,7 +488,7 @@ class BaseWindow(ABC):
         return cast(Point, self._rect.midright)  # pyrect.Rect.Point properties are potentially unknown
 
     @midright.setter
-    def midright(self, value: tuple[int, int]):
+    def midright(self, value: Tuple[int, int]):
         self._rect.midright  # Run rect's onRead to update the Rect object.
         self._rect.midright = value
 
@@ -498,7 +497,7 @@ class BaseWindow(ABC):
         return cast(Point, self._rect.midtop) # pyrect.Rect.Point properties are potentially unknown
 
     @midtop.setter
-    def midtop(self, value: tuple[int, int]):
+    def midtop(self, value: Tuple[int, int]):
         self._rect.midtop  # Run rect's onRead to update the Rect object.
         self._rect.midtop = value
 
@@ -507,7 +506,7 @@ class BaseWindow(ABC):
         return cast(Point, self._rect.midbottom)  # pyrect.Rect.Point properties are potentially unknown
 
     @midbottom.setter
-    def midbottom(self, value: tuple[int, int]):
+    def midbottom(self, value: Tuple[int, int]):
         self._rect.midbottom  # Run rect's onRead to update the Rect object.
         self._rect.midbottom = value
 
@@ -516,7 +515,7 @@ class BaseWindow(ABC):
         return cast(Point, self._rect.center)  # pyrect.Rect.Point properties are potentially unknown
 
     @center.setter
-    def center(self, value: tuple[int, int]):
+    def center(self, value: Tuple[int, int]):
         self._rect.center  # Run rect's onRead to update the Rect object.
         self._rect.center = value
 
@@ -561,7 +560,7 @@ class BaseWindow(ABC):
         return cast(Size, self._rect.size)  # pyrect.Rect.Size properties are potentially unknown
 
     @size.setter
-    def size(self, value: tuple[int, int]):
+    def size(self, value: Tuple[int, int]):
         self._rect.size  # Run rect's onRead to update the Rect object.
         self._rect.size = value
 
@@ -619,8 +618,8 @@ class _WatchDog:
         isVisibleCB: Callable[[bool], None] | None = None,
         isMinimizedCB: Callable[[bool], None] | None = None,
         isMaximizedCB: Callable[[bool], None] | None = None,
-        resizedCB: Callable[[tuple[int, int]], None] | None = None,
-        movedCB: Callable[[tuple[int, int]], None] | None = None,
+        resizedCB: Callable[[Tuple[int, int]], None] | None = None,
+        movedCB: Callable[[Tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
         changedDisplayCB: Callable[[str], None] | None = None,
         interval: float = 0.3
@@ -674,8 +673,8 @@ class _WatchDog:
         isVisibleCB: Callable[[bool], None] | None = None,
         isMinimizedCB: Callable[[bool], None] | None = None,
         isMaximizedCB: Callable[[bool], None] | None = None,
-        resizedCB: Callable[[tuple[int, int]], None] | None = None,
-        movedCB: Callable[[tuple[int, int]], None] | None = None,
+        resizedCB: Callable[[Tuple[int, int]], None] | None = None,
+        movedCB: Callable[[Tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
         changedDisplayCB: Callable[[str], None] | None = None
     ):
@@ -764,8 +763,8 @@ class _WatchDogWorker(threading.Thread):
         isVisibleCB: Callable[[bool], None] | None = None,
         isMinimizedCB: Callable[[bool], None] | None = None,
         isMaximizedCB: Callable[[bool], None] | None = None,
-        resizedCB: Callable[[tuple[int, int]], None] | None = None,
-        movedCB: Callable[[tuple[int, int]], None] | None = None,
+        resizedCB: Callable[[Tuple[int, int]], None] | None = None,
+        movedCB: Callable[[Tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
         changedDisplayCB: Callable[[str], None] | None = None,
         interval: float = 0.3
@@ -910,8 +909,8 @@ class _WatchDogWorker(threading.Thread):
         isVisibleCB: Callable[[bool], None] | None = None,
         isMinimizedCB: Callable[[bool], None] | None = None,
         isMaximizedCB: Callable[[bool], None] | None = None,
-        resizedCB: Callable[[tuple[int, int]], None] | None = None,
-        movedCB: Callable[[tuple[int, int]], None] | None = None,
+        resizedCB: Callable[[Tuple[int, int]], None] | None = None,
+        movedCB: Callable[[Tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
         changedDisplayCB: Callable[[str], None] | None = None
     ):
@@ -945,8 +944,8 @@ class _WatchDogWorker(threading.Thread):
         isVisibleCB: Callable[[bool], None] | None = None,
         isMinimizedCB: Callable[[bool], None] | None = None,
         isMaximizedCB: Callable[[bool], None] | None = None,
-        resizedCB: Callable[[tuple[int, int]], None] | None = None,
-        movedCB: Callable[[tuple[int, int]], None] | None = None,
+        resizedCB: Callable[[Tuple[int, int]], None] | None = None,
+        movedCB: Callable[[Tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
         changedDisplayCB: Callable[[str], None] | None = None,
         interval: float = 0.3

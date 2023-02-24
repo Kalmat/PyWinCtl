@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+
 import os
 import sys
 
@@ -13,7 +14,7 @@ import re
 import subprocess
 import time
 import tkinter as tk
-from typing import cast, Union, List, Tuple
+from typing import cast, Optional, Union, List, Tuple
 from typing_extensions import TypedDict
 
 import Xlib.display
@@ -25,8 +26,7 @@ import Xlib.Xutil
 import Xlib.ext
 from Xlib.xobject.drawable import Window as XWindow
 
-from pywinctl.xlibcontainer import RootWindow, EwmhWindow, Props, \
-    defaultRootWindow, _xlibGetAllWindows, _createTransient, _closeTransient
+from pywinctl.xlibcontainer import RootWindow, EwmhWindow, Props, defaultRootWindow, _xlibGetAllWindows
 
 from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect
 
@@ -48,7 +48,7 @@ def checkPermissions(activate: bool = False) -> bool:
     return True
 
 
-def getActiveWindow() -> Union[LinuxWindow, None]:
+def getActiveWindow() -> Optional[LinuxWindow]:
     """
     Get the currently active (focused) Window in default root
 
@@ -73,7 +73,7 @@ def getActiveWindowTitle():
         return ""
 
 
-def __remove_bad_windows(windows: Union[List[int], None]):
+def __remove_bad_windows(windows: Optional[List[int]]):
     """
     :param windows: Xlib Windows
     :return: A generator of LinuxWindow that filters out BadWindows
@@ -105,7 +105,7 @@ def getAllTitles() -> List[str]:
     return [window.title for window in getAllWindows()]
 
 
-def getWindowsWithTitle(title: Union[str, re.Pattern[str]], app: Union[Tuple[str, ...], None] = (), condition: int = Re.IS, flags: int = 0):
+def getWindowsWithTitle(title: Union[str, re.Pattern[str]], app: Optional[Tuple[str, ...]] = (), condition: int = Re.IS, flags: int = 0):
     """
     Get the list of window objects whose title match the given string with condition and flags.
     Use ''condition'' to delimit the search. Allowed values are stored in pywinctl.Re sub-class (e.g. pywinctl.Re.CONTAINS)
@@ -183,7 +183,7 @@ def getAppsWithName(name: Union[str, re.Pattern[str]], condition: int = Re.IS, f
     :param flags: (optional) specific flags to apply to condition. Defaults to 0 (no flags)
     :return: list of app names
     """
-    matches: list[str] = []
+    matches: List[str] = []
     if name and condition in Re._cond_dic:
         lower = False
         if condition in (Re.MATCH, Re.NOTMATCH):
@@ -213,7 +213,7 @@ def getAllAppsWindowsTitles():
 
     :return: python dictionary
     """
-    result: dict[str, list[str]] = {}
+    result: dict[str, List[str]] = {}
     for win in getAllWindows():
         appName = win.getAppName()
         if appName in result.keys():
@@ -245,7 +245,7 @@ def getTopWindowAt(x: int, y: int):
     :param y: Y screen coordinate of the window
     :return: Window object or None
     """
-    windows: list[LinuxWindow] = getAllWindows()
+    windows: List[LinuxWindow] = getAllWindows()
     for window in reversed(windows):
         if pointInRect(x, y, window.left, window.top, window.width, window.height):
             return window
@@ -259,7 +259,7 @@ class LinuxWindow(BaseWindow):
     def _rect(self):
         return self.__rect
 
-    def __init__(self, hWnd: XWindow | int | str):
+    def __init__(self, hWnd: Union[XWindow, int, str]):
 
         if isinstance(hWnd, XWindow):
             self._hWnd = hWnd.id
@@ -322,7 +322,7 @@ class LinuxWindow(BaseWindow):
         # app.mainloop()
         return app.getTitlebarHeight(), app.getBorderWidth()
 
-    def getExtraFrameSize(self, includeBorder: bool = True) -> tuple[int, int, int, int]:
+    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
         """
         Get the extra space, in pixels, around the window, including or not the border.
         Notice not all applications/windows will use this property values
@@ -330,7 +330,7 @@ class LinuxWindow(BaseWindow):
         :param includeBorder: set to ''False'' to avoid including borders
         :return: (left, top, right, bottom) additional frame size in pixels, as a tuple of int
         """
-        ret: list[int] = self._win.getFrameExtents()
+        ret: List[int] = self._win.getFrameExtents()
         if not ret: ret = [0, 0, 0, 0]
         borderWidth = 0
         if includeBorder:
@@ -629,30 +629,32 @@ class LinuxWindow(BaseWindow):
         # TODO: Is it possible to make the window completely transparent to input (click-thru)?
         if setTo:
 
-            self._win.changeWmState(Props.StateAction.REMOVE, Props.State.BELOW)
+            if "gnome" in self._currDesktop:
 
-            onebyte = int(0xFF)
-            fourbytes = onebyte | (onebyte << 8) | (onebyte << 16) | (onebyte << 24)
-            self._win.xWindow.change_property(self._display.get_atom('_NET_WM_WINDOW_OPACITY'), Xlib.Xatom.CARDINAL, 32, [fourbytes])
+                self._win.changeWmState(Props.StateAction.REMOVE, Props.State.BELOW)
 
-            self._win.changeProperty(self._display.get_atom("_MOTIF_WM_HINTS"), self._motifHints)
+                onebyte = int(0xFF)
+                fourbytes = onebyte | (onebyte << 8) | (onebyte << 16) | (onebyte << 24)
+                self._win.xWindow.change_property(self._display.get_atom('_NET_WM_WINDOW_OPACITY'), Xlib.Xatom.CARDINAL, 32, [fourbytes])
+
+                self._win.changeProperty(self._display.get_atom("_MOTIF_WM_HINTS"), self._motifHints)
 
             self._win.setWmWindowType(Props.WindowType.NORMAL)
 
         else:
 
-            self._win.changeWmState(Props.StateAction.ADD, Props.State.BELOW)
+            if "gnome" in self._currDesktop:
 
-            onebyte = int(0xFA)  # Calculate as 0xff * target_opacity
-            fourbytes = onebyte | (onebyte << 8) | (onebyte << 16) | (onebyte << 24)
-            self._win.xWindow.change_property(self._display.get_atom('_NET_WM_WINDOW_OPACITY'), Xlib.Xatom.CARDINAL, 32, [fourbytes])
+                self._win.changeWmState(Props.StateAction.ADD, Props.State.BELOW)
 
-            ret = self._win.getProperty(self._display.get_atom("_MOTIF_WM_HINTS"))
-            if "cinnamon" in self._currDesktop:
-                self._motifHints = [a for a in ret.value] if ret and hasattr(ret, "value") else [2, 1, 1, 0, 0]
-            else:
+                onebyte = int(0xFA)  # Calculate as 0xff * target_opacity
+                fourbytes = onebyte | (onebyte << 8) | (onebyte << 16) | (onebyte << 24)
+                self._win.xWindow.change_property(self._display.get_atom('_NET_WM_WINDOW_OPACITY'), Xlib.Xatom.CARDINAL, 32, [fourbytes])
+
+                ret = self._win.getProperty(self._display.get_atom("_MOTIF_WM_HINTS"))
+                # Cinnamon uses this as default: [2, 1, 1, 0, 0]
                 self._motifHints = [a for a in ret.value] if ret and hasattr(ret, "value") else [2, 0, 0, 0, 0]
-            self._win.changeProperty(self._display.get_atom("_MOTIF_WM_HINTS"), [0, 0, 0, 0, 0])
+                self._win.changeProperty(self._display.get_atom("_MOTIF_WM_HINTS"), [0, 0, 0, 0, 0])
 
             self._win.setWmWindowType(Props.WindowType.DESKTOP)
 
@@ -776,7 +778,7 @@ class LinuxWindow(BaseWindow):
 
         :return: title as a string
         """
-        name: str | bytes = self._win.getName()
+        name: Union[str, bytes] = self._win.getName()
         if isinstance(name, bytes):
             name = name.decode()
         return name
@@ -832,8 +834,8 @@ class _ScreenValue(TypedDict):
     pos: Point
     size: Size
     workarea: Rect
-    scale: tuple[int, int]
-    dpi: tuple[int, int]
+    scale: Tuple[int, int]
+    dpi: Tuple[int, int]
     orientation: int
     frequency: float
     colordepth: int
