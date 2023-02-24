@@ -218,7 +218,7 @@ def sendMessage(winId: int, prop: Union[str, int], data: Union[List[int], str],
 
 
 def getPropertyValue(ret: Optional[Xlib.protocol.request.GetProperty], text: bool = False,
-                     display: Xlib.display.Display = defaultDisplay) -> Optional[List[int], List[str]]:
+                     display: Xlib.display.Display = defaultDisplay) -> Optional[Union[List[int], List[str]]]:
 
     if ret is not None and hasattr(ret, "value"):
         # Value is either bytes (separated by '\x00' when multiple values) or array.array of integers.
@@ -480,7 +480,7 @@ class RootWindow:
         """
         sendMessage(winId, prop, data, self.display, self.root)
 
-    def getSupported(self, text: bool = False) -> Optional[List[int], List[str]]:
+    def getSupported(self, text: bool = False) -> Optional[Union[List[int], List[str]]]:
         """
         Returns the list of supported hints by the Window Manager.
 
@@ -505,7 +505,7 @@ class RootWindow:
         :return: list of integers (XWindows id's)
         """
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Root.CLIENT_LIST.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res is not None:
             res = cast(List[int], res)
         return res
@@ -520,7 +520,7 @@ class RootWindow:
         :return: list of integers (XWindows id's)
         """
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Root.CLIENT_LIST_STACKING.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res is not None:
             res = cast(List[int], res)
         return res
@@ -532,7 +532,7 @@ class RootWindow:
         :return: number of desktops in int format or None
         """
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Root.NUMBER_OF_DESKTOPS.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res and isinstance(res[0], int):
             return res[0]
         return None
@@ -567,7 +567,7 @@ class RootWindow:
         :return: tuple of integers (width, height) or None if it couldn't be retrieved
         """
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Root.DESKTOP_GEOMETRY.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res is not None:
             res = cast(List[int], res)
         return res
@@ -597,7 +597,7 @@ class RootWindow:
         :return: list of int tuples or None (if the value couldn't be retrieved)
         """
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Root.DESKTOP_VIEWPORT.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res is not None:
             result: List[Tuple[int, int]] = []
             for r in res:
@@ -628,7 +628,7 @@ class RootWindow:
         :return: index of current desktop in int format or None if couldn't be retrieved
         """
         ret: Optional[Xlib.protocol.request.GetPropertye] = self.getProperty(Props.Root.CURRENT_DESKTOP.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res and isinstance(res[0], int):
             return res[0]
         return None
@@ -663,7 +663,7 @@ class RootWindow:
         :return: list of desktop names in str format
         """
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Root.DESKTOP_NAMES.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res is not None:
             res = cast(List[str], res)
         return res
@@ -677,7 +677,7 @@ class RootWindow:
         :return: window id or None
         """
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Root.ACTIVE.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res and isinstance(res[0], int):
             return res[0]
         return None
@@ -695,7 +695,7 @@ class RootWindow:
         :return: tuple containing workarea coordinates (x, y, width, height)
         """
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Root.WORKAREA.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res is not None:
             res = cast(List[int], res)
         return res
@@ -716,7 +716,7 @@ class RootWindow:
         """
         # Not sure what this property is intended to return. In my system it returns None!
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Root.SUPPORTING_WM_CHECK.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res is not None:
             res = cast(List[int], res)
         return res
@@ -731,14 +731,14 @@ class RootWindow:
         :return: List of virtual roots id's as integers
         """
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Root.VIRTUAL_ROOTS.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res is not None:
             res = cast(List[int], res)
         return res
 
     def getDesktopLayout(self) -> Optional[List[int]]:
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Root.DESKTOP_LAYOUT.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res is not None:
             res = cast(List[int], res)
         return res
@@ -827,7 +827,7 @@ class RootWindow:
         :return: ''True'' if showing desktop
         """
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Root.SHOWING_DESKTOP.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res:
             return res[0] != 0
         return None
@@ -1160,7 +1160,7 @@ class EwmhWindow:
         :return: name of the window as str or None (nothing obtained)
         """
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Window.NAME.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res:
             return str(res[0])
         return None
@@ -1187,7 +1187,7 @@ class EwmhWindow:
         :return: visible name of the window as str or None (nothing obtained)
         """
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Window.VISIBLE_NAME.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res:
             return str(res[0])
         return None
@@ -1210,7 +1210,7 @@ class EwmhWindow:
         :return: icon name as string
         """
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Window.ICON_NAME.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res:
             return str(res[0])
         return None
@@ -1233,7 +1233,7 @@ class EwmhWindow:
         :return: visible icon name as string
         """
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Window.VISIBLE_ICON_NAME.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res:
             return str(res[0])
         return None
@@ -1265,7 +1265,7 @@ class EwmhWindow:
         :return: desktop index on which current window is showing
         """
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Window.DESKTOP.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res and isinstance(res[0], int):
             return int(res[0])
         return None
@@ -1282,7 +1282,7 @@ class EwmhWindow:
         if numDesktops and 0 <= newDesktop <= numDesktops and currDesktop and newDesktop != currDesktop:
             self.sendMessage(Props.Window.DESKTOP.value, [newDesktop, Xlib.X.CurrentTime, 2 if userAction else 1])
 
-    def getWmWindowType(self, text: bool = False) -> Optional[List[int], List[str]]:
+    def getWmWindowType(self, text: bool = False) -> Optional[Union[List[int], List[str]]]:
         """
         Gets the window type of current window
 
@@ -1347,7 +1347,7 @@ class EwmhWindow:
         self.display.flush()
         self.setMoveResize(x=x, y=y, width=w, height=h)
 
-    def getWmState(self, text: bool = False) -> Optional[List[int], List[str]]:
+    def getWmState(self, text: bool = False) -> Optional[Union[List[int], List[str]]]:
         """
         Get the window states values of current window.
 
@@ -1458,7 +1458,7 @@ class EwmhWindow:
         NULL = Props.State.NULL
         state1 = NULL
         state2 = NULL
-        ret: Optional[List[int], List[str]] = self.getWmState(True)
+        ret: Optional[Union[List[int], List[str]]] = self.getWmState(True)
         states: List[str] = [] if ret is None else cast(List[str], ret)
         if maxHorz and maxVert:
             if Props.State.MAXIMIZED_HORZ.value not in states:
@@ -1548,7 +1548,7 @@ class EwmhWindow:
         :return: List of integers or strings
         """
         ret = self.getProperty(Props.Window.ALLOWED_ACTIONS.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, text, self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, text, self.display)
         if res is not None:
             res = cast(List[int], res)
         return res
@@ -1573,7 +1573,7 @@ class EwmhWindow:
         the screen
         """
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Window.STRUT.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res is not None:
             res = cast(List[int], res)
         return res
@@ -1634,7 +1634,7 @@ class EwmhWindow:
         right_end_y, top_start_x, top_end_x, bottom_start_x, bottom_end_x
         """
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Window.STRUT_PARTIAL.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res is not None:
             res = cast(List[int], res)
         return res
@@ -1663,7 +1663,7 @@ class EwmhWindow:
         :return: List of integers containing the icon geometry or None (no obtained)
         """
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Window.ICON_GEOMETRY.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res is not None:
             res = cast(List[int], res)
         return res
@@ -1683,7 +1683,7 @@ class EwmhWindow:
         :return: pid of current process as integer
         """
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Window.PID.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res:
             return int(res[0])
         return None
@@ -1699,7 +1699,7 @@ class EwmhWindow:
         :return: List of integers or None (not obtained)
         """
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Window.HANDLED_ICONS.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res is not None:
             res = cast(List[int], res)
         return res
@@ -1733,7 +1733,7 @@ class EwmhWindow:
         :return: timestamp in integer format or None (not obtained)
         """
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Window.USER_TIME.value)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res is not None:
             res = cast(List[int], res)
         return res
@@ -1752,7 +1752,7 @@ class EwmhWindow:
         if not atom:
             prop = "_NET_FRAME_EXTENTS"
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(prop)
-        res: Optional[List[int], List[str]] = getPropertyValue(ret, display=self.display)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res is not None:
             res = cast(List[int], res)
         return res

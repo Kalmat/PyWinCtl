@@ -207,7 +207,7 @@ def getWindowsWithTitle(title: Union[str, re.Pattern[str]], app: Optional[Tuple[
 @overload
 def getWindowsWithTitle(title: Union[str, re.Pattern[str]], app: AppKit.NSApp, condition: int = ..., flags: int = ...) -> List[MacOSNSWindow]: ...
 
-def getWindowsWithTitle(title: Union[str, re.Pattern[str]], app: Optional[AppKit.NSApp, Tuple[str, ...]] = None, condition: int = Re.IS, flags: int = 0):
+def getWindowsWithTitle(title: Union[str, re.Pattern[str]], app: Optional[Union[AppKit.NSApp, Tuple[str, ...]]] = None, condition: int = Re.IS, flags: int = 0):
     """
     Get the list of window objects whose title match the given string with condition and flags.
     Use ''condition'' to delimit the search. Allowed values are stored in pywinctl.Re sub-class (e.g. pywinctl.Re.CONTAINS)
@@ -364,9 +364,9 @@ def getWindowsAt(x: int, y: int, app: AppKit.NSApplication, allWindows: Optional
 @overload
 def getWindowsAt(x: int, y: int, app: None = ..., allWindows: Optional[List[MacOSWindow]] = ...) -> List[MacOSWindow]: ...
 @overload
-def getWindowsAt(x: int, y: int, app: Optional[AppKit.NSApplication] = ..., allWindows: Optional[List[Union[MacOSWindow, MacOSNSWindow]], List[MacOSNSWindow], List[MacOSWindow]] = ...) -> Union[List[Union[MacOSWindow, MacOSNSWindow]], List[MacOSNSWindow], List[MacOSWindow]]: ...
+def getWindowsAt(x: int, y: int, app: Optional[AppKit.NSApplication] = ..., allWindows: Optional[Union[List[Union[MacOSWindow, MacOSNSWindow]], List[MacOSNSWindow], List[MacOSWindow]]] = ...) -> Union[List[Union[MacOSWindow, MacOSNSWindow]], List[MacOSNSWindow], List[MacOSWindow]]: ...
 
-def getWindowsAt(x: int, y: int, app: Optional[AppKit.NSApplication] = None, allWindows: Optional[List[Union[MacOSNSWindow, MacOSWindow]], List[MacOSNSWindow], List[MacOSWindow]] = None) -> Union[List[Union[MacOSWindow, MacOSNSWindow]], List[MacOSNSWindow], List[MacOSWindow]]:
+def getWindowsAt(x: int, y: int, app: Optional[AppKit.NSApplication] = None, allWindows: Optional[Union[List[Union[MacOSNSWindow, MacOSWindow]], List[MacOSNSWindow], List[MacOSWindow]]] = None) -> Union[List[Union[MacOSWindow, MacOSNSWindow]], List[MacOSNSWindow], List[MacOSWindow]]:
     """
     Get the list of Window objects whose windows contain the point ``(x, y)`` on screen
 
@@ -388,9 +388,9 @@ def getTopWindowAt(x: int, y: int, app: AppKit.NSApplication, allWindows: Option
 @overload
 def getTopWindowAt(x: int, y: int, app: None = ..., allWindows: Optional[List[MacOSWindow]] = ...) -> Optional[MacOSWindow]: ...
 @overload
-def getTopWindowAt(x: int, y: int, app: Optional[AppKit.NSApplication] = ..., allWindows: Optional[List[Union[MacOSWindow, MacOSNSWindow]], List[MacOSNSWindow], List[MacOSWindow]] = ...) -> Optional[MacOSWindow, MacOSNSWindow]: ...
+def getTopWindowAt(x: int, y: int, app: Optional[AppKit.NSApplication] = ..., allWindows: Optional[Union[List[Union[MacOSWindow, MacOSNSWindow]], List[MacOSNSWindow], List[MacOSWindow]]] = ...) -> Optional[MacOSWindow, MacOSNSWindow]: ...
 
-def getTopWindowAt(x: int, y: int, app: Optional[AppKit.NSApplication] = None, allWindows: Optional[List[Union[MacOSNSWindow, MacOSWindow]], List[MacOSNSWindow], List[MacOSWindow]] = None):
+def getTopWindowAt(x: int, y: int, app: Optional[AppKit.NSApplication] = None, allWindows: Optional[Union[List[Union[MacOSNSWindow, MacOSWindow]], List[MacOSNSWindow], List[MacOSWindow]]] = None):
     """
     Get *a* Window object at the point ``(x, y)`` on screen.
     Which window is not guaranteed. See https://github.com/Kalmat/PyWinCtl/issues/20#issuecomment-1193348238
