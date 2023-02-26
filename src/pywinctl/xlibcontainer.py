@@ -2380,15 +2380,17 @@ class _Extensions:
                     normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PResizeInc
             if min_aspect != Props.HintAction.KEEP:
                 if min_aspect != Props.HintAction.REMOVE:
-                    if isinstance(min_aspect, Structs.Aspect):
-                        normal_hints.min_aspect = min_aspect
+                    if isinstance(min_aspect, dict):
+                        normal_hints.min_aspect.x = min_aspect["x"]
+                        normal_hints.min_aspect.y = min_aspect["y"]
                         normal_hints.flags = normal_hints.flags | Xlib.Xutil.PAspect
                 else:
                     normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PAspect
             if max_aspect != Props.HintAction.KEEP:
                 if max_aspect != Props.HintAction.REMOVE:
-                    if isinstance(max_aspect, Structs.Aspect):
-                        normal_hints.max_aspect = max_aspect
+                    if isinstance(max_aspect, dict):
+                        normal_hints.max_aspect.x = max_aspect["x"]
+                        normal_hints.max_aspect.y = max_aspect["y"]
                         normal_hints.flags = normal_hints.flags | Xlib.Xutil.PAspect
                 else:
                     normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PAspect
@@ -3030,12 +3032,12 @@ def main():
 
         print("WM HINTS")
         hints = win.extensions.getWmHints()
-        print(type(hints), hints)
+        print(hints)
         win.extensions.setWmHints(icon_pixmap=win.xWindow.create_pixmap(32, 32, 1))
         print(win.extensions.getWmHints())
         print("WM NORMAL HINTS")
         normal_hints = win.extensions.getWmNormalHints()
-        print(type(normal_hints), normal_hints)
+        print(normal_hints)
         win.extensions.setWmNormalHints(min_width=600, max_width=600, min_height=400, max_height=400)
         print(win.extensions.getWmNormalHints())
         print("WM PROTOCOLS")
