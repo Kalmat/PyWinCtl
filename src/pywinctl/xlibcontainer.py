@@ -188,6 +188,7 @@ def changeProperty(window: XWindow, prop: Union[str, int], data: Union[List[int]
         # I think (to be confirmed) that 16 is not used in Python (no difference between short and long int)
         if isinstance(data, str):
             dataFormat: int = 8
+            data = data.encode(encoding="utf-8")
         else:
             data = (data + [0] * (5 - len(data)))[:5]
             dataFormat = 32
@@ -359,6 +360,10 @@ class Props:
         ABOVE = Xlib.X.Above
         BELOW = Xlib.X.Below
 
+    class HintAction(IntEnum):
+        KEEP = -1
+        REMOVE = -2
+
 
 class Structs:
     """
@@ -504,6 +509,7 @@ class RootWindow:
 
         :return: list of integers (XWindows id's)
         """
+        # Return window ids or EwmhWindow objects?
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Root.CLIENT_LIST.value)
         res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res is not None:
@@ -519,6 +525,7 @@ class RootWindow:
 
         :return: list of integers (XWindows id's)
         """
+        # Return window ids or EwmhWindow objects?
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Root.CLIENT_LIST_STACKING.value)
         res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res is not None:
@@ -676,6 +683,7 @@ class RootWindow:
 
         :return: window id or None
         """
+        # Return window id or EwmhWindow object?
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Root.ACTIVE.value)
         res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res and isinstance(res[0], int):
@@ -957,23 +965,58 @@ class RootWindow:
         # Need to understand this property
         self.sendMessage(winId, Props.Root.WM_MOVERESIZE.value, [x_root, y_root, orientation, button, 2 if userAction else 1])
 
-    def setWmStacking(self, winId: int, siblingId: int, detail: int, userAction: bool = True):
+    def setWmStacking(self, winId: int, siblingId: int, mode: int, userAction: bool = True):
         """
         This request is similar to ConfigureRequest with CWSibling and CWStackMode flags. It should be used only by
         pagers, applications can use normal ConfigureRequests. The source indication field should be therefore
         set to 2, see the section called “Source indication in requests” for details.
 
+        To obtain good interoperability between different Desktop Environments, the following layered stacking
+        order is recommended, from the bottom:
+
+            windows of type _NET_WM_TYPE_DESKTOP
+
+            windows having state _NET_WM_STATE_BELOW
+
+            windows not belonging in any other layer
+
+            windows of type _NET_WM_TYPE_DOCK (unless they have state _NET_WM_TYPE_BELOW) and windows having state
+            _NET_WM_STATE_ABOVE
+
+            focused windows having state _NET_WM_STATE_FULLSCREEN
+
+            Windows that are transient for another window should be kept above this window.
+
+        The window manager may choose to put some windows in different stacking positions, for example to allow
+        the user to bring a currently active window to the top and return it back when the window looses focus.
+
         Rationale: A Window Manager may put restrictions on configure requests from applications, for example it may
         under some conditions refuse to raise a window. This request makes it clear it comes from a pager or similar
         tool, and therefore the Window Manager should always obey it.
 
+        If a sibling and a stack_mode are specified, the window is restacked as follows:
+
+            Above	    The window is placed just above the sibling.
+            Below	    The window is placed just below the sibling.
+            TopIf	    If the sibling occludes the window, the window is placed at the top of the stack.
+            BottomIf	If the window occludes the sibling, the window is placed at the bottom of the stack.
+            Opposite	If the sibling occludes the window, the window is placed at the top of the stack. If the window occludes the sibling, the window is placed at the bottom of the stack.
+
+        If a stack_mode is specified but no sibling is specified, the window is restacked as follows:
+
+            Above	    The window is placed at the top of the stack.
+            Below	    The window is placed at the bottom of the stack.
+            TopIf	    If any sibling occludes the window, the window is placed at the top of the stack.
+            BottomIf	If the window occludes any sibling, the window is placed at the bottom of the stack.
+            Opposite	If any sibling occludes the window, the window is placed at the top of the stack. If the window occludes any sibling, the window is placed at the bottom of the stack.
+
         :param winId: id of window to be restacked
         :param siblingId: id of sibling window related to restacking action
-        :param detail: ???
+        :param mode: Stacking mode as per table above
         :param userAction: set to ''True'' to force action, as if it was requested by a user action. Defaults to True
         """
         # Need to understand this property
-        self.sendMessage(winId, Props.Root.RESTACK.value, [2 if userAction else 1, siblingId, detail])
+        self.sendMessage(winId, Props.Root.RESTACK.value, [2 if userAction else 1, siblingId, mode])
 
     def requestFrameExtents(self, winId: int):
         """
@@ -1061,7 +1104,7 @@ class RootWindow:
 
             After receiving one or more such message/ConfigureNotify pairs, and having handled all repainting
             associated with the ConfigureNotify events, the client MUST set the _NET_WM_SYNC_REQUEST_COUNTER to
-            the 64 bit number indicated by the data.l[2] and data.l[3] fields of the last client message received.
+            the 64-bit number indicated by the data.l[2] and data.l[3] fields of the last client message received.
 
             By using either the Alarm or the Await mechanisms of the XSync extension, the window manager can
             know when the client has finished handling the ConfigureNotify events. The window manager SHOULD
@@ -1137,7 +1180,7 @@ class EwmhWindow:
         """
         return sendMessage(self.id, prop, data)
 
-    def changeProperty(self, prop: Union[str, int], data: List[int], propMode: Props.Mode = Props.Mode.REPLACE):
+    def changeProperty(self, prop: Union[str, int], data: Union[List[int], str], propMode: Props.Mode = Props.Mode.REPLACE):
         """
         Sets given property for the current window. The property might be ignored by the Window Manager, but returned
         in getProperty() calls together with its data.
@@ -1171,7 +1214,7 @@ class EwmhWindow:
 
         :param name: new name as string
         """
-        self.sendMessage(Props.Window.NAME.value, name)
+        self.changeProperty(Props.Window.NAME.value, name)
 
     def getVisibleName(self) -> Optional[str]:
         """
@@ -1198,7 +1241,7 @@ class EwmhWindow:
 
         :param name: new visible name as string
         """
-        self.sendMessage(Props.Window.VISIBLE_NAME.value, name)
+        self.changeProperty(Props.Window.VISIBLE_NAME.value, name)
 
     def getIconName(self) -> Optional[str]:
         """
@@ -1221,7 +1264,7 @@ class EwmhWindow:
 
         :param name: new icon name as string
         """
-        self.sendMessage(Props.Window.ICON.value, name)
+        self.changeProperty(Props.Window.ICON.value, name)
 
     def getVisibleIconName(self) -> Optional[str]:
         """
@@ -1244,7 +1287,7 @@ class EwmhWindow:
 
         :param name: new visible icon name as string
         """
-        self.sendMessage(Props.Window.VISIBLE_ICON_NAME.value, name)
+        self.changeProperty(Props.Window.VISIBLE_ICON_NAME.value, name)
 
     def getDesktop(self) -> Optional[int]:
         """
@@ -1279,7 +1322,7 @@ class EwmhWindow:
         """
         numDesktops: Optional[int] = self.rootWindow.getNumberOfDesktops()
         currDesktop: Optional[int] = self.rootWindow.getCurrentDesktop()
-        if numDesktops and 0 <= newDesktop <= numDesktops and currDesktop and newDesktop != currDesktop:
+        if numDesktops is not None and 0 <= newDesktop <= numDesktops and currDesktop is not None and newDesktop != currDesktop:
             self.sendMessage(Props.Window.DESKTOP.value, [newDesktop, Xlib.X.CurrentTime, 2 if userAction else 1])
 
     def getWmWindowType(self, text: bool = False) -> Optional[Union[List[int], List[str]]]:
@@ -1435,9 +1478,9 @@ class EwmhWindow:
         be changed. See the section called “Source indication in requests” for details on the source indication.
         l[0], the action, MUST be one of:
 
-        _NET_WM_STATE_REMOVE        0    /* remove/unset property */
-        _NET_WM_STATE_ADD           1    /* add/set property */
-        _NET_WM_STATE_TOGGLE        2    /* toggle property  */
+        _NET_WM_STATE_REMOVE        0    # remove/unset property
+        _NET_WM_STATE_ADD           1    # add/set property
+        _NET_WM_STATE_TOGGLE        2    # toggle property 
 
         :param action: Action to perform with the state: ADD/REMOVE/TOGGLE (Props.StateAction.*)
         :param state: Target new state as State (Props.State.*)
@@ -1799,24 +1842,40 @@ class EwmhWindow:
         To obtain good interoperability between different Desktop Environments, the following layered stacking
         order is recommended, from the bottom:
 
-        windows of type _NET_WM_TYPE_DESKTOP
+            windows of type _NET_WM_TYPE_DESKTOP
 
-        windows having state _NET_WM_STATE_BELOW
+            windows having state _NET_WM_STATE_BELOW
 
-        windows not belonging in any other layer
+            windows not belonging in any other layer
 
-        windows of type _NET_WM_TYPE_DOCK (unless they have state _NET_WM_TYPE_BELOW) and windows having state
-        _NET_WM_STATE_ABOVE
+            windows of type _NET_WM_TYPE_DOCK (unless they have state _NET_WM_TYPE_BELOW) and windows having state
+            _NET_WM_STATE_ABOVE
 
-        focused windows having state _NET_WM_STATE_FULLSCREEN
+            focused windows having state _NET_WM_STATE_FULLSCREEN
 
-        Windows that are transient for another window should be kept above this window.
+            Windows that are transient for another window should be kept above this window.
 
         The window manager may choose to put some windows in different stacking positions, for example to allow
-        the user to bring currently a active window to the top and return it back when the window looses focus.
+        the user to bring a currently active window to the top and return it back when the window looses focus.
 
-        :param mode: allowed values are Above / Below
-        :param sibling: Id of sibling window to which re-stacking action will be related to
+        If a sibling and a stack_mode are specified, the window is restacked as follows:
+
+            Above	    The window is placed just above the sibling.
+            Below	    The window is placed just below the sibling.
+            TopIf	    If the sibling occludes the window, the window is placed at the top of the stack.
+            BottomIf	If the window occludes the sibling, the window is placed at the bottom of the stack.
+            Opposite	If the sibling occludes the window, the window is placed at the top of the stack. If the window occludes the sibling, the window is placed at the bottom of the stack.
+
+        If a stack_mode is specified but no sibling is specified, the window is restacked as follows:
+
+            Above	    The window is placed at the top of the stack.
+            Below	    The window is placed at the bottom of the stack.
+            TopIf	    If any sibling occludes the window, the window is placed at the top of the stack.
+            BottomIf	If the window occludes any sibling, the window is placed at the bottom of the stack.
+            Opposite	If any sibling occludes the window, the window is placed at the top of the stack. If the window occludes any sibling, the window is placed at the bottom of the stack.
+
+        :param mode: stack mode as per table above
+        :param sibling: Sibling window to which re-stacking action will be related to
         """
         if sibling is not None:
             self.xWindow.configure(sibling=sibling, stack_mode=mode)
@@ -1913,7 +1972,7 @@ class EwmhWindow:
         # Need to understand this property
         self.sendMessage(Props.Window.WM_MOVERESIZE.value, [x_root, y_root, orientation, button, 2 if userAction else 1])
 
-    def setWmStacking(self, sibling: int, mode: int, userAction: bool = True):
+    def setWmStacking(self, siblingId: int, detail: int, userAction: bool = True):
         """
         This request is similar to ConfigureRequest with CWSibling and CWStackMode flags. It should be used only by
         pagers, applications can use normal ConfigureRequests. The source indication field should be therefore
@@ -1923,12 +1982,12 @@ class EwmhWindow:
         under some conditions refuse to raise a window. This request makes it clear it comes from a pager or similar
         tool, and therefore the Window Manager should always obey it.
 
-        :param sibling: id of sibling window related to restacking action
-        :param mode: details of action as integer (does this include mode???)
+        :param siblingId: id of sibling window related to restacking action
+        :param detail: details of action as integer (does this include mode???)
         :param userAction: should be set to 2 (typically used by pagers)
         """
         # Need to understand this property
-        self.sendMessage(Props.Window.RESTACK.value, [2 if userAction else 1, sibling, mode])
+        self.sendMessage(Props.Window.RESTACK.value, [2 if userAction else 1, siblingId, detail])
 
     def requestFrameExtents(self):
         """
@@ -1970,8 +2029,7 @@ class _Extensions:
         {'flags': 103, 'input': 1, 'initial_state': 1, 'icon_pixmap': <Pixmap 0x02a22304>, 'icon_window': <Window 0x00000000>, 'icon_x': 0, 'icon_y': 0, 'icon_mask': <Pixmap 0x02a2230b>, 'window_group': <Window 0x02a00001>}
 
         Xlib provides functions that you can use to set and read the WM_HINTS property for a given window.
-        These functions use the flags and the XWMHints structure, as defined in the X11/Xutil.h header file.
-        To allocate an XWMHints structure, use XAllocWMHints().
+        These functions use the flags and the XWMHints structure, as defined in Xlib.Xutil.*
 
         The XWMHints structure contains:
 
@@ -1988,14 +2046,14 @@ class _Extensions:
         To check if a hint is present or not, use bitwise operand OR ('|') between flags and following values in
         Xlib.Xutil.*
 
-            #define	InputHint	(1L << 0)
-            #define	StateHint	(1L << 1)
-            #define	IconPixmapHint	(1L << 2)
-            #define	IconWindowHint	(1L << 3)
-            #define	IconPositionHint	(1L << 4)
-            #define	IconMaskHint	(1L << 5)
-            #define	WindowGroupHint	(1L << 6)
-            #define	UrgencyHint	(1L << 8)
+            InputHint	        (1L << 0)
+            StateHint	        (1L << 1)
+            IconPixmapHint	    (1L << 2)
+            IconWindowHint	    (1L << 3)
+            IconPositionHint	(1L << 4)
+            IconMaskHint	    (1L << 5)
+            WindowGroupHint	    (1L << 6)
+            UrgencyHint	        (1L << 8)
 
         The input member is used to communicate to the window manager the input focus model used by the application.
         Applications that expect input but never explicitly set focus to any of their subwindows (that is, use the
@@ -2014,12 +2072,12 @@ class _Extensions:
 
         The definitions for the initial_state flag are:
 
-            #define	WithdrawnState	0
-            #define	NormalState	1	/* most applications start this way */
-            #define	IconicState	3	/* application wants to start as an icon */
+            Xlib.X.WithdrawnState	0
+            Xlib.X.NormalState	    1	# most applications start this way
+            Xlib.X.IconicState	    3	# application wants to start as an icon
 
         The icon_mask specifies which pixels of the icon_pixmap should be used as the icon. This allows for
-        nonrectangular icons. Both icon_pixmap and icon_mask must be bitmaps. The icon_window lets an application
+        non-rectangular icons. Both icon_pixmap and icon_mask must be bitmaps. The icon_window lets an application
         provide a window for use as an icon for window managers that support such use. The window_group lets you
         specify that this window belongs to a group of other windows. For example, if a single application
         manipulates multiple top-level windows, this allows you to provide enough information that a window
@@ -2035,7 +2093,13 @@ class _Extensions:
         """
         return self.xWindow.get_wm_hints()
 
-    def setWmHints(self, hints: Xlib.protocol.rq.DictWrapper):
+    def setWmHints(self, input_mode: int = Props.HintAction.KEEP, initial_state: int = Props.HintAction.KEEP,
+                   icon_pixmap: Union[Xlib.xobject.drawable.Pixmap, int] = Props.HintAction.KEEP,
+                   icon_window: Union[XWindow, int] = Props.HintAction.KEEP,
+                   icon_x: int = Props.HintAction.KEEP, icon_y: int = Props.HintAction.KEEP,
+                   icon_mask: Union[Xlib.xobject.drawable.Pixmap, int] = Props.HintAction.KEEP,
+                   window_group: Union[XWindow, int] = Props.HintAction.KEEP,
+                   urgency: Union[bool, int] = Props.HintAction.KEEP):
         """
         Set new hints for current window.
 
@@ -2046,17 +2110,87 @@ class _Extensions:
 
         Hints mask values:
 
-            #define	InputHint	(1L << 0)
-            #define	StateHint	(1L << 1)
-            #define	IconPixmapHint	(1L << 2)
-            #define	IconWindowHint	(1L << 3)
-            #define	IconPositionHint	(1L << 4)
-            #define	IconMaskHint	(1L << 5)
-            #define	WindowGroupHint	(1L << 6)
-            #define	UrgencyHint	(1L << 8)
+            InputHint	        (1L << 0)
+            StateHint	        (1L << 1)
+            IconPixmapHint	    (1L << 2)
+            IconWindowHint	    (1L << 3)
+            IconPositionHint	(1L << 4)
+            IconMaskHint	    (1L << 5)
+            WindowGroupHint	    (1L << 6)
+            UrgencyHint	        (1L << 8)
 
         See getWmHints() documentation for more info about hints.
+
+        To modify existing window hints use:
+
+            Props.HintAction.KEEP       Keeps current value (Default)
+            Props.HintAction.REMOVE     Removes hint from existing window hints
+            Target value                (int/Pixmap/XWindow/bool) Adds new value or changes existing one
+
+        :param input_mode: input focus model used by the application (0 / 1)
+        :param initial_state: WithdrawnState/NormalState/IconicState initial state preferred by window
+        :param icon_pixmap: bitmap to use as window icon
+        :param icon_window: window to use as icon
+        :param icon_x: x position of icon
+        :param icon_y: y position of icon
+        :param icon_mask: pixels of the icon_pixmap should be used as the icon. This allows for non-rectangular icons
+        :param window_group: group of windows the current window belongs to
+        :param urgency: True/False to activate/deactivate urgency falg
         """
+        hints = self.getWmHints()
+        if input_mode != Props.HintAction.KEEP:
+            if input_mode != Props.HintAction.REMOVE:
+                hints.input_mode = input_mode
+                hints.flags = hints.flags | Xlib.Xutil.InputHint
+            else:
+                hints.flags = hints.flags & ~Xlib.Xutil.InputHint
+        if initial_state != Props.HintAction.KEEP:
+            if initial_state != Props.HintAction.REMOVE:
+                hints.initial_state = initial_state
+                hints.flags = hints.flags | Xlib.Xutil.StateHint
+            else:
+                hints.flags = hints.flags & ~Xlib.Xutil.StateHint
+        if icon_pixmap != Props.HintAction.KEEP:
+            if icon_pixmap != Props.HintAction.REMOVE:
+                hints.icon_pixmap = icon_pixmap
+                hints.flags = hints.flags | Xlib.Xutil.IconPixmapHint
+            else:
+                hints.flags = hints.flags & ~Xlib.Xutil.IconPixmapHint
+        if icon_window != Props.HintAction.KEEP:
+            if icon_window != Props.HintAction.REMOVE:
+                hints.icon_window = icon_window
+                hints.flags = hints.flags | Xlib.Xutil.IconWindowHint
+            else:
+                hints.flags = hints.flags & ~Xlib.Xutil.IconWindowHint
+        if icon_x != Props.HintAction.KEEP:
+            if icon_x != Props.HintAction.REMOVE:
+                hints.icon_x = icon_x
+                hints.flags = hints.flags | Xlib.Xutil.IconPositionHint
+            else:
+                hints.flags = hints.flags & ~Xlib.Xutil.IconPositionHint
+        if icon_y != Props.HintAction.KEEP:
+            if icon_y != Props.HintAction.REMOVE:
+                hints.icon_y = icon_y
+                hints.flags = hints.flags | Xlib.Xutil.IconPositionHint
+            else:
+                hints.flags = hints.flags & ~Xlib.Xutil.IconPositionHint
+        if icon_mask != Props.HintAction.KEEP:
+            if icon_mask != Props.HintAction.REMOVE:
+                hints.icon_mask = icon_mask
+                hints.flags = hints.flags | Xlib.Xutil.IconMaskHint
+            else:
+                hints.flags = hints.flags & ~Xlib.Xutil.IconMaskHint
+        if window_group != Props.HintAction.KEEP:
+            if window_group != Props.HintAction.REMOVE:
+                hints.window_group = window_group
+                hints.flags = hints.flags | Xlib.Xutil.WindowGroupHint
+            else:
+                hints.flags = hints.flags & ~Xlib.Xutil.WindowGroupHint
+        if urgency != Props.HintAction.KEEP:
+            if urgency != Props.HintAction.REMOVE:
+                hints.flags = hints.flags | Xlib.Xutil.UrgencyHint
+            else:
+                hints.flags = hints.flags & ~Xlib.Xutil.UrgencyHint
         self.xWindow.set_wm_hints(hints)
         self.display.flush()
 
@@ -2073,36 +2207,36 @@ class _Extensions:
 
         The XSizeHints structure contains:
 
-        /* Size hints mask bits */
+        # Size hints mask bits
 
-            #define USPosition	(1L << 0)	/* user specified x, y */
-            #define USSize		(1L << 1)	/* user specified width, height */
-            #define PPosition	(1L << 2)	/* program specified position */
-            #define PSize		(1L << 3)	/* program specified size */
-            #define PMinSize	(1L << 4)	/* program specified minimum size */
-            #define PMaxSize	(1L << 5)	/* program specified maximum size */
-            #define PResizeInc	(1L << 6)	/* program specified resize increments */
-            #define PAspect		(1L << 7)	/* program specified min and max aspect ratios */
-            #define PBaseSize	(1L << 8)
-            #define PWinGravity	(1L << 9)
-            #define PAllHints	(PPosition|PSize|PMinSize|PMaxSize|PResizeInc|PAspect)
+            USPosition	(1L << 0)	# user specified x, y
+            USSize		(1L << 1)	# user specified width, height
+            PPosition	(1L << 2)	# program specified position
+            PSize		(1L << 3)	# program specified size
+            PMinSize	(1L << 4)	# program specified minimum size
+            PMaxSize	(1L << 5)	# program specified maximum size
+            PResizeInc	(1L << 6)	# program specified resize increments
+            PAspect		(1L << 7)	# program specified min and max aspect ratios
+            PBaseSize	(1L << 8)
+            PWinGravity	(1L << 9)
+            PAllHints	(PPosition|PSize|PMinSize|PMaxSize|PResizeInc|PAspect)
 
-        /* Values */
+        # Values
 
             typedef struct {
-                long flags;		/* marks which fields in this structure are defined */
-                int x, y;		/* Obsolete */
-                int width, height;	/* Obsolete */
+                long flags;		# marks which fields in this structure are defined
+                int x, y;		# Obsolete
+                int width, height;	# Obsolete
                 int min_width, min_height;
                 int max_width, max_height;
                 int width_inc, height_inc;
                 struct {
-                       int x;		/* numerator */
-                       int y;		/* denominator */
+                       int x;		# numerator
+                       int y;		# denominator
                 } min_aspect, max_aspect;
                 int base_width, base_height;
                 int win_gravity;
-                /* this structure may be extended in the future */
+                # this structure may be extended in the future
             } XSizeHints;
 
         The x, y, width, and height members are now obsolete and are left solely for compatibility reasons.
@@ -2123,7 +2257,13 @@ class _Extensions:
         """
         return self.xWindow.get_wm_normal_hints()
 
-    def setWmNormalHints(self, hints: Xlib.protocol.rq.DictWrapper):
+    def setWmNormalHints(self, min_width: int = Props.HintAction.KEEP, min_height: int = Props.HintAction.KEEP,
+                         max_width: int = Props.HintAction.KEEP, max_height: int = Props.HintAction.KEEP,
+                         width_inc: int = Props.HintAction.KEEP, height_inc: int = Props.HintAction.KEEP,
+                         min_aspect_x: int = Props.HintAction.KEEP, min_aspect_y: int = Props.HintAction.KEEP,
+                         max_aspect_x: int = Props.HintAction.KEEP, max_aspect_y: int = Props.HintAction.KEEP,
+                         base_width: int = Props.HintAction.KEEP, base_height: int = Props.HintAction.KEEP,
+                         win_gravity: int = Props.HintAction.KEEP):
         """
         Set new normal hints for current window.
 
@@ -2133,20 +2273,119 @@ class _Extensions:
         use bitwise operands between current flags and appropriate values in Xlib.Xutil to
         add ('|') or remove ('& ~') hints (e.g. to remove PSize hint, do: flags = flags & ~Xlib.Xutil.PSize)
 
-            #define USPosition	(1L << 0)	/* user specified x, y */
-            #define USSize		(1L << 1)	/* user specified width, height */
-            #define PPosition	(1L << 2)	/* program specified position */
-            #define PSize		(1L << 3)	/* program specified size */
-            #define PMinSize	(1L << 4)	/* program specified minimum size */
-            #define PMaxSize	(1L << 5)	/* program specified maximum size */
-            #define PResizeInc	(1L << 6)	/* program specified resize increments */
-            #define PAspect		(1L << 7)	/* program specified min and max aspect ratios */
-            #define PBaseSize	(1L << 8)
-            #define PWinGravity	(1L << 9)
+            USPosition	(1L << 0)	# user specified x, y
+            USSize		(1L << 1)	# user specified width, height
+            PPosition	(1L << 2)	# program specified position
+            PSize		(1L << 3)	# program specified size
+            PMinSize	(1L << 4)	# program specified minimum size
+            PMaxSize	(1L << 5)	# program specified maximum size
+            PResizeInc	(1L << 6)	# program specified resize increments
+            PAspect		(1L << 7)	# program specified min and max aspect ratios
+            PBaseSize	(1L << 8)
+            PWinGravity	(1L << 9)
 
         See getWmNormalHints() documentation for more info about normal hints.
 
+        To modify existing window normal hints use:
+
+            Props.HintAction.KEEP       Keeps current value (Default)
+            Props.HintAction.REMOVE     Removes hint from existing window hints
+            Target value                (int/Pixmap/XWindow/bool) Adds new value or changes existing one
+
+        :param min_width: minimum width of window
+        :param min_height: minimum height of window
+        :param max_width: max width of window
+        :param max_height: max height of window
+        :param width_inc: width changes increments (in pixels)
+        :param height_inc: height changes increments (in pixels)
+        :param min_aspect_x: X ratio for min_aspect
+        :param min_aspect_y: Y ratio for min_aspect
+        :param max_aspect_x: X ratio for max_aspect
+        :param max_aspect_y: Y ratio for max_aspect
+        :param base_width: Preferred width of window
+        :param base_height: Preferred height of window
+        :param int win_gravity: window gravity for placing an re-stacking
+
         """
+        hints = self.getWmNormalHints()
+        if min_width != Props.HintAction.KEEP:
+            if min_width != Props.HintAction.REMOVE:
+                hints.min_width = min_width
+                hints.flags = hints.flags | Xlib.Xutil.PMinSize
+            else:
+                hints.flags = hints.flags & ~Xlib.Xutil.PMinSize
+        if min_height != Props.HintAction.KEEP:
+            if min_height != Props.HintAction.REMOVE:
+                hints.min_height = min_height
+                hints.flags = hints.flags | Xlib.Xutil.PMinSize
+            else:
+                hints.flags = hints.flags & ~Xlib.Xutil.PMinSize
+        if max_width != Props.HintAction.KEEP:
+            if max_width != Props.HintAction.REMOVE:
+                hints.max_width = max_width
+                hints.flags = hints.flags | Xlib.Xutil.PMaxSize
+            else:
+                hints.flags = hints.flags & ~Xlib.Xutil.PMaxSize
+        if max_height != Props.HintAction.KEEP:
+            if max_height != Props.HintAction.REMOVE:
+                hints.max_height = max_height
+                hints.flags = hints.flags | Xlib.Xutil.PMaxSize
+            else:
+                hints.flags = hints.flags & ~Xlib.Xutil.PMaxSize
+        if width_inc != Props.HintAction.KEEP:
+            if width_inc != Props.HintAction.REMOVE:
+                hints.width_inc = width_inc
+                hints.flags = hints.flags | Xlib.Xutil.PResizeInc
+            else:
+                hints.flags = hints.flags & ~Xlib.Xutil.PResizeInc
+        if height_inc != Props.HintAction.KEEP:
+            if height_inc != Props.HintAction.REMOVE:
+                hints.height_inc = height_inc
+                hints.flags = hints.flags | Xlib.Xutil.PResizeInc
+            else:
+                hints.flags = hints.flags & ~Xlib.Xutil.PResizeInc
+        if min_aspect_x != Props.HintAction.KEEP:
+            if min_aspect_x != Props.HintAction.REMOVE:
+                hints.min_aspect.x = min_aspect_x
+                hints.flags = hints.flags | Xlib.Xutil.PAspect
+            else:
+                hints.flags = hints.flags & ~Xlib.Xutil.PAspect
+        if min_aspect_y != Props.HintAction.KEEP:
+            if min_aspect_y != Props.HintAction.REMOVE:
+                hints.min_aspect.y = min_aspect_y
+                hints.flags = hints.flags | Xlib.Xutil.PAspect
+            else:
+                hints.flags = hints.flags & ~Xlib.Xutil.PAspect
+        if max_aspect_x != Props.HintAction.KEEP:
+            if max_aspect_x != Props.HintAction.REMOVE:
+                hints.max_aspect.x = max_aspect_x
+                hints.flags = hints.flags | Xlib.Xutil.PAspect
+            else:
+                hints.flags = hints.flags & ~Xlib.Xutil.PAspect
+        if max_aspect_y != Props.HintAction.KEEP:
+            if max_aspect_y != Props.HintAction.REMOVE:
+                hints.max_aspect.y = max_aspect_y
+                hints.flags = hints.flags | Xlib.Xutil.PAspect
+            else:
+                hints.flags = hints.flags & ~Xlib.Xutil.PAspect
+        if base_width != Props.HintAction.KEEP:
+            if base_width != Props.HintAction.REMOVE:
+                hints.base_width = base_width
+                hints.flags = hints.flags | Xlib.Xutil.PBaseSize
+            else:
+                hints.flags = hints.flags & ~Xlib.Xutil.PBaseSize
+        if base_height != Props.HintAction.KEEP:
+            if base_height != Props.HintAction.REMOVE:
+                hints.base_height = base_height
+                hints.flags = hints.flags | Xlib.Xutil.PBaseSize
+            else:
+                hints.flags = hints.flags & ~Xlib.Xutil.PBaseSize
+        if win_gravity != Props.HintAction.KEEP:
+            if win_gravity != Props.HintAction.REMOVE:
+                hints.win_gravity = win_gravity
+                hints.flags = hints.flags | Xlib.Xutil.PWinGravity
+            else:
+                hints.flags = hints.flags & ~Xlib.Xutil.PWinGravity
         self.xWindow.set_wm_normal_hints(hints)
         self.display.flush()
 
@@ -2168,10 +2407,10 @@ class _Extensions:
         The X Consortium will maintain a registry of protocols to avoid collisions in the name space. The following
         table lists the protocols that have been defined to date.
 
-        Protocol	        Section	    Purpose
-        WM_TAKE_FOCUS	    4.1.7	    Assignment of input focus
-        WM_SAVE_YOURSELF	Appendix C	Save client state request (deprecated)
-        WM_DELETE_WINDOW	4.2.8.1 	Request to delete top-level window
+            Protocol	        Section	    Purpose
+            WM_TAKE_FOCUS	    4.1.7	    Assignment of input focus
+            WM_SAVE_YOURSELF	Appendix C	Save client state request (deprecated)
+            WM_DELETE_WINDOW	4.2.8.1 	Request to delete top-level window
 
         :param text: select whether the procols will be returned as integers or strings
         :return: List of protocols in integer or string format
@@ -2187,6 +2426,14 @@ class _Extensions:
         Adds new protocols atoms for current window.
 
         See getWmProtocols() documentation for more info about protocols.
+
+        The X Consortium will maintain a registry of protocols to avoid collisions in the name space. The following
+        table lists the protocols that have been defined to date.
+
+            Protocol	        Section	    Purpose
+            WM_TAKE_FOCUS	    4.1.7	    Assignment of input focus
+            WM_SAVE_YOURSELF	Appendix C	Save client state request (deprecated)
+            WM_DELETE_WINDOW	4.2.8.1 	Request to delete top-level window
 
         :param atoms: List of protocols to be added
         """
@@ -2207,6 +2454,14 @@ class _Extensions:
         Deletes existing protocols atoms for current window.
 
         See getWmProtocols() documentation for more info about protocols.
+
+        The X Consortium will maintain a registry of protocols to avoid collisions in the name space. The following
+        table lists the protocols that have been defined to date.
+
+            Protocol	        Section	    Purpose
+            WM_TAKE_FOCUS	    4.1.7	    Assignment of input focus
+            WM_SAVE_YOURSELF	Appendix C	Save client state request (deprecated)
+            WM_DELETE_WINDOW	4.2.8.1 	Request to delete top-level window
 
         :param atoms: List of protocols to be deleted
         """
@@ -2287,46 +2542,46 @@ class _Extensions:
 
             The following table lists the events constants you can pass to the events argument (defined in Xlib.X.*):
 
-            Keyboard events	                    KeyPress, KeyRelease
-            Pointer events	                    ButtonPress, ButtonRelease, MotionNotify
-            Window crossing events	            EnterNotify, LeaveNotify
-            Input focus events	                FocusIn, FocusOut
-            Keymap state notification event	    KeymapNotify
-            Exposure events	                    Expose, GraphicsExpose, NoExpose
-            Structure control events	        CirculateRequest, ConfigureRequest, MapRequest, ResizeRequest
-            Window state notification events	CirculateNotify, ConfigureNotify, CreateNotify, DestroyNotify, GravityNotify, MapNotify, MappingNotify, ReparentNotify, UnmapNotify, VisibilityNotify
-            Colormap state notification event	ColormapNotify
-            Client communication events	        ClientMessage, PropertyNotify, SelectionClear, SelectionNotify, SelectionRequest
+                Keyboard events	                    KeyPress, KeyRelease
+                Pointer events	                    ButtonPress, ButtonRelease, MotionNotify
+                Window crossing events	            EnterNotify, LeaveNotify
+                Input focus events	                FocusIn, FocusOut
+                Keymap state notification event	    KeymapNotify
+                Exposure events	                    Expose, GraphicsExpose, NoExpose
+                Structure control events	        CirculateRequest, ConfigureRequest, MapRequest, ResizeRequest
+                Window state notification events	CirculateNotify, ConfigureNotify, CreateNotify, DestroyNotify, GravityNotify, MapNotify, MappingNotify, ReparentNotify, UnmapNotify, VisibilityNotify
+                Colormap state notification event	ColormapNotify
+                Client communication events	        ClientMessage, PropertyNotify, SelectionClear, SelectionNotify, SelectionRequest
 
             The following table lists the event mask constants you can pass to the event_mask argument and the
             circumstances in which you would want to specify the event mask (defined in Xlib.X.*):
 
-            NoEventMask	                No events wanted
-            KeyPressMask	            Keyboard down events wanted
-            KeyReleaseMask	            Keyboard up events wanted
-            ButtonPressMask	            Pointer button down events wanted
-            ButtonReleaseMask	        Pointer button up events wanted
-            EnterWindowMask	            Pointer window entry events wanted
-            LeaveWindowMask	            Pointer window leave events wanted
-            PointerMotionMask	        Pointer motion events wanted
-            PointerMotionHintMask	    Pointer motion hints wanted
-            Button1MotionMask	        Pointer motion while button 1 down
-            Button2MotionMask	        Pointer motion while button 2 down
-            Button3MotionMask	        Pointer motion while button 3 down
-            Button4MotionMask	        Pointer motion while button 4 down
-            Button5MotionMask	        Pointer motion while button 5 down
-            ButtonMotionMask	        Pointer motion while any button down
-            KeymapStateMask	            Keyboard state wanted at window entry and focus in
-            ExposureMask	            Any exposure wanted
-            VisibilityChangeMask	    Any change in visibility wanted
-            StructureNotifyMask	        Any change in window structure wanted
-            ResizeRedirectMask	        Redirect resize of this window
-            SubstructureNotifyMask	    Substructure notification wanted
-            SubstructureRedirectMask	Redirect structure requests on children
-            FocusChangeMask	            Any change in input focus wanted
-            PropertyChangeMask	        Any change in property wanted
-            ColormapChangeMask	        Any change in colormap wanted
-            OwnerGrabButtonMask	        Automatic grabs should activate with owner_events set to True
+                NoEventMask	                No events wanted
+                KeyPressMask	            Keyboard down events wanted
+                KeyReleaseMask	            Keyboard up events wanted
+                ButtonPressMask	            Pointer button down events wanted
+                ButtonReleaseMask	        Pointer button up events wanted
+                EnterWindowMask	            Pointer window entry events wanted
+                LeaveWindowMask	            Pointer window leave events wanted
+                PointerMotionMask	        Pointer motion events wanted
+                PointerMotionHintMask	    Pointer motion hints wanted
+                Button1MotionMask	        Pointer motion while button 1 down
+                Button2MotionMask	        Pointer motion while button 2 down
+                Button3MotionMask	        Pointer motion while button 3 down
+                Button4MotionMask	        Pointer motion while button 4 down
+                Button5MotionMask	        Pointer motion while button 5 down
+                ButtonMotionMask	        Pointer motion while any button down
+                KeymapStateMask	            Keyboard state wanted at window entry and focus in
+                ExposureMask	            Any exposure wanted
+                VisibilityChangeMask	    Any change in visibility wanted
+                StructureNotifyMask	        Any change in window structure wanted
+                ResizeRedirectMask	        Redirect resize of this window
+                SubstructureNotifyMask	    Substructure notification wanted
+                SubstructureRedirectMask	Redirect structure requests on children
+                FocusChangeMask	            Any change in input focus wanted
+                PropertyChangeMask	        Any change in property wanted
+                ColormapChangeMask	        Any change in colormap wanted
+                OwnerGrabButtonMask	        Automatic grabs should activate with owner_events set to True
 
             :param events: List of events to be notified on as a list of integers: [Xlib.X.event1, Xlib.X.event2, ...]
             :param mask: Events mask according to selected events as integer: Xlib.X.mask1 | Xlib.mask2 | ...
@@ -2495,7 +2750,7 @@ def _createTransient(display: Xlib.display.Display, parent: XWindow, transient_f
     elif "cinnamon" in currDesktop:
         gaps = [-2, -32, +46, +112]
     elif "kde" in currDesktop:
-        # TODO: KDE has a totally different behavior. Must investigate/test
+        # KDE has a totally different behavior. Must investigate/test
         gaps = [0, 0, 0, 0]
     else:
         gaps = [0, 0, 0, 0]
@@ -2678,7 +2933,20 @@ def main():
         print(root.requestFrameExtents(w))
         win = EwmhWindow(w)
         print(win.extensions.getWmNormalHints())
-        print("NAME", win.getName())
+        name = win.getName()
+        print("NAME", name)
+        visName = win.getVisibleName()
+        if visName is not None:
+            print("VISIBLE NAME", visName)
+            win.setVisibleName("This is a test")
+            print("VISIBLE & NAME:", win.getVisibleName(), win.getName())
+            win.setVisibleName(visName)
+            print("VISIBLE & NAME:", win.getVisibleName(), win.getName())
+        else:
+            win.setName("This is a test")
+            print("NAME & VISIBLE:", win.getName(), win.getVisibleName())
+            win.setName(name)
+            print("NAME & VISIBLE:", win.getName(), win.getVisibleName())
         print("TYPE", win.getWmWindowType())
         print("TYPE STR", win.getWmWindowType(text=True))
         print("STATE", win.getWmState())
@@ -2739,7 +3007,11 @@ def main():
 
         print("WM HINTS")
         print(win.extensions.getWmHints())
+        win.extensions.setWmHints(icon_pixmap=win.xWindow.create_pixmap(32, 32, 1))
+        print(win.extensions.getWmHints())
         print("WM NORMAL HINTS")
+        print(win.extensions.getWmNormalHints())
+        win.extensions.setWmNormalHints(min_width=600, max_width=600, min_height=400, max_height=400)
         print(win.extensions.getWmNormalHints())
         print("WM PROTOCOLS")
         print(win.extensions.getWmProtocols(True))
