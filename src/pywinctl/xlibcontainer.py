@@ -2147,69 +2147,69 @@ class _Extensions:
         :param window_group: group of windows the current window belongs to
         :param urgency: True/False to activate/deactivate urgency falg
         """
-        hints: Optional[Structs.WmHints] = self.getWmHints()
+        hints: Optional[Xlib.protocol.rq.DictWrapper] = self.xWindow.get_wm_hints()
         if hints is not None:
             # If None: WM doesn't use them or should we initialize them (and how)?
             if input_mode != Props.HintAction.KEEP:
                 if input_mode != Props.HintAction.REMOVE:
-                    hints["input_mode"] = input_mode
-                    hints["flags"] = hints["flags"] | Xlib.Xutil.InputHint
+                    hints.input_mode = input_mode
+                    hints.flags = hints.flags | Xlib.Xutil.InputHint
                 else:
-                    hints["flags"] = hints["flags"] & ~Xlib.Xutil.InputHint
+                    hints.flags = hints.flags & ~Xlib.Xutil.InputHint
             if initial_state != Props.HintAction.KEEP:
                 if initial_state != Props.HintAction.REMOVE:
-                    hints["initial_state"] = initial_state
-                    hints["flags"] = hints["flags"] | Xlib.Xutil.StateHint
+                    hints.initial_state = initial_state
+                    hints.flags = hints.flags | Xlib.Xutil.StateHint
                 else:
-                    hints["flags"] = hints["flags"] & ~Xlib.Xutil.StateHint
+                    hints.flags = hints.flags & ~Xlib.Xutil.StateHint
             if icon_pixmap != Props.HintAction.KEEP:
                 if icon_pixmap != Props.HintAction.REMOVE:
                     if isinstance(icon_pixmap, Xlib.xobject.drawable.Pixmap):
-                        hints["icon_pixmap"] = icon_pixmap
-                        hints["flags"] = hints["flags"] | Xlib.Xutil.IconPixmapHint
+                        hints.icon_pixmap = icon_pixmap
+                        hints.flags = hints.flags | Xlib.Xutil.IconPixmapHint
                 else:
-                    hints["flags"] = hints["flags"] & ~Xlib.Xutil.IconPixmapHint
+                    hints.flags = hints.flags & ~Xlib.Xutil.IconPixmapHint
             if icon_window != Props.HintAction.KEEP:
                 if icon_window != Props.HintAction.REMOVE:
                     if isinstance(icon_window, XWindow):
-                        hints["icon_window"] = icon_window
-                        hints["flags"] = hints["flags"] | Xlib.Xutil.IconWindowHint
+                        hints.icon_window = icon_window
+                        hints.flags = hints.flags | Xlib.Xutil.IconWindowHint
                 else:
-                    hints["flags"] = hints["flags"] & ~Xlib.Xutil.IconWindowHint
+                    hints.flags = hints.flags & ~Xlib.Xutil.IconWindowHint
             if icon_x != Props.HintAction.KEEP:
                 if icon_x != Props.HintAction.REMOVE:
-                    hints["icon_x"] = icon_x
-                    hints["flags"] = hints["flags"] | Xlib.Xutil.IconPositionHint
+                    hints.icon_x = icon_x
+                    hints.flags = hints.flags | Xlib.Xutil.IconPositionHint
                 else:
-                    hints["flags"] = hints["flags"] & ~Xlib.Xutil.IconPositionHint
+                    hints.flags = hints.flags & ~Xlib.Xutil.IconPositionHint
             if icon_y != Props.HintAction.KEEP:
                 if icon_y != Props.HintAction.REMOVE:
-                    hints["icon_y"] = icon_y
-                    hints["flags"] = hints["flags"] | Xlib.Xutil.IconPositionHint
+                    hints.icon_y = icon_y
+                    hints.flags = hints.flags | Xlib.Xutil.IconPositionHint
                 else:
-                    hints["flags"] = hints["flags"] & ~Xlib.Xutil.IconPositionHint
+                    hints.flags = hints.flags & ~Xlib.Xutil.IconPositionHint
             if icon_y != Props.HintAction.KEEP:
                 if icon_mask != Props.HintAction.REMOVE:
                     if isinstance(icon_mask, Xlib.xobject.drawable.Pixmap):
-                        hints["icon_mask"] = icon_mask
-                        hints["flags"] = hints["flags"] | Xlib.Xutil.IconMaskHint
+                        hints.icon_mask = icon_mask
+                        hints.flags = hints.flags | Xlib.Xutil.IconMaskHint
                 else:
-                    hints["flags"] = hints["flags"] & ~Xlib.Xutil.IconMaskHint
+                    hints.flags = hints.flags & ~Xlib.Xutil.IconMaskHint
             if window_group != Props.HintAction.KEEP:
                 if window_group != Props.HintAction.REMOVE:
                     if isinstance(window_group, XWindow):
-                        hints["window_group"] = window_group
-                        hints["flags"] = hints["flags"] | Xlib.Xutil.WindowGroupHint
+                        hints.window_group = window_group
+                        hints.flags = hints.flags | Xlib.Xutil.WindowGroupHint
                 else:
-                    hints["flags"] = hints["flags"] & ~Xlib.Xutil.WindowGroupHint
+                    hints.flags = hints.flags & ~Xlib.Xutil.WindowGroupHint
             if urgency != Props.HintAction.KEEP:
                 if urgency != Props.HintAction.REMOVE:
                     if isinstance(urgency, bool):
                         if urgency:
-                            hints["flags"] = hints["flags"] | Xlib.Xutil.UrgencyHint
+                            hints.flags = hints.flags | Xlib.Xutil.UrgencyHint
                         else:
-                            hints["flags"] = hints["flags"] & ~Xlib.Xutil.UrgencyHint
-            self.xWindow.set_wm_hints(cast(Dict[str, Any], hints))
+                            hints.flags = hints.flags & ~Xlib.Xutil.UrgencyHint
+            self.xWindow.set_wm_hints(hints)
             self.display.flush()
 
     def getWmNormalHints(self) -> Optional[Structs.WmNormalHints]:
@@ -2339,78 +2339,78 @@ class _Extensions:
         :param base_height: Preferred height of window
         :param int win_gravity: window gravity for placing an re-stacking
         """
-        hints: Optional[Structs.WmNormalHints] = self.getWmNormalHints()
-        if hints is not None:
+        normal_hints: Optional[Xlib.protocol.rq.DictWrapper] = self.xWindow.get_wm_normal_hints()
+        if normal_hints is not None:
             # If None: WM doesn't use them or should we initialize them (and how)?
             if min_width != Props.HintAction.KEEP:
                 if min_width != Props.HintAction.REMOVE:
-                    hints["min_width"] = min_width
-                    hints["flags"] = hints["flags"] | Xlib.Xutil.PMinSize
+                    normal_hints.min_width = min_width
+                    normal_hints.flags = normal_hints.flags | Xlib.Xutil.PMinSize
                 else:
-                    hints["flags"] = hints["flags"] & ~Xlib.Xutil.PMinSize
+                    normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PMinSize
             if min_height != Props.HintAction.KEEP:
                 if min_height != Props.HintAction.REMOVE:
-                    hints["min_height"] = min_height
-                    hints["flags"] = hints["flags"] | Xlib.Xutil.PMinSize
+                    normal_hints.min_height = min_height
+                    normal_hints.flags = normal_hints.flags | Xlib.Xutil.PMinSize
                 else:
-                    hints["flags"] = hints["flags"] & ~Xlib.Xutil.PMinSize
+                    normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PMinSize
             if max_width != Props.HintAction.KEEP:
                 if max_width != Props.HintAction.REMOVE:
-                    hints["max_width"] = max_width
-                    hints["flags"] = hints["flags"] | Xlib.Xutil.PMaxSize
+                    normal_hints.max_width = max_width
+                    normal_hints.flags = normal_hints.flags | Xlib.Xutil.PMaxSize
                 else:
-                    hints["flags"] = hints["flags"] & ~Xlib.Xutil.PMaxSize
+                    normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PMaxSize
             if max_height != Props.HintAction.KEEP:
                 if max_height != Props.HintAction.REMOVE:
-                    hints["max_height"] = max_height
-                    hints["flags"] = hints["flags"] | Xlib.Xutil.PMaxSize
+                    normal_hints.max_height = max_height
+                    normal_hints.flags = normal_hints.flags | Xlib.Xutil.PMaxSize
                 else:
-                    hints["flags"] = hints["flags"] & ~Xlib.Xutil.PMaxSize
+                    normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PMaxSize
             if width_inc != Props.HintAction.KEEP:
                 if width_inc != Props.HintAction.REMOVE:
-                    hints["width_inc"] = width_inc
-                    hints["flags"] = hints["flags"] | Xlib.Xutil.PResizeInc
+                    normal_hints.width_inc = width_inc
+                    normal_hints.flags = normal_hints.flags | Xlib.Xutil.PResizeInc
                 else:
-                    hints["flags"] = hints["flags"] & ~Xlib.Xutil.PResizeInc
+                    normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PResizeInc
             if height_inc != Props.HintAction.KEEP:
                 if height_inc != Props.HintAction.REMOVE:
-                    hints.height_inc = height_inc
-                    hints["flags"] = hints["flags"] | Xlib.Xutil.PResizeInc
+                    normal_hints.height_inc = height_inc
+                    normal_hints.flags = normal_hints.flags | Xlib.Xutil.PResizeInc
                 else:
-                    hints["flags"] = hints["flags"] & ~Xlib.Xutil.PResizeInc
+                    normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PResizeInc
             if min_aspect != Props.HintAction.KEEP:
                 if min_aspect != Props.HintAction.REMOVE:
                     if isinstance(min_aspect, Structs.Aspect):
-                        hints["min_aspect"] = min_aspect
-                        hints["flags"] = hints["flags"] | Xlib.Xutil.PAspect
+                        normal_hints.min_aspect = min_aspect
+                        normal_hints.flags = normal_hints.flags | Xlib.Xutil.PAspect
                 else:
-                    hints["flags"] = hints["flags"] & ~Xlib.Xutil.PAspect
+                    normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PAspect
             if max_aspect != Props.HintAction.KEEP:
                 if max_aspect != Props.HintAction.REMOVE:
                     if isinstance(max_aspect, Structs.Aspect):
-                        hints["max_aspect"] = max_aspect
-                        hints["flags"] = hints["flags"] | Xlib.Xutil.PAspect
+                        normal_hints.max_aspect = max_aspect
+                        normal_hints.flags = normal_hints.flags | Xlib.Xutil.PAspect
                 else:
-                    hints["flags"] = hints["flags"] & ~Xlib.Xutil.PAspect
+                    normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PAspect
             if base_width != Props.HintAction.KEEP:
                 if base_width != Props.HintAction.REMOVE:
-                    hints["base_width"] = base_width
-                    hints["flags"] = hints["flags"] | Xlib.Xutil.PBaseSize
+                    normal_hints.base_width = base_width
+                    normal_hints.flags = normal_hints.flags | Xlib.Xutil.PBaseSize
                 else:
-                    hints["flags"] = hints["flags"] & ~Xlib.Xutil.PBaseSize
+                    normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PBaseSize
             if base_height != Props.HintAction.KEEP:
                 if base_height != Props.HintAction.REMOVE:
-                    hints["base_height"] = base_height
-                    hints["flags"] = hints["flags"] | Xlib.Xutil.PBaseSize
+                    normal_hints.base_height = base_height
+                    normal_hints.flags = normal_hints.flags | Xlib.Xutil.PBaseSize
                 else:
-                    hints["flags"] = hints["flags"] & ~Xlib.Xutil.PBaseSize
+                    normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PBaseSize
             if win_gravity != Props.HintAction.KEEP:
                 if win_gravity != Props.HintAction.REMOVE:
-                    hints["win_gravity"] = win_gravity
-                    hints["flags"] = hints["flags"] | Xlib.Xutil.PWinGravity
+                    normal_hints.win_gravity = win_gravity
+                    normal_hints.flags = normal_hints.flags | Xlib.Xutil.PWinGravity
                 else:
-                    hints["flags"] = hints["flags"] & ~Xlib.Xutil.PWinGravity
-            self.xWindow.set_wm_normal_hints(cast(Dict[str, Any], hints))
+                    normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PWinGravity
+            self.xWindow.set_wm_normal_hints(normal_hints)
             self.display.flush()
 
     def getWmProtocols(self, text: bool = False) -> Union[List[int], List[str]]:
