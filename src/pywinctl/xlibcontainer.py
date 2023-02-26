@@ -2333,8 +2333,8 @@ class _Extensions:
         :param max_height: max height of window
         :param width_inc: width changes increments (in pixels)
         :param height_inc: height changes increments (in pixels)
-        :param min_aspect: X, Y ratio for min_aspect
-        :param max_aspect: X, Y ratio for max_aspect
+        :param min_aspect: X (numerator), Y (denumerator) ratio for min_aspect
+        :param max_aspect: X (numerator, Y (denumerator) ratio for max_aspect
         :param base_width: Preferred width of window
         :param base_height: Preferred height of window
         :param int win_gravity: window gravity for placing an re-stacking
@@ -2381,16 +2381,16 @@ class _Extensions:
             if min_aspect != Props.HintAction.KEEP:
                 if min_aspect != Props.HintAction.REMOVE:
                     if isinstance(min_aspect, dict):
-                        normal_hints.min_aspect.x = min_aspect["x"]
-                        normal_hints.min_aspect.y = min_aspect["y"]
+                        normal_hints.min_aspect.x = min_aspect["num"]
+                        normal_hints.min_aspect.y = min_aspect["denum"]
                         normal_hints.flags = normal_hints.flags | Xlib.Xutil.PAspect
                 else:
                     normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PAspect
             if max_aspect != Props.HintAction.KEEP:
                 if max_aspect != Props.HintAction.REMOVE:
                     if isinstance(max_aspect, dict):
-                        normal_hints.max_aspect.x = max_aspect["x"]
-                        normal_hints.max_aspect.y = max_aspect["y"]
+                        normal_hints.max_aspect.x = max_aspect["num"]
+                        normal_hints.max_aspect.y = max_aspect["denum"]
                         normal_hints.flags = normal_hints.flags | Xlib.Xutil.PAspect
                 else:
                     normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PAspect
