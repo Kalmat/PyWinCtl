@@ -2342,15 +2342,15 @@ class _Extensions:
         the client window would have been placed in the absence of a window manager.
         """
         normal_hints: Optional[Xlib.protocol.rq.DictWrapper] = self.xWindow.get_wm_normal_hints()
-        min_aspect: Structs.Aspect = Structs.Aspect(
-            num=normal_hints.min_aspect.num,
-            denum=normal_hints.min_aspect.denum
-        )
-        max_aspect: Structs.Aspect = Structs.Aspect(
-            num=normal_hints.max_aspect.num,
-            denum=normal_hints.max_aspect.denum
-        )
         if normal_hints is not None:
+            min_aspect: Structs.Aspect = Structs.Aspect(
+                num=normal_hints.min_aspect.num,
+                denum=normal_hints.min_aspect.denum
+            )
+            max_aspect: Structs.Aspect = Structs.Aspect(
+                num=normal_hints.max_aspect.num,
+                denum=normal_hints.max_aspect.denum
+            )
             ret: Structs.WmNormalHints = Structs.WmNormalHints(
                 flags=normal_hints.flags,
                 min_width=normal_hints.min_width,
@@ -3122,13 +3122,14 @@ def main():
         print(win.extensions.getWmHints())
         print("WM NORMAL HINTS")
         normal_hints = win.extensions.getWmNormalHints()
-        print(normal_hints)
-        print("AVOID RESIZE")
-        win.extensions.setWmNormalHints(min_width=600, max_width=600, min_height=400, max_height=400)
-        time.sleep(4)
-        print(win.extensions.getWmNormalHints())
-        win.extensions.setWmNormalHints(min_width=normal_hints["min_width"], max_width=normal_hints["max_height"], min_height=normal_hints["min_height"], max_height=normal_hints["max_height"])
-        print(win.extensions.getWmNormalHints())
+        if normal_hints is not None:
+            print(normal_hints)
+            print("AVOID RESIZE")
+            win.extensions.setWmNormalHints(min_width=600, max_width=600, min_height=400, max_height=400)
+            time.sleep(4)
+            print(win.extensions.getWmNormalHints())
+            win.extensions.setWmNormalHints(min_width=normal_hints["min_width"], max_width=normal_hints["max_height"], min_height=normal_hints["min_height"], max_height=normal_hints["max_height"])
+            print(win.extensions.getWmNormalHints())
         print("WM PROTOCOLS")
         print(win.extensions.getWmProtocols(True))
         print("REQUEST CLOSE")
