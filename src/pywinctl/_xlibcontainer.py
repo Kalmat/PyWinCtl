@@ -10,7 +10,7 @@ assert sys.platform == "linux"
 import threading
 import time
 from enum import Enum, IntEnum
-from typing import Iterable, Optional, cast, Callable, Union, List, Tuple, Any, Dict
+from typing import Iterable, Optional, cast, Callable, Union, List, Tuple
 
 from typing_extensions import TypedDict
 
@@ -102,6 +102,13 @@ def getDisplayFromWindow(winId: int) -> Tuple[Xlib.display.Display, Struct, XWin
     :param winId: id of the window
     :return: tuple containing display connection, screen struct and root window
     """
+    # ret: Tuple[bool, Structs._XWindowAttributes] = _XlibAttributes(winId)
+    # res: bool = ret[0]
+    # attr: Structs._XWindowAttributes = ret[1]
+    # if res and hasattr(attr, "root"):
+    #     targetRoot: int = attr.root
+    #     return getDisplayFromRoot(targetRoot)
+    # else:
     displays: List[str] = os.listdir("/tmp/.X11-unix")
     check = False
     if len(displays) > 1:
@@ -302,7 +309,9 @@ class Props:
         WM_MOVERESIZE = "_NET_WM_MOVERESIZE"
         RESTACK = "_NET_RESTACK_WINDOW"
         REQ_FRAME_EXTENTS = "_NET_REQUEST_FRAME_EXTENTS"
-    
+        OPAQUE_REGION = "_NET_WM_OPAQUE_REGION"
+        BYPASS_COMPOSITOR = "_NET_WM_BYPASS_COMPOSITOR"
+
     class WindowType(Enum):
         DESKTOP = "_NET_WM_WINDOW_TYPE_DESKTOP"
         DOCK = "_NET_WM_WINDOW_TYPE_DOCK"
@@ -410,6 +419,18 @@ class Structs:
         base_height: int
         win_gravity: int
 
+    # class _XWindowAttributes(Structure):
+    #     _fields_ = [('x', c_int32), ('y', c_int32),
+    #                 ('width', c_int32), ('height', c_int32), ('border_width', c_int32),
+    #                 ('depth', c_int32), ('visual', c_ulong), ('root', c_ulong),
+    #                 ('class', c_int32), ('bit_gravity', c_int32),
+    #                 ('win_gravity', c_int32), ('backing_store', c_int32),
+    #                 ('backing_planes', c_ulong), ('backing_pixel', c_ulong),
+    #                 ('save_under', c_int32), ('colourmap', c_ulong),
+    #                 ('mapinstalled', c_uint32), ('map_state', c_uint32),
+    #                 ('all_event_masks', c_ulong), ('your_event_mask', c_ulong),
+    #                 ('do_not_propagate_mask', c_ulong), ('override_redirect', c_int32), ('screen', c_ulong)]
+
 
 class RootWindow:
     """
@@ -481,7 +502,7 @@ class RootWindow:
         """
         sendMessage(winId, prop, data, self.display, self.root)
 
-    def getSupported(self, text: bool = False) -> Optional[Union[List[int], List[str]]]:
+    def getSupportedHints(self, text: bool = False) -> Optional[Union[List[int], List[str]]]:
         """
         Returns the list of supported hints by the Window Manager.
 
@@ -1777,6 +1798,12 @@ class EwmhWindow:
             res = cast(List[int], res)
         return res
 
+    def _getNetFrameExtents(self) -> Optional[Union[List[int], List[str]]]:
+        return getPropertyValue(self.getProperty("_NET_FRAME_EXTENTS"))
+
+    def _getGtkFrameExtents(self) -> Optional[Union[List[int], List[str]]]:
+        return getPropertyValue(self.getProperty("_GTK_FRAME_EXTENTS"))
+
     def getFrameExtents(self) -> Optional[List[int]]:
         """
         Get the current window frame extents (space reserved by the window manager around window)
@@ -1784,17 +1811,56 @@ class EwmhWindow:
         The Window Manager MUST set _NET_FRAME_EXTENTS to the extents of the window's frame. left, right, top
         and bottom are widths of the respective borders added by the Window Manager.
 
+        AUTHOR COMMENT: Since GNOME doesn't obey this rule, _GTK_FRAME_EXTENTS has been added to try to get
+        the proper values (though, again, GNOME uses them in a very different way).
+
         :return: left, right, top, bottom
         """
-        prop = "_GTK_FRAME_EXTENTS"
-        atom = self.display.intern_atom(prop, True)
-        if not atom:
-            prop = "_NET_FRAME_EXTENTS"
-        ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(prop)
+        res: Optional[Union[List[int], List[str]]] = self._getNetFrameExtents() or self._getGtkFrameExtents()
+        if res is not None:
+            res = cast(List[int], res)
+            return res
+        return res
+
+    def getOpaqueRegion(self):
+        """
+        The Client MAY set this property to a list of 4-tuples [x, y, width, height], each representing a rectangle
+        in window coordinates where the pixels of the window's contents have a fully opaque alpha value. If the
+        window is drawn by the compositor without adding any transparency, then such a rectangle will occlude
+        whatever is drawn behind it. When the window has an RGB visual rather than an ARGB visual, this property
+        is not typically useful, since the effective opaque region of a window is exactly the bounding region of
+        the window as set via the shape extension. For windows with an ARGB visual and also a bounding region set
+        via the shape extension, the effective opaque region is given by the intersection of the region set by this
+        property and the bounding region set via the shape extension. The compositing manager MAY ignore this hint.
+
+        Rationale: This gives the compositing manager more room for optimizations. For example, it can avoid drawing
+        occluded portions behind the window.
+        """
+        ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Window.OPAQUE_REGION.value)
         res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res is not None:
             res = cast(List[int], res)
         return res
+
+    def getBypassCompositor(self):
+        """
+        The Client MAY set this property to a list of 4-tuples [x, y, width, height], each representing a rectangle
+        in window coordinates where the pixels of the window's contents have a fully opaque alpha value. If the window
+        is drawn by the compositor without adding any transparency, then such a rectangle will occlude whatever is
+        drawn behind it. When the window has an RGB visual rather than an ARGB visual, this property is not typically
+        useful, since the effective opaque region of a window is exactly the bounding region of the window as set via
+        the shape extension. For windows with an ARGB visual and also a bounding region set via the shape extension,
+        the effective opaque region is given by the intersection of the region set by this property and the bounding
+        region set via the shape extension. The compositing manager MAY ignore this hint.
+
+        Rationale: This gives the compositing manager more room for optimizations. For example, it can avoid
+        drawing occluded portions behind the window.
+        """
+        ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Window.BYPASS_COMPOSITOR.value)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
+        if res:
+            return int(res[0])
+        return None
 
     def setActive(self, userAction: bool = True):
         """
@@ -1913,7 +1979,7 @@ class EwmhWindow:
         :param height: target height of window. Defaults to None (unchanged)
         :param userAction: set to ''True'' to force action, as if it was requested by a user action. Defaults to True
         """
-        # gravity_flags directly taken from 'old' ewmh module
+        # gravity_flags directly taken from "old" ewmh module
         gravity_flags = gravity | 0b0000100000000000
         if x is None:
             x = 0
@@ -2152,14 +2218,16 @@ class _Extensions:
             # If None: WM doesn't use them or should we initialize them (and how)?
             if input_mode != Props.HintAction.KEEP:
                 if input_mode != Props.HintAction.REMOVE:
-                    hints.input_mode = input_mode
-                    hints.flags = hints.flags | Xlib.Xutil.InputHint
+                    if input_mode in (0, 1):
+                        hints.input_mode = input_mode
+                        hints.flags = hints.flags | Xlib.Xutil.InputHint
                 else:
                     hints.flags = hints.flags & ~Xlib.Xutil.InputHint
             if initial_state != Props.HintAction.KEEP:
                 if initial_state != Props.HintAction.REMOVE:
-                    hints.initial_state = initial_state
-                    hints.flags = hints.flags | Xlib.Xutil.StateHint
+                    if initial_state in (Xlib.Xutil.NormalState, Xlib.Xutil.IconicState, Xlib.Xutil.WithdrawnState, Xlib.Xutil.ZoomState):
+                        hints.initial_state = initial_state
+                        hints.flags = hints.flags | Xlib.Xutil.StateHint
                 else:
                     hints.flags = hints.flags & ~Xlib.Xutil.StateHint
             if icon_pixmap != Props.HintAction.KEEP:
@@ -2188,7 +2256,7 @@ class _Extensions:
                     hints.flags = hints.flags | Xlib.Xutil.IconPositionHint
                 else:
                     hints.flags = hints.flags & ~Xlib.Xutil.IconPositionHint
-            if icon_y != Props.HintAction.KEEP:
+            if icon_mask != Props.HintAction.KEEP:
                 if icon_mask != Props.HintAction.REMOVE:
                     if isinstance(icon_mask, Xlib.xobject.drawable.Pixmap):
                         hints.icon_mask = icon_mask
@@ -2274,6 +2342,14 @@ class _Extensions:
         the client window would have been placed in the absence of a window manager.
         """
         normal_hints: Optional[Xlib.protocol.rq.DictWrapper] = self.xWindow.get_wm_normal_hints()
+        min_aspect: Structs.Aspect = Structs.Aspect(
+            num=normal_hints.min_aspect.num,
+            denum=normal_hints.min_aspect.denum
+        )
+        max_aspect: Structs.Aspect = Structs.Aspect(
+            num=normal_hints.max_aspect.num,
+            denum=normal_hints.max_aspect.denum
+        )
         if normal_hints is not None:
             ret: Structs.WmNormalHints = Structs.WmNormalHints(
                 flags=normal_hints.flags,
@@ -2283,8 +2359,8 @@ class _Extensions:
                 max_height=normal_hints.max_height,
                 width_inc=normal_hints.width_inc,
                 height_inc=normal_hints.height_inc,
-                min_aspect=normal_hints.min_aspect,
-                max_aspect=normal_hints.max_aspect,
+                min_aspect=min_aspect,
+                max_aspect=max_aspect,
                 base_width=normal_hints.base_width,
                 base_height=normal_hints.base_height,
                 win_gravity=normal_hints.win_gravity
@@ -2343,65 +2419,65 @@ class _Extensions:
         if normal_hints is not None:
             # If None: WM doesn't use them or should we initialize them (and how)?
             if min_width != Props.HintAction.KEEP:
-                if min_width != Props.HintAction.REMOVE:
+                if min_width != Props.HintAction.REMOVE or min_width == 0:
                     normal_hints.min_width = min_width
                     normal_hints.flags = normal_hints.flags | Xlib.Xutil.PMinSize
                 else:
                     normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PMinSize
             if min_height != Props.HintAction.KEEP:
-                if min_height != Props.HintAction.REMOVE:
+                if min_height != Props.HintAction.REMOVE or min_height == 0:
                     normal_hints.min_height = min_height
                     normal_hints.flags = normal_hints.flags | Xlib.Xutil.PMinSize
                 else:
                     normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PMinSize
             if max_width != Props.HintAction.KEEP:
-                if max_width != Props.HintAction.REMOVE:
+                if max_width != Props.HintAction.REMOVE and max_width != 0:
                     normal_hints.max_width = max_width
                     normal_hints.flags = normal_hints.flags | Xlib.Xutil.PMaxSize
                 else:
                     normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PMaxSize
             if max_height != Props.HintAction.KEEP:
-                if max_height != Props.HintAction.REMOVE:
+                if max_height != Props.HintAction.REMOVE and max_height != 0:
                     normal_hints.max_height = max_height
                     normal_hints.flags = normal_hints.flags | Xlib.Xutil.PMaxSize
                 else:
                     normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PMaxSize
             if width_inc != Props.HintAction.KEEP:
-                if width_inc != Props.HintAction.REMOVE:
+                if width_inc != Props.HintAction.REMOVE or width_inc == 0:
                     normal_hints.width_inc = width_inc
                     normal_hints.flags = normal_hints.flags | Xlib.Xutil.PResizeInc
                 else:
                     normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PResizeInc
-            if height_inc != Props.HintAction.KEEP:
+            if height_inc != Props.HintAction.KEEP or height_inc == 0:
                 if height_inc != Props.HintAction.REMOVE:
                     normal_hints.height_inc = height_inc
                     normal_hints.flags = normal_hints.flags | Xlib.Xutil.PResizeInc
                 else:
                     normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PResizeInc
             if min_aspect != Props.HintAction.KEEP:
-                if min_aspect != Props.HintAction.REMOVE:
-                    if isinstance(min_aspect, dict):
-                        normal_hints.min_aspect.x = min_aspect["num"]
-                        normal_hints.min_aspect.y = min_aspect["denum"]
-                        normal_hints.flags = normal_hints.flags | Xlib.Xutil.PAspect
-                else:
+                if isinstance(min_aspect, dict) and min_aspect["num"] != 0 and min_aspect["denum"] != 0:
+                    normal_hints.min_aspect.x = min_aspect["num"]
+                    normal_hints.min_aspect.y = min_aspect["denum"]
+                    normal_hints.flags = normal_hints.flags | Xlib.Xutil.PAspect
+                elif min_aspect == Props.HintAction.REMOVE or \
+                        (isinstance(min_aspect, dict) and min_aspect["num"] == 0 and min_aspect["denum"] == 0):
                     normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PAspect
             if max_aspect != Props.HintAction.KEEP:
-                if max_aspect != Props.HintAction.REMOVE:
-                    if isinstance(max_aspect, dict):
-                        normal_hints.max_aspect.x = max_aspect["num"]
-                        normal_hints.max_aspect.y = max_aspect["denum"]
-                        normal_hints.flags = normal_hints.flags | Xlib.Xutil.PAspect
-                else:
+                if isinstance(max_aspect, dict) and max_aspect["num"] != 0 and max_aspect["denum"] != 0:
+                    normal_hints.max_aspect.x = max_aspect["num"]
+                    normal_hints.max_aspect.y = max_aspect["denum"]
+                    normal_hints.flags = normal_hints.flags | Xlib.Xutil.PAspect
+                elif max_aspect == Props.HintAction.REMOVE or \
+                        (isinstance(max_aspect, dict) and max_aspect["num"] == 0 and max_aspect["denum"] == 0):
                     normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PAspect
             if base_width != Props.HintAction.KEEP:
-                if base_width != Props.HintAction.REMOVE:
+                if base_width != Props.HintAction.REMOVE or base_width == 0:
                     normal_hints.base_width = base_width
                     normal_hints.flags = normal_hints.flags | Xlib.Xutil.PBaseSize
                 else:
                     normal_hints.flags = normal_hints.flags & ~Xlib.Xutil.PBaseSize
             if base_height != Props.HintAction.KEEP:
-                if base_height != Props.HintAction.REMOVE:
+                if base_height != Props.HintAction.REMOVE or base_height == 0:
                     normal_hints.base_height = base_height
                     normal_hints.flags = normal_hints.flags | Xlib.Xutil.PBaseSize
                 else:
@@ -2818,50 +2894,43 @@ def _closeTransient(transientWindow: EwmhWindow):
     transientWindow.setClosed()
 
 
-# from ctypes import cdll
+# from ctypes import cdll, Structure, c_int32, c_ulong, c_uint32, byref
 # from ctypes.util import find_library
+# x11: Optional[str] = None
+# xlib: Optional[ctypes.CDLL] = None
+# xcomp: Optional[ctypes.CDLL] = None
+# tryToLoadXlib = True
 #
-# def _sendBehind(self):
+# def _XlibAttributes(winId: int) -> Tuple[bool, Structs._XWindowAttributes]:
+#     resOK: bool = False
+#     attr: Structs._XWindowAttributes = Structs._XWindowAttributes()
 #
-#     x11 = find_library('X11')
-#     xlib = cdll.LoadLibrary(str(x11))
-#     xcomp = find_library('Xcomposite')
-#     xcomplib = cdll.LoadLibrary(str(xcomp))
+#     global x11
+#     global xlib
+#     global tryToLoadXlib
 #
-#     d = xlib.XOpenDisplay(0)
-#     print("GET", xcomplib.XCompositeGetOverlayWindow(d, self._win.root.id))
-#     xlib.XFlush(d)
-#     print("REDIR", xcomplib.XCompositeRedirectWindow(d, self._xWin.id, 1))  # update values unknow (CompositeRedirectAutomatic or CompositeRedirectManual)
-#     xlib.XFlush(d)
-#     print("REDSUB", xcomplib.XCompositeRedirectSubwindows(d, self._xWin.id, 1))
-#     xlib.XFlush(d)
-#     print(xcomplib.XCompositeVersion())
-#     # xlib.XCloseDisplay(d)
+#     if tryToLoadXlib:
+#         if xlib is None:
+#             try:
+#                 if x11 is None:
+#                     x11 = find_library('X11')
+#                 if x11 is not None:
+#                     xlib = cdll.LoadLibrary(x11)
+#             except:
+#                 x11 = None
+#                 xlib = None
+#                 tryToLoadXlib = False
 #
-# class _XWindowAttributes(Structure):
-#     _fields_ = [('x', c_int32), ('y', c_int32),
-#                 ('width', c_int32), ('height', c_int32), ('border_width', c_int32),
-#                 ('depth', c_int32), ('visual', c_ulong), ('root', c_ulong),
-#                 ('class', c_int32), ('bit_gravity', c_int32),
-#                 ('win_gravity', c_int32), ('backing_store', c_int32),
-#                 ('backing_planes', c_ulong), ('backing_pixel', c_ulong),
-#                 ('save_under', c_int32), ('colourmap', c_ulong),
-#                 ('mapinstalled', c_uint32), ('map_state', c_uint32),
-#                 ('all_event_masks', c_ulong), ('your_event_mask', c_ulong),
-#                 ('do_not_propagate_mask', c_ulong), ('override_redirect', c_int32), ('screen', c_ulong)]
+#         if xlib is not None:
+#             try:
+#                 # Must discover how to address proper display (this is an int, and disp.get_display_name() is a str)
+#                 d: Xlib.display.Display = xlib.XOpenDisplay(0)
+#                 xlib.XGetWindowAttributes(d, winId, byref(attr))
+#                 xlib.XCloseDisplay(d)
+#                 resOK = True
+#             except:
+#                 pass
 #
-# def XlibAttributes(self) -> Tuple[bool, _XWindowWrapper._XWindowAttributes]:
-#     attr = _XWindowWrapper._XWindowAttributes()
-#     try:
-#         if self.xlib is None:
-#             x11 = find_library('X11')
-#             self.xlib = cdll.LoadLibrary(str(x11))
-#         d = self.xlib.XOpenDisplay(0)
-#         self.xlib.XGetWindowAttributes(d, self.id, byref(attr))
-#         self.xlib.XCloseDisplay(d)
-#         resOK = True
-#     except:
-#         resOK = False
 #     return resOK, attr
 #
 #     # Leaving this as reference of using X11 library
@@ -2909,10 +2978,26 @@ def _closeTransient(transientWindow: EwmhWindow):
 #     #     print(atom, DISP.get_atom_name(atom))
 #     #     print(DISP.xrandr_get_output_property(output, atom, 0, 0, 1000)._data['value'])
 
+# Failed/incomplete attempt of using Composite Overlay to draw window in between desktop and desktop icons:
+# def _sendBehind(self):
+#
+#     x11 = find_library('X11')
+#     xlib = cdll.LoadLibrary(str(x11))
+#     xcomp = find_library('Xcomposite')
+#     xcomplib = cdll.LoadLibrary(str(xcomp))
+#     print(xcomplib.XCompositeVersion())
+#
+#     d = xlib.XOpenDisplay(0)
+#     print("GET", xcomplib.XCompositeGetOverlayWindow(d, self._win.root.id))
+#     print("REDIR", xcomplib.XCompositeRedirectWindow(d, self._xWin.id, 1))  # update values unknow (CompositeRedirectAutomatic or CompositeRedirectManual)
+#     xlib.XFlush(d)
+#     print("REDSUB", xcomplib.XCompositeRedirectSubwindows(d, self._xWin.id, 1))
+#     xlib.XFlush(d)
+#     # xlib.XCloseDisplay(d)
 
 def main():
     print("ALL DISPLAYS")
-    # print(getAllDisplaysInfo())
+    print(getAllDisplaysInfo())
 
     root = RootWindow()
 
@@ -2946,7 +3031,7 @@ def main():
     print(root.getCurrentDesktop())
 
     print("SUPPORTED HINTS")
-    print(root.getSupported(True))
+    print(root.getSupportedHints(True))
 
     print("CLIENT LIST")
     print(root.getClientList())
@@ -3038,7 +3123,11 @@ def main():
         print("WM NORMAL HINTS")
         normal_hints = win.extensions.getWmNormalHints()
         print(normal_hints)
+        print("AVOID RESIZE")
         win.extensions.setWmNormalHints(min_width=600, max_width=600, min_height=400, max_height=400)
+        time.sleep(4)
+        print(win.extensions.getWmNormalHints())
+        win.extensions.setWmNormalHints(min_width=normal_hints["min_width"], max_width=normal_hints["max_height"], min_height=normal_hints["min_height"], max_height=normal_hints["max_height"])
         print(win.extensions.getWmNormalHints())
         print("WM PROTOCOLS")
         print(win.extensions.getWmProtocols(True))

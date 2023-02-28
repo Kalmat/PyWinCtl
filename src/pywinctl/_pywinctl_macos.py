@@ -563,9 +563,8 @@ class MacOSWindow(BaseWindow):
         Notice that this method won't match non-standard window decoration style sizes
 
         :return: Rect struct
-
-        WARNING: it will fail if not called within main thread
         """
+        # Many thanks to super-iby for this solution which allows using this function from non-main thread
 
         targetSelector = b'getTitleBarHeightAndBorderWidth'
 
@@ -575,7 +574,7 @@ class MacOSWindow(BaseWindow):
         else:
 
             class WindowDelegate(AppKit.NSObject):  # type: ignore[no-redef]
-                """Helps run window operations on the main thread."""
+                """super-iby: Helps run window operations on the main thread."""
 
                 results: Dict[bytes, Any] = {}  # Store results here. Not ideal, but may be better than using a global.
 

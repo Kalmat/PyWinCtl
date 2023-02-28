@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # pyright: reportUnknownMemberType=false
+from __future__ import annotations
+
 
 import difflib
 import re
@@ -102,7 +104,6 @@ def _levenshtein(seq1: str, seq2: str) -> float:
     # https://stackabuse.com/levenshtein-distance-and-text-similarity-in-python/
     # Adapted to return a similarity percentage, which is easier to define
     # Removed numpy to reduce dependencies. This is likely slower, but titles are not too long
-    # SPed up filling in the top row
     size_x = len(seq1) + 1
     size_y = len(seq2) + 1
     matrix = [[0 for _y in range(size_y)] for _x in range(size_x)]

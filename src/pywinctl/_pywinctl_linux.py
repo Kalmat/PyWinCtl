@@ -13,7 +13,6 @@ import platform
 import re
 import subprocess
 import time
-import tkinter as tk
 from typing import cast, Optional, Union, List, Tuple
 from typing_extensions import TypedDict
 
@@ -300,8 +299,25 @@ class LinuxWindow(BaseWindow):
 
     def _getBorderSizes(self):
 
-        class App(tk.Tk):
+        # Didn't find a way to get title bar height using Xlib in GNOME
+        # ret, a = self.XlibAttributes()  # -> Should return client area, but it doesn't...
+        # if res:
+        #     res = Rect(a.x, a.y, a.x + a.width, a.y + a.height)
+        # else:
+        #     res = self.getWindowRect()
+        #
+        # This works in Cinnamon, but not in GNOME
+        # titleHeight = 0
+        # extents = self._win.getFrameExtents()
+        # if extents and len(extents) >= 4:
+        #     titleHeight = extents[2]
+        # geom = self._xWin.get_geometry()
+        # borderWidth = geom.border_width
+        # return titleHeight, borderWidth
 
+        import tkinter as tk
+
+        class App(tk.Tk):
             def __init__(self):
                 super().__init__()
                 self.geometry('0x0+200+200')
@@ -330,12 +346,9 @@ class LinuxWindow(BaseWindow):
         :param includeBorder: set to ''False'' to avoid including borders
         :return: (left, top, right, bottom) additional frame size in pixels, as a tuple of int
         """
-        ret: List[int] = self._win.getFrameExtents()
-        if not ret: ret = [0, 0, 0, 0]
+        ret: List[int] = self._win.getFrameExtents() or [0, 0, 0, 0]
         borderWidth = 0
         if includeBorder:
-            # _, a = self.XlibAttributes()
-            # borderWidth = a.border_width
             if includeBorder:
                 titleHeight, borderWidth = self._getBorderSizes()
         frame = (ret[0] + borderWidth, ret[2] + borderWidth, ret[1] + borderWidth, ret[3] + borderWidth)
@@ -348,12 +361,6 @@ class LinuxWindow(BaseWindow):
 
         :return: Rect struct
         """
-        # res, a = self.XlibAttributes()  -> Should return client area, but it doesn't...
-        # if res:
-        #     ret = Rect(a.x, a.y, a.x + a.width, a.y + a.height)
-        # else:
-        #     ret = self.getWindowRect()
-        # Didn't find a way to get title bar height using Xlib
         titleHeight, borderWidth = self._getBorderSizes()
         geom = self._win.xWindow.get_geometry()
         ret = Rect(int(geom.x + borderWidth), int(geom.y - titleHeight), int(geom.x + geom.width - borderWidth * 2), int(geom.y + geom.height - borderWidth))
@@ -1025,7 +1032,7 @@ def main():
     """Run this script from command-line to get windows under mouse pointer"""
     print("PLATFORM:", sys.platform)
     print("SCREEN SIZE:", resolution())
-    print("ALL WINDOWS", getAllTitles())
+    print("ALL WINDOWS:", getAllTitles())
     npw = getActiveWindow()
     if npw is None:
         print("ACTIVE WINDOW:", None)
