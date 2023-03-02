@@ -9,7 +9,7 @@ import sys
 import threading
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any, cast, List, Tuple
+from typing import Any, cast, List, Tuple, Union
 
 from ._mybox import Rect, Box, BoundingBox, Size, Point, MyBox
 
@@ -414,7 +414,7 @@ class BaseWindow(ABC):
         return self._box.position
 
     @position.setter
-    def position(self, value: Point):
+    def position(self, value: Union[Point, Tuple[int, int]]):
         self._box.position = value
 
     @property
@@ -422,7 +422,7 @@ class BaseWindow(ABC):
         return self._box.size
 
     @size.setter
-    def size(self, value: Size):
+    def size(self, value: Union[Size, Tuple[int, int]]):
         self._box.size = value
 
     @property
@@ -430,7 +430,7 @@ class BaseWindow(ABC):
         return self._box.box
 
     @box.setter
-    def box(self, value: Box):
+    def box(self, value: Union[Box, Tuple[int, int, int, int]]):
         self._box.box = value
 
     @property
@@ -438,7 +438,7 @@ class BaseWindow(ABC):
         return self._box.bbox
 
     @bbox.setter
-    def bbox(self, value: BoundingBox):
+    def bbox(self, value: Union[BoundingBox, Tuple[int, int, int, int]]):
         self._box.bbox = value
 
     @property
@@ -446,7 +446,7 @@ class BaseWindow(ABC):
         return self._box.rect
 
     @rect.setter
-    def rect(self, value: Rect):
+    def rect(self, value: Union[Rect, Tuple[int, int, int, int]]):
         self._box.rect = value
 
     @property
@@ -454,7 +454,7 @@ class BaseWindow(ABC):
         return self._box.topleft
 
     @topleft.setter
-    def topleft(self, value: Point):
+    def topleft(self, value: Union[Point, Tuple[int, int]]):
         self._box.topleft = value
 
     @property
@@ -462,7 +462,7 @@ class BaseWindow(ABC):
         return self._box.bottomleft
 
     @bottomleft.setter
-    def bottomleft(self, value: Point):
+    def bottomleft(self, value: Union[Point, Tuple[int, int]]):
         self._box.bottomleft = value
 
     @property
@@ -470,7 +470,7 @@ class BaseWindow(ABC):
         return self._box.topright
 
     @topright.setter
-    def topright(self, value: Point):
+    def topright(self, value: Union[Point, Tuple[int, int]]):
         self._box.topright = value
 
     @property
@@ -478,7 +478,7 @@ class BaseWindow(ABC):
         return self._box.bottomright
 
     @bottomright.setter
-    def bottomright(self, value: Point):
+    def bottomright(self, value: Union[Point, Tuple[int, int]]):
         self._box.bottomright = value
 
     @property
@@ -486,7 +486,7 @@ class BaseWindow(ABC):
         return self._box.midtop
 
     @midtop.setter
-    def midtop(self, value: Point):
+    def midtop(self, value: Union[Point, Tuple[int, int]]):
         self._box.midtop = value
 
     @property
@@ -494,7 +494,7 @@ class BaseWindow(ABC):
         return self._box.midbottom
 
     @midbottom.setter
-    def midbottom(self, value: Point):
+    def midbottom(self, value: Union[Point, Tuple[int, int]]):
         self._box.midbottom = value
 
     @property
@@ -502,7 +502,7 @@ class BaseWindow(ABC):
         return self._box.midleft
 
     @midleft.setter
-    def midleft(self, value: Point):
+    def midleft(self, value: Union[Point, Tuple[int, int]]):
         self._box.midleft = value
 
     @property
@@ -510,7 +510,7 @@ class BaseWindow(ABC):
         return self._box.midright
 
     @midright.setter
-    def midright(self, value: Point):
+    def midright(self, value: Union[Point, Tuple[int, int]]):
         self._box.midright = value
 
     @property
@@ -518,7 +518,7 @@ class BaseWindow(ABC):
         return self._box.center
 
     @center.setter
-    def center(self, value: Point):
+    def center(self, value: Union[Point, Tuple[int, int]]):
         self._box.center = value
 
     @property

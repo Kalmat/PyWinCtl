@@ -993,6 +993,7 @@ class MacOSWindow(BaseWindow):
                 box.width != newWidth and box.height != newHeight:
             retries += 1
             time.sleep(WAIT_DELAY * retries)
+            box = self.box
         return newLeft == box.left and newTop == box.top and newWidth == box.width and newHeight == box.height
 
     def alwaysOnTop(self, aot: bool = True) -> bool:
@@ -2194,7 +2195,8 @@ class MacOSNSWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
-        return self.resizeTo(int(self.width + widthOffset), int(self.height + heightOffset), wait)
+        box = self.box
+        return self.resizeTo(box.width + widthOffset, box.height + heightOffset, wait)
 
     resizeRel = resize  # resizeRel is an alias for the resize() method.
 
@@ -2207,16 +2209,19 @@ class MacOSNSWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
+        box = self.bottomleft
         self._hWnd.setFrame_display_animate_(
-            AppKit.NSMakeRect(self.bottomleft.x, self.bottomleft.y, newWidth, newHeight),
+            AppKit.NSMakeRect(box.x, box.y, newWidth, newHeight),
             True,
             True
         )
+        box = self.box
         retries = 0
-        while wait and retries < WAIT_ATTEMPTS and self.width != newWidth and self.height != newHeight:
+        while wait and retries < WAIT_ATTEMPTS and box.width != newWidth and box.height != newHeight:
             retries += 1
             time.sleep(WAIT_DELAY * retries)
-        return self.width == newWidth and self.height == newHeight
+            box = self.box
+        return box.width == newWidth and box.height == newHeight
 
     def move(self, xOffset: int, yOffset: int, wait: bool = False) -> bool:
         """
@@ -2227,7 +2232,8 @@ class MacOSNSWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
-        return self.moveTo(int(self.left + xOffset), int(self.top + yOffset), wait)
+        box = self.box
+        return self.moveTo(box.left + xOffset, box.top + yOffset, wait)
 
     moveRel = move  # moveRel is an alias for the move() method.
 
@@ -2240,16 +2246,19 @@ class MacOSNSWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
-        self._hWnd.setFrame_display_animate_(AppKit.NSMakeRect(newLeft, resolution().height - newTop - self.height, self.width, self.height), True, True)
+        box = self.box
+        self._hWnd.setFrame_display_animate_(AppKit.NSMakeRect(newLeft, resolution().height - newTop - box.height, box.width, box.height), True, True)
+        box = self.box
         retries = 0
-        while wait and retries < WAIT_ATTEMPTS and self.left != newLeft and self.top != newTop:
+        while wait and retries < WAIT_ATTEMPTS and box.left != newLeft and box.top != newTop:
             retries += 1
             time.sleep(WAIT_DELAY * retries)
-        return self.left == newLeft and self.top == newTop
+            box = self.box
+        return box.left == newLeft and box.top == newTop
 
     def _moveResizeTo(self, newLeft: int, newTop: int, newWidth: int, newHeight: int) -> bool:
         self._hWnd.setFrame_display_animate_(AppKit.NSMakeRect(newLeft, resolution().height - newTop - newHeight, newWidth, newHeight), True, True)
-        return self.left == newLeft and self.top == newTop and self.width == newWidth and self.height == newHeight
+        return Box(newLeft, newTop, newWidth, newHeight) == self.box
 
     def alwaysOnTop(self, aot: bool = True) -> bool:
         """

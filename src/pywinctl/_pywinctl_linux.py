@@ -515,7 +515,7 @@ class LinuxWindow(BaseWindow):
             retries += 1
             time.sleep(WAIT_DELAY * retries)
             box = self.box
-        return self.width == newWidth and self.height == newHeight
+        return box.width == newWidth and box.height == newHeight
 
     def move(self, xOffset: int, yOffset: int, wait: bool = False):
         """
@@ -557,8 +557,7 @@ class LinuxWindow(BaseWindow):
         newLeft = max(0, newLeft)  # Xlib won't accept negative positions
         newTop = max(0, newTop)
         self._win.setMoveResize(x=newLeft, y=newTop, width=newWidth, height=newHeight)
-        box = self.box
-        return newLeft == box.left and newTop == box.top and newWidth == box.width and newHeight == box.height
+        return Box(newLeft, newTop, newWidth, newHeight) == self.box
 
     def alwaysOnTop(self, aot: bool = True) -> bool:
         """

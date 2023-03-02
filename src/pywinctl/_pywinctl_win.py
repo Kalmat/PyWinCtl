@@ -566,7 +566,8 @@ class Win32Window(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
-        return self.resizeTo(self.width + widthOffset, self.height + heightOffset, wait)
+        box = self.box
+        return self.resizeTo(box.width + widthOffset, box.height + heightOffset, wait)
 
     resizeRel = resize  # resizeRel is an alias for the resize() method.
 
