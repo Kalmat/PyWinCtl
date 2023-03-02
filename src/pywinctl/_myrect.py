@@ -34,7 +34,7 @@ class Size(NamedTuple):
 
 class MyRect:
 
-    def __init__(self, windowBox: Box, onSet: Callable[[Box, Optional[bool], Optional[bool]], None], onQuery: Callable[[], Box]):
+    def __init__(self, windowBox: Box, onSet: Callable[[Box, bool, bool], None], onQuery: Callable[[], Box]):
         self._box: Box = windowBox
         self._onSet: Callable[[Box], None] = onSet
         self._onQuery: Callable[[], Box] = onQuery
@@ -58,10 +58,6 @@ class MyRect:
             self._box.height,
         )
 
-    @abstractmethod
-    def _getWindowRect(self) -> Rect:
-        raise NotImplementedError
-
     @property
     def left(self) -> int:
         self._box = self._onQuery()
@@ -71,7 +67,7 @@ class MyRect:
     def left(self, value: int):
         self._box = self._onQuery()
         self._box = Box(value, self._box.top, self._box.width, self._box.height)
-        self._onSet(self._box, move=True)
+        self._onSet(self._box, True, False)
 
     @property
     def right(self) -> int:
@@ -82,7 +78,7 @@ class MyRect:
     def right(self, value: int):
         self._box = self._onQuery()
         self._box = Box(value - self._box.width, self._box.top, self._box.width, self._box.height)
-        self._onSet(self._box, move=True)
+        self._onSet(self._box, True, False)
 
     @property
     def top(self) -> int:
@@ -93,7 +89,7 @@ class MyRect:
     def top(self, value: int):
         self._box = self._onQuery()
         self._box = Box(self._box.left, value, self._box.width, self._box.height)
-        self._onSet(self._box, move=True)
+        self._onSet(self._box, True, False)
 
     @property
     def bottom(self) -> int:
@@ -104,7 +100,7 @@ class MyRect:
     def bottom(self, value: int):
         self._box = self._onQuery()
         self._box = Box(self._box.left, value - self._box.height, self._box.width, self._box.height)
-        self._onSet(self._box, move=True)
+        self._onSet(self._box, True, False)
 
     @property
     def width(self) -> int:
@@ -115,7 +111,7 @@ class MyRect:
     def width(self, value: int):
         self._box = self._onQuery()
         self._box = Box(self._box.left, self._box.top, value, self._box.height)
-        self._onSet(self._box, resize=True)
+        self._onSet(self._box, False, True)
 
     @property
     def height(self) -> int:
@@ -126,7 +122,7 @@ class MyRect:
     def height(self, value: int):
         self._box = self._onQuery()
         self._box = Box(self._box.left, self._box.top, self._box.width, value)
-        self._onSet(self._box, resize=True)
+        self._onSet(self._box, False, True)
 
     @property
     def position(self) -> Point:
@@ -137,7 +133,7 @@ class MyRect:
     def position(self, value: Point):
         self._box = self._onQuery()
         self._box = Box(value[0], value[1], self._box.width, self._box.height)
-        self._onSet(self._box, move=True)
+        self._onSet(self._box, True, False)
 
     @property
     def size(self) -> Size:
@@ -148,7 +144,7 @@ class MyRect:
     def size(self, value: Size):
         self._box = self._onQuery()
         self._box = Box(self._box.left, self._box.top, value[0], value[1])
-        self._onSet(self._box, resize=True)
+        self._onSet(self._box, False, True)
 
     @property
     def box(self) -> Box:
@@ -158,7 +154,7 @@ class MyRect:
     @box.setter
     def box(self, value: Box):
         self._box = value
-        self._onSet(self._box, move=True, resize=True)
+        self._onSet(self._box, True, True)
 
     @property
     def bbox(self) -> BoundingBox:
@@ -169,7 +165,7 @@ class MyRect:
     @bbox.setter
     def bbox(self, value: BoundingBox):
         self._box = Box(value.left, value.top, value.right - value.left, value.bottom - value.top)
-        self._onSet(self._box, move=True, resize=True)
+        self._onSet(self._box, True, True)
 
     @property
     def rect(self) -> Rect:
@@ -180,7 +176,7 @@ class MyRect:
     @rect.setter
     def rect(self, value: Rect):
         self._box = Box(value.left, value.top, value.right - value.left, value.bottom - value.top)
-        self._onSet(self._box, move=True, resize=True)
+        self._onSet(self._box, True, True)
 
     @property
     def topleft(self) -> Point:
@@ -191,7 +187,7 @@ class MyRect:
     def topleft(self, value: Point):
         self._box = self._onQuery()
         self._box = Box(value[0], value[1], self._box.width, self._box.height)
-        self._onSet(self._box, move=True)
+        self._onSet(self._box, True, False)
 
     @property
     def bottomleft(self) -> Point:
@@ -202,7 +198,7 @@ class MyRect:
     def bottomleft(self, value: Point):
         self._box = self._onQuery()
         self._box = Box(value[0], value[1] - self._box.height, self._box.width, self._box.height)
-        self._onSet(self._box, move=True)
+        self._onSet(self._box, True, False)
 
     @property
     def topright(self) -> Point:
@@ -213,7 +209,7 @@ class MyRect:
     def topright(self, value: Point):
         self._box = self._onQuery()
         self._box = Box(value[0] - self._box.width, value[1], self._box.width, self._box.height)
-        self._onSet(self._box, move=True)
+        self._onSet(self._box, True, False)
 
     @property
     def bottomright(self) -> Point:
@@ -224,7 +220,7 @@ class MyRect:
     def bottomright(self, value: Point):
         self._box = self._onQuery()
         self._box = Box(value[0] - self._box.width, value[1] - self._box.height, self._box.width, self._box.height)
-        self._onSet(self._box, move=True)
+        self._onSet(self._box, True, False)
 
     @property
     def midtop(self) -> Point:
@@ -235,7 +231,7 @@ class MyRect:
     def midtop(self, value: Point):
         self._box = self._onQuery()
         self._box = Box(value[0] - (self._box.width // 2), value[1], self._box.width, self._box.height)
-        self._onSet(self._box, move=True)
+        self._onSet(self._box, True, False)
 
     @property
     def midbottom(self) -> Point:
@@ -246,7 +242,7 @@ class MyRect:
     def midbottom(self, value: Point):
         self._box = self._onQuery()
         self._box = Box(value[0] - (self._box.width // 2), value[1] - self._box.height, self._box.width, self._box.height)
-        self._onSet(self._box, move=True)
+        self._onSet(self._box, True, False)
 
     @property
     def midleft(self) -> Point:
@@ -257,7 +253,7 @@ class MyRect:
     def midleft(self, value: Point):
         self._box = self._onQuery()
         self._box = Box(value[0], value[1] - (self._box.height // 2), self._box.width, self._box.height)
-        self._onSet(self._box, move=True)
+        self._onSet(self._box, True, False)
 
     @property
     def midright(self) -> Point:
@@ -268,7 +264,7 @@ class MyRect:
     def midright(self, value: Point):
         self._box = self._onQuery()
         self._box = Box(value[0] - self._box.width, value[1] - (self._box.height // 2), self._box.width, self._box.height)
-        self._onSet(self._box, move=True)
+        self._onSet(self._box, True, False)
 
     @property
     def center(self) -> Point:
@@ -279,7 +275,7 @@ class MyRect:
     def center(self, value: Point):
         self._box = self._onQuery()
         self._box = Box(value[0] - (self._box.width // 2), value[1] - (self._box.height // 2), self._box.width, self._box.height)
-        self._onSet(self._box, move=True)
+        self._onSet(self._box, True, False)
 
     @property
     def centerx(self) -> int:
@@ -290,7 +286,7 @@ class MyRect:
     def centerx(self, value: int):
         self._box = self._onQuery()
         self._box = Box(value - (self._box.width // 2), self._box.top, self._box.width, self._box.height)
-        self._onSet(self._box, move=True)
+        self._onSet(self._box, True, False)
 
     @property
     def centery(self) -> int:
@@ -301,4 +297,4 @@ class MyRect:
     def centery(self, value: int):
         self._box = self._onQuery()
         self._box = Box(self._box.left, value - (self._box.height // 2), self._box.width, self._box.height)
-        self._onSet(self._box, move=True)
+        self._onSet(self._box, True, False)

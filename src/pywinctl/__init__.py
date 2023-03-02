@@ -108,7 +108,7 @@ class BaseWindow(ABC):
         self._box: MyRect = MyRect(Box(box.left, box.top, box.width, box.height), self._onSet, self._onQuery)
         return self._box
 
-    def _onSet(self, newBox: Box, move: bool = False, resize: bool = False):
+    def _onSet(self, newBox: Box, move: bool, resize: bool):
         if move and resize:
             self._moveResizeTo(newBox.left, newBox.top, newBox.width, newBox.height)
         elif move:
