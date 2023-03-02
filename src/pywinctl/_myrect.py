@@ -36,7 +36,7 @@ class MyRect:
 
     def __init__(self, windowBox: Box, onSet: Callable[[Box, bool, bool], None], onQuery: Callable[[], Box]):
         self._box: Box = windowBox
-        self._onSet: Callable[[Box], None] = onSet
+        self._onSet: Callable[[Box, bool, bool], None] = onSet
         self._onQuery: Callable[[], Box] = onQuery
 
     def __repr__(self):
