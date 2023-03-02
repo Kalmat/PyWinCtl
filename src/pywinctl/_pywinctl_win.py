@@ -24,7 +24,7 @@ import win32con
 import win32api
 import win32gui
 
-from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect, MyRect, Box
+from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect, MyBox, Box
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -403,7 +403,7 @@ class Win32Window(BaseWindow):
     def __init__(self, hWnd: Union[int, str]):
 
         self._hWnd = int(hWnd, base=16) if isinstance(hWnd, str) else hWnd
-        self.__rect: MyRect = self._boxFactory(self._getWindowRect())
+        self.__rect: MyBox = self._boxFactory(self._getWindowRect())
         self._parent = win32gui.GetParent(self._hWnd)
         self._t: Optional[_SendBottom] = None
         self.menu = self._Menu(self)

@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any, cast, List, Tuple
 
-from ._myrect import Rect, Box, BoundingBox, Size, Point, MyRect
+from ._mybox import Rect, Box, BoundingBox, Size, Point, MyBox
 
 
 __all__ = [
@@ -104,17 +104,12 @@ def _levenshtein(seq1: str, seq2: str) -> float:
 
 class BaseWindow(ABC):
 
-    def _boxFactory(self, box: Box) -> MyRect:
-        self._box: MyRect = MyRect(Box(box.left, box.top, box.width, box.height), self._onSet, self._onQuery)
+    def _boxFactory(self, box: Box) -> MyBox:
+        self._box: MyBox = MyBox(Box(box.left, box.top, box.width, box.height), self._onSet, self._onQuery)
         return self._box
 
-    def _onSet(self, newBox: Box, move: bool, resize: bool):
-        if move and resize:
-            self._moveResizeTo(newBox.left, newBox.top, newBox.width, newBox.height)
-        elif move:
-            self.moveTo(newBox.left, newBox.top)
-        elif resize:
-            self.resizeTo(newBox.width, newBox.height)
+    def _onSet(self, newBox: Box):
+        self._moveResizeTo(newBox.left, newBox.top, newBox.width, newBox.height)
 
     @abstractmethod
     def _moveResizeTo(self, newLeft: int, newTop: int, newWidth: int, newHeight: int) -> bool:

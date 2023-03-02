@@ -26,7 +26,7 @@ from Xlib.xobject.drawable import Window as XWindow
 
 from pywinctl._xlibcontainer import RootWindow, EwmhWindow, Props, defaultRootWindow, _xlibGetAllWindows
 
-from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect, MyRect, Box
+from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect, MyBox, Box
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -270,7 +270,7 @@ class LinuxWindow(BaseWindow):
         self._rootWin: RootWindow = self._win.rootWindow
         self._xWin: XWindow = self._win.xWindow
 
-        self.__rect: MyRect = self._boxFactory(self._getWindowRect())
+        self.__rect: MyBox = self._boxFactory(self._getWindowRect())
         self.watchdog = _WatchDog(self)
 
         self._currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()

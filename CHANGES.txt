@@ -1,4 +1,4 @@
-0.1, 2023/01/18 -- ALL: Added bbox property (x, y, right, bottom), added setParent() method, improved requirements.txt and setup.py
+0.1, 2023/02/03 -- ALL: Replaced PyRect by custom, simpler, yet multi-monitor class. Added bbox and rect properties (x, y, right, bottom), added setParent() method, improved requirements.txt and setup.py
                    LINUX: Removed ewmh and pynput dependencies, improved activate() and restore() methods to properly work on Unity, fixed acceptInput().
                    WINDOWS: getAllWindows() and related return "user" apps only, simplified alwaysOnBottom(), found a smarter way to refresh window after bringing it back with sendBehind()
                    MACOSWINDOW: Fixed getClientFrame() to be invoked from non-main threads

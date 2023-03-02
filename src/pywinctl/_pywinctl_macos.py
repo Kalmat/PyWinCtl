@@ -22,7 +22,7 @@ from typing_extensions import TypeAlias, TypedDict, Literal
 import AppKit
 import Quartz
 
-from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect, MyRect, Box
+from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect, MyBox, Box
 
 Incomplete: TypeAlias = Any
 Attribute: TypeAlias = Sequence['Tuple[str, str, bool, str]']
@@ -517,7 +517,7 @@ class MacOSWindow(BaseWindow):
         # self._parent = self.getParent()  # It is slow and not required by now
         if bounds is None:
             bounds = self._getWindowRect()
-        self.__rect: MyRect = self._boxFactory(box=bounds)
+        self.__rect: MyBox = self._boxFactory(box=bounds)
         v = platform.mac_ver()[0].split(".")
         ver = float(v[0]+"."+v[1])
         # On Yosemite and below we need to use Zoom instead of FullScreen to maximize windows
