@@ -517,7 +517,7 @@ class MacOSWindow(BaseWindow):
         # self._parent = self.getParent()  # It is slow and not required by now
         if bounds is None:
             bounds = self._getWindowRect()
-        self.__rect: MyRect = self._boxFactory(bounds)
+        self.__rect: MyRect = self._boxFactory(box=bounds)
         v = platform.mac_ver()[0].split(".")
         ver = float(v[0]+"."+v[1])
         # On Yosemite and below we need to use Zoom instead of FullScreen to maximize windows
@@ -2034,17 +2034,17 @@ class MacOSNSWindow(BaseWindow):
         self._app = app
         self._hWnd = hWnd
         self._parent = hWnd.parentWindow()
-        self.__rect = self._boxFactory()
+        self.__rect = self._boxFactory(self._getWindowRect())
         self.watchdog = _WatchDog(self)
 
-    def _getWindowRect(self) -> Rect:
+    def _getWindowRect(self) -> Box:
         frame = self._hWnd.frame()
         res = resolution()
         x = int(frame.origin.x)
         y = int(res.height) - int(frame.origin.y) - int(frame.size.height)
-        w = x + int(frame.size.width)
-        h = y + int(frame.size.height)
-        return Rect(x, y, w, h)
+        w = int(frame.size.width)
+        h = int(frame.size.height)
+        return Box(x, y, w, h)
 
     def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
         """

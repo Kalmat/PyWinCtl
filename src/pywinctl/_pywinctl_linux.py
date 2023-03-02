@@ -507,7 +507,8 @@ class LinuxWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
-        self._win.setMoveResize(width=newWidth, height=newHeight)
+        box = self.box
+        self._win.setMoveResize(x=box.left, y=box.top, width=newWidth, height=newHeight)
         box = self.box
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and (box.width != newWidth or box.height != newHeight):
@@ -542,7 +543,8 @@ class LinuxWindow(BaseWindow):
         """
         newLeft = max(0, newLeft)  # Xlib won't accept negative positions
         newTop = max(0, newTop)
-        self._win.setMoveResize(x=newLeft, y=newTop)
+        box = self.box
+        self._win.setMoveResize(x=newLeft, y=newTop, width=box.width, height=box.height)
         box = self.box
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and (box.left != newLeft or box.top != newTop):
