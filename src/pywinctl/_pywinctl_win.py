@@ -24,7 +24,7 @@ import win32con
 import win32api
 import win32gui
 
-from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect
+from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect, MyRect, Box
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -400,23 +400,19 @@ class _SubMenuStructure(TypedDict):
 
 class Win32Window(BaseWindow):
 
-    @property
-    def _rect(self):
-        return self.__rect
-
     def __init__(self, hWnd: Union[int, str]):
 
         self._hWnd = int(hWnd, base=16) if isinstance(hWnd, str) else hWnd
-        self.__rect = self._rectFactory()
+        self.__rect: MyRect = self._boxFactory(self._getWindowRect())
         self._parent = win32gui.GetParent(self._hWnd)
         self._t: Optional[_SendBottom] = None
         self.menu = self._Menu(self)
         self.watchdog = _WatchDog(self)
 
-    def _getWindowRect(self) -> Rect:
+    def _getWindowRect(self) -> Box:
         ctypes.windll.user32.SetProcessDPIAware()
         x, y, r, b = win32gui.GetWindowRect(self._hWnd)
-        return Rect(x, y, r, b)
+        return Box(x, y, r - x, b - y)
 
     def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
         """
@@ -456,7 +452,7 @@ class Win32Window(BaseWindow):
         if wi:
             rcClient: Rect = cast(Rect, wi.rcClient)
         else:
-            rcClient = cast(Rect, self._rect)
+            rcClient = self.rect
         return Rect(rcClient.left, rcClient.top, rcClient.right, rcClient.bottom)
 
     def __repr__(self) -> str:
@@ -570,7 +566,7 @@ class Win32Window(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
-        return self.resizeTo(int(self.width + widthOffset), int(self.height + heightOffset), wait)
+        return self.resizeTo(self.width + widthOffset, self.height + heightOffset, wait)
 
     resizeRel = resize  # resizeRel is an alias for the resize() method.
 
@@ -583,12 +579,15 @@ class Win32Window(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
-        win32gui.MoveWindow(self._hWnd, int(self.left), int(self.top), newWidth, newHeight, True)
+        box = self.box
+        win32gui.MoveWindow(self._hWnd, box.left, box.top, newWidth, newHeight, True)
+        box = self.box
         retries = 0
-        while wait and retries < WAIT_ATTEMPTS and (self.width != newWidth or self.height != newHeight):
+        while wait and retries < WAIT_ATTEMPTS and (box.width != newWidth or box.height != newHeight):
             retries += 1
             time.sleep(WAIT_DELAY * retries)
-        return int(self.width) == newWidth and int(self.height) == newHeight
+            box = self.box
+        return box.width == newWidth and box.height == newHeight
 
     def move(self, xOffset: int, yOffset: int, wait: bool = False) -> bool:
         """
@@ -599,7 +598,8 @@ class Win32Window(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
-        return self.moveTo(int(self.left + xOffset), int(self.top + yOffset), wait)
+        box = self.box
+        return self.moveTo(box.left + xOffset, box.top + yOffset, wait)
 
     moveRel = move  # moveRel is an alias for the move() method.
 
@@ -610,20 +610,23 @@ class Win32Window(BaseWindow):
         returned by getAllScreens()
 
         :param newLeft: target X coordinate to move the window to
-        :param newLeft: target Y coordinate to move the window to
+        :param newTop: target Y coordinate to move the window to
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
-        win32gui.MoveWindow(self._hWnd, newLeft, newTop, int(self.width), int(self.height), True)
+        box = self.box
+        win32gui.MoveWindow(self._hWnd, newLeft, newTop, box.width, box.height, True)
+        box = self.box
         retries = 0
-        while wait and retries < WAIT_ATTEMPTS and (self.left != newLeft or self.top != newTop):
+        while wait and retries < WAIT_ATTEMPTS and (box.left != newLeft or box.top != newTop):
             retries += 1
             time.sleep(WAIT_DELAY * retries)
-        return int(self.left) == newLeft and int(self.top) == newTop
+            box = self.box
+        return box.left == newLeft and box.top == newTop
 
     def _moveResizeTo(self, newLeft: int, newTop: int, newWidth: int, newHeight: int) -> bool:
         win32gui.MoveWindow(self._hWnd, newLeft, newTop, newWidth, newHeight, True)
-        return newLeft == int(self.left) and newTop == int(self.top) and newWidth == int(self.width) and newHeight == int(self.height)
+        return Box(newLeft, newTop, newWidth, newHeight) == self.box
 
     def alwaysOnTop(self, aot: bool = True) -> bool:
         """
@@ -1290,6 +1293,7 @@ def getAllScreens() -> dict[str, _ScreenValue]:
                         break
 
                 if monitor_info:
+                    name = dev.DeviceName
                     x, y, r, b = monitor_info["Monitor"]
                     wx, wy, wr, wb = monitor_info["Work"]
                     settings = win32api.EnumDisplaySettings(dev.DeviceName, win32con.ENUM_CURRENT_SETTINGS)
@@ -1307,7 +1311,7 @@ def getAllScreens() -> dict[str, _ScreenValue]:
                     freq = settings.DisplayFrequency
                     depth = settings.BitsPerPel
 
-                    result[dev.DeviceName] = {
+                    result[name + "_" + str(i)] = {
                         "id": i,
                         # "is_primary": monitor_info.get("Flags", 0) & win32con.MONITORINFOF_PRIMARY == 1,
                         "is_primary": is_primary,
@@ -1577,6 +1581,7 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0):
 def main():
     """Run this script from command-line to get windows under mouse pointer"""
     print("PLATFORM:", sys.platform)
+    print("MONITORS:", getAllScreens())
     print("SCREEN SIZE:", resolution())
     print("ALL WINDOWS", getAllTitles())
     npw = getActiveWindow()

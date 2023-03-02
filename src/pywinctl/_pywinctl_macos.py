@@ -22,7 +22,7 @@ from typing_extensions import TypeAlias, TypedDict, Literal
 import AppKit
 import Quartz
 
-from pywinctl import pointInRect, BaseWindow, Rect, Point, Size, Re, _WatchDog
+from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect, MyRect, Box
 
 Incomplete: TypeAlias = Any
 Attribute: TypeAlias = Sequence['Tuple[str, str, bool, str]']
@@ -102,7 +102,7 @@ def getActiveWindow(app: Optional[AppKit.NSApplication] = None):
         entries = ret.replace("\n", "").split(", ")
         try:
             appID = entries[0]
-            bounds = Rect(int(entries[1]), int(entries[2]), int(entries[1])+int(entries[3]), int(entries[2])+int(entries[4]))
+            bounds = Box(int(entries[1]), int(entries[2]), int(entries[3]), int(entries[4]))
             # Thanks to Anthony Molinaro (djnym) for pointing out this bug and provide the solution!!!
             # sometimes the title of the window contains ',' characters, so just get the first entry as the appName and join the rest
             # back together as a string
@@ -159,14 +159,14 @@ def getAllWindows(app:Optional[AppKit.NSApplication] = None):
                     y = int(item[2][1])
                     w = int(item[3][0])
                     h = int(item[3][1])
-                    rect = Rect(x, y, x + w, y + h)
+                    box = Box(x, y, w, h)
                 else:
                     rect = None
             except:
                 continue
             for activeApp in activeApps:
                 if activeApp.processIdentifier() == pID:
-                    windows.append(MacOSWindow(activeApp, title, rect))
+                    windows.append(MacOSWindow(activeApp, title, box))
                     break
         return windows
     else:
@@ -257,10 +257,10 @@ def getWindowsWithTitle(title: Union[str, re.Pattern[str]], app: Optional[Union[
             winTitle = item[1].lower() if lower else item[1]
             if winTitle and Re._cond_dic[condition](title, winTitle, flags):
                 x, y, w, h = int(item[2][0]), int(item[2][1]), int(item[3][0]), int(item[3][1])
-                rect = Rect(x, y, x + w, y + h)
+                box = Box(x, y, w, h)
                 for a in activeApps:
                     if (app and a.localizedName() in app) or (a.processIdentifier() == pID):
-                        matches.append(MacOSWindow(a, item[1], rect))
+                        matches.append(MacOSWindow(a, item[1], box))
                         break
         return matches
     else:
@@ -508,14 +508,16 @@ class MacOSWindow(BaseWindow):
     def _rect(self):
         return self.__rect
 
-    def __init__(self, app: AppKit.NSRunningApplication, title: str, bounds: Optional[Rect] = None):
+    def __init__(self, app: AppKit.NSRunningApplication, title: str, bounds: Optional[Box] = None):
 
         self._app = app
         self._appName: str = app.localizedName()
         self._appPID = app.processIdentifier()
         self._winTitle: str = title
         # self._parent = self.getParent()  # It is slow and not required by now
-        self.__rect = self._rectFactory(bounds=bounds)
+        if bounds is None:
+            bounds = self._getWindowRect()
+        self.__rect: MyRect = self._boxFactory(bounds)
         v = platform.mac_ver()[0].split(".")
         ver = float(v[0]+"."+v[1])
         # On Yosemite and below we need to use Zoom instead of FullScreen to maximize windows
@@ -525,9 +527,9 @@ class MacOSWindow(BaseWindow):
         self.menu = self._Menu(self)
         self.watchdog = _WatchDog(self)
 
-    def _getWindowRect(self) -> Rect:
+    def _getWindowRect(self) -> Box:
         if not self.title:
-            return Rect(0,0,0,0)
+            return Box(0, 0, 0, 0)
 
         cmd = """on run {arg1, arg2}
                     set procName to arg1
@@ -546,7 +548,7 @@ class MacOSWindow(BaseWindow):
         if not ret:
             ret = "0, 0, 0, 0"
         w = ret.replace("\n", "").strip().split(", ")
-        return Rect(int(w[0]), int(w[1]), int(w[0]) + int(w[2]), int(w[1]) + int(w[3]))
+        return Box(int(w[0]), int(w[1]), int(w[2]), int(w[3]))
 
     def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
         """
@@ -880,7 +882,8 @@ class MacOSWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
-        return self.resizeTo(int(self.width + widthOffset), int(self.height + heightOffset), wait)
+        box = self.box
+        return self.resizeTo(box.width + widthOffset, box.height + heightOffset, wait)
 
     resizeRel = resize  # resizeRel is an alias for the resize() method.
 
@@ -910,10 +913,12 @@ class MacOSWindow(BaseWindow):
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
         retries = 0
-        while wait and retries < WAIT_ATTEMPTS and self.width != newWidth and self.height != newHeight:
+        box = self.box
+        while wait and retries < WAIT_ATTEMPTS and box.width != newWidth and box.height != newHeight:
             retries += 1
             time.sleep(WAIT_DELAY * retries)
-        return self.width == newWidth and self.height == newHeight
+            box = self.box
+        return box.width == newWidth and box.height == newHeight
 
     def move(self, xOffset: int, yOffset: int, wait: bool = False) -> bool:
         """
@@ -922,7 +927,8 @@ class MacOSWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
-        return self.moveTo(int(self.left + xOffset), int(self.top + yOffset), wait)
+        box = self.box
+        return self.moveTo(box.left + xOffset, box.top + yOffset, wait)
 
     moveRel = move  # moveRel is an alias for the move() method.
 
@@ -951,10 +957,12 @@ class MacOSWindow(BaseWindow):
         proc = subprocess.Popen(['osascript', '-', self._appName, self.title, str(newLeft), str(newTop)], 
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
+        box = self.box
         retries = 0
-        while wait and retries < WAIT_ATTEMPTS and self.left != newLeft and self.top != newTop:
+        while wait and retries < WAIT_ATTEMPTS and box.left != newLeft and box.top != newTop:
             retries += 1
             time.sleep(WAIT_DELAY * retries)
+            box = self.box
         return self.left == newLeft and self.top == newTop
 
     def _moveResizeTo(self, newLeft: int, newTop: int, newWidth: int, newHeight: int) -> bool:
@@ -979,12 +987,13 @@ class MacOSWindow(BaseWindow):
                                  str(newLeft), str(newTop), str(newWidth), str(newHeight)], 
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
+        box = self.box
         retries = 0
-        while retries < WAIT_ATTEMPTS and self.left != newLeft and self.top != newTop and \
-                self.width != newWidth and self.height != newHeight:
+        while retries < WAIT_ATTEMPTS and box.left != newLeft and box.top != newTop and \
+                box.width != newWidth and box.height != newHeight:
             retries += 1
             time.sleep(WAIT_DELAY * retries)
-        return newLeft == self.left and newTop == self.top and newWidth == self.width and newHeight == self.height
+        return newLeft == box.left and newTop == box.top and newWidth == box.width and newHeight == box.height
 
     def alwaysOnTop(self, aot: bool = True) -> bool:
         """
@@ -2025,7 +2034,7 @@ class MacOSNSWindow(BaseWindow):
         self._app = app
         self._hWnd = hWnd
         self._parent = hWnd.parentWindow()
-        self.__rect = self._rectFactory()
+        self.__rect = self._boxFactory()
         self.watchdog = _WatchDog(self)
 
     def _getWindowRect(self) -> Rect:
@@ -2180,6 +2189,8 @@ class MacOSNSWindow(BaseWindow):
         """
         Resizes the window relative to its current size
 
+        :param widthOffset: offset to add to current window width as target width
+        :param heightOffset: offset to add to current window height as target height
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
@@ -2191,6 +2202,8 @@ class MacOSNSWindow(BaseWindow):
         """
         Resizes the window to a new width and height
 
+        :param newWidth: target window width
+        :param newHeight: target window height
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
@@ -2209,6 +2222,8 @@ class MacOSNSWindow(BaseWindow):
         """
         Moves the window relative to its current position
 
+        :param xOffset: offset relative to current X coordinate to move the window to
+        :param yOffset: offset relative to current Y coordinate to move the window to
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
@@ -2220,6 +2235,8 @@ class MacOSNSWindow(BaseWindow):
         """
         Moves the window to new coordinates on the screen
 
+        :param newLeft: target X coordinate to move the window to
+        :param newTop: target Y coordinate to move the window to
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
@@ -2537,7 +2554,7 @@ def getAllScreens():
         try:
             name = screen.localizedName()   # In older macOS, screen doesn't have localizedName() method
         except:
-            name = "Display" + str(i)
+            name = "Display"
 
         try:
             desc = screen.deviceDescription()
@@ -2553,7 +2570,7 @@ def getAllScreens():
             freq = Quartz.CGDisplayModeGetRefreshRate(Quartz.CGDisplayCopyDisplayMode(display))
             depth = Quartz.CGDisplayBitsPerPixel(display)
 
-            result[name] = {
+            result[name + "_" + str(i)] = {
                 'id': display,
                 'is_primary': is_primary,
                 'pos': Point(x, y),
@@ -2638,6 +2655,7 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
 def main():
     """Run this script from command-line to get windows under mouse pointer"""
     print("PLATFORM:", sys.platform)
+    print("MONITORS:", getAllScreens())
     print("SCREEN SIZE:", resolution())
     if checkPermissions(activate=True):
         print("ALL WINDOWS", getAllTitles())

@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-
 import os
 import sys
 
@@ -27,7 +26,7 @@ from Xlib.xobject.drawable import Window as XWindow
 
 from pywinctl._xlibcontainer import RootWindow, EwmhWindow, Props, defaultRootWindow, _xlibGetAllWindows
 
-from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect
+from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect, MyRect, Box
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -271,13 +270,13 @@ class LinuxWindow(BaseWindow):
         self._rootWin: RootWindow = self._win.rootWindow
         self._xWin: XWindow = self._win.xWindow
 
-        self.__rect = self._rectFactory()
+        self.__rect: MyRect = self._boxFactory(self._getWindowRect())
         self.watchdog = _WatchDog(self)
 
         self._currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()
         self._motifHints: List[int] = []
 
-    def _getWindowRect(self) -> Rect:
+    def _getWindowRect(self) -> Box:
         # https://stackoverflow.com/questions/12775136/get-window-position-and-size-in-python-with-xlib - mgalgs
         win = self._xWin
         geom = win.get_geometry()
@@ -295,7 +294,7 @@ class LinuxWindow(BaseWindow):
             if parent.id == self._rootWin.id:
                 break
             win = parent
-        return Rect(x, y, x + w, y + h)
+        return Box(x, y, w, h)
 
     def _getBorderSizes(self):
 
@@ -489,10 +488,13 @@ class LinuxWindow(BaseWindow):
         """
         Resizes the window relative to its current size
 
+        :param widthOffset: offset to add to current window width as target width
+        :param heightOffset: offset to add to current window height as target height
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
-        return self.resizeTo(int(self.width + widthOffset), int(self.height + heightOffset), wait)
+        box = self.box
+        return self.resizeTo(box.width + widthOffset, box.height + heightOffset, wait)
 
     resizeRel = resize  # resizeRel is an alias for the resize() method.
 
@@ -500,26 +502,32 @@ class LinuxWindow(BaseWindow):
         """
         Resizes the window to a new width and height
 
+        :param newWidth: target window width
+        :param newHeight: target window height
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
-        self._win.setMoveResize(gravity=0, x=self.left, y=self.top, width=newWidth, height=newHeight)
+        self._win.setMoveResize(width=newWidth, height=newHeight)
+        box = self.box
         retries = 0
-        while wait and retries < WAIT_ATTEMPTS and (self.width != newWidth or self.height != newHeight):
+        while wait and retries < WAIT_ATTEMPTS and (box.width != newWidth or box.height != newHeight):
             retries += 1
             time.sleep(WAIT_DELAY * retries)
+            box = self.box
         return self.width == newWidth and self.height == newHeight
 
     def move(self, xOffset: int, yOffset: int, wait: bool = False):
         """
         Moves the window relative to its current position
 
+        :param xOffset: offset relative to current X coordinate to move the window to
+        :param yOffset: offset relative to current Y coordinate to move the window to
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
         newLeft = max(0, self.left + xOffset)  # Xlib won't accept negative positions
         newTop = max(0, self.top + yOffset)
-        return self.moveTo(int(newLeft), int(newTop), wait)
+        return self.moveTo(newLeft, newTop, wait)
 
     moveRel = move  # moveRel is an alias for the move() method.
 
@@ -527,23 +535,28 @@ class LinuxWindow(BaseWindow):
         """
         Moves the window to new coordinates on the screen
 
+        :param newLeft: target X coordinate to move the window to
+        :param newTop: target Y coordinate to move the window to
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
         newLeft = max(0, newLeft)  # Xlib won't accept negative positions
         newTop = max(0, newTop)
-        self._win.setMoveResize(gravity=0, x=newLeft, y=newTop, width=self.width, height=self.height)
+        self._win.setMoveResize(x=newLeft, y=newTop)
+        box = self.box
         retries = 0
-        while wait and retries < WAIT_ATTEMPTS and (self.left != newLeft or self.top != newTop):
+        while wait and retries < WAIT_ATTEMPTS and (box.left != newLeft or box.top != newTop):
             retries += 1
             time.sleep(WAIT_DELAY * retries)
-        return self.left == newLeft and self.top == newTop
+            box = self.box
+        return box.left == newLeft and box.top == newTop
 
     def _moveResizeTo(self, newLeft: int, newTop: int, newWidth: int, newHeight: int):
         newLeft = max(0, newLeft)  # Xlib won't accept negative positions
         newTop = max(0, newTop)
-        self._win.setMoveResize(gravity=0, x=newLeft, y=newTop, width=newWidth, height=newHeight)
-        return newLeft == self.left and newTop == self.top and newWidth == self.width and newHeight == self.height
+        self._win.setMoveResize(x=newLeft, y=newTop, width=newWidth, height=newHeight)
+        box = self.box
+        return newLeft == box.left and newTop == box.top and newWidth == box.width and newHeight == box.height
 
     def alwaysOnTop(self, aot: bool = True) -> bool:
         """
@@ -633,7 +646,7 @@ class LinuxWindow(BaseWindow):
         :param setTo: True/False to toggle window ignoring input and focus
         :return: None
         """
-        # TODO: Is it possible to make the window completely transparent to input (click-thru)?
+        # TODO: Is it possible to make the window completely transparent to input (click-thru) in GNOME?
         if setTo:
 
             if "gnome" in self._currDesktop:
@@ -916,8 +929,6 @@ def getAllScreens():
 
                 if crtc and crtc.mode:  # displays with empty (0) mode seem not to be valid
                     name = params.name
-                    if name in result:
-                        name = name + str(i)
                     id = crtc.sequence_number
                     x, y, w, h = crtc.x, crtc.y, crtc.width, crtc.height
                     wx, wy, wr, wb = x + wa[0], y + wa[1], x + w - (screen.width_in_pixels - wa[2] - wa[0]), y + h - (screen.height_in_pixels - wa[3] - wa[1])
@@ -938,7 +949,7 @@ def getAllScreens():
                             break
                     depth = screen.root_depth
 
-                    result[name] = {
+                    result[name + "_" + str(i)] = {
                         'id': id,
                         'is_primary': (x, y) == (0, 0),
                         'pos': Point(x, y),
@@ -1031,6 +1042,7 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
 def main():
     """Run this script from command-line to get windows under mouse pointer"""
     print("PLATFORM:", sys.platform)
+    print("MONITORS:", getAllScreens())
     print("SCREEN SIZE:", resolution())
     print("ALL WINDOWS:", getAllTitles())
     npw = getActiveWindow()

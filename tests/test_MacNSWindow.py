@@ -76,13 +76,6 @@ class Delegate(NSObject):
             time.sleep(timelap)
             assert self.npw.visible
 
-            # Test acceptInput
-            # print("INPUT OFF")
-            # self.npw.acceptInput(False)
-            # time.sleep(3)
-            # print("INPUT ON")
-            # self.npw.acceptInput(True)
-
             # Test resizing
             self.npw.resizeTo(600, 400, wait=wait)
             print("RESIZE", self.npw.size)
