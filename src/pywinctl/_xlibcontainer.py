@@ -1272,8 +1272,8 @@ class EwmhWindow:
 
         :return: visible name of the window as str or None (nothing obtained)
         """
-        # Despite the many combinations tested, this always returns "None" in my system
-        ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Window.VISIBLE_NAME.value, Xlib.Xatom.STRING)
+        # Despite the many combinations tested (e.g. using Xlib.Xatom.STRING), this always returns "None" in my system
+        ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Window.VISIBLE_NAME.value)
         res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res:
             return str(res[0])
@@ -1285,7 +1285,7 @@ class EwmhWindow:
 
         :param name: new visible name as string
         """
-        self.changeProperty(Props.Window.VISIBLE_NAME.value, name, Xlib.Xatom.STRING)
+        self.changeProperty(Props.Window.VISIBLE_NAME.value, name)
 
     def getIconName(self) -> Optional[str]:
         """
@@ -1296,7 +1296,7 @@ class EwmhWindow:
 
         :return: icon name as string
         """
-        ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Xlib.Xatom.WM_ICON_NAME, Xlib.Xatom.STRING)
+        ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Xlib.Xatom.WM_ICON_NAME)
         res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res:
             return str(res[0])
@@ -1308,7 +1308,7 @@ class EwmhWindow:
 
         :param name: new icon name as string
         """
-        self.changeProperty(Xlib.Xatom.WM_ICON_NAME, name, Xlib.Xatom.STRING)
+        self.changeProperty(Xlib.Xatom.WM_ICON_NAME, name)
 
     def getVisibleIconName(self) -> Optional[str]:
         """
@@ -1319,7 +1319,7 @@ class EwmhWindow:
 
         :return: visible icon name as string
         """
-        ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Window.VISIBLE_ICON_NAME.value, Xlib.Xatom.STRING)
+        ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Window.VISIBLE_ICON_NAME.value)
         res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res:
             return str(res[0])
@@ -1331,7 +1331,7 @@ class EwmhWindow:
 
         :param name: new visible icon name as string
         """
-        self.changeProperty(Props.Window.VISIBLE_ICON_NAME.value, name, Xlib.Xatom.STRING)
+        self.changeProperty(Props.Window.VISIBLE_ICON_NAME.value, name)
 
     def getDesktop(self) -> Optional[int]:
         """
