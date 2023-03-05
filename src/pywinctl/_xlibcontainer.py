@@ -355,7 +355,7 @@ def getPropertyValue(prop: Optional[Xlib.protocol.request.GetProperty], text: bo
     if prop is not None:
         # Value is either bytes (separated by '\x00' when multiple values) or array.array of integers.
         # The type of array values is stored in array.typecode ('I' in this case).
-        valueData: Union[array.array, bytes] = prop.value
+        valueData: Union[array.array[int], bytes] = prop.value
         if isinstance(valueData, bytes):
             resultStr: List[str] = [a for a in valueData.decode().split("\x00") if a]
             return resultStr
@@ -1514,7 +1514,7 @@ class EwmhWindow:
         state1 = NULL
         state2 = NULL
         ret: Optional[Union[List[int], List[str]]] = self.getWmState(True)
-        states: List[str] = [] if ret is None else [a for a in ret if a]
+        states: List[str] = [] if ret is None else [a for a in ret if a and isinstance(a, str)]
         if maxHorz and maxVert:
             if Props.State.MAXIMIZED_HORZ.value not in states:
                 state1 = Props.State.MAXIMIZED_HORZ
