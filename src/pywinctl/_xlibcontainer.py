@@ -155,26 +155,72 @@ class Props:
         REMOVE = -2
 
 
-class _ScreenInfo(TypedDict):
-    screen: Struct
-    root: XWindow
-    is_default: bool
+class Structs:
+    """
+    Aimed to facilitate understanding and handling replies data structures and fields
+    """
+
+    class ScreenInfo(TypedDict):
+        screen: Struct
+        root: XWindow
+        is_default: bool
+
+    class ScreenSeq(TypedDict):
+        scrSeq: Optional[Structs.ScreenInfo]
+
+    class DisplayInfo(TypedDict):
+        is_default: bool
+        screens: Optional[List[Structs.ScreenSeq]]
+
+    class DisplaySeq(TypedDict):
+        name: Optional[Structs.DisplayInfo]
+
+    """Are the following struct really necessary? Leaving them at least as examples"""
+    class WmHints(TypedDict):
+        # {'flags': 103, 'input': 1, 'initial_state': 1, 'icon_pixmap': <Pixmap 0x02a22304>, 'icon_window': <Window 0x00000000>, 'icon_x': 0, 'icon_y': 0, 'icon_mask': <Pixmap 0x02a2230b>, 'window_group': <Window 0x02a00001>}
+        flags: int
+        input_mode: int
+        initial_state: int
+        icon_pixmap: Xlib.xobject.drawable.Pixmap
+        icon_window: Xlib.xobject.drawable.Window
+        icon_x: int
+        icon_y: int
+        icon_mask: Xlib.xobject.drawable.Pixmap
+        window_group: Xlib.xobject.drawable.Window
+
+    class Aspect(TypedDict):
+        num: int
+        denum: int
+
+    class WmNormalHints(TypedDict):
+        # {'flags': 848, 'min_width': 387, 'min_height': 145, 'max_width': 0, 'max_height': 0, 'width_inc': 9, 'height_inc': 18, 'min_aspect': <class 'Xlib.protocol.rq.DictWrapper'>({'num': 0, 'denum': 0}), 'max_aspect': <class 'Xlib.protocol.rq.DictWrapper'>({'num': 0, 'denum': 0}), 'base_width': 66, 'base_height': 101, 'win_gravity': 1}
+        flags: int
+        min_width: int
+        min_height: int
+        max_width: int
+        max_height: int
+        width_inc: int
+        height_inc: int
+        min_aspect: Structs.Aspect
+        max_aspect: Structs.Aspect
+        base_width: int
+        base_height: int
+        win_gravity: int
+
+    # class _XWindowAttributes(Structure):
+    #     _fields_ = [('x', c_int32), ('y', c_int32),
+    #                 ('width', c_int32), ('height', c_int32), ('border_width', c_int32),
+    #                 ('depth', c_int32), ('visual', c_ulong), ('root', c_ulong),
+    #                 ('class', c_int32), ('bit_gravity', c_int32),
+    #                 ('win_gravity', c_int32), ('backing_store', c_int32),
+    #                 ('backing_planes', c_ulong), ('backing_pixel', c_ulong),
+    #                 ('save_under', c_int32), ('colourmap', c_ulong),
+    #                 ('mapinstalled', c_uint32), ('map_state', c_uint32),
+    #                 ('all_event_masks', c_ulong), ('your_event_mask', c_ulong),
+    #                 ('do_not_propagate_mask', c_ulong), ('override_redirect', c_int32), ('screen', c_ulong)]
 
 
-class _ScreenSeq(TypedDict):
-    scrSeq: Optional[_ScreenInfo]
-
-
-class _DisplayInfo(TypedDict):
-    is_default: bool
-    screens: Optional[List[_ScreenSeq]]
-
-
-class _DisplaySeq(TypedDict):
-    name: Optional[_DisplayInfo]
-
-
-def getAllDisplaysInfo() -> _DisplaySeq:
+def getAllDisplaysInfo() -> Structs.DisplaySeq:
     """
     Gets relevant information on all present displays, including its screens and roots
 
@@ -191,26 +237,26 @@ def getAllDisplaysInfo() -> _DisplaySeq:
     :return: dict with all displays, screens and roots info
     """
     displays: List[str] = os.listdir("/tmp/.X11-unix")
-    dspInfo: _DisplaySeq = cast(_DisplaySeq, {})
+    dspInfo: Structs.DisplaySeq = cast(Structs.DisplaySeq, {})
     for i, d in enumerate(displays):
         if d.startswith("X"):
             name: str = ":" + d[1:]
             display: Xlib.display.Display = Xlib.display.Display(name)
-            screens: List[_ScreenSeq] = []
+            screens: List[Structs.ScreenSeq] = []
             for s in range(display.screen_count()):
                 try:
                     screen: Struct = display.screen(s)
-                    screenInfo: _ScreenInfo = {
+                    screenInfo: Structs.ScreenInfo = {
                         "screen": screen,
                         "root": screen.root,
                         "is_default": (screen.root.id == defaultRoot.id)
                     }
                     scrSeq = str(s)
-                    screenSeq: _ScreenSeq = cast(_ScreenSeq, {scrSeq: screenInfo})
+                    screenSeq: Structs.ScreenSeq = cast(Structs.ScreenSeq, {scrSeq: screenInfo})
                     screens.append(screenSeq)
                 except:
                     pass
-            displayInfo: _DisplayInfo = {
+            displayInfo: Structs.DisplayInfo = {
                 "is_default": (display.get_display_name() == defaultDisplay.get_display_name()),
                 "screens": screens
             }
@@ -228,6 +274,7 @@ def getDisplayFromWindow(winId: int) -> Tuple[Xlib.display.Display, Struct, XWin
     :param winId: id of the window
     :return: tuple containing display connection, screen struct and root window
     """
+    # This is simpler and faster, but can't be used until _XlibAttributes is fixed
     # ret: Tuple[bool, Structs._XWindowAttributes] = _XlibAttributes(winId)
     # res: bool = ret[0]
     # attr: Structs._XWindowAttributes = ret[1]
@@ -300,8 +347,20 @@ def getDisplayFromRoot(rootId: int) -> Tuple[Xlib.display.Display, Struct, XWind
     return defaultDisplay, defaultScreen, defaultRoot
 
 
-def getProperty(window: XWindow, prop: int, prop_type: int = Xlib.X.AnyPropertyType, sizehint: int = 10) \
-        -> Optional[Xlib.protocol.request.GetProperty]:
+def getProperty(window: XWindow, prop: Union[str, int], prop_type: int = Xlib.X.AnyPropertyType, sizehint: int = 10,
+                display: Xlib.display.Display = defaultDisplay) -> Optional[Xlib.protocol.request.GetProperty]:
+    """
+    Get given window/root property
+
+    :param window: window from which get the property
+    :param prop: property to retrieve as int or str (will be translated to int)
+    :param prop_type: property type (e.g. Xlib.X.AnyPropertyType or Xlib.Xatom.ATOM)
+    :param sizehint: Expected data length hint (defaults to 10)
+    :param display: display to which window belongs to (defaults to default display)
+    :return: Xlib.protocol.request.GetProperty struct or None (property couldn't be obtained)
+    """
+    if isinstance(prop, str):
+        prop = display.get_atom(prop)
 
     if isinstance(prop, int) and prop != 0:
         return window.get_full_property(prop, prop_type, sizehint)
@@ -309,9 +368,18 @@ def getProperty(window: XWindow, prop: int, prop_type: int = Xlib.X.AnyPropertyT
 
 
 def changeProperty(window: XWindow, prop: Union[str, int], data: Union[List[int], str],
-                   prop_type: int = Xlib.X.ATOM, propMode: int = Props.Mode.REPLACE.value,
+                   prop_type: int = Xlib.X.ATOM, propMode: int = Xlib.X.PropModeReplace,
                    display: Xlib.display.Display = defaultDisplay):
+    """
+    Change given window/root property
 
+    :param window: window to which change the property
+    :param prop: property to change as int or str (will be translated to int)
+    :param data: data of the property as string or List of int (atoms)
+    :param prop_type: property type (e.g. Xlib.Xatom.STRING or Xlib.Xatom.ATOM)
+    :param propMode: Property mode: APPEND/PREPPEND/REPLACE (defaults to Xlib.X.PropModeReplace)
+    :param display: display to which window belongs to (defaults to default display)
+    """
     if isinstance(prop, str):
         prop = display.get_atom(prop)
 
@@ -330,11 +398,18 @@ def changeProperty(window: XWindow, prop: Union[str, int], data: Union[List[int]
 
 def sendMessage(winId: int, prop: Union[str, int], data: Union[List[int], str],
                 display: Xlib.display.Display = defaultDisplay, root: XWindow = defaultRoot):
+    """
+    Send Client Message to given window/root
 
+    :param winId: window id (int) to which send the message
+    :param data: data of the message as string or list of int (atoms)
+    :param display: display to which window belongs to (defaults to default display)
+    :param root: root to which window is placed (defaults to default root)
+    """
     if isinstance(prop, str):
         prop = display.get_atom(prop)
 
-    if prop != 0:
+    if isinstance(prop, int) and prop != 0:
         # I think (to be confirmed) that 16 is not used in Python (no difference between short and long int)
         if isinstance(data, str):
             dataFormat: int = 8
@@ -351,7 +426,14 @@ def sendMessage(winId: int, prop: Union[str, int], data: Union[List[int], str],
 
 def getPropertyValue(prop: Optional[Xlib.protocol.request.GetProperty], text: bool = False,
                      display: Xlib.display.Display = defaultDisplay) -> Optional[Union[List[int], List[str]]]:
+    """
+    Extract data from retrieved window/root property
 
+    :param prop: Xlib.protocol.request.GetProperty struct from which extract data
+    :param text: set to ''True'' to convert the atoms (int) to their names (str)
+    :param display: display to which window belongs to (defaults to default display)
+    :return: extracted property data (as a list of integers or strings) or None
+    """
     if prop is not None:
         # Value is either bytes (separated by '\x00' when multiple values) or array.array of integers.
         # The type of array values is stored in array.typecode ('I' in this case).
@@ -368,57 +450,6 @@ def getPropertyValue(prop: Optional[Xlib.protocol.request.GetProperty], text: bo
                 return resultInt
         return [a for a in valueData]
     return None
-
-
-class Structs:
-    """
-    Is this really necessary? Leaving it at least as example.
-
-    Aimed to facilitate understanding replies data structures and fields
-    """
-
-    class WmHints(TypedDict):
-        # {'flags': 103, 'input': 1, 'initial_state': 1, 'icon_pixmap': <Pixmap 0x02a22304>, 'icon_window': <Window 0x00000000>, 'icon_x': 0, 'icon_y': 0, 'icon_mask': <Pixmap 0x02a2230b>, 'window_group': <Window 0x02a00001>}
-        flags: int
-        input_mode: int
-        initial_state: int
-        icon_pixmap: Xlib.xobject.drawable.Pixmap
-        icon_window: Xlib.xobject.drawable.Window
-        icon_x: int
-        icon_y: int
-        icon_mask: Xlib.xobject.drawable.Pixmap
-        window_group: Xlib.xobject.drawable.Window
-
-    class Aspect(TypedDict):
-        num: int
-        denum: int
-
-    class WmNormalHints(TypedDict):
-        # {'flags': 848, 'min_width': 387, 'min_height': 145, 'max_width': 0, 'max_height': 0, 'width_inc': 9, 'height_inc': 18, 'min_aspect': <class 'Xlib.protocol.rq.DictWrapper'>({'num': 0, 'denum': 0}), 'max_aspect': <class 'Xlib.protocol.rq.DictWrapper'>({'num': 0, 'denum': 0}), 'base_width': 66, 'base_height': 101, 'win_gravity': 1}
-        flags: int
-        min_width: int
-        min_height: int
-        max_width: int
-        max_height: int
-        width_inc: int
-        height_inc: int
-        min_aspect: Structs.Aspect
-        max_aspect: Structs.Aspect
-        base_width: int
-        base_height: int
-        win_gravity: int
-
-    # class _XWindowAttributes(Structure):
-    #     _fields_ = [('x', c_int32), ('y', c_int32),
-    #                 ('width', c_int32), ('height', c_int32), ('border_width', c_int32),
-    #                 ('depth', c_int32), ('visual', c_ulong), ('root', c_ulong),
-    #                 ('class', c_int32), ('bit_gravity', c_int32),
-    #                 ('win_gravity', c_int32), ('backing_store', c_int32),
-    #                 ('backing_planes', c_ulong), ('backing_pixel', c_ulong),
-    #                 ('save_under', c_int32), ('colourmap', c_ulong),
-    #                 ('mapinstalled', c_uint32), ('map_state', c_uint32),
-    #                 ('all_event_masks', c_ulong), ('your_event_mask', c_ulong),
-    #                 ('do_not_propagate_mask', c_ulong), ('override_redirect', c_int32), ('screen', c_ulong)]
 
 
 class RootWindow:
