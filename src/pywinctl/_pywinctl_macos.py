@@ -965,7 +965,7 @@ class MacOSWindow(BaseWindow):
             box = self.box
         return self.left == newLeft and self.top == newTop
 
-    def _moveResizeTo(self, newLeft: int, newTop: int, newWidth: int, newHeight: int) -> bool:
+    def _moveResizeTo(self, newBox: Box) -> bool:
         if not self.title:
             return False
 
@@ -984,17 +984,16 @@ class MacOSWindow(BaseWindow):
                     end try
                 end run"""
         proc = subprocess.Popen(['osascript', '-', self._appName, self.title,
-                                 str(newLeft), str(newTop), str(newWidth), str(newHeight)], 
+                                 str(newBox.left), str(newBox.top), str(newBox.width), str(newBox.height)],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
         box = self.box
         retries = 0
-        while retries < WAIT_ATTEMPTS and box.left != newLeft and box.top != newTop and \
-                box.width != newWidth and box.height != newHeight:
+        while retries < WAIT_ATTEMPTS and newBox != box:
             retries += 1
             time.sleep(WAIT_DELAY * retries)
             box = self.box
-        return newLeft == box.left and newTop == box.top and newWidth == box.width and newHeight == box.height
+        return newBox != box
 
     def alwaysOnTop(self, aot: bool = True) -> bool:
         """
@@ -2256,9 +2255,9 @@ class MacOSNSWindow(BaseWindow):
             box = self.box
         return box.left == newLeft and box.top == newTop
 
-    def _moveResizeTo(self, newLeft: int, newTop: int, newWidth: int, newHeight: int) -> bool:
-        self._hWnd.setFrame_display_animate_(AppKit.NSMakeRect(newLeft, resolution().height - newTop - newHeight, newWidth, newHeight), True, True)
-        return Box(newLeft, newTop, newWidth, newHeight) == self.box
+    def _moveResizeTo(self, newBox: Box) -> bool:
+        self._hWnd.setFrame_display_animate_(AppKit.NSMakeRect(newBox.left, resolution().height - newBox.top - newBox.height, newBox.width, newBox.height), True, True)
+        return newBox == self.box
 
     def alwaysOnTop(self, aot: bool = True) -> bool:
         """

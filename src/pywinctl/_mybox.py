@@ -41,7 +41,7 @@ class MyBox:
         self._onQuery: Callable[[], Box] = onQuery
 
     def __repr__(self):
-        """Return a string of the constructor function call to create this Rect object."""
+        """Return a string of the constructor function call to create this Box object."""
         return "%s(left=%s, top=%s, width=%s, height=%s)" % (
             self.__class__.__name__,
             self._box.left,
@@ -51,7 +51,7 @@ class MyBox:
         )
 
     def __str__(self):
-        """Return a string representation of this Rect object."""
+        """Return a string representation of this Box object."""
         return "(%s, %s, w=%s, h=%s)" % (
             self._box.left,
             self._box.top,
@@ -191,8 +191,8 @@ class MyBox:
 
     @topleft.setter
     def topleft(self, value: Union[Point, Tuple[int, int]]):
-        self._box = self._onQuery()
         val: Point = Point(*value)
+        self._box = self._onQuery()
         self._box = Box(val.x, val.y, self._box.width, self._box.height)
         self._onSet(self._box)
 
@@ -203,8 +203,8 @@ class MyBox:
 
     @bottomleft.setter
     def bottomleft(self, value: Union[Point, Tuple[int, int]]):
-        self._box = self._onQuery()
         val: Point = Point(*value)
+        self._box = self._onQuery()
         self._box = Box(val.x, val.y - self._box.height, self._box.width, self._box.height)
         self._onSet(self._box)
 
@@ -215,8 +215,8 @@ class MyBox:
 
     @topright.setter
     def topright(self, value: Union[Point, Tuple[int, int]]):
-        self._box = self._onQuery()
         val: Point = Point(*value)
+        self._box = self._onQuery()
         self._box = Box(val.x - self._box.width, val.y, self._box.width, self._box.height)
         self._onSet(self._box)
 
@@ -227,8 +227,8 @@ class MyBox:
 
     @bottomright.setter
     def bottomright(self, value: Union[Point, Tuple[int, int]]):
-        self._box = self._onQuery()
         val: Point = Point(*value)
+        self._box = self._onQuery()
         self._box = Box(val.x - self._box.width, val.y - self._box.height, self._box.width, self._box.height)
         self._onSet(self._box)
 
@@ -239,8 +239,8 @@ class MyBox:
 
     @midtop.setter
     def midtop(self, value: Union[Point, Tuple[int, int]]):
-        self._box = self._onQuery()
         val: Point = Point(*value)
+        self._box = self._onQuery()
         self._box = Box(val.x - (self._box.width // 2), val.y, self._box.width, self._box.height)
         self._onSet(self._box)
 
@@ -251,8 +251,8 @@ class MyBox:
 
     @midbottom.setter
     def midbottom(self, value: Union[Point, Tuple[int, int]]):
-        self._box = self._onQuery()
         val: Point = Point(*value)
+        self._box = self._onQuery()
         self._box = Box(val.x - (self._box.width // 2), val.y - self._box.height, self._box.width, self._box.height)
         self._onSet(self._box)
 
@@ -263,8 +263,8 @@ class MyBox:
 
     @midleft.setter
     def midleft(self, value: Union[Point, Tuple[int, int]]):
-        self._box = self._onQuery()
         val: Point = Point(*value)
+        self._box = self._onQuery()
         self._box = Box(val.x, val.y - (self._box.height // 2), self._box.width, self._box.height)
         self._onSet(self._box)
 
@@ -275,8 +275,8 @@ class MyBox:
 
     @midright.setter
     def midright(self, value: Union[Point, Tuple[int, int]]):
-        self._box = self._onQuery()
         val: Point = Point(*value)
+        self._box = self._onQuery()
         self._box = Box(val.x - self._box.width, val.y - (self._box.height // 2), self._box.width, self._box.height)
         self._onSet(self._box)
 
@@ -287,8 +287,8 @@ class MyBox:
 
     @center.setter
     def center(self, value: Union[Point, Tuple[int, int]]):
-        self._box = self._onQuery()
         val: Point = Point(*value)
+        self._box = self._onQuery()
         self._box = Box(val.x - (self._box.width // 2), val.y - (self._box.height // 2), self._box.width, self._box.height)
         self._onSet(self._box)
 

@@ -105,14 +105,14 @@ def _levenshtein(seq1: str, seq2: str) -> float:
 class BaseWindow(ABC):
 
     def _boxFactory(self, box: Box) -> MyBox:
-        self._box: MyBox = MyBox(Box(box.left, box.top, box.width, box.height), self._onSet, self._onQuery)
+        self._box: MyBox = MyBox(box, self._onSet, self._onQuery)
         return self._box
 
     def _onSet(self, newBox: Box):
-        self._moveResizeTo(newBox.left, newBox.top, newBox.width, newBox.height)
+        self._moveResizeTo(newBox)
 
     @abstractmethod
-    def _moveResizeTo(self, newLeft: int, newTop: int, newWidth: int, newHeight: int) -> bool:
+    def _moveResizeTo(self, newBox: Box) -> bool:
         raise NotImplementedError
 
     def _onQuery(self) -> Box:
@@ -127,11 +127,11 @@ class BaseWindow(ABC):
         r = self._getWindowRect()
         return '<%s left="%s", top="%s", width="%s", height="%s", title="%s">' % (
             self.__class__.__qualname__,
+            self.title,
             r.left,
             r.top,
             r.width,
             r.height,
-            self.title,
         )
 
     @abstractmethod

@@ -229,10 +229,11 @@ def getWindowsAt(x: int, y: int):
     :param y: Y screen coordinate of the window(s)
     :return: list of Window objects
     """
+    windowBoxGenerator = ((window, window.box) for window in getAllWindows())
     return [
-        window for window
-        in getAllWindows()
-        if pointInRect(x, y, window.left, window.top, window.width, window.height)]
+        window for (window, box)
+        in windowBoxGenerator
+        if pointInRect(x, y, box.left, box.top, box.width, box.height)]
 
 
 def getTopWindowAt(x: int, y: int):
@@ -526,8 +527,9 @@ class LinuxWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
-        newLeft = max(0, self.left + xOffset)  # Xlib won't accept negative positions
-        newTop = max(0, self.top + yOffset)
+        box = self.box
+        newLeft = max(0, box.left + xOffset)  # Xlib won't accept negative positions
+        newTop = max(0, box.top + yOffset)
         return self.moveTo(newLeft, newTop, wait)
 
     moveRel = move  # moveRel is an alias for the move() method.
@@ -553,11 +555,11 @@ class LinuxWindow(BaseWindow):
             box = self.box
         return box.left == newLeft and box.top == newTop
 
-    def _moveResizeTo(self, newLeft: int, newTop: int, newWidth: int, newHeight: int):
-        newLeft = max(0, newLeft)  # Xlib won't accept negative positions
-        newTop = max(0, newTop)
-        self._win.setMoveResize(x=newLeft, y=newTop, width=newWidth, height=newHeight)
-        return Box(newLeft, newTop, newWidth, newHeight) == self.box
+    def _moveResizeTo(self, newBox: Box):
+        newLeft = max(0, newBox.left)  # Xlib won't accept negative positions
+        newTop = max(0, newBox.top)
+        self._win.setMoveResize(x=newLeft, y=newTop, width=newBox.width, height=newBox.height)
+        return newBox == self.box
 
     def alwaysOnTop(self, aot: bool = True) -> bool:
         """

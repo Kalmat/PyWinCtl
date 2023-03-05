@@ -222,10 +222,11 @@ def getWindowsAt(x: int, y: int) -> List[Win32Window]:
     :param y: Y screen coordinate of the window(s)
     :return: list of Window objects
     """
+    windowBoxGenerator = ((window, window.box) for window in getAllWindows())
     return [
-        window for window
-        in getAllWindows()
-        if pointInRect(x, y, window.left, window.top, window.width, window.height)]
+        window for (window, box)
+        in windowBoxGenerator
+        if pointInRect(x, y, box.left, box.top, box.width, box.height)]
 
 
 def getTopWindowAt(x: int, y: int) -> Optional[Win32Window]:
@@ -625,9 +626,9 @@ class Win32Window(BaseWindow):
             box = self.box
         return box.left == newLeft and box.top == newTop
 
-    def _moveResizeTo(self, newLeft: int, newTop: int, newWidth: int, newHeight: int) -> bool:
-        win32gui.MoveWindow(self._hWnd, newLeft, newTop, newWidth, newHeight, True)
-        return Box(newLeft, newTop, newWidth, newHeight) == self.box
+    def _moveResizeTo(self, newBox: Box) -> bool:
+        win32gui.MoveWindow(self._hWnd, newBox.left, newBox.top, newBox.width, newBox.height, True)
+        return newBox == self.box
 
     def alwaysOnTop(self, aot: bool = True) -> bool:
         """
@@ -824,7 +825,7 @@ class Win32Window(BaseWindow):
         """
         name = ""
         try:
-            hDpy = win32api.MonitorFromRect(self._getWindowRect())
+            hDpy = win32api.MonitorFromRect(self.rect)
             wInfo = win32api.GetMonitorInfo(hDpy)
             name = wInfo.get("Device", "")
         except:
