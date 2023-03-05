@@ -711,7 +711,6 @@ class RootWindow:
         :return: list of desktop names in str format
         """
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Root.DESKTOP_NAMES.value)
-        print(ret)
         res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res is not None:
             res = cast(List[str], res)
