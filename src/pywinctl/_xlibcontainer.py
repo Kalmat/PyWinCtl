@@ -11,7 +11,7 @@ assert sys.platform == "linux"
 import threading
 import time
 from enum import Enum, IntEnum
-from typing import Optional, cast, Callable, Union, List, Tuple, NamedTuple
+from typing import Optional, cast, Callable, Union, List, Tuple, NamedTuple, Iterable
 
 from typing_extensions import TypedDict
 
@@ -368,7 +368,7 @@ def getProperty(window: XWindow, prop: Union[str, int], prop_type: int = Xlib.X.
 
 
 def changeProperty(window: XWindow, prop: Union[str, int], data: Union[List[int], str],
-                   prop_type: int = Xlib.X.ATOM, propMode: int = Xlib.X.PropModeReplace,
+                   prop_type: int = Xlib.Xatom.ATOM, propMode: int = Xlib.X.PropModeReplace,
                    display: Xlib.display.Display = defaultDisplay):
     """
     Change given window/root property
@@ -448,7 +448,8 @@ def getPropertyValue(prop: Optional[Xlib.protocol.request.GetProperty], text: bo
             else:
                 resultInt: List[int] = [a for a in valueData]
                 return resultInt
-        return [a for a in valueData]
+        # Leaving this to detect if data has an unexpected type
+        return [a for a in valueData] if isinstance(valueData, Iterable) else [valueData]
     return None
 
 
@@ -550,7 +551,6 @@ class RootWindow:
 
         :return: list of integers (XWindows id's)
         """
-        # Return window ids or EwmhWindow objects?
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Root.CLIENT_LIST.value)
         res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res is not None:
@@ -566,7 +566,6 @@ class RootWindow:
 
         :return: list of integers (XWindows id's)
         """
-        # Return window ids or EwmhWindow objects?
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Root.CLIENT_LIST_STACKING.value)
         res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res is not None:
@@ -712,6 +711,7 @@ class RootWindow:
         :return: list of desktop names in str format
         """
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Root.DESKTOP_NAMES.value)
+        print(ret)
         res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res is not None:
             res = cast(List[str], res)
@@ -725,7 +725,6 @@ class RootWindow:
 
         :return: window id or None
         """
-        # Return window id or EwmhWindow object?
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Root.ACTIVE.value)
         res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res and isinstance(res[0], int):
@@ -971,7 +970,7 @@ class RootWindow:
             gravity_flags = gravity_flags | 0b0000000010000000
         win = self.display.create_resource_object('window', winId)
         if win.get_wm_transient_for():
-            # sendMessage doesn't properly work for transient windows???
+            # sendMessage doesn't work for transient windows???
             win.configure(x=x, y=y, width=width, height=height)
             self.display.flush()
         else:
@@ -1274,6 +1273,7 @@ class EwmhWindow:
 
         :return: visible name of the window as str or None (nothing obtained)
         """
+        # Despite the many combinations tested, this always returns "None" in my system
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Window.VISIBLE_NAME.value, Xlib.Xatom.STRING)
         res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res:
@@ -1286,7 +1286,7 @@ class EwmhWindow:
 
         :param name: new visible name as string
         """
-        self.changeProperty(Props.Window.VISIBLE_NAME.value, name)
+        self.changeProperty(Props.Window.VISIBLE_NAME.value, name, Xlib.Xatom.STRING)
 
     def getIconName(self) -> Optional[str]:
         """
@@ -1320,7 +1320,7 @@ class EwmhWindow:
 
         :return: visible icon name as string
         """
-        ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Window.VISIBLE_ICON_NAME.value)
+        ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Window.VISIBLE_ICON_NAME.value, Xlib.Xatom.STRING)
         res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res:
             return str(res[0])
@@ -1332,7 +1332,7 @@ class EwmhWindow:
 
         :param name: new visible icon name as string
         """
-        self.changeProperty(Props.Window.VISIBLE_ICON_NAME.value, name)
+        self.changeProperty(Props.Window.VISIBLE_ICON_NAME.value, name, Xlib.Xatom.STRING)
 
     def getDesktop(self) -> Optional[int]:
         """
