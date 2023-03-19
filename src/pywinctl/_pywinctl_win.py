@@ -293,6 +293,9 @@ def _findMainWindowHandles() -> list[tuple[int, int]]:
         ]
 
     def winEnumHandler(hwnd: int, ctx: Any):
+        if not win32gui.IsWindowVisible(hwnd):
+            return
+
         # Title Info Initialization
         title_info = TITLEBARINFO()
         title_info.cbSize = ctypes.sizeof(title_info)
@@ -307,7 +310,7 @@ def _findMainWindowHandles() -> list[tuple[int, int]]:
         title = win32gui.GetWindowText(hwnd)
 
         # Append HWND to list
-        if win32gui.IsWindowVisible(hwnd) and title != '' and isCloaked.value == 0:
+        if title != '' and isCloaked.value == 0:
             if not (title_info.rgstate[0] & win32con.STATE_SYSTEM_INVISIBLE):
                 handle_list.append((hwnd, win32process.GetWindowThreadProcessId(hwnd)[1]))
 
