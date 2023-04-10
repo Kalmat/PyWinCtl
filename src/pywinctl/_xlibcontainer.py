@@ -2928,7 +2928,7 @@ def _loadX11Library() -> Optional[Union[CDLL, int]]:
     return _xlib
 
 
-def _loadXcompLibrary() -> Optional[CDLL]:
+def _loadXcompLibrary() -> Optional[Union[CDLL, int]]:
     global _xcomp
     if _xcomp is None:
         global _xcomp
