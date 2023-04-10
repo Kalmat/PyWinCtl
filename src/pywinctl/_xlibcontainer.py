@@ -257,6 +257,7 @@ def getAllDisplaysInfo() -> Structs.DisplaysInfo:
                 except:
                     pass
             displayInfo: Structs.DisplaysInfo = {
+                "name": name,
                 "is_default": (display.get_display_name() == defaultDisplay.get_display_name()),
                 "screens": screens
             }
@@ -2909,12 +2910,14 @@ def _closeTransient(transientWindow: EwmhWindow):
     transientWindow.setClosed()
 
 
-def _loadX11Library() -> Optional[CDLL]:
-    if '_xlib' in globals():
-        global _xlib
-    else:
-        global _xlib
-        lib: Optional[CDLL] = None
+_xlib: Optional[Union[CDLL, int]] = None
+_xcomp: Optional[Union[CDLL, int]] = None
+
+
+def _loadX11Library() -> Optional[Union[CDLL, int]]:
+    global _xlib
+    if _xlib is None:
+        lib: Union[CDLL, int] = -1
         try:
             libPath: Optional[str] = find_library('X11')
             if libPath:
@@ -2926,11 +2929,10 @@ def _loadX11Library() -> Optional[CDLL]:
 
 
 def _loadXcompLibrary() -> Optional[CDLL]:
-    if '_xcomp' not in globals():
+    global _xcomp
+    if _xcomp is None:
         global _xcomp
-    else:
-        global _xcomp
-        lib: Optional[CDLL] = None
+        lib: Union[CDLL, int] = -1
         try:
             libPath: Optional[str] = find_library('Xcomposite')
             if libPath:
@@ -2947,7 +2949,7 @@ def _XGetAttributes(winId: int, dpyName: str = "") -> Tuple[bool, Structs._XWind
 
     xlib = _loadX11Library()
 
-    if xlib is not None:
+    if isinstance(xlib, CDLL):
         try:
             if not dpyName:
                 dpyName = defaultDisplay.get_display_name()
