@@ -2947,7 +2947,7 @@ def _XGetAttributes(winId: int, dpyName: str = "") -> Tuple[bool, Structs._XWind
     resOK: bool = False
     attr: Structs._XWindowAttributes = Structs._XWindowAttributes()
 
-    xlib = _loadX11Library()
+    xlib: Optional[Union[CDLL, int]] = _loadX11Library()
 
     if isinstance(xlib, CDLL):
         try:
