@@ -411,7 +411,9 @@ class Win32Window(BaseWindow):
         self.watchdog = _WatchDog(self)
 
     def _getWindowRect(self) -> Box:
-        ctypes.windll.user32.SetProcessDPIAware()
+        dpiAware = ctypes.windll.user32.GetAwarenessFromDpiAwarenessContext(ctypes.windll.user32.GetThreadDpiAwarenessContext())
+        if dpiAware == 0:
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)
         x, y, r, b = win32gui.GetWindowRect(self._hWnd)
         return Box(x, y, r - x, b - y)
 
@@ -1273,7 +1275,9 @@ def getAllScreens() -> dict[str, _ScreenValue]:
     """
     # https://stackoverflow.com/questions/35814309/winapi-changedisplaysettingsex-does-not-work
     result: dict[str, _ScreenValue] = {}
-    ctypes.windll.user32.SetProcessDPIAware()
+    dpiAware = ctypes.windll.user32.GetAwarenessFromDpiAwarenessContext(ctypes.windll.user32.GetThreadDpiAwarenessContext())
+    if dpiAware == 0:
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
     monitors = win32api.EnumDisplayMonitors()
     i = 0
     while True:
@@ -1333,15 +1337,18 @@ def getAllScreens() -> dict[str, _ScreenValue]:
     return result
 
 
-def getMousePos() -> Tuple[int, int]:
+def getMousePos() -> Point:
     """
     Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
 
     :return: Point struct
     """
-    ctypes.windll.user32.SetProcessDPIAware()
-    cursor = win32api.GetCursorPos()
-    return Point(cursor[0], cursor[1])
+    dpiAware = ctypes.windll.user32.GetAwarenessFromDpiAwarenessContext(ctypes.windll.user32.GetThreadDpiAwarenessContext())
+    if dpiAware == 0:
+        # It seems that this can't be invoked twice. Setting it to 2 for apps having 0 (unaware) may have less impact
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+    x, y = win32api.GetCursorPos()
+    return Point(x, y)
 cursor = getMousePos  # cursor is an alias for getMousePos
 
 
@@ -1401,8 +1408,8 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0):
                     name = win.title
                     eraser = '' if len(name) >= len(positionStr) else ' ' * (len(positionStr) - len(name))
                     sys.stdout.write((name or ("<No Name> ID: " + str(win._hWnd))) + eraser + '\n')
-            sys.stdout.write(positionStr)
             sys.stdout.write('\b' * len(positionStr))
+            sys.stdout.write(positionStr)
             sys.stdout.flush()
             time.sleep(0.3)
     except KeyboardInterrupt:
@@ -1592,7 +1599,7 @@ def main():
     else:
         print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()
-    displayWindowsUnderMouse(0, 0)
+    displayWindowsUnderMouse()
     # print(npw.menu.getMenu())  # Not working in windows 11?!?!?!?!
 
 

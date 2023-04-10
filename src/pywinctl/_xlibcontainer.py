@@ -11,9 +11,12 @@ assert sys.platform == "linux"
 import threading
 import time
 from enum import Enum, IntEnum
-from typing import Optional, cast, Callable, Union, List, Tuple, NamedTuple, Iterable
+from typing import Optional, cast, Callable, Union, List, Tuple, Iterable
 
 from typing_extensions import TypedDict
+
+from ctypes import cdll, Structure, c_int32, c_ulong, c_uint32, byref, CDLL
+from ctypes.util import find_library
 
 import Xlib.display
 import Xlib.protocol
@@ -160,22 +163,20 @@ class Structs:
     Aimed to facilitate understanding and handling replies data structures and fields
     """
 
-    class ScreenInfo(TypedDict):
+    class ScreensInfo(TypedDict):
+        screen_number: str
+        is_default: bool
         screen: Struct
         root: XWindow
+
+    class DisplaysInfo(TypedDict):
+        name: str
         is_default: bool
+        screens: List[Structs.ScreensInfo]
 
-    class ScreenSeq(TypedDict):
-        scrSeq: Optional[Structs.ScreenInfo]
-
-    class DisplayInfo(TypedDict):
-        is_default: bool
-        screens: Optional[List[Structs.ScreenSeq]]
-
-    class DisplaySeq(TypedDict):
-        name: Optional[Structs.DisplayInfo]
-
-    """Are the following struct really necessary? Leaving them at least as examples"""
+    """
+    Perhaps unnecesary since structs below are defined in Xlib.xobject.icccm.*, though in a more complex way.
+    """
     class WmHints(TypedDict):
         # {'flags': 103, 'input': 1, 'initial_state': 1, 'icon_pixmap': <Pixmap 0x02a22304>, 'icon_window': <Window 0x00000000>, 'icon_x': 0, 'icon_y': 0, 'icon_mask': <Pixmap 0x02a2230b>, 'window_group': <Window 0x02a00001>}
         flags: int
@@ -207,20 +208,20 @@ class Structs:
         base_height: int
         win_gravity: int
 
-    # class _XWindowAttributes(Structure):
-    #     _fields_ = [('x', c_int32), ('y', c_int32),
-    #                 ('width', c_int32), ('height', c_int32), ('border_width', c_int32),
-    #                 ('depth', c_int32), ('visual', c_ulong), ('root', c_ulong),
-    #                 ('class', c_int32), ('bit_gravity', c_int32),
-    #                 ('win_gravity', c_int32), ('backing_store', c_int32),
-    #                 ('backing_planes', c_ulong), ('backing_pixel', c_ulong),
-    #                 ('save_under', c_int32), ('colourmap', c_ulong),
-    #                 ('mapinstalled', c_uint32), ('map_state', c_uint32),
-    #                 ('all_event_masks', c_ulong), ('your_event_mask', c_ulong),
-    #                 ('do_not_propagate_mask', c_ulong), ('override_redirect', c_int32), ('screen', c_ulong)]
+    class _XWindowAttributes(Structure):
+        _fields_ = [('x', c_int32), ('y', c_int32),
+                    ('width', c_int32), ('height', c_int32), ('border_width', c_int32),
+                    ('depth', c_int32), ('visual', c_ulong), ('root', c_ulong),
+                    ('class', c_int32), ('bit_gravity', c_int32),
+                    ('win_gravity', c_int32), ('backing_store', c_int32),
+                    ('backing_planes', c_ulong), ('backing_pixel', c_ulong),
+                    ('save_under', c_int32), ('colourmap', c_ulong),
+                    ('mapinstalled', c_uint32), ('map_state', c_uint32),
+                    ('all_event_masks', c_ulong), ('your_event_mask', c_ulong),
+                    ('do_not_propagate_mask', c_ulong), ('override_redirect', c_int32), ('screen', c_ulong)]
 
 
-def getAllDisplaysInfo() -> Structs.DisplaySeq:
+def getAllDisplaysInfo() -> Structs.DisplaysInfo:
     """
     Gets relevant information on all present displays, including its screens and roots
 
@@ -237,26 +238,25 @@ def getAllDisplaysInfo() -> Structs.DisplaySeq:
     :return: dict with all displays, screens and roots info
     """
     displays: List[str] = os.listdir("/tmp/.X11-unix")
-    dspInfo: Structs.DisplaySeq = cast(Structs.DisplaySeq, {})
+    dspInfo: Structs.DisplaysInfo = cast(Structs.DisplaysInfo, {})
     for i, d in enumerate(displays):
         if d.startswith("X"):
             name: str = ":" + d[1:]
             display: Xlib.display.Display = Xlib.display.Display(name)
-            screens: List[Structs.ScreenSeq] = []
+            screens: List[Structs.ScreensInfo] = []
             for s in range(display.screen_count()):
                 try:
                     screen: Struct = display.screen(s)
-                    screenInfo: Structs.ScreenInfo = {
+                    screenInfo: Structs.ScreensInfo = {
+                        "screen_number": str(s),
+                        "is_default": (screen.root.id == defaultRoot.id),
                         "screen": screen,
-                        "root": screen.root,
-                        "is_default": (screen.root.id == defaultRoot.id)
+                        "root": screen.root
                     }
-                    scrSeq = str(s)
-                    screenSeq: Structs.ScreenSeq = cast(Structs.ScreenSeq, {scrSeq: screenInfo})
-                    screens.append(screenSeq)
+                    screens.append(screenInfo)
                 except:
                     pass
-            displayInfo: Structs.DisplayInfo = {
+            displayInfo: Structs.DisplaysInfo = {
                 "is_default": (display.get_display_name() == defaultDisplay.get_display_name()),
                 "screens": screens
             }
@@ -274,13 +274,9 @@ def getDisplayFromWindow(winId: int) -> Tuple[Xlib.display.Display, Struct, XWin
     :param winId: id of the window
     :return: tuple containing display connection, screen struct and root window
     """
-    # This is simpler and faster, but can't be used until _XlibAttributes is fixed
-    # ret: Tuple[bool, Structs._XWindowAttributes] = _XlibAttributes(winId)
-    # res: bool = ret[0]
-    # attr: Structs._XWindowAttributes = ret[1]
+    # res, attr = _XlibAttributes(winId)
     # if res and hasattr(attr, "root"):
-    #     targetRoot: int = attr.root
-    #     return getDisplayFromRoot(targetRoot)
+    #     return getDisplayFromRoot(attr.root)
     # else:
     displays: List[str] = os.listdir("/tmp/.X11-unix")
     check = False
@@ -377,7 +373,7 @@ def changeProperty(window: XWindow, prop: Union[str, int], data: Union[List[int]
     :param prop: property to change as int or str (will be translated to int)
     :param data: data of the property as string or List of int (atoms)
     :param prop_type: property type (e.g. Xlib.Xatom.STRING or Xlib.Xatom.ATOM)
-    :param propMode: Property mode: APPEND/PREPPEND/REPLACE (defaults to Xlib.X.PropModeReplace)
+    :param propMode: Property mode: APPEND/PREPEND/REPLACE (defaults to Xlib.X.PropModeReplace)
     :param display: display to which window belongs to (defaults to default display)
     """
     if isinstance(prop, str):
@@ -402,6 +398,7 @@ def sendMessage(winId: int, prop: Union[str, int], data: Union[List[int], str],
     Send Client Message to given window/root
 
     :param winId: window id (int) to which send the message
+    :param prop: property to change as int or str (will be translated to int)
     :param data: data of the message as string or list of int (atoms)
     :param display: display to which window belongs to (defaults to default display)
     :param root: root to which window is placed (defaults to default root)
@@ -914,7 +911,7 @@ class RootWindow:
         """
         self.sendMessage(winId, Props.Root.CLOSE.value, [Xlib.X.CurrentTime, 2 if userAction else 1])
 
-    def setMoveResize(self, winId: int, gravity: int = 0, x: Optional[int] = None, y: Optional[int] = None, width: Optional[int]= None, height: Optional[int] = None, userAction: bool = True):
+    def setMoveResize(self, winId: int, gravity: int = 0, x: Optional[int] = None, y: Optional[int] = None, width: Optional[int] = None, height: Optional[int] = None, userAction: bool = True):
         """
         Moves and/or resize given window
 
@@ -949,31 +946,30 @@ class RootWindow:
         :param height: target height of window. Defaults to None (unchanged)
         :param userAction: set to ''True'' to force action, as if it was requested by a user action. Defaults to True
         """
-        # gravitiy_flags calculations directly taken from 'old' ewmh
-        gravity_flags = gravity | 0b0000100000000000
+        # gravity_flags calculations from 'old' ewmh seem to be wrong
+        # Thanks to elraymond (https://github.com/elraymond) for his help!
+        gravity_flags = gravity
         if x is None:
             x = 0
         else:
-            gravity_flags = gravity_flags | 0b0000010000000000
+            gravity_flags = gravity_flags | (1 << 8)
         if y is None:
             y = 0
         else:
-            gravity_flags = gravity_flags | 0b0000001000000000
+            gravity_flags = gravity_flags | (1 << 9)
         if width is None:
             width = 0
         else:
-            gravity_flags = gravity_flags | 0b0000000100000000
+            gravity_flags = gravity_flags | (1 << 10)
         if height is None:
             height = 0
         else:
-            gravity_flags = gravity_flags | 0b0000000010000000
-        win = self.display.create_resource_object('window', winId)
-        if win.get_wm_transient_for():
-            # sendMessage doesn't work for transient windows???
-            win.configure(x=x, y=y, width=width, height=height)
-            self.display.flush()
+            gravity_flags = gravity_flags | (1 << 11)
+        if userAction:
+            gravity_flags = gravity_flags | (1 << 12)
         else:
-            self.sendMessage(winId, Props.Root.MOVERESIZE.value, [gravity_flags, x, y, width, height, 2 if userAction else 1])
+            gravity_flags = gravity_flags | (1 << 13)
+        self.sendMessage(winId, Props.Root.MOVERESIZE.value, [gravity_flags, x, y, width, height])
 
     def setWmMoveResize(self, winId: int, x_root: int, y_root: int, orientation: int, button: int, userAction: bool = True):
         """
@@ -1082,7 +1078,7 @@ class RootWindow:
         # Is all this necessary/interesting?
         # Besides, should they be included within RootWindow class or outside?
 
-        def __init__(self, display: Xlib.display.Display, root: XWindow, ):
+        def __init__(self, display: Xlib.display.Display, root: XWindow):
             self._display = display
             self._root = root
 
@@ -1272,7 +1268,6 @@ class EwmhWindow:
 
         :return: visible name of the window as str or None (nothing obtained)
         """
-        # Despite the many combinations tested (e.g. using Xlib.Xatom.STRING), this always returns "None" in my system
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Props.Window.VISIBLE_NAME.value)
         res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
         if res:
@@ -1720,16 +1715,16 @@ class EwmhWindow:
             res = cast(List[int], res)
         return res
 
-    def setStrutPartial(self, left: int, right: int, top: int, bottom: int,
-                        left_start_y: int, left_end_y: int, right_start_y: int, right_end_y: int,
-                        top_start_x: int, top_end_x: int, bottom_start_x: int, bottom_end_x: int):
-        """
-        Set new Strut Partial property.
-
-        See getStrutPartial() documentation for more information on this property.
-        """
-        # Need to understand this / Can it be set???
-        pass
+    # Need to understand this / Can it be set and, if so, how to pass all those values???
+    # def setStrutPartial(self, left: int, right: int, top: int, bottom: int,
+    #                     left_start_y: int, left_end_y: int, right_start_y: int, right_end_y: int,
+    #                     top_start_x: int, top_end_x: int, bottom_start_x: int, bottom_end_x: int):
+    #     """
+    #     Set new Strut Partial property.
+    #
+    #     See getStrutPartial() documentation for more information on this property.
+    #     """
+    #     pass
 
     def getIconGeometry(self) -> Optional[List[int]]:
         """
@@ -2000,31 +1995,30 @@ class EwmhWindow:
         :param height: target height of window. Defaults to None (unchanged)
         :param userAction: set to ''True'' to force action, as if it was requested by a user action. Defaults to True
         """
-        # gravity_flags directly taken from "old" ewmh module
-        gravity_flags = gravity | 0b0000100000000000
+        # gravity_flags calculations from 'old' ewmh seem to be wrong
+        # Thanks to elraymond (https://github.com/elraymond) for his help!
+        gravity_flags = gravity
         if x is None:
             x = 0
         else:
-            gravity_flags = gravity_flags | 0b0000010000000000
+            gravity_flags = gravity_flags | (1 << 8)
         if y is None:
             y = 0
         else:
-            gravity_flags = gravity_flags | 0b0000001000000000
+            gravity_flags = gravity_flags | (1 << 9)
         if width is None:
             width = 0
         else:
-            gravity_flags = gravity_flags | 0b0000000100000000
+            gravity_flags = gravity_flags | (1 << 10)
         if height is None:
             height = 0
         else:
-            gravity_flags = gravity_flags | 0b0000000010000000
-
-        if self.xWindow.get_wm_transient_for():
-            # sendMessage doesn't properly work for transient windows???
-            self.xWindow.configure(x=x, y=y, width=width, height=height)
-            self.display.flush()
+            gravity_flags = gravity_flags | (1 << 11)
+        if userAction:
+            gravity_flags = gravity_flags | (1 << 12)
         else:
-            self.sendMessage(Props.Window.MOVERESIZE.value, [gravity_flags, x, y, width, height, 2 if userAction else 1])
+            gravity_flags = gravity_flags | (1 << 13)
+        self.sendMessage(Props.Root.MOVERESIZE.value, [gravity_flags, x, y, width, height])
 
     def setWmMoveResize(self, x_root: int, y_root: int, orientation: int, button: int, userAction: bool = True):
         """
@@ -2915,106 +2909,101 @@ def _closeTransient(transientWindow: EwmhWindow):
     transientWindow.setClosed()
 
 
-# from ctypes import cdll, Structure, c_int32, c_ulong, c_uint32, byref
-# from ctypes.util import find_library
-# x11: Optional[str] = None
-# xlib: Optional[ctypes.CDLL] = None
-# xcomp: Optional[ctypes.CDLL] = None
-# tryToLoadXlib = True
-#
-# def _XlibAttributes(winId: int) -> Tuple[bool, Structs._XWindowAttributes]:
-#     resOK: bool = False
-#     attr: Structs._XWindowAttributes = Structs._XWindowAttributes()
-#
-#     global x11
-#     global xlib
-#     global tryToLoadXlib
-#
-#     if tryToLoadXlib:
-#         if xlib is None:
-#             try:
-#                 if x11 is None:
-#                     x11 = find_library('X11')
-#                 if x11 is not None:
-#                     xlib = cdll.LoadLibrary(x11)
-#             except:
-#                 x11 = None
-#                 xlib = None
-#                 tryToLoadXlib = False
-#
-#         if xlib is not None:
-#             try:
-#                 # Must discover how to address proper display (this is an int, and disp.get_display_name() is a str)
-#                 d: Xlib.display.Display = xlib.XOpenDisplay(0)
-#                 xlib.XGetWindowAttributes(d, winId, byref(attr))
-#                 xlib.XCloseDisplay(d)
-#                 resOK = True
-#             except:
-#                 pass
-#
-#     return resOK, attr
-#
-#     # Leaving this as reference of using X11 library
-#     # https://github.com/evocount/display-management/blob/c4f58f6653f3457396e44b8c6dc97636b18e8d8a/displaymanagement/rotation.py
-#     # https://github.com/nathanlopez/Stitch/blob/master/Configuration/mss/linux.py
-#     # https://gist.github.com/ssokolow/e7c9aae63fb7973e4d64cff969a78ae8
-#     # https://stackoverflow.com/questions/36188154/get-x11-window-caption-height
-#     # https://refspecs.linuxfoundation.org/LSB_1.3.0/gLSB/gLSB/libx11-ddefs.html
-#     # s = xlib.XDefaultScreen(d)
-#     # root = xlib.XDefaultRootWindow(d)
-#     # fg = xlib.XBlackPixel(d, s)
-#     # bg = xlib.XWhitePixel(d, s)
-#     # w = xlib.XCreateSimpleWindow(d, root, 600, 300, 400, 200, 0, fg, bg)
-#     # xlib.XMapWindow(d, w)
-#     # time.sleep(4)
-#     # a = xlib.XInternAtom(d, "_GTK_FRAME_EXTENTS", True)
-#     # if not a:
-#     #     a = xlib.XInternAtom(d, "_NET_FRAME_EXTENTS", True)
-#     # t = c_int()
-#     # f = c_int()
-#     # n = c_ulong()
-#     # b = c_ulong()
-#     # xlib.XGetProps.WindowProperty(d, w, a, 0, 4, False, Xlib.X.AnyPropertyType, byref(t), byref(f), byref(n), byref(b), byref(attr))
-#     # r = c_ulong()
-#     # x = c_int()
-#     # y = c_int()
-#     # w = c_uint()
-#     # h = c_uint()
-#     # b = c_uint()
-#     # d = c_uint()
-#     # xlib.XGetGeometry(d, hWnd.id, byref(r), byref(x), byref(y), byref(w), byref(h), byref(b), byref(d))
-#     # print(x, y, w, h)
-#     # Other references (send_event and setProperty):
-#     # prop = DISP.intern_atom(WM_CHANGE_STATE, False)
-#     # data = (32, [Xlib.Xutil.IconicState, 0, 0, 0, 0])
-#     # ev = Xlib.protocol.event.ClientMessage(window=self._hWnd.id, client_type=prop, data=data)
-#     # mask = Xlib.X.SubstructureRedirectMask | Xlib.X.SubstructureNotifyMask
-#     # DISP.send_event(destination=ROOT, event=ev, event_mask=mask)
-#     # data = [Xlib.Xutil.IconicState, 0, 0, 0, 0]
-#     # _setProperty(_type="WM_CHANGE_STATE", data=data, mask=mask)
-#     # for atom in w.list_properties():
-#     #     print(DISP.atom_name(atom))
-#     # props = DISP.xrandr_list_output_properties(output)
-#     # for atom in atoms:
-#     #     print(atom, DISP.get_atom_name(atom))
-#     #     print(DISP.xrandr_get_output_property(output, atom, 0, 0, 1000)._data['value'])
+def _loadX11Library() -> Optional[CDLL]:
+    if '_xlib' in globals():
+        global _xlib
+    else:
+        global _xlib
+        lib: Optional[CDLL] = None
+        try:
+            libPath: Optional[str] = find_library('X11')
+            if libPath:
+                lib = cdll.LoadLibrary(libPath)
+        except:
+            pass
+        _xlib = lib
+    return _xlib
 
-# Failed/incomplete attempt of using Composite Overlay to draw window in between desktop and desktop icons:
-# def _sendBehind(self):
-#
-#     x11 = find_library('X11')
-#     xlib = cdll.LoadLibrary(str(x11))
-#     xcomp = find_library('Xcomposite')
-#     xcomplib = cdll.LoadLibrary(str(xcomp))
-#     print(xcomplib.XCompositeVersion())
-#
-#     d = xlib.XOpenDisplay(0)
-#     print("GET", xcomplib.XCompositeGetOverlayWindow(d, self._win.root.id))
-#     print("REDIR", xcomplib.XCompositeRedirectWindow(d, self._xWin.id, 1))  # update values unknow (CompositeRedirectAutomatic or CompositeRedirectManual)
-#     xlib.XFlush(d)
-#     print("REDSUB", xcomplib.XCompositeRedirectSubwindows(d, self._xWin.id, 1))
-#     xlib.XFlush(d)
-#     # xlib.XCloseDisplay(d)
+
+def _loadXcompLibrary() -> Optional[CDLL]:
+    if '_xcomp' not in globals():
+        global _xcomp
+    else:
+        global _xcomp
+        lib: Optional[CDLL] = None
+        try:
+            libPath: Optional[str] = find_library('Xcomposite')
+            if libPath:
+                lib = cdll.LoadLibrary(libPath)
+        except:
+            pass
+        _xcomp = lib
+    return _xcomp
+
+
+def _XGetAttributes(winId: int, dpyName: str = "") -> Tuple[bool, Structs._XWindowAttributes]:
+    resOK: bool = False
+    attr: Structs._XWindowAttributes = Structs._XWindowAttributes()
+
+    xlib = _loadX11Library()
+
+    if xlib is not None:
+        try:
+            if not dpyName:
+                dpyName = defaultDisplay.get_display_name()
+            dpy: int = xlib.XOpenDisplay(dpyName.encode())
+            xlib.XGetWindowAttributes(dpy, winId, byref(attr))
+            xlib.XCloseDisplay(dpy)
+            resOK = True
+        except:
+            pass
+    return resOK, attr
+
+    # Leaving this as reference of using X11 library
+    # https://github.com/evocount/display-management/blob/c4f58f6653f3457396e44b8c6dc97636b18e8d8a/displaymanagement/rotation.py
+    # https://github.com/nathanlopez/Stitch/blob/master/Configuration/mss/linux.py
+    # https://gist.github.com/ssokolow/e7c9aae63fb7973e4d64cff969a78ae8
+    # https://stackoverflow.com/questions/36188154/get-x11-window-caption-height
+    # https://refspecs.linuxfoundation.org/LSB_1.3.0/gLSB/gLSB/libx11-ddefs.html
+    # s = xlib.XDefaultScreen(d)
+    # root = xlib.XDefaultRootWindow(d)
+    # fg = xlib.XBlackPixel(d, s)
+    # bg = xlib.XWhitePixel(d, s)
+    # w = xlib.XCreateSimpleWindow(d, root, 600, 300, 400, 200, 0, fg, bg)
+    # xlib.XMapWindow(d, w)
+    # time.sleep(4)
+    # a = xlib.XInternAtom(d, "_GTK_FRAME_EXTENTS", True)
+    # if not a:
+    #     a = xlib.XInternAtom(d, "_NET_FRAME_EXTENTS", True)
+    # t = c_int()
+    # f = c_int()
+    # n = c_ulong()
+    # b = c_ulong()
+    # xlib.XGetProps.WindowProperty(d, w, a, 0, 4, False, Xlib.X.AnyPropertyType, byref(t), byref(f), byref(n), byref(b), byref(attr))
+    # r = c_ulong()
+    # x = c_int()
+    # y = c_int()
+    # w = c_uint()
+    # h = c_uint()
+    # b = c_uint()
+    # d = c_uint()
+    # xlib.XGetGeometry(d, hWnd.id, byref(r), byref(x), byref(y), byref(w), byref(h), byref(b), byref(d))
+    # print(x, y, w, h)
+    # Other references (send_event and setProperty):
+    # prop = DISP.intern_atom(WM_CHANGE_STATE, False)
+    # data = (32, [Xlib.Xutil.IconicState, 0, 0, 0, 0])
+    # ev = Xlib.protocol.event.ClientMessage(window=self._hWnd.id, client_type=prop, data=data)
+    # mask = Xlib.X.SubstructureRedirectMask | Xlib.X.SubstructureNotifyMask
+    # DISP.send_event(destination=ROOT, event=ev, event_mask=mask)
+    # data = [Xlib.Xutil.IconicState, 0, 0, 0, 0]
+    # _setProperty(_type="WM_CHANGE_STATE", data=data, mask=mask)
+    # for atom in w.list_properties():
+    #     print(DISP.atom_name(atom))
+    # props = DISP.xrandr_list_output_properties(output)
+    # for atom in atoms:
+    #     print(atom, DISP.get_atom_name(atom))
+    #     print(DISP.xrandr_get_output_property(output, atom, 0, 0, 1000)._data['value'])
+
 
 def main():
     print("ALL DISPLAYS")

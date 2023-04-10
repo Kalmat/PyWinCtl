@@ -1,5 +1,5 @@
 0.1, 2023/02/03 -- ALL: Replaced PyRect by custom, simpler, yet multi-monitor class. Added bbox and rect properties (x, y, right, bottom), added setParent() method, improved requirements.txt and setup.py
-                   LINUX: Removed ewmh and pynput dependencies, improved activate() and restore() methods to properly work on Unity, fixed acceptInput().
+                   LINUX: Removed ewmh and pynput dependencies, improved activate() and restore() methods to properly work on Unity, fixed acceptInput(), fixed move and resize (gravity and flags).
                    WINDOWS: getAllWindows() and related return "user" apps only, simplified alwaysOnBottom(), found a smarter way to refresh window after bringing it back with sendBehind()
                    MACOSWINDOW: Fixed getClientFrame() to be invoked from non-main threads
                    MACOSNSWINDOW: Added experimental acceptInput() method (not possible in AppleScript version)

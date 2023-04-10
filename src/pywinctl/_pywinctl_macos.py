@@ -2650,8 +2650,8 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
                     name = win.title or ''
                     eraser = '' if len(name) >= len(positionStr) else ' ' * (len(positionStr) - len(name))
                     sys.stdout.write(name + eraser + '\n')
-            sys.stdout.write(positionStr)
             sys.stdout.write('\b' * len(positionStr))
+            sys.stdout.write(positionStr)
             sys.stdout.flush()
             index += 1
             time.sleep(0.1)

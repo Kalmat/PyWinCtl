@@ -509,7 +509,7 @@ class LinuxWindow(BaseWindow):
         :return: ''True'' if window resized to the given size
         """
         box = self.box
-        self._win.setMoveResize(x=box.left, y=box.top, width=newWidth, height=newHeight)
+        self._win.setMoveResize(width=newWidth, height=newHeight)
         box = self.box
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and (box.width != newWidth or box.height != newHeight):
@@ -546,7 +546,7 @@ class LinuxWindow(BaseWindow):
         newLeft = max(0, newLeft)  # Xlib won't accept negative positions
         newTop = max(0, newTop)
         box = self.box
-        self._win.setMoveResize(x=newLeft, y=newTop, width=box.width, height=box.height)
+        self._win.setMoveResize(x=newLeft, y=newTop)
         box = self.box
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and (box.left != newLeft or box.top != newTop):
@@ -806,9 +806,6 @@ class LinuxWindow(BaseWindow):
             name = name.decode()
         return name
 
-    def _getAttributes(self) -> Xlib.protocol.request.GetWindowAttributes:
-        return self._xWin.get_attributes()
-
     @property
     def visible(self) -> bool:
         """
@@ -816,8 +813,7 @@ class LinuxWindow(BaseWindow):
 
         :return: ``True`` if the window is currently visible
         """
-        attr = self._getAttributes()
-        state = attr.map_state
+        state: int = self._xWin.get_attributes().map_state
         return bool(state == Xlib.X.IsViewable)
 
     isVisible: bool = cast(bool, visible)  # isVisible is an alias for the visible property.
@@ -830,7 +826,7 @@ class LinuxWindow(BaseWindow):
         :return: ''True'' if window exists
         """
         try:
-            _ = self._getAttributes().map_state
+            state: int = self._xWin.get_attributes().map_state
         except Xlib.error.BadWindow:
             return False
         else:
@@ -847,7 +843,7 @@ class LinuxWindow(BaseWindow):
     @property
     def _isMapped(self) -> bool:
         # Returns ``True`` if the window is currently mapped
-        state: int = self._getAttributes().map_state
+        state: int = self._xWin.get_attributes().map_state
         return bool(state != Xlib.X.IsUnmapped)
 
 
@@ -1033,8 +1029,8 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
                     name = win.title
                     eraser = '' if len(name) >= len(positionStr) else ' ' * (len(positionStr) - len(name))
                     sys.stdout.write(name + eraser + '\n')
-            sys.stdout.write(positionStr)
             sys.stdout.write('\b' * len(positionStr))
+            sys.stdout.write(positionStr)
             sys.stdout.flush()
             time.sleep(0.3)
     except KeyboardInterrupt:
