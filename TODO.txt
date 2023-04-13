@@ -2,15 +2,11 @@ Linux:
 - Test other combinations (especially for sendBehind()). Tested OK: Ubuntu/GNOME and Mint/Cinnamon
 - acceptInput()
     - Test in all cases:  moving, resizing, remap, close, ...
-    - Find a way to match python-xlib and Xlib display
-    - Find a smarter (xlib or similar) way to get title bar height
+    - Is it possible to make the window completely transparent to input (click-thru) in GNOME?
+- Find a smarter (xlib or similar) way to get title bar height
 
 Windows:
 - win32gui.GetMenu() not working in Windows 11 (?!?!?!?!)
-- isAlerting
-      - Find a way to retrieve the size and position of the taskbar icons (now using pywinauto)
-      - Find a way to retrieve the alerting color
-      - Test the highlight color position with other resolutions (tested on 5120x1440)
 - alwaysOnTop(): Now working with GDI, not with windows using DirectDraw exclusive mode
                  The solution seems to be hooking the d3d dll and force it to draw your own application as well
                  Is this possible with Python, or combining C++ and Python???
@@ -39,7 +35,6 @@ macOS / AppleScript:
 
 macOS / NSWindow:
 - acceptInput(): check (not sure if it really works now)
-- isAlerting: Find a way to detect if the icon is bouncing in dock
 
 General:
 - [Type_check] PyRect: Create type stubs or add to base library

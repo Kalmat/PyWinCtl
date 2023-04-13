@@ -670,7 +670,7 @@ class Win32Window(BaseWindow):
             ret = True
             if self._t is None:
                 self._t = _SendBottom(self._hWnd)
-                self._t.setDaemon(True)
+                self._t.daemon = True
                 self._t.start()
             else:
                 self._t.restart()
