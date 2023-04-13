@@ -254,10 +254,6 @@ def getTopWindowAt(x: int, y: int):
 
 class LinuxWindow(BaseWindow):
 
-    @property
-    def _rect(self):
-        return self.__rect
-
     def __init__(self, hWnd: Union[XWindow, int, str]):
 
         if isinstance(hWnd, XWindow):
@@ -271,7 +267,7 @@ class LinuxWindow(BaseWindow):
         self._rootWin: RootWindow = self._win.rootWindow
         self._xWin: XWindow = self._win.xWindow
 
-        self.__rect: MyBox = self._boxFactory(self._getWindowRect())
+        self._rect: MyBox = self._boxFactory(self._getWindowRect())
         self.watchdog = _WatchDog(self)
 
         self._currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()

@@ -504,9 +504,6 @@ class _SubMenuStructure(TypedDict, total=False):
 
 
 class MacOSWindow(BaseWindow):
-    @property
-    def _rect(self):
-        return self.__rect
 
     def __init__(self, app: AppKit.NSRunningApplication, title: str, bounds: Optional[Box] = None):
 
@@ -517,7 +514,7 @@ class MacOSWindow(BaseWindow):
         # self._parent = self.getParent()  # It is slow and not required by now
         if bounds is None:
             bounds = self._getWindowRect()
-        self.__rect: MyBox = self._boxFactory(box=bounds)
+        self._rect: MyBox = self._boxFactory(box=bounds)
         v = platform.mac_ver()[0].split(".")
         ver = float(v[0]+"."+v[1])
         # On Yosemite and below we need to use Zoom instead of FullScreen to maximize windows
@@ -2025,16 +2022,13 @@ class _SendBottom(threading.Thread):
 
 
 class MacOSNSWindow(BaseWindow):
-    @property
-    def _rect(self):
-        return self.__rect
 
     def __init__(self, app: AppKit.NSApplication, hWnd: AppKit.NSWindow):
 
         self._app = app
         self._hWnd = hWnd
         self._parent = hWnd.parentWindow()
-        self.__rect = self._boxFactory(self._getWindowRect())
+        self._rect = self._boxFactory(self._getWindowRect())
         self.watchdog = _WatchDog(self)
 
     def _getWindowRect(self) -> Box:
