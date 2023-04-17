@@ -2,16 +2,17 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import os
 import sys
 
 assert sys.platform == "linux"
 
 import math
+import os
 import platform
 import re
 import subprocess
 import time
+import tkinter as tk
 from typing import cast, Optional, Union, List, Tuple
 from typing_extensions import TypedDict
 
@@ -25,8 +26,8 @@ import Xlib.ext
 from Xlib.xobject.drawable import Window as XWindow
 
 from pywinctl._xlibcontainer import RootWindow, EwmhWindow, Props, defaultRootWindow, _xlibGetAllWindows
-
-from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect, MyBox, Box
+from pywinctl._mybox import MyBox, Box, Rect, Point, Size, pointInBox
+from pywinctl import BaseWindow, Re, _WatchDog
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -233,7 +234,7 @@ def getWindowsAt(x: int, y: int):
     return [
         window for (window, box)
         in windowBoxGenerator
-        if pointInRect(x, y, box.left, box.top, box.width, box.height)]
+        if pointInBox(x, y, box.left, box.top, box.width, box.height)]
 
 
 def getTopWindowAt(x: int, y: int):
@@ -246,7 +247,7 @@ def getTopWindowAt(x: int, y: int):
     """
     windows: List[LinuxWindow] = getAllWindows()
     for window in reversed(windows):
-        if pointInRect(x, y, window.left, window.top, window.width, window.height):
+        if pointInBox(x, y, window.left, window.top, window.width, window.height):
             return window
     else:
         return None
@@ -310,8 +311,6 @@ class LinuxWindow(BaseWindow):
         # geom = self._xWin.get_geometry()
         # borderWidth = geom.border_width
         # return titleHeight, borderWidth
-
-        import tkinter as tk
 
         class App(tk.Tk):
             def __init__(self):
@@ -755,7 +754,7 @@ class LinuxWindow(BaseWindow):
         screens = getAllScreens()
         name = ""
         for key in screens:
-            if pointInRect(self.centerx, self.centery, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
+            if pointInBox(self.centerx, self.centery, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
                 name = key
                 break
         return name

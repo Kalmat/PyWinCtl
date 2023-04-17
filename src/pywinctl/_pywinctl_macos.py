@@ -22,7 +22,8 @@ from typing_extensions import TypeAlias, TypedDict, Literal
 import AppKit
 import Quartz
 
-from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect, MyBox, Box
+from pywinctl._mybox import MyBox, Box, Rect, Point, Size, pointInBox
+from pywinctl import BaseWindow, Re, _WatchDog
 
 Incomplete: TypeAlias = Any
 Attribute: TypeAlias = Sequence['Tuple[str, str, bool, str]']
@@ -381,7 +382,7 @@ def getWindowsAt(x: int, y: int, app: Optional[AppKit.NSApplication] = None, all
     return [
         window for (window, box)
         in windowBoxGenerator
-        if pointInRect(x, y, box.left, box.top, box.width, box.height)]
+        if pointInBox(x, y, box.left, box.top, box.width, box.height)]
 
 @overload
 def getTopWindowAt(x: int, y: int, app: AppKit.NSApplication, allWindows: Optional[List[MacOSNSWindow]] = ...) -> Optional[MacOSNSWindow]: ...
@@ -1243,7 +1244,7 @@ class MacOSWindow(BaseWindow):
         screens = getAllScreens()
         name = ""
         for key in screens:
-            if pointInRect(self.centerx, self.centery, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
+            if pointInBox(self.centerx, self.centery, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
                 name = key
                 break
         return name
@@ -2405,7 +2406,7 @@ class MacOSNSWindow(BaseWindow):
         screens = getAllScreens()
         name = ""
         for key in screens:
-            if pointInRect(self.centerx, self.centery, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
+            if pointInBox(self.centerx, self.centery, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
                 name = key
                 break
         return name
@@ -2497,7 +2498,7 @@ def getMousePos() -> Point:
     screens = getAllScreens()
     x = y = 0
     for key in screens:
-        if pointInRect(mp.x, mp.y, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
+        if pointInBox(mp.x, mp.y, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
             x = int(mp.x)
             y = int(screens[key]["size"].height) - abs(int(mp.y))
             break

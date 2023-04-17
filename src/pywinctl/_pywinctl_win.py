@@ -24,7 +24,8 @@ import win32con
 import win32api
 import win32gui
 
-from pywinctl import BaseWindow, Point, Re, Rect, Size, _WatchDog, pointInRect, MyBox, Box
+from pywinctl._mybox import MyBox, Box, Rect, Point, Size, pointInBox
+from pywinctl import BaseWindow, Re, _WatchDog
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -226,7 +227,7 @@ def getWindowsAt(x: int, y: int) -> List[Win32Window]:
     return [
         window for (window, box)
         in windowBoxGenerator
-        if pointInRect(x, y, box.left, box.top, box.width, box.height)]
+        if pointInBox(x, y, box.left, box.top, box.width, box.height)]
 
 
 def getTopWindowAt(x: int, y: int) -> Optional[Win32Window]:

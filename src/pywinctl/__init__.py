@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any, cast, List, Tuple, Union
 
-from ._mybox import Rect, Box, BoundingBox, Size, Point, MyBox
+from ._mybox import MyBox, Box, BoundingBox, Rect, Point, Size
 
 
 __all__ = [
@@ -26,12 +26,6 @@ if sys.platform == "darwin":
     __all__ += ["NSWindow"]
 
 __version__ = "0.1"
-
-
-def pointInRect(x: int, y: int, left: int, top: int, width: int, height: int):
-    """Returns ``True`` if the ``(x, y)`` point is within the box described
-    by ``(left, top, width, height)``."""
-    return left < x < left + width and top < y < top + height
 
 
 def version(numberOnly: bool = True):

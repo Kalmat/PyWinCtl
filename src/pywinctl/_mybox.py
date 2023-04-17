@@ -33,6 +33,12 @@ class Size(NamedTuple):
     height: int
 
 
+def pointInBox(x: int, y: int, left: int, top: int, width: int, height: int):
+    """Returns ``True`` if the ``(x, y)`` point is within the box described
+    by ``(left, top, width, height)``."""
+    return left < x < left + width and top < y < top + height
+
+
 class MyBox:
 
     def __init__(self, windowBox: Box, onSet: Callable[[Box], None], onQuery: Callable[[], Box]):
