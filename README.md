@@ -2,7 +2,7 @@
 
 Cross-Platform module to get info on and control windows on screen.
 
-This module is a Python 3 fork from [asweigart's PyGetWindow module](https://github.com/asweigart/PyGetWindow), which adds Linux and macOS support to the MS Windows-only original module, in the hope others can use it, test it or contribute.
+This module is a Python 3 evolution from [asweigart's PyGetWindow module](https://github.com/asweigart/PyGetWindow), which adds Linux and macOS support to the MS Windows-only original module, as well as experimental multi-monitor support, in the hope others can use it, test it or contribute.
 
 With PyWinCtl you can retrieve info or control windows from other open applications, as well as use it as a cross-platform toolkit to manipulate your own application windows.
 

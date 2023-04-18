@@ -3,6 +3,7 @@ Linux:
 - acceptInput()
     - Test in all cases:  moving, resizing, remap, close, ...
     - Is it possible to make the window completely transparent to input (click-thru) in GNOME?
+- Find a smarter (xlib or similar) way to get title bar height
 
 Windows:
 - win32gui.GetMenu() not working in Windows 11 (?!?!?!?!)
@@ -22,7 +23,6 @@ Windows:
 - alwaysOnBottom(): Try to find other smarter methods to keep window at the bottom (now it's a thread)
 
 macOS / AppleScript:
-- Test in an actual macOS multi-monitor (preferably 3+ monitors) system
 - In general, find a way to optimize all AppScript calls in terms of time and resources
         https://discussions.apple.com/thread/1877444
         https://discussions.apple.com/thread/2189505

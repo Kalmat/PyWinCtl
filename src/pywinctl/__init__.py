@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-# pyright: reportUnknownMemberType=false
 from __future__ import annotations
+
 
 import difflib
 import re
@@ -9,9 +9,9 @@ import sys
 import threading
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any, NamedTuple, cast
+from typing import Any, cast, List, Tuple, Union
 
-import pyrect  # type: ignore[import]  # pyright: ignore[reportMissingTypeStubs]  # TODO: Create type stubs or add to base library
+from ._mybox import MyBox, Box, BoundingBox, Rect, Point, Size
 
 
 __all__ = [
@@ -26,38 +26,6 @@ if sys.platform == "darwin":
     __all__ += ["NSWindow"]
 
 __version__ = "0.1"
-
-class Box(NamedTuple):
-    left: int
-    top: int
-    width: int
-    height: int
-
-class Rect(NamedTuple):
-    left: int
-    top: int
-    right: int
-    bottom: int
-
-class BoundingBox(NamedTuple):
-    left: int
-    top: int
-    right: int
-    bottom: int
-
-class Point(NamedTuple):
-    x: int
-    y: int
-
-class Size(NamedTuple):
-    width: int
-    height: int
-
-
-def pointInRect(x: int, y: int, left: int, top: int, width: int, height: int):
-    """Returns ``True`` if the ``(x, y)`` point is within the box described
-    by ``(left, top, width, height)``."""
-    return left < x < left + width and top < y < top + height
 
 
 def version(numberOnly: bool = True):
@@ -103,7 +71,6 @@ def _levenshtein(seq1: str, seq2: str) -> float:
     # https://stackabuse.com/levenshtein-distance-and-text-similarity-in-python/
     # Adapted to return a similarity percentage, which is easier to define
     # Removed numpy to reduce dependencies. This is likely slower, but titles are not too long
-    # SPed up filling in the top row
     size_x = len(seq1) + 1
     size_y = len(seq2) + 1
     matrix = [[0 for _y in range(size_y)] for _x in range(size_x)]
@@ -128,50 +95,41 @@ def _levenshtein(seq1: str, seq2: str) -> float:
     dist = matrix[size_x - 1][size_y - 1]
     return (1 - dist / max(len(seq1), len(seq2))) * 100
 
+
 class BaseWindow(ABC):
-    @property
+
+    def _boxFactory(self, box: Box) -> MyBox:
+        self._box: MyBox = MyBox(box, self._onSet, self._onQuery)
+        return self._box
+
+    def _onSet(self, newBox: Box):
+        self._moveResizeTo(newBox)
+
     @abstractmethod
-    def _rect(self) -> pyrect.Rect:
+    def _moveResizeTo(self, newBox: Box) -> bool:
         raise NotImplementedError
 
-    def _rectFactory(self, bounds: Rect | None = None):
-
-        def _onRead(attrName: str):
-            r = self._getWindowRect()
-            rect._left = r.left               # Setting _left directly to skip the onRead.
-            rect._top = r.top                 # Setting _top directly to skip the onRead.
-            rect._width = r.right - r.left    # Setting _width directly to skip the onRead.
-            rect._height = r.bottom - r.top   # Setting _height directly to skip the onRead.
-
-        def _onChange(oldBox: Box, newBox: Box):
-            self._moveResizeTo(newBox.left, newBox.top, newBox.width, newBox.height)
-
-        if bounds:
-            r = bounds
-        else:
-            r = self._getWindowRect()
-        rect = pyrect.Rect(r.left, r.top, r.right - r.left, r.bottom - r.top, onChange=_onChange, onRead=_onRead)
-        return rect
+    def _onQuery(self) -> Box:
+        box: Box = self._getWindowRect()
+        return box
 
     @abstractmethod
-    def _getWindowRect(self) -> Rect:
+    def _getWindowRect(self) -> Box:
         raise NotImplementedError
 
     def __str__(self):
         r = self._getWindowRect()
-        width = r.right - r.left
-        height = r.bottom - r.top
         return '<%s left="%s", top="%s", width="%s", height="%s", title="%s">' % (
             self.__class__.__qualname__,
+            self.title,
             r.left,
             r.top,
-            width,
-            height,
-            self.title,
+            r.width,
+            r.height,
         )
 
     @abstractmethod
-    def getExtraFrameSize(self, includeBorder: bool = True) -> tuple[int, int, int, int]:
+    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
         """
         Get the extra space, in pixels, around the window, including or not the border.
         Notice not all applications/windows will use this property values
@@ -182,7 +140,7 @@ class BaseWindow(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def getClientFrame(self) -> Rect:
+    def getClientFrame(self) -> Tuple[int, int, int, int]:
         """
         Get the client area of window, as a Rect (x, y, right, bottom)
         Notice that scroll and status bars might be included, or not, depending on the application
@@ -247,12 +205,8 @@ class BaseWindow(ABC):
     moveRel = move  # moveRel is an alias for the move() method.
 
     @abstractmethod
-    def moveTo(self, newLeft:int, newTop: int, wait: bool = False) -> bool:
+    def moveTo(self, newLeft: int, newTop: int, wait: bool = False) -> bool:
         """Moves the window to new coordinates on the screen."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def _moveResizeTo(self, newLeft: int, newTop: int, newWidth: int, newHeight: int) -> bool:
         raise NotImplementedError
 
     @abstractmethod
@@ -324,7 +278,7 @@ class BaseWindow(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def getChildren(self) -> list[Any]:
+    def getChildren(self) -> List[Any]:
         """
         Get the children handles of current window
 
@@ -401,196 +355,181 @@ class BaseWindow(ABC):
     # def isAlerting(self) -> bool:
     #     raise NotImplementedError
 
-    # Wrappers for pyrect.Rect object's properties:
     @property
-    def left(self):
-        return cast(int, self._rect.left)  # pyrect.Rect properties are potentially unknown
+    def left(self) -> int:
+        return self._box.left
 
     @left.setter
     def left(self, value: int):
-        # import pdb; pdb.set_trace()
-        self._rect.left  # Run rect's onRead to update the Rect object.
-        self._rect.left = value
+        self._box.left = value
 
     @property
-    def right(self):
-        return cast(int, self._rect.right)  # pyrect.Rect properties are potentially unknown
+    def right(self) -> int:
+        return self._box.right
 
     @right.setter
     def right(self, value: int):
-        self._rect.right  # Run rect's onRead to update the Rect object.
-        self._rect.right = value
+        self._box.right = value
 
     @property
-    def top(self):
-        return cast(int, self._rect.top)  # pyrect.Rect properties are potentially unknown
+    def top(self) -> int:
+        return self._box.top
 
     @top.setter
     def top(self, value: int):
-        self._rect.top  # Run rect's onRead to update the Rect object.
-        self._rect.top = value
+        self._box.top = value
 
     @property
-    def bottom(self):
-        return cast(int, self._rect.bottom)  # pyrect.Rect properties are potentially unknown
+    def bottom(self) -> int:
+        return self._box.bottom
 
     @bottom.setter
     def bottom(self, value: int):
-        self._rect.bottom  # Run rect's onRead to update the Rect object.
-        self._rect.bottom = value
+        self._box.bottom = value
 
     @property
-    def topleft(self):
-        return cast(Point, self._rect.topleft)  # pyrect.Rect.Point properties are potentially unknown
-
-    @topleft.setter
-    def topleft(self, value: tuple[int, int]):
-        self._rect.topleft  # Run rect's onRead to update the Rect object.
-        self._rect.topleft = value
-
-    @property
-    def topright(self):
-        return cast(Point, self._rect.topright)  # pyrect.Rect.Point properties are potentially unknown
-
-    @topright.setter
-    def topright(self, value: tuple[int, int]):
-        self._rect.topright  # Run rect's onRead to update the Rect object.
-        self._rect.topright = value
-
-    @property
-    def bottomleft(self):
-        return cast(Point, self._rect.bottomleft)  # pyrect.Rect.Point properties are potentially unknown
-
-    @bottomleft.setter
-    def bottomleft(self, value: tuple[int, int]):
-        self._rect.bottomleft  # Run rect's onRead to update the Rect object.
-        self._rect.bottomleft = value
-
-    @property
-    def bottomright(self):
-        return cast(Point, self._rect.bottomright)  # pyrect.Rect.Point properties are potentially unknown
-
-    @bottomright.setter
-    def bottomright(self, value: tuple[int, int]):
-        self._rect.bottomright  # Run rect's onRead to update the Rect object.
-        self._rect.bottomright = value
-
-    @property
-    def midleft(self):
-        return cast(Point, self._rect.midleft)  # pyrect.Rect.Point properties are potentially unknown
-
-    @midleft.setter
-    def midleft(self, value: tuple[int, int]):
-        self._rect.midleft  # Run rect's onRead to update the Rect object.
-        self._rect.midleft = value
-
-    @property
-    def midright(self):
-        return cast(Point, self._rect.midright)  # pyrect.Rect.Point properties are potentially unknown
-
-    @midright.setter
-    def midright(self, value: tuple[int, int]):
-        self._rect.midright  # Run rect's onRead to update the Rect object.
-        self._rect.midright = value
-
-    @property
-    def midtop(self):
-        return cast(Point, self._rect.midtop) # pyrect.Rect.Point properties are potentially unknown
-
-    @midtop.setter
-    def midtop(self, value: tuple[int, int]):
-        self._rect.midtop  # Run rect's onRead to update the Rect object.
-        self._rect.midtop = value
-
-    @property
-    def midbottom(self):
-        return cast(Point, self._rect.midbottom)  # pyrect.Rect.Point properties are potentially unknown
-
-    @midbottom.setter
-    def midbottom(self, value: tuple[int, int]):
-        self._rect.midbottom  # Run rect's onRead to update the Rect object.
-        self._rect.midbottom = value
-
-    @property
-    def center(self):
-        return cast(Point, self._rect.center)  # pyrect.Rect.Point properties are potentially unknown
-
-    @center.setter
-    def center(self, value: tuple[int, int]):
-        self._rect.center  # Run rect's onRead to update the Rect object.
-        self._rect.center = value
-
-    @property
-    def centerx(self):
-        return cast(int, self._rect.centerx)  # pyrect.Rect properties are potentially unknown
-
-    @centerx.setter
-    def centerx(self, value: int):
-        self._rect.centerx  # Run rect's onRead to update the Rect object.
-        self._rect.centerx = value
-
-    @property
-    def centery(self):
-        return cast(int, self._rect.centery)  # pyrect.Rect properties are potentially unknown
-
-    @centery.setter
-    def centery(self, value: int):
-        self._rect.centery  # Run rect's onRead to update the Rect object.
-        self._rect.centery = value
-
-    @property
-    def width(self):
-        return cast(int, self._rect.width)  # pyrect.Rect properties are potentially unknown
+    def width(self) -> int:
+        return self._box.width
 
     @width.setter
     def width(self, value: int):
-        self._rect.width  # Run rect's onRead to update the Rect object.
-        self._rect.width = value
+        self._box.width = value
 
     @property
-    def height(self):
-        return cast(int, self._rect.height)  # pyrect.Rect properties are potentially unknown
+    def height(self) -> int:
+        return self._box.height
 
     @height.setter
     def height(self, value: int):
-        self._rect.height  # Run rect's onRead to update the Rect object.
-        self._rect.height = value
+        self._box.height = value
 
     @property
-    def size(self):
-        return cast(Size, self._rect.size)  # pyrect.Rect.Size properties are potentially unknown
+    def position(self) -> Point:
+        return self._box.position
+
+    @position.setter
+    def position(self, value: Union[Point, Tuple[int, int]]):
+        self._box.position = value
+
+    @property
+    def size(self) -> Size:
+        return self._box.size
 
     @size.setter
-    def size(self, value: tuple[int, int]):
-        self._rect.size  # Run rect's onRead to update the Rect object.
-        self._rect.size = value
+    def size(self, value: Union[Size, Tuple[int, int]]):
+        self._box.size = value
 
     @property
-    def area(self):
-        return cast(int, self._rect.area)  # pyrect.Rect properties are potentially unknown
-
-    @area.setter
-    def area(self, value: int):
-        self._rect.area  # Run rect's onRead to update the Rect object.
-        self._rect.area = value  # pyright: ignore[reportGeneralTypeIssues]  # FIXME: pyrect.Rect.area has no setter!
-
-    @property
-    def box(self):
-        return cast(Box, self._rect.box)  # pyrect.Rect.Box properties are potentially unknown
+    def box(self) -> Box:
+        return self._box.box
 
     @box.setter
-    def box(self, value: Box):
-        self._rect.box  # Run rect's onRead to update the Rect object.
-        self._rect.box = value
+    def box(self, value: Union[Box, Tuple[int, int, int, int]]):
+        self._box.box = value
 
     @property
     def bbox(self) -> BoundingBox:
-        return BoundingBox(self._rect.left, self._rect.top, self._rect.right, self._rect.bottom)
+        return self._box.bbox
 
     @bbox.setter
-    def bbox(self, value: BoundingBox):
-        self._rect.box  # Run rect's onRead to update the Rect object.
-        self._rect.box = Box(value.left, value.top, value.right - value.left, value.bottom - value.top)
+    def bbox(self, value: Union[BoundingBox, Tuple[int, int, int, int]]):
+        self._box.bbox = value
+
+    @property
+    def rect(self) -> Rect:
+        return self._box.rect
+
+    @rect.setter
+    def rect(self, value: Union[Rect, Tuple[int, int, int, int]]):
+        self._box.rect = value
+
+    @property
+    def topleft(self) -> Point:
+        return self._box.topleft
+
+    @topleft.setter
+    def topleft(self, value: Union[Point, Tuple[int, int]]):
+        self._box.topleft = value
+
+    @property
+    def bottomleft(self) -> Point:
+        return self._box.bottomleft
+
+    @bottomleft.setter
+    def bottomleft(self, value: Union[Point, Tuple[int, int]]):
+        self._box.bottomleft = value
+
+    @property
+    def topright(self) -> Point:
+        return self._box.topright
+
+    @topright.setter
+    def topright(self, value: Union[Point, Tuple[int, int]]):
+        self._box.topright = value
+
+    @property
+    def bottomright(self) -> Point:
+        return self._box.bottomright
+
+    @bottomright.setter
+    def bottomright(self, value: Union[Point, Tuple[int, int]]):
+        self._box.bottomright = value
+
+    @property
+    def midtop(self) -> Point:
+        return self._box.midtop
+
+    @midtop.setter
+    def midtop(self, value: Union[Point, Tuple[int, int]]):
+        self._box.midtop = value
+
+    @property
+    def midbottom(self) -> Point:
+        return self._box.midbottom
+
+    @midbottom.setter
+    def midbottom(self, value: Union[Point, Tuple[int, int]]):
+        self._box.midbottom = value
+
+    @property
+    def midleft(self) -> Point:
+        return self._box.midleft
+
+    @midleft.setter
+    def midleft(self, value: Union[Point, Tuple[int, int]]):
+        self._box.midleft = value
+
+    @property
+    def midright(self) -> Point:
+        return self._box.midright
+
+    @midright.setter
+    def midright(self, value: Union[Point, Tuple[int, int]]):
+        self._box.midright = value
+
+    @property
+    def center(self) -> Point:
+        return self._box.center
+
+    @center.setter
+    def center(self, value: Union[Point, Tuple[int, int]]):
+        self._box.center = value
+
+    @property
+    def centerx(self) -> int:
+        return self._box.centerx
+
+    @centerx.setter
+    def centerx(self, value: int):
+        self._box.centerx = value
+
+    @property
+    def centery(self) -> int:
+        return self._box.centery
+
+    @centery.setter
+    def centery(self, value: int):
+        self._box.centery = value
 
 
 class _WatchDog:
@@ -619,8 +558,8 @@ class _WatchDog:
         isVisibleCB: Callable[[bool], None] | None = None,
         isMinimizedCB: Callable[[bool], None] | None = None,
         isMaximizedCB: Callable[[bool], None] | None = None,
-        resizedCB: Callable[[tuple[int, int]], None] | None = None,
-        movedCB: Callable[[tuple[int, int]], None] | None = None,
+        resizedCB: Callable[[Tuple[int, int]], None] | None = None,
+        movedCB: Callable[[Tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
         changedDisplayCB: Callable[[str], None] | None = None,
         interval: float = 0.3
@@ -660,7 +599,7 @@ class _WatchDog:
             self._watchdog = _WatchDogWorker(self._parent, isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB,
                                              isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB,
                                              interval)
-            self._watchdog.setDaemon(True)
+            self._watchdog.daemon = True
             self._watchdog.start()
         else:
             self._watchdog.restart(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB,
@@ -674,8 +613,8 @@ class _WatchDog:
         isVisibleCB: Callable[[bool], None] | None = None,
         isMinimizedCB: Callable[[bool], None] | None = None,
         isMaximizedCB: Callable[[bool], None] | None = None,
-        resizedCB: Callable[[tuple[int, int]], None] | None = None,
-        movedCB: Callable[[tuple[int, int]], None] | None = None,
+        resizedCB: Callable[[Tuple[int, int]], None] | None = None,
+        movedCB: Callable[[Tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
         changedDisplayCB: Callable[[str], None] | None = None
     ):
@@ -764,8 +703,8 @@ class _WatchDogWorker(threading.Thread):
         isVisibleCB: Callable[[bool], None] | None = None,
         isMinimizedCB: Callable[[bool], None] | None = None,
         isMaximizedCB: Callable[[bool], None] | None = None,
-        resizedCB: Callable[[tuple[int, int]], None] | None = None,
-        movedCB: Callable[[tuple[int, int]], None] | None = None,
+        resizedCB: Callable[[Tuple[int, int]], None] | None = None,
+        movedCB: Callable[[Tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
         changedDisplayCB: Callable[[str], None] | None = None,
         interval: float = 0.3
@@ -910,8 +849,8 @@ class _WatchDogWorker(threading.Thread):
         isVisibleCB: Callable[[bool], None] | None = None,
         isMinimizedCB: Callable[[bool], None] | None = None,
         isMaximizedCB: Callable[[bool], None] | None = None,
-        resizedCB: Callable[[tuple[int, int]], None] | None = None,
-        movedCB: Callable[[tuple[int, int]], None] | None = None,
+        resizedCB: Callable[[Tuple[int, int]], None] | None = None,
+        movedCB: Callable[[Tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
         changedDisplayCB: Callable[[str], None] | None = None
     ):
@@ -945,8 +884,8 @@ class _WatchDogWorker(threading.Thread):
         isVisibleCB: Callable[[bool], None] | None = None,
         isMinimizedCB: Callable[[bool], None] | None = None,
         isMaximizedCB: Callable[[bool], None] | None = None,
-        resizedCB: Callable[[tuple[int, int]], None] | None = None,
-        movedCB: Callable[[tuple[int, int]], None] | None = None,
+        resizedCB: Callable[[Tuple[int, int]], None] | None = None,
+        movedCB: Callable[[Tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
         changedDisplayCB: Callable[[str], None] | None = None,
         interval: float = 0.3
