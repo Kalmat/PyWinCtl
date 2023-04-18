@@ -1,7 +1,8 @@
-0.1, 2023/01/18 -- ALL: Added bbox property (x, y, right, bottom), added setParent() method, improved requirements.txt and setup.py
-                   LINUX: Removed ewmh and pynput dependencies, added isAlerting property, improved activate() and restore() methods to properly work on Unity, fixed acceptInput().
-                   WINDOWS: Added experimental isAlerting property, getAllWindows() and related return "user" apps only, simplified alwaysOnBottom(), found a smarter way to refresh window after bringing it back with sendBehind()
-                   MACOSNSWINDOW: Added experimental AcceptInput() method (not possible in AppleScript version)
+0.1, 2023/02/03 -- ALL: Replaced PyRect by custom, simpler, yet multi-monitor class. Added bbox and rect properties (x, y, right, bottom), added setParent() method, improved requirements.txt and setup.py
+                   LINUX: Removed ewmh and pynput dependencies, improved activate() and restore() methods to properly work on Unity, fixed acceptInput(), fixed move and resize (gravity and flags).
+                   WINDOWS: getAllWindows() and related return "user" apps only, simplified alwaysOnBottom(), found a smarter way to refresh window after bringing it back with sendBehind()
+                   MACOSWINDOW: Fixed getClientFrame() to be invoked from non-main threads
+                   MACOSNSWINDOW: Added experimental acceptInput() method (not possible in AppleScript version)
 0.0.42, 2022/12/09 -- Really fixed typing_extensions dependency and setup.py dependencies
 0.0.41, 2022/12/09 -- Fixed requirements.txt with typing_extensions dependency
 0.0.40, 2022/12/07 -- New typed version. Improved Window class to accept Window object or window id (int/str), added acceptInput(), added getTopWindowAt(), fixed and improved sendBehind() on Ubuntu 22.04+ and Mint/Cinnamon,
