@@ -2931,7 +2931,6 @@ def _loadX11Library() -> Optional[Union[CDLL, int]]:
 def _loadXcompLibrary() -> Optional[Union[CDLL, int]]:
     global _xcomp
     if _xcomp is None:
-        global _xcomp
         lib: Union[CDLL, int] = -1
         try:
             libPath: Optional[str] = find_library('Xcomposite')

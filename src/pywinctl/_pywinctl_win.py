@@ -289,6 +289,9 @@ def _findMainWindowHandles() -> List[Tuple[int, int]]:
         ]
 
     def winEnumHandler(hwnd: int, ctx: Any):
+        if not win32gui.IsWindowVisible(hwnd):
+            return
+
         # Title Info Initialization
         title_info = TITLEBARINFO()
         title_info.cbSize = ctypes.sizeof(title_info)
