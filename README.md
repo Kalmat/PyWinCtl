@@ -6,7 +6,7 @@ This module is a Python 3 evolution from [asweigart's PyGetWindow module](https:
 
 With PyWinCtl you can retrieve info or control windows from other open applications, as well as use it as a cross-platform toolkit to manipulate your own application windows.
 
-My most sincere thanks and acknowledgement to [Avasam](https://github.com/Avasam), [macdeport](https://github.com/macdeport) and [holychowders](https://github.com/holychowders) for their help and moral boost.
+My most sincere thanks and acknowledgement to [MestreLion](https://github.com/MestreLion), [super-ibby](https://github.com/super-ibby) [Avasam](https://github.com/Avasam), [macdeport](https://github.com/macdeport) and [holychowders](https://github.com/holychowders) for their help and moral boost.
 
 1. [Window Features](#window-features)
    1. [Important macOS notice](#macos-notice)

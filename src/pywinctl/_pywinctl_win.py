@@ -306,7 +306,7 @@ def _findMainWindowHandles() -> List[Tuple[int, int]]:
         title = win32gui.GetWindowText(hwnd)
 
         # Append HWND to list
-        if win32gui.IsWindowVisible(hwnd) and title != '' and isCloaked.value == 0:
+        if title != '' and isCloaked.value == 0:
             if not (title_info.rgstate[0] & win32con.STATE_SYSTEM_INVISIBLE):
                 handle_list.append((hwnd, win32process.GetWindowThreadProcessId(hwnd)[1]))
 
