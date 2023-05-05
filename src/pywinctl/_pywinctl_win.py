@@ -851,8 +851,9 @@ class Win32Window(BaseWindow):
                 self.display = ""
         elif self.hDpy != hDpy:
             self.hDpy = hDpy
-            wInfo: Optional[Dict] = win32api.GetMonitorInfo(self.hDpy)
-            self.display = wInfo.get("Device", "")
+            wInfo: Optional[Dict[str, str]] = win32api.GetMonitorInfo(int(self.hDpy))
+            if wInfo is not None:
+                self.display = wInfo.get("Device", "")
         return self.display
 
     @property
