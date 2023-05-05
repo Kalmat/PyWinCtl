@@ -101,7 +101,7 @@ class MyBox:
     @property
     def bottom(self) -> int:
         self._box = self._onQuery()
-        return int(self._box.top / abs(self._box.top) * (abs(self._box.top) + self._box.height))
+        return int(self._box.top / abs(self._box.top or 1) * (abs(self._box.top) + self._box.height))
 
     @bottom.setter
     def bottom(self, value: int):
@@ -170,7 +170,7 @@ class MyBox:
     def bbox(self) -> BoundingBox:
         self._box = self._onQuery()
         return BoundingBox(self._box.left, self._box.top, self._box.left + self._box.width,
-                           int((self._box.top / abs(self._box.top)) * (abs(self._box.top) + self._box.height)))
+                           int((self._box.top / abs(self._box.top or 1)) * (abs(self._box.top) + self._box.height)))
 
     @bbox.setter
     def bbox(self, value: Union[BoundingBox, Tuple[int, int, int, int]]):
@@ -182,7 +182,7 @@ class MyBox:
     def rect(self) -> Rect:
         self._box = self._onQuery()
         return Rect(self._box.left, self._box.top, self._box.left + self._box.width,
-                    int((self._box.top / abs(self._box.top)) * (abs(self._box.top) + self._box.height)))
+                    int((self._box.top / abs(self._box.top or 1)) * (abs(self._box.top) + self._box.height)))
 
     @rect.setter
     def rect(self, value: Union[Rect, Tuple[int, int, int, int]]):
