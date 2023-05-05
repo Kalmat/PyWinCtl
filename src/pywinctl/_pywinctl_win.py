@@ -12,10 +12,10 @@ import threading
 import time
 from collections.abc import Sequence
 from ctypes import wintypes
-from typing import cast, Any, TYPE_CHECKING, Tuple, Optional, Union, List
+from typing import cast, Any, TYPE_CHECKING, Tuple, Optional, Union, List, Dict
 from typing_extensions import NotRequired, TypedDict
 if TYPE_CHECKING:
-    from win32.lib.win32gui_struct import _MENUITEMINFO, _MENUINFO, _MONITORINFO
+    from win32.lib.win32gui_struct import _MENUITEMINFO, _MENUINFO
 
 import win32gui_struct
 import win32process
@@ -851,8 +851,8 @@ class Win32Window(BaseWindow):
                 self.display = ""
         elif self.hDpy != hDpy:
             self.hDpy = hDpy
-            wInfo: Optional[_MONITORINFO] = win32api.GetMonitorInfo(self.hDpy)
-            self.display: str = wInfo.get("Device", "")
+            wInfo: Optional[Dict] = win32api.GetMonitorInfo(self.hDpy)
+            self.display = wInfo.get("Device", "")
         return self.display
 
     @property
