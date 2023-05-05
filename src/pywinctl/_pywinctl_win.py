@@ -12,10 +12,10 @@ import threading
 import time
 from collections.abc import Sequence
 from ctypes import wintypes
-from typing import cast, Any, TYPE_CHECKING, Tuple, Optional, Union, List
+from typing import cast, Any, TYPE_CHECKING, Tuple, Optional, Union, List, Dict
 from typing_extensions import NotRequired, TypedDict
 if TYPE_CHECKING:
-    from win32.lib.win32gui_struct import _MENUITEMINFO, _MENUINFO
+    from win32.lib.win32gui_struct import _MENUITEMINFO, _MENUINFO, _MONITORINFO
 
 import win32gui_struct
 import win32process
@@ -832,11 +832,11 @@ class Win32Window(BaseWindow):
 
         :return: display name as string
         """
-        hDpy = win32api.MonitorFromRect(self.rect)
+        hDpy: int = win32api.MonitorFromRect(self.rect)
         # Previous function started to fail when repeatedly and quickly invoking it in Python 3.10 (it was ok in 3.9)
         if hDpy is None:
             screens = getAllScreens()
-            x, y = self.position
+            x, y = self.center
             monitors = list(screens.keys())
             if monitors:
                 if len(monitors) > 1:
@@ -851,8 +851,9 @@ class Win32Window(BaseWindow):
                 self.display = ""
         elif self.hDpy != hDpy:
             self.hDpy = hDpy
-            wInfo = win32api.GetMonitorInfo(self.hDpy)
-            self.display = wInfo.get("Device", "")
+            wInfo: Optional[Dict[str, str]] = win32api.GetMonitorInfo(int(self.hDpy))
+            if wInfo is not None:
+                self.display = wInfo.get("Device", "")
         return self.display
 
     @property
