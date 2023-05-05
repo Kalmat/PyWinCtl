@@ -414,6 +414,9 @@ class Win32Window(BaseWindow):
         self.menu = self._Menu(self)
         self.watchdog = _WatchDog(self)
 
+        self.hDpy = None
+        self.display = ""
+
     def _getWindowRect(self) -> Box:
         dpiAware = ctypes.windll.user32.GetAwarenessFromDpiAwarenessContext(ctypes.windll.user32.GetThreadDpiAwarenessContext())
         if dpiAware == 0:
@@ -829,14 +832,28 @@ class Win32Window(BaseWindow):
 
         :return: display name as string
         """
-        name = ""
-        try:
-            hDpy = win32api.MonitorFromRect(self.rect)
-            wInfo = win32api.GetMonitorInfo(hDpy)
-            name = wInfo.get("Device", "")
-        except:
-            pass
-        return name
+        hDpy = win32api.MonitorFromRect(self.rect)
+        # Previous function started to fail when repeatedly and quickly invoking it in Python 3.10 (it was ok in 3.9)
+        if hDpy is None:
+            screens = getAllScreens()
+            x, y = self.position
+            monitors = list(screens.keys())
+            if monitors:
+                if len(monitors) > 1:
+                    for screen in monitors:
+                        if screens[screen]["pos"][0] <= x <= screens[screen]["size"][0] and \
+                                screens[screen]["pos"][1] <= y <= screens[screen]["size"][1]:
+                            self.display = screen
+                            break
+                else:
+                    self.display = monitors[0]
+            else:
+                self.display = ""
+        elif self.hDpy != hDpy:
+            self.hDpy = hDpy
+            wInfo = win32api.GetMonitorInfo(self.hDpy)
+            self.display = wInfo.get("Device", "")
+        return self.display
 
     @property
     def isMinimized(self) -> bool:
