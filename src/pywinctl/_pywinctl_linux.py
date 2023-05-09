@@ -995,7 +995,7 @@ def getScreenSize(name: str = "") -> Size:
         except:
             pass
     else:
-        size = defaultRootWindow.getDesktopGeometry()
+        size: Tuple[int, int] = defaultRootWindow.getDesktopGeometry()
         res = Size(*size)
     return res
 resolution = getScreenSize  # resolution is an alias for getScreenSize

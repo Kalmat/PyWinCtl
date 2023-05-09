@@ -1411,7 +1411,7 @@ def getWorkArea(name: str = "") -> Rect:
             pass
     else:
         monitor_info = win32api.GetMonitorInfo(win32api.MonitorFromPoint((0, 0)))
-        res = monitor_info.get("Work")
+        res: Tuple[int, int, int, int] = monitor_info.get("Work")
         workarea = Rect(*res)
     return workarea
 
