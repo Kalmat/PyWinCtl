@@ -2044,13 +2044,12 @@ class MacOSNSWindow(BaseWindow):
         centery = (y + h) // 2
         name = ""
         if isMonitorPlugDetectionEnabled():
-            screens = _getScreens()
-        else:
-            screens = self._screens
-        for key in screens:
-            if pointInBox(centerx, centery, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
-                name = key
-                break
+            self._screens = _getScreens()
+        if self._screens is not None:
+            for key in self._screens:
+                if pointInBox(centerx, centery, self._screens[key]["pos"].x, self._screens[key]["pos"].y, self._screens[key]["size"].width, self._screens[key]["size"].height):
+                    name = key
+                    break
         return name
 
     def _getWindowRect(self) -> Box:
