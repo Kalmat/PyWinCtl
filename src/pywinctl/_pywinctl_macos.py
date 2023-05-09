@@ -2630,8 +2630,8 @@ def getScreenSize(name: str = "") -> Size:
                 res = screens[key]["size"]
                 break
     else:
-        res = Size(int(AppKit.NSScreen.mainScreen().frame().size.width),
-                   int(AppKit.NSScreen.mainScreen().frame().size.height))
+        size = AppKit.NSScreen.mainScreen().frame().size
+        res = Size(int(size.width), int(size.height))
     return res
 resolution = getScreenSize  # resolution is an alias for getScreenSize
 
@@ -2650,11 +2650,9 @@ def getWorkArea(name: str = "") -> Rect:
                 res = screens[key]["workarea"]
                 break
     else:
-        screens = AppKit.NSScreen.screens()
-        if screens:
-            wa = screens[0].visibleFrame()
-            wx, wy, wr, wb = int(wa.origin.x), int(wa.origin.y), int(wa.size.width), int(wa.size.height)
-            res = Rect(wx, wy, wr, wb)
+        wa = AppKit.NSScreen.mainScreen().visibleFrame()
+        wx, wy, wr, wb = int(wa.origin.x), int(wa.origin.y), int(wa.size.width), int(wa.size.height)
+        res = Rect(wx, wy, wr, wb)
     return res
 
 
