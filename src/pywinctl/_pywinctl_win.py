@@ -25,7 +25,7 @@ import win32api
 import win32gui
 
 from pywinctl._mybox import MyBox, Box, Rect, Point, Size, pointInBox
-from pywinctl import BaseWindow, Re, _WatchDog
+from pywinctl import BaseWindow, Re, _WatchDog, _ScreenValue
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -832,8 +832,8 @@ class Win32Window(BaseWindow):
 
         :return: display name as string
         """
-        hDpy: int = win32api.MonitorFromRect(self.rect)
-        # Previous function started to fail when repeatedly and quickly invoking it in Python 3.10 (it was ok in 3.9)
+        # MonitorFromRect() fails in Python 3.10 when invoked repeatedly and quickly (in <=3.9, it didn't)
+        hDpy: Optional[int] = win32api.MonitorFromRect(self.rect)
         if hDpy is None:
             screens = getAllScreens()
             x, y = self.center
@@ -841,15 +841,13 @@ class Win32Window(BaseWindow):
             if monitors:
                 if len(monitors) > 1:
                     for screen in monitors:
-                        if screens[screen]["pos"][0] <= x <= screens[screen]["size"][0] and \
-                                screens[screen]["pos"][1] <= y <= screens[screen]["size"][1]:
+                        if screens[screen]["pos"][0] <= x <= screens[screen]["pos"][0] + screens[screen]["size"][0] and \
+                                screens[screen]["pos"][1] <= y <= screens[screen]["pos"][1] + screens[screen]["size"][1]:
                             self.display = screen
                             break
                 else:
                     self.display = monitors[0]
-            else:
-                self.display = ""
-        elif self.hDpy != hDpy and isinstance(hDpy, int):
+        elif self.hDpy != hDpy:
             self.hDpy = hDpy
             if isinstance(self.hDpy, int):
                 wInfo: Optional[Dict[str, str]] = win32api.GetMonitorInfo(self.hDpy)
@@ -1251,19 +1249,6 @@ class _SendBottom(threading.Thread):
         self.run()
 
 
-class _ScreenValue(TypedDict):
-    id: int
-    is_primary: bool
-    pos: Point
-    size: Size
-    workarea: Rect
-    scale: Tuple[int, int]
-    dpi: Tuple[int, int]
-    orientation: int
-    frequency: float
-    colordepth: int
-
-
 def getAllScreens() -> dict[str, _ScreenValue]:
     """
     load all monitors plugged to the pc, as a dict
@@ -1358,6 +1343,27 @@ def getAllScreens() -> dict[str, _ScreenValue]:
                 pass
         i += 1
     return result
+
+
+def _findMonitor(x: int, y: int) -> Tuple[bool, Optional[_ScreenValue]]:
+    screens = getAllScreens()
+    monitors = list(screens.keys())
+
+    found: bool = False
+    ret: Optional[_ScreenValue] = None
+
+    if len(monitors) > 1:
+
+        ret = screens[monitors[0]]
+        for screen in screens.keys():
+            pos = screens[screen]["pos"]
+            size = screens[screen]["size"]
+            if pos.x <= x <= pos.x + size.width and pos.y <= y <= pos.y + size.height:
+                found = True
+                ret = screens[screen]
+                break
+
+    return found, ret
 
 
 def getMousePos() -> Point:

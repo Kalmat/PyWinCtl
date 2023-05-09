@@ -14,7 +14,6 @@ import subprocess
 import time
 import tkinter as tk
 from typing import cast, Optional, Union, List, Tuple
-from typing_extensions import TypedDict
 
 import Xlib.display
 import Xlib.error
@@ -27,7 +26,7 @@ from Xlib.xobject.drawable import Window as XWindow
 
 from pywinctl._xlibcontainer import RootWindow, EwmhWindow, Props, defaultRootWindow, _xlibGetAllWindows
 from pywinctl._mybox import MyBox, Box, Rect, Point, Size, pointInBox
-from pywinctl import BaseWindow, Re, _WatchDog
+from pywinctl import BaseWindow, Re, _WatchDog, _ScreenValue
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -842,19 +841,6 @@ class LinuxWindow(BaseWindow):
         return bool(state != Xlib.X.IsUnmapped)
 
 
-class _ScreenValue(TypedDict):
-    id: int
-    is_primary: bool
-    pos: Point
-    size: Size
-    workarea: Rect
-    scale: Tuple[int, int]
-    dpi: Tuple[int, int]
-    orientation: int
-    frequency: float
-    colordepth: int
-
-
 def getAllScreens():
     """
     load all monitors plugged to the pc, as a dict
@@ -957,6 +943,27 @@ def getAllScreens():
                     }
         dsp.close()
     return result
+
+
+def _findMonitor(x: int, y: int) -> Tuple[bool, Optional[_ScreenValue]]:
+    screens = getAllScreens()
+    monitors = list(screens.keys())
+
+    found: bool = False
+    ret: Optional[_ScreenValue] = None
+
+    if len(monitors) > 1:
+
+        ret = screens[monitors[0]]
+        for screen in screens.keys():
+            pos = screens[screen]["pos"]
+            size = screens[screen]["size"]
+            if pos.x <= x <= pos.x + size.width and pos.y <= y <= pos.y + size.height:
+                found = True
+                ret = screens[screen]
+                break
+
+    return found, ret
 
 
 def getMousePos() -> Point:

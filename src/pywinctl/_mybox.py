@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import NamedTuple, Union, Tuple
+from typing import NamedTuple, Union, Tuple, Optional
+
+import pywinctl as pwc
 
 
 class Box(NamedTuple):
@@ -101,7 +103,7 @@ class MyBox:
     @property
     def bottom(self) -> int:
         self._box = self._onQuery()
-        return int(self._box.top / abs(self._box.top or 1) * (abs(self._box.top) + self._box.height))
+        return self._box.top + self._box.height
 
     @bottom.setter
     def bottom(self, value: int):
@@ -170,24 +172,24 @@ class MyBox:
     def bbox(self) -> BoundingBox:
         self._box = self._onQuery()
         return BoundingBox(self._box.left, self._box.top, self._box.left + self._box.width,
-                           int((self._box.top / abs(self._box.top or 1)) * (abs(self._box.top) + self._box.height)))
+                           self._box.top + self._box.height)
 
     @bbox.setter
     def bbox(self, value: Union[BoundingBox, Tuple[int, int, int, int]]):
         val: BoundingBox = BoundingBox(*value)
-        self._box = Box(val.left, val.top, val.right - val.left, val.bottom - val.top)
+        self._box = Box(val.left, val.top, abs(val.right - val.left), abs(val.bottom - val.top))
         self._onSet(self._box)
 
     @property
     def rect(self) -> Rect:
         self._box = self._onQuery()
         return Rect(self._box.left, self._box.top, self._box.left + self._box.width,
-                    int((self._box.top / abs(self._box.top or 1)) * (abs(self._box.top) + self._box.height)))
+                    self._box.top + self._box.height)
 
     @rect.setter
     def rect(self, value: Union[Rect, Tuple[int, int, int, int]]):
         val: Rect = Rect(*value)
-        self._box = Box(val.left, val.top, val.right - val.left, val.bottom - val.top)
+        self._box = Box(val.left, val.top, abs(val.right - val.left), abs(val.bottom - val.top))
         self._onSet(self._box)
 
     @property

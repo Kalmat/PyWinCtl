@@ -9,7 +9,7 @@ import sys
 import threading
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any, cast, List, Tuple, Union
+from typing import Any, cast, List, Tuple, Union, TypedDict
 
 from ._mybox import MyBox, Box, BoundingBox, Rect, Point, Size
 
@@ -94,6 +94,19 @@ def _levenshtein(seq1: str, seq2: str) -> float:
                 )
     dist = matrix[size_x - 1][size_y - 1]
     return (1 - dist / max(len(seq1), len(seq2))) * 100
+
+
+class _ScreenValue(TypedDict):
+    id: int
+    is_primary: bool
+    pos: Point
+    size: Size
+    workarea: Rect
+    scale: Tuple[int, int]
+    dpi: Tuple[int, int]
+    orientation: int
+    frequency: float
+    colordepth: int
 
 
 class BaseWindow(ABC):

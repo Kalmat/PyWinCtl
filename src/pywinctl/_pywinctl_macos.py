@@ -23,7 +23,7 @@ import AppKit
 import Quartz
 
 from pywinctl._mybox import MyBox, Box, Rect, Point, Size, pointInBox
-from pywinctl import BaseWindow, Re, _WatchDog
+from pywinctl import BaseWindow, Re, _WatchDog, _ScreenValue
 
 Incomplete: TypeAlias = Any
 Attribute: TypeAlias = Sequence['Tuple[str, str, bool, str]']
@@ -2506,19 +2506,6 @@ def getMousePos() -> Point:
 cursor = getMousePos  # cursor is an alias for getMousePos
 
 
-class _ScreenValue(TypedDict):
-    id: int
-    is_primary: bool
-    pos: Point
-    size: Size
-    workarea: Rect
-    scale: Tuple[int, int]
-    dpi: Tuple[int, int]
-    orientation: int
-    frequency: float
-    colordepth: int
-
-
 def getAllScreens():
     """
     load all monitors plugged to the pc, as a dict
@@ -2589,6 +2576,27 @@ def getAllScreens():
             # print(traceback.format_exc())
             pass
     return result
+
+
+def _findMonitor(x: int, y: int) -> Tuple[bool, Optional[_ScreenValue]]:
+    screens = getAllScreens()
+    monitors = list(screens.keys())
+
+    found: bool = False
+    ret: Optional[_ScreenValue] = None
+
+    if len(monitors) > 1:
+
+        ret = screens[monitors[0]]
+        for screen in screens.keys():
+            pos = screens[screen]["pos"]
+            size = screens[screen]["size"]
+            if pos.x <= x <= pos.x + size.width and pos.y <= y <= pos.y + size.height:
+                found = True
+                ret = screens[screen]
+                break
+
+    return found, ret
 
 
 def getScreenSize(name: str = "") -> Size:
