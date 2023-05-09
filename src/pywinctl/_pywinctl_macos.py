@@ -2625,10 +2625,10 @@ def getScreenSize(name: str = "") -> Size:
     res = Size(0, 0)
     if name:
         screens = getAllScreens()
-        for key in screens:
-            if (name and key == name) or (not name):
-                res = screens[key]["size"]
-                break
+        try:
+            res = screens[name]["size"]
+        except:
+            pass
     else:
         size = AppKit.NSScreen.mainScreen().frame().size
         res = Size(int(size.width), int(size.height))
@@ -2645,10 +2645,10 @@ def getWorkArea(name: str = "") -> Rect:
     res = Rect(0, 0, 0, 0)
     if name:
         screens = getAllScreens()
-        for key in screens:
-            if (name and key == name) or (not name):
-                res = screens[key]["workarea"]
-                break
+        try:
+            res = screens[name]["workarea"]
+        except:
+            pass
     else:
         wa = AppKit.NSScreen.mainScreen().visibleFrame()
         wx, wy, wr, wb = int(wa.origin.x), int(wa.origin.y), int(wa.size.width), int(wa.size.height)
