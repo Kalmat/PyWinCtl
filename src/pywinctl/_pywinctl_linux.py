@@ -854,11 +854,14 @@ def _getMonitorsCount():
     for f in files:
         if f.startswith("X"):
             displays.append(":"+f[1:])
-    if not displays:
-        d = Xlib.display.Display()
-        displays = [d.get_display_name()]
-        d.close()
-    return len(displays)
+    count = 0
+    if displays:
+        for display in displays:
+            root = Xlib.display.Display(display).screen().root
+            count += root.xrandr_get_monitors().monitors
+    else:
+        count = defaultRootWindow.root.xrandr_get_monitors().monitors
+    return count
 
 
 def getAllScreens():
