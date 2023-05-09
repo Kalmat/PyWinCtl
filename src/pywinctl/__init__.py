@@ -939,7 +939,7 @@ class _UpdateScreensWorker(threading.Thread):
 
         while not self._kill.is_set():
             count: int = _getMonitorsCount()
-            if self._monitorsCount != count:
+            if self._screens is None or self._monitorsCount != count:
                 self._monitorsCount = count
                 self._screens = getAllScreens()
                 self._kill.wait(self._interval)
