@@ -749,18 +749,17 @@ class LinuxWindow(BaseWindow):
         """
         Get display name in which current window space is mostly visible
 
-        :return: display name as string
+        :return: display name as string or empty (couldn't retrieve it)
         """
         if isMonitorPlugDetectionEnabled():
-            screens = _getScreens()
-        else:
-            screens = self._screens
+            self._screens = _getScreens()
         name = ""
-        x, y = self.center
-        for key in screens:
-            if pointInBox(x, y, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
-                name = key
-                break
+        if self._screens is not None:
+            x, y = self.center
+            for key in self._screens:
+                if pointInBox(x, y, self._screens[key]["pos"].x, self._screens[key]["pos"].y, self._screens[key]["size"].width, self._screens[key]["size"].height):
+                    name = key
+                    break
         return name
 
     @property

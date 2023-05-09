@@ -917,7 +917,7 @@ class _UpdateScreens:
         self._worker.daemon = True
         self._worker.start()
 
-    def getScreens(self) -> Union[_ScreenValue, Dict[str, str]]:
+    def getScreens(self) -> Optional[_ScreenValue]:
         return self._worker.getScreens()
 
     def stop(self):
@@ -930,7 +930,7 @@ class _UpdateScreensWorker(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
 
-        self._screens: Union[_ScreenValue, Dict[str, str]] = {}
+        self._screens: Optional[_ScreenValue] = None
         self._kill = threading.Event()
         self._interval = 0.3
 
@@ -940,7 +940,7 @@ class _UpdateScreensWorker(threading.Thread):
             self._screens = getAllScreens()
             self._kill.wait(self._interval)
 
-    def getScreens(self) -> Union[_ScreenValue, Dict[str, str]]:
+    def getScreens(self) -> Optional[_ScreenValue]:
         return self._screens
 
     def kill(self):
@@ -982,12 +982,12 @@ def isMonitorPlugDetectionEnabled() -> bool:
     return bool(_updateScreens is not None)
 
 
-def _getScreens() -> Union[_ScreenValue, Dict[str, str]]:
+def _getScreens() -> Optional[_ScreenValue]:
     global _updateScreens
     if _updateScreens is not None:
         return _updateScreens.getScreens()
     else:
-        return {}
+        return None
 
 
 if sys.platform == "darwin":
