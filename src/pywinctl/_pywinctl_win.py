@@ -408,14 +408,15 @@ class Win32Window(BaseWindow):
     def __init__(self, hWnd: Union[int, str]):
 
         self._hWnd = int(hWnd, base=16) if isinstance(hWnd, str) else hWnd
+        self._screens = getAllScreens()
         self._rect: MyBox = self._boxFactory(self._getWindowRect())
         self._parent = win32gui.GetParent(self._hWnd)
         self._t: Optional[_SendBottom] = None
         self.menu = self._Menu(self)
         self.watchdog = _WatchDog(self)
 
-        self.hDpy: Optional[int] = None
-        self.display: str = ""
+        self._hDpy: Optional[int] = None
+        self._display: str = ""
 
     def _getWindowRect(self) -> Box:
         dpiAware = ctypes.windll.user32.GetAwarenessFromDpiAwarenessContext(ctypes.windll.user32.GetThreadDpiAwarenessContext())
@@ -833,27 +834,19 @@ class Win32Window(BaseWindow):
         :return: display name as string
         """
         # MonitorFromRect() fails in Python 3.10 when invoked repeatedly and quickly (in <=3.9, it didn't)
-        hDpy: Optional[int] = win32api.MonitorFromRect(self.rect)
-        if hDpy is None:
-            screens = getAllScreens()
-            x, y = self.center
-            monitors = list(screens.keys())
-            if monitors:
-                if len(monitors) > 1:
-                    for screen in monitors:
-                        if screens[screen]["pos"][0] <= x <= screens[screen]["pos"][0] + screens[screen]["size"][0] and \
-                                screens[screen]["pos"][1] <= y <= screens[screen]["pos"][1] + screens[screen]["size"][1]:
-                            self.display = screen
-                            break
-                else:
-                    self.display = monitors[0]
-        elif self.hDpy != hDpy:
-            self.hDpy = hDpy
-            if isinstance(self.hDpy, int):
-                wInfo: Optional[Dict[str, str]] = win32api.GetMonitorInfo(self.hDpy)
-                if wInfo is not None:
-                    self.display = wInfo.get("Device", "")
-        return self.display
+        # hDpy: Optional[int] = win32api.MonitorFromRect(self.rect)
+        # wInfo: Optional[Dict[str, str]] = win32api.GetMonitorInfo(hDpy)
+        # name = wInfo.get("Device", "")
+
+        # screens = getAllScreens()
+        screens = self._screens
+        name = ""
+        x, y = self.center
+        for key in screens:
+            if pointInBox(x, y, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
+                name = key
+                break
+        return name
 
     @property
     def isMinimized(self) -> bool:
@@ -1325,7 +1318,7 @@ def getAllScreens() -> dict[str, _ScreenValue]:
                     freq = settings.DisplayFrequency
                     depth = settings.BitsPerPel
 
-                    result[name + "_" + str(i)] = {
+                    result[name] = {
                         "id": i,
                         # "is_primary": monitor_info.get("Flags", 0) & win32con.MONITORINFOF_PRIMARY == 1,
                         "is_primary": is_primary,
@@ -1389,11 +1382,14 @@ def getScreenSize(name: str = "") -> Size:
     :return: Size struct or None
     """
     size = Size(0, 0)
-    screens = getAllScreens()
-    for key in screens:
-        if (name and key == name) or (not name and screens[key]["is_primary"]):
-            size = screens[key]["size"]
-            break
+    if name:
+        screens = getAllScreens()
+        try:
+            size = screens[name]["size"]
+        except:
+            pass
+    else:
+        size = Size(ctypes.windll.user32.GetSystemMetrics(0), ctypes.windll.user32.GetSystemMetrics(1))
     return size
 resolution = getScreenSize  # resolution is an alias for getScreenSize
 
@@ -1406,12 +1402,17 @@ def getWorkArea(name: str = "") -> Rect:
     :param name: name of the screen as returned by getAllScreens() and getDisplay() methods.
     :return: Rect struct or None
     """
-    screens = getAllScreens()
     workarea = Rect(0, 0, 0, 0)
-    for key in screens:
-        if (name and key == name) or (not name and screens[key]["is_primary"]):
-            workarea = screens[key]["workarea"]
-            break
+    if name:
+        screens = getAllScreens()
+        try:
+            workarea = screens[name]["workarea"]
+        except:
+            pass
+    else:
+        monitor_info = win32api.GetMonitorInfo(win32api.MonitorFromPoint((0, 0)))
+        res = monitor_info.get("Work")
+        workarea = Rect(*res)
     return workarea
 
 
@@ -1621,6 +1622,7 @@ def main():
     print("PLATFORM:", sys.platform)
     print("MONITORS:", getAllScreens())
     print("SCREEN SIZE:", resolution())
+    print("WORKAREA:", getWorkArea())
     print("ALL WINDOWS", getAllTitles())
     npw = getActiveWindow()
     if npw is None:

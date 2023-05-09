@@ -288,7 +288,7 @@ def demo():
     a.setDelegate_(delegate)
 
     # Now we can start to create the window ...
-    frame = NSMakeRect(400, pywinctl.getScreenSize().height - 400, 250, 100)
+    frame = NSMakeRect(400, 400, 250, 100)
     # (Don't worry about these parameters for the moment. They just specify
     # the type of window, its size and position etc)
     mask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable

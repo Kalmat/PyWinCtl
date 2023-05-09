@@ -267,6 +267,7 @@ class LinuxWindow(BaseWindow):
         self._rootWin: RootWindow = self._win.rootWindow
         self._xWin: XWindow = self._win.xWindow
 
+        self._screens = getAllScreens()
         self._rect: MyBox = self._boxFactory(self._getWindowRect())
         self.watchdog = _WatchDog(self)
 
@@ -744,16 +745,18 @@ class LinuxWindow(BaseWindow):
         return bool(parent == self.getParent())
     isChildOf = isChild  # isChildOf is an alias of isParent method
 
-    def getDisplay(self):
+    def getDisplay(self) -> str:
         """
         Get display name in which current window space is mostly visible
 
         :return: display name as string
         """
-        screens = getAllScreens()
+        # screens = getAllScreens()
+        screens = self._screens
         name = ""
+        x, y = self.center
         for key in screens:
-            if pointInBox(self.centerx, self.centery, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
+            if pointInBox(x, y, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
                 name = key
                 break
         return name
@@ -929,7 +932,7 @@ def getAllScreens():
                             break
                     depth = screen.root_depth
 
-                    result[name + "_" + str(i)] = {
+                    result[name] = {
                         'id': id,
                         'is_primary': (x, y) == (0, 0),
                         'pos': Point(x, y),
@@ -984,12 +987,16 @@ def getScreenSize(name: str = "") -> Size:
     :param name: name of screen as returned by getAllScreens() and getDisplay()
     :return: Size struct or None
     """
-    screens = getAllScreens()
     res = Size(0, 0)
-    for key in screens:
-        if (name and key == name) or (not name):
-            res = screens[key]["size"]
-            break
+    if name:
+        screens = getAllScreens()
+        try:
+            res = screens[name]["size"]
+        except:
+            pass
+    else:
+        size = defaultRootWindow.getDesktopGeometry()
+        res = Size(*size)
     return res
 resolution = getScreenSize  # resolution is an alias for getScreenSize
 
@@ -1001,12 +1008,17 @@ def getWorkArea(name: str = "") -> Rect:
     :param name: name of screen as returned by getAllScreens() and getDisplay()
     :return: Rect struct or None
     """
-    screens = getAllScreens()
     res = Rect(0, 0, 0, 0)
-    for key in screens:
-        if (name and key == name) or (not name):
-            res = screens[key]["workarea"]
-            break
+    if name:
+        screens = getAllScreens()
+        try:
+            res = screens[name]["workarea"]
+        except:
+            pass
+    else:
+        out: List[int] = defaultRootWindow.getWorkArea()
+        wa: List[int] = out[:4]
+        res = Rect(*wa)
     return res
 
 
@@ -1045,6 +1057,7 @@ def main():
     print("PLATFORM:", sys.platform)
     print("MONITORS:", getAllScreens())
     print("SCREEN SIZE:", resolution())
+    print("WORKAREA:", getWorkArea())
     print("ALL WINDOWS:", getAllTitles())
     npw = getActiveWindow()
     if npw is None:

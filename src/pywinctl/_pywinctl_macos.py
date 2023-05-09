@@ -513,9 +513,10 @@ class MacOSWindow(BaseWindow):
         self._appPID = app.processIdentifier()
         self._winTitle: str = title
         # self._parent = self.getParent()  # It is slow and not required by now
+        self._screens = getAllScreens()
         if bounds is None:
             bounds = self._getWindowRect()
-        self._rect: MyBox = self._boxFactory(box=bounds)
+        self._rect: MyBox = self._boxFactory(bounds)
         v = platform.mac_ver()[0].split(".")
         ver = float(v[0]+"."+v[1])
         # On Yosemite and below we need to use Zoom instead of FullScreen to maximize windows
@@ -1241,10 +1242,12 @@ class MacOSWindow(BaseWindow):
 
         :return: display name as string
         """
-        screens = getAllScreens()
+        # screens = getAllScreens()
+        screens = self._screens
         name = ""
+        x, y = self.center
         for key in screens:
-            if pointInBox(self.centerx, self.centery, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
+            if pointInBox(x, y, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
                 name = key
                 break
         return name
@@ -2029,16 +2032,28 @@ class MacOSNSWindow(BaseWindow):
         self._app = app
         self._hWnd = hWnd
         self._parent = hWnd.parentWindow()
+        self._screens = getAllScreens()
         self._rect = self._boxFactory(self._getWindowRect())
         self.watchdog = _WatchDog(self)
 
+    def _getMonitor(self, x, y, w, h):
+        centerx = (x + w) // 2
+        centery = (y + h) // 2
+        name = ""
+        for key in self._screens:
+            if pointInBox(centerx, centery, self._screens[key]["pos"].x, self._screens[key]["pos"].y, self._screens[key]["size"].width, self._screens[key]["size"].height):
+                name = key
+                break
+        return name
+
     def _getWindowRect(self) -> Box:
         frame = self._hWnd.frame()
-        res = resolution()
         x = int(frame.origin.x)
-        y = int(res.height) - int(frame.origin.y) - int(frame.size.height)
+        y = int(frame.origin.y)
         w = int(frame.size.width)
         h = int(frame.size.height)
+        res = resolution(self._getMonitor(x, y, w, h))
+        y = (-1 if frame.origin.y < 0 else 1) * (int(res.height) - abs(int(frame.origin.y)) - int(frame.size.height))
         return Box(x, y, w, h)
 
     def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
@@ -2063,8 +2078,8 @@ class MacOSNSWindow(BaseWindow):
         :return: Rect struct
         """
         frame = self._hWnd.contentRectForFrameRect_(self._hWnd.frame())
-        res = resolution()
         x = int(frame.origin.x)
+        res = resolution(self.getDisplay())
         y = int(res.height) - int(frame.origin.y) - int(frame.size.height)
         r = x + int(frame.size.width)
         b = y + int(frame.size.height)
@@ -2231,7 +2246,7 @@ class MacOSNSWindow(BaseWindow):
 
     moveRel = move  # moveRel is an alias for the move() method.
 
-    def moveTo(self, newLeft:int, newTop: int, wait: bool = False) -> bool:
+    def moveTo(self, newLeft: int, newTop: int, wait: bool = False) -> bool:
         """
         Moves the window to new coordinates on the screen
 
@@ -2403,10 +2418,12 @@ class MacOSNSWindow(BaseWindow):
 
         :return: display name as string
         """
-        screens = getAllScreens()
+        # screens = getAllScreens()
+        screens = self._screens
         name = ""
+        x, y = self.center
         for key in screens:
-            if pointInBox(self.centerx, self.centery, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
+            if pointInBox(x, y, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
                 name = key
                 break
         return name
@@ -2560,7 +2577,7 @@ def getAllScreens():
             freq = Quartz.CGDisplayModeGetRefreshRate(Quartz.CGDisplayCopyDisplayMode(display))
             depth = Quartz.CGDisplayBitsPerPixel(display)
 
-            result[name + "_" + str(i)] = {
+            result[name + "_" + str(i+1)] = {
                 'id': display,
                 'is_primary': is_primary,
                 'pos': Point(x, y),
@@ -2605,12 +2622,16 @@ def getScreenSize(name: str = "") -> Size:
 
     :return: Size struct
     """
-    screens = getAllScreens()
     res = Size(0, 0)
-    for key in screens:
-        if (name and key == name) or (not name):
-            res = screens[key]["size"]
-            break
+    if name:
+        screens = getAllScreens()
+        for key in screens:
+            if (name and key == name) or (not name):
+                res = screens[key]["size"]
+                break
+    else:
+        res = Size(int(AppKit.NSScreen.mainScreen().frame().size.width),
+                   int(AppKit.NSScreen.mainScreen().frame().size.height))
     return res
 resolution = getScreenSize  # resolution is an alias for getScreenSize
 
@@ -2621,12 +2642,19 @@ def getWorkArea(name: str = "") -> Rect:
 
     :return: Rect struct
     """
-    screens = getAllScreens()
     res = Rect(0, 0, 0, 0)
-    for key in screens:
-        if (name and key == name) or (not name):
-            res = screens[key]["workarea"]
-            break
+    if name:
+        screens = getAllScreens()
+        for key in screens:
+            if (name and key == name) or (not name):
+                res = screens[key]["workarea"]
+                break
+    else:
+        screens = AppKit.NSScreen.screens()
+        if screens:
+            wa = screens[0].visibleFrame()
+            wx, wy, wr, wb = int(wa.origin.x), int(wa.origin.y), int(wa.size.width), int(wa.size.height)
+            res = Rect(wx, wy, wr, wb)
     return res
 
 
@@ -2668,6 +2696,7 @@ def main():
     print("PLATFORM:", sys.platform)
     print("MONITORS:", getAllScreens())
     print("SCREEN SIZE:", resolution())
+    print("WORKAREA:", getWorkArea())
     if checkPermissions(activate=True):
         print("ALL WINDOWS", getAllTitles())
         npw = getActiveWindow()
