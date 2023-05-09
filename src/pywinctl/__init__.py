@@ -9,7 +9,7 @@ import sys
 import threading
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any, cast, List, Tuple, Union, TypedDict, Optional
+from typing import Any, cast, List, Tuple, Union, TypedDict, Optional, Dict
 
 from ._mybox import MyBox, Box, BoundingBox, Rect, Point, Size
 
@@ -917,7 +917,7 @@ class _UpdateScreens:
         self._worker.daemon = True
         self._worker.start()
 
-    def getScreens(self):
+    def getScreens(self) -> Union[_ScreenValue, Dict[str, str]]:
         return self._worker.getScreens()
 
     def stop(self):
@@ -930,7 +930,7 @@ class _UpdateScreensWorker(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
 
-        self._screens: Union[_ScreenValue, dict] = {}
+        self._screens: Union[_ScreenValue, Dict[str, str]] = {}
         self._kill = threading.Event()
         self._interval = 0.3
 
@@ -940,7 +940,7 @@ class _UpdateScreensWorker(threading.Thread):
             self._screens = getAllScreens()
             self._kill.wait(self._interval)
 
-    def getScreens(self):
+    def getScreens(self) -> Union[_ScreenValue, Dict[str, str]]:
         return self._screens
 
     def kill(self):
@@ -982,9 +982,9 @@ def isMonitorPlugDetectionEnabled() -> bool:
     return bool(_updateScreens is not None)
 
 
-def _getScreens() -> Union[_ScreenValue, dict]:
+def _getScreens() -> Union[_ScreenValue, Dict[str, str]]:
     global _updateScreens
-    if isMonitorPlugDetectionEnabled():
+    if _updateScreens is not None:
         return _updateScreens.getScreens()
     else:
         return {}
