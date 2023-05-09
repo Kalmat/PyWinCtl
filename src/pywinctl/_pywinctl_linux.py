@@ -26,7 +26,7 @@ from Xlib.xobject.drawable import Window as XWindow
 
 from pywinctl._xlibcontainer import RootWindow, EwmhWindow, Props, defaultRootWindow, _xlibGetAllWindows
 from pywinctl._mybox import MyBox, Box, Rect, Point, Size, pointInBox
-from pywinctl import BaseWindow, Re, _WatchDog, _ScreenValue
+from pywinctl import BaseWindow, Re, _WatchDog, _ScreenValue, isMonitorPlugDetectionEnabled, _getScreens
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -751,8 +751,10 @@ class LinuxWindow(BaseWindow):
 
         :return: display name as string
         """
-        # screens = getAllScreens()
-        screens = self._screens
+        if isMonitorPlugDetectionEnabled():
+            screens = _getScreens()
+        else:
+            screens = self._screens
         name = ""
         x, y = self.center
         for key in screens:

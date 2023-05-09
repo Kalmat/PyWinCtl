@@ -23,7 +23,7 @@ import AppKit
 import Quartz
 
 from pywinctl._mybox import MyBox, Box, Rect, Point, Size, pointInBox
-from pywinctl import BaseWindow, Re, _WatchDog, _ScreenValue
+from pywinctl import BaseWindow, Re, _WatchDog, _ScreenValue, isMonitorPlugDetectionEnabled, _getScreens
 
 Incomplete: TypeAlias = Any
 Attribute: TypeAlias = Sequence['Tuple[str, str, bool, str]']
@@ -513,6 +513,7 @@ class MacOSWindow(BaseWindow):
         self._appPID = app.processIdentifier()
         self._winTitle: str = title
         # self._parent = self.getParent()  # It is slow and not required by now
+        self._monitorPlugDetectionEnabled = False
         self._screens = getAllScreens()
         if bounds is None:
             bounds = self._getWindowRect()
@@ -1242,8 +1243,10 @@ class MacOSWindow(BaseWindow):
 
         :return: display name as string
         """
-        # screens = getAllScreens()
-        screens = self._screens
+        if isMonitorPlugDetectionEnabled():
+            screens = _getScreens()
+        else:
+            screens = self._screens
         name = ""
         x, y = self.center
         for key in screens:
@@ -2032,6 +2035,7 @@ class MacOSNSWindow(BaseWindow):
         self._app = app
         self._hWnd = hWnd
         self._parent = hWnd.parentWindow()
+        self._monitorPlugDetectionEnabled = False
         self._screens = getAllScreens()
         self._rect = self._boxFactory(self._getWindowRect())
         self.watchdog = _WatchDog(self)
@@ -2040,8 +2044,12 @@ class MacOSNSWindow(BaseWindow):
         centerx = (x + w) // 2
         centery = (y + h) // 2
         name = ""
-        for key in self._screens:
-            if pointInBox(centerx, centery, self._screens[key]["pos"].x, self._screens[key]["pos"].y, self._screens[key]["size"].width, self._screens[key]["size"].height):
+        if isMonitorPlugDetectionEnabled():
+            screens = _getScreens()
+        else:
+            screens = self._screens
+        for key in screens:
+            if pointInBox(centerx, centery, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
                 name = key
                 break
         return name
@@ -2418,8 +2426,10 @@ class MacOSNSWindow(BaseWindow):
 
         :return: display name as string
         """
-        # screens = getAllScreens()
-        screens = self._screens
+        if isMonitorPlugDetectionEnabled():
+            screens = _getScreens()
+        else:
+            screens = self._screens
         name = ""
         x, y = self.center
         for key in screens:

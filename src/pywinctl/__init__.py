@@ -9,13 +9,13 @@ import sys
 import threading
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any, cast, List, Tuple, Union, TypedDict
+from typing import Any, cast, List, Tuple, Union, TypedDict, Optional
 
 from ._mybox import MyBox, Box, BoundingBox, Rect, Point, Size
 
 
 __all__ = [
-    "BaseWindow", "version", "Re",
+    "BaseWindow", "version", "Re", "monitorPlugDetection", "isMonitorPlugDetectionEnabled",
     # OS Specifics
     "Window", "checkPermissions", "getActiveWindow", "getActiveWindowTitle", "getAllAppsNames",
     "getAllAppsWindowsTitles", "getAllScreens", "getAllTitles", "getAllWindows", "getAppsWithName", "getMousePos",
@@ -908,6 +908,86 @@ class _WatchDogWorker(threading.Thread):
         self.updateCallbacks(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB)
         self.updateInterval(interval)
         self.run()
+
+
+class _UpdateScreens:
+
+    def __init__(self):
+        self._worker: _UpdateScreensWorker = _UpdateScreensWorker()
+        self._worker.daemon = True
+        self._worker.start()
+
+    def getScreens(self):
+        return self._worker.getScreens()
+
+    def stop(self):
+        self._worker.kill()
+        self._worker.join()
+
+
+class _UpdateScreensWorker(threading.Thread):
+
+    def __init__(self):
+        threading.Thread.__init__(self)
+
+        self._screens: Union[_ScreenValue, dict] = {}
+        self._kill = threading.Event()
+        self._interval = 0.3
+
+    def run(self):
+
+        while not self._kill.is_set():
+            self._screens = getAllScreens()
+            self._kill.wait(self._interval)
+
+    def getScreens(self):
+        return self._screens
+
+    def kill(self):
+        self._kill.set()
+
+
+_updateScreens: Optional[_UpdateScreens] = None
+
+
+def monitorPlugDetection(enable: bool):
+    """
+    Enable this only in a multi-monitor setup in which monitors can be dynamically plugged or unplugged, and
+    only if you need to keep track of these monitors to manipulate or control the window objects.
+
+    If enabled, it will activate a separate thread which will periodically update the list of Monitors
+    connected to or disconnected from the system.
+
+    If disabled, the information on the monitors connected to the system will be static as it was when
+    the window object was created (if a monitor is connected or disconnected afterward, it will not be detected)
+
+    :param enable: Set to ''True'' to activate monitor plug/unplug detection.
+                   Set to ''False'' to stop and kill the thread.
+    """
+    global _updateScreens
+    if enable:
+        if _updateScreens is None:
+            _updateScreens = _UpdateScreens()
+    else:
+        if _updateScreens is not None:
+            _updateScreens.stop()
+            _updateScreens = None
+
+
+def isMonitorPlugDetectionEnabled() -> bool:
+    """
+    Returns ''True'' if the dynamic monitor detection is enabled. ''False'' otherwise
+    """
+    global _updateScreens
+    return bool(_updateScreens is not None)
+
+
+def _getScreens() -> Union[_ScreenValue, dict]:
+    global _updateScreens
+    if isMonitorPlugDetectionEnabled():
+        return _updateScreens.getScreens()
+    else:
+        return {}
 
 
 if sys.platform == "darwin":

@@ -12,7 +12,7 @@ import threading
 import time
 from collections.abc import Sequence
 from ctypes import wintypes
-from typing import cast, Any, TYPE_CHECKING, Tuple, Optional, Union, List, Dict
+from typing import cast, Any, TYPE_CHECKING, Tuple, Optional, Union, List
 from typing_extensions import NotRequired, TypedDict
 if TYPE_CHECKING:
     from win32.lib.win32gui_struct import _MENUITEMINFO, _MENUINFO
@@ -25,7 +25,7 @@ import win32api
 import win32gui
 
 from pywinctl._mybox import MyBox, Box, Rect, Point, Size, pointInBox
-from pywinctl import BaseWindow, Re, _WatchDog, _ScreenValue
+from pywinctl import BaseWindow, Re, _WatchDog, _ScreenValue, isMonitorPlugDetectionEnabled, _getScreens
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -838,8 +838,10 @@ class Win32Window(BaseWindow):
         # wInfo: Optional[Dict[str, str]] = win32api.GetMonitorInfo(hDpy)
         # name = wInfo.get("Device", "")
 
-        # screens = getAllScreens()
-        screens = self._screens
+        if isMonitorPlugDetectionEnabled():
+            screens = _getScreens()
+        else:
+            screens = self._screens
         name = ""
         x, y = self.center
         for key in screens:

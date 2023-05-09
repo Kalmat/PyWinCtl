@@ -43,8 +43,8 @@ These functions are available at the moment, in all three platforms (Windows, Li
 |           getWorkArea           |      lowerWindow      |                                 |
 |             version             |      alwaysOnTop      |                                 |
 |  checkPermissions (macOS only)  |    alwaysOnBottom     |                                 |
-|                                 |      sendBehind       |                                 |
-|                                 |      acceptInput      |                                 |
+|      monitorPlugDetection       |      sendBehind       |                                 |
+|  isMonitorPlugDetectionEnabled  |      acceptInput      |                                 |
 |                                 |      getAppName       |                                 |
 |                                 |       getHandle       |                                 |
 |                                 |       getParent       |                                 |
