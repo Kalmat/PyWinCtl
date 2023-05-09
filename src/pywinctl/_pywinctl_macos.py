@@ -2531,6 +2531,10 @@ def getMousePos() -> Point:
 cursor = getMousePos  # cursor is an alias for getMousePos
 
 
+def _getMonitorsCount():
+    len(AppKit.NSScreen.screens())
+
+
 def getAllScreens():
     """
     load all monitors plugged to the pc, as a dict

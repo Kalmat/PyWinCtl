@@ -845,6 +845,22 @@ class LinuxWindow(BaseWindow):
         return bool(state != Xlib.X.IsUnmapped)
 
 
+def _getMonitorsCount():
+    displays = []
+    try:
+        files = os.listdir("/tmp/.X11-unix")
+    except:
+        files = []
+    for f in files:
+        if f.startswith("X"):
+            displays.append(":"+f[1:])
+    if not displays:
+        d = Xlib.display.Display()
+        displays = [d.get_display_name()]
+        d.close()
+    return len(displays)
+
+
 def getAllScreens():
     """
     load all monitors plugged to the pc, as a dict

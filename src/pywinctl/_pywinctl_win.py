@@ -1238,6 +1238,10 @@ class _SendBottom(threading.Thread):
         self.run()
 
 
+def _getMonitorsCount():
+    return len(win32api.EnumDisplayMonitors())
+
+
 def getAllScreens() -> dict[str, _ScreenValue]:
     """
     load all monitors plugged to the pc, as a dict

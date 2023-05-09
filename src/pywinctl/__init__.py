@@ -931,14 +931,18 @@ class _UpdateScreensWorker(threading.Thread):
         threading.Thread.__init__(self)
 
         self._screens: Optional[_ScreenValue] = None
+        self._monitorsCount: int = 0
         self._kill = threading.Event()
         self._interval = 0.3
 
     def run(self):
 
         while not self._kill.is_set():
-            self._screens = getAllScreens()
-            self._kill.wait(self._interval)
+            count: int = _getMonitorsCount()
+            if self._monitorsCount != count:
+                self._monitorsCount = count
+                self._screens = getAllScreens()
+                self._kill.wait(self._interval)
 
     def getScreens(self) -> Optional[_ScreenValue]:
         return self._screens
@@ -994,19 +998,19 @@ if sys.platform == "darwin":
     from ._pywinctl_macos import (MacOSNSWindow as NSWindow, MacOSWindow as Window, checkPermissions, getActiveWindow,
                                   getActiveWindowTitle, getAllAppsNames, getAllAppsWindowsTitles, getAllScreens,
                                   getAllTitles, getAllWindows, getAppsWithName, getMousePos, getScreenSize,
-                                  getTopWindowAt, getWindowsAt, getWindowsWithTitle, getWorkArea)
+                                  getTopWindowAt, getWindowsAt, getWindowsWithTitle, getWorkArea, _getMonitorsCount)
 
 elif sys.platform == "win32":
     from ._pywinctl_win import (Win32Window as Window, checkPermissions, getActiveWindow, getActiveWindowTitle,
                                 getAllAppsNames, getAllAppsWindowsTitles, getAllScreens, getAllTitles, getAllWindows,
                                 getAppsWithName, getMousePos, getScreenSize, getTopWindowAt, getWindowsAt,
-                                getWindowsWithTitle, getWorkArea)
+                                getWindowsWithTitle, getWorkArea, _getMonitorsCount)
 
 elif sys.platform == "linux":
     from ._pywinctl_linux import (LinuxWindow as Window, checkPermissions, getActiveWindow, getActiveWindowTitle,
                                   getAllAppsNames, getAllAppsWindowsTitles, getAllScreens, getAllTitles, getAllWindows,
                                   getAppsWithName, getMousePos, getScreenSize, getTopWindowAt, getWindowsAt,
-                                  getWindowsWithTitle, getWorkArea)
+                                  getWindowsWithTitle, getWorkArea, _getMonitorsCount)
 
 else:
     raise NotImplementedError('PyWinCtl currently does not support this platform. If you think you can help, please contribute! https://github.com/Kalmat/PyWinCtl')
