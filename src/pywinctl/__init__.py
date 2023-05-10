@@ -980,7 +980,9 @@ def monitorPlugDetection(enable: bool):
 
 def isMonitorPlugDetectionEnabled() -> bool:
     """
-    Returns ''True'' if the dynamic monitor detection is enabled. ''False'' otherwise
+    Get the dynamic monitor plug/unplug detection status.
+
+    :return: ''True'' if the dynamic monitor plug/unplug detection is enabled. ''False'' otherwise
     """
     global _updateScreens
     return bool(_updateScreens is not None)
