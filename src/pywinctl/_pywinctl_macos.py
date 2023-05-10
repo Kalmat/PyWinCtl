@@ -23,7 +23,7 @@ import AppKit
 import Quartz
 
 from pywinctl._mybox import MyBox, Box, Rect, Point, Size, pointInBox
-from pywinctl import BaseWindow, Re, _WatchDog, _ScreenValue, isMonitorPlugDetectionEnabled, _getScreens
+from pywinctl import BaseWindow, Re, _WatchDog, _ScreenValue, _getScreens, isMonitorPlugDetectionEnabled
 
 Incomplete: TypeAlias = Any
 Attribute: TypeAlias = Sequence['Tuple[str, str, bool, str]']
@@ -924,6 +924,8 @@ class MacOSWindow(BaseWindow):
         """
         Moves the window relative to its current position
 
+        :param xOffset: offset relative to current X coordinate to move the window to
+        :param yOffset: offset relative to current Y coordinate to move the window to
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
@@ -936,6 +938,8 @@ class MacOSWindow(BaseWindow):
         """
         Moves the window to new coordinates on the screen
 
+        :param newLeft: target X coordinate to move the window to
+        :param newTop: target Y coordinate to move the window to
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
@@ -2039,30 +2043,12 @@ class MacOSNSWindow(BaseWindow):
         self._rect = self._boxFactory(self._getWindowRect())
         self.watchdog = _WatchDog(self)
 
-    def _getMonitor(self, x, y, w, h):
-        centerx = (x + w) // 2
-        centery = (y + h) // 2
-        name = ""
-        if isMonitorPlugDetectionEnabled():
-            self._screens = _getScreens()
-        if self._screens is not None:
-            for key in self._screens:
-                if pointInBox(centerx, centery, self._screens[key]["pos"].x, self._screens[key]["pos"].y, self._screens[key]["size"].width, self._screens[key]["size"].height):
-                    name = key
-                    break
-        return name
-
     def _getWindowRect(self) -> Box:
         frame = self._hWnd.frame()
         x = int(frame.origin.x)
         y = int(frame.origin.y)
         w = int(frame.size.width)
         h = int(frame.size.height)
-        res = resolution(self._getMonitor(x, y, w, h))
-        if res is None:
-            res = resolution()
-        if res is not None:
-            y = (-1 if frame.origin.y < 0 else 1) * (int(res.height) - abs(int(frame.origin.y)) - int(frame.size.height))
         return Box(x, y, w, h)
 
     def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
@@ -2089,11 +2075,6 @@ class MacOSNSWindow(BaseWindow):
         frame = self._hWnd.contentRectForFrameRect_(self._hWnd.frame())
         x = int(frame.origin.x)
         y = int(frame.origin.y)
-        res = resolution(self.getDisplay())
-        if res is None:
-            res = resolution()
-        if res is not None:
-            y = int(res.height) - int(frame.origin.y) - int(frame.size.height)
         r = x + int(frame.size.width)
         b = y + int(frame.size.height)
         return Rect(x, y, r, b)
@@ -2269,14 +2250,7 @@ class MacOSNSWindow(BaseWindow):
         :return: ''True'' if window moved to the given position
         """
         box = self.box
-        res = resolution(self.getDisplay())
-        if res is None:
-            res = resolution()
-        if res is None:
-            top = newTop - box.height
-        else:
-            top = res.height - newTop - box.height
-        self._hWnd.setFrame_display_animate_(AppKit.NSMakeRect(newLeft, top, box.width, box.height), True, True)
+        self._hWnd.setFrame_display_animate_(AppKit.NSMakeRect(newLeft, newTop, box.width, box.height), True, True)
         box = self.box
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and box.left != newLeft and box.top != newTop:
@@ -2286,14 +2260,7 @@ class MacOSNSWindow(BaseWindow):
         return box.left == newLeft and box.top == newTop
 
     def _moveResizeTo(self, newBox: Box) -> bool:
-        res = resolution(self.getDisplay())
-        if res is None:
-            res = resolution()
-        if res is None:
-            top = newBox.top - newBox.height
-        else:
-            top = res.height - newBox.top - newBox.height
-        self._hWnd.setFrame_display_animate_(AppKit.NSMakeRect(newBox.left, top, newBox.width, newBox.height), True, True)
+        self._hWnd.setFrame_display_animate_(AppKit.NSMakeRect(newBox.left, newBox.top, newBox.width, newBox.height), True, True)
         return newBox == self.box
 
     def alwaysOnTop(self, aot: bool = True) -> bool:
@@ -2532,22 +2499,27 @@ class MacOSNSWindow(BaseWindow):
     #     return False
 
 
-def getMousePos() -> Point:
+def getMousePos(unflipValues: bool = False) -> Point:
     """
     Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
-    Notice in macOS the origin is bottom left, so the Y value is flipped for compatibility with the rest of platforms
 
+    Notice in AppKit the origin (0, 0) is bottom left (unflipped), which may differ to coordinates obtained
+    using AppScript or CoreGraphics (flipped). To manage this, use 'unflipValues' accordingly.
+
+    :param unflipValues: set to ''True'' to convert coordinates to origin (0, 0) at upper left corner
     :return: Point struct
     """
     # https://stackoverflow.com/questions/3698635/getting-cursor-position-in-python/24567802
     mp = Quartz.NSEvent.mouseLocation()
-    screens = getAllScreens()
-    x = y = 0
-    for key in screens:
-        if pointInBox(mp.x, mp.y, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
-            x = int(mp.x)
-            y = int(screens[key]["size"].height) - abs(int(mp.y))
-            break
+    x, y = int(mp.x), int(mp.y)
+    if unflipValues:
+        screens = getAllScreens()
+        for key in screens:
+            if pointInBox(mp.x, mp.y, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width,
+                          screens[key]["size"].height):
+                x = x
+                y = (-1 if y < 0 else 1) * int(screens[key]["size"].height) - abs(y)
+                break
     return Point(x, y)
 cursor = getMousePos  # cursor is an alias for getMousePos
 
@@ -2701,7 +2673,7 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
         index = 0
         prevWindows = None
         while True:
-            x, y = getMousePos()
+            x, y = getMousePos(unflipValues=True)
             positionStr = 'X: ' + str(x - xOffset).rjust(4) + ' Y: ' + str(y - yOffset).rjust(4) + '  (Press Ctrl-C to quit)'
             allWindows = getAllWindows() if index % 20 == 0 else None
             windows = getWindowsAt(x, y, app=None, allWindows=allWindows)
