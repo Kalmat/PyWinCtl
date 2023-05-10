@@ -2269,7 +2269,14 @@ class MacOSNSWindow(BaseWindow):
         :return: ''True'' if window moved to the given position
         """
         box = self.box
-        self._hWnd.setFrame_display_animate_(AppKit.NSMakeRect(newLeft, resolution().height - newTop - box.height, box.width, box.height), True, True)
+        res = resolution(self.getDisplay())
+        if res is None:
+            res = resolution()
+        if res is None:
+            top = newTop - box.height
+        else:
+            top = res.height - newTop - box.height
+        self._hWnd.setFrame_display_animate_(AppKit.NSMakeRect(newLeft, top, box.width, box.height), True, True)
         box = self.box
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and box.left != newLeft and box.top != newTop:
@@ -2279,7 +2286,14 @@ class MacOSNSWindow(BaseWindow):
         return box.left == newLeft and box.top == newTop
 
     def _moveResizeTo(self, newBox: Box) -> bool:
-        self._hWnd.setFrame_display_animate_(AppKit.NSMakeRect(newBox.left, resolution().height - newBox.top - newBox.height, newBox.width, newBox.height), True, True)
+        res = resolution(self.getDisplay())
+        if res is None:
+            res = resolution()
+        if res is None:
+            top = newBox.top - newBox.height
+        else:
+            top = res.height - newBox.top - newBox.height
+        self._hWnd.setFrame_display_animate_(AppKit.NSMakeRect(newBox.left, top, newBox.width, newBox.height), True, True)
         return newBox == self.box
 
     def alwaysOnTop(self, aot: bool = True) -> bool:
