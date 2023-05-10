@@ -836,12 +836,11 @@ class Win32Window(BaseWindow):
         if isMonitorPlugDetectionEnabled():
             self._screens = _getScreens()
         name = ""
-        if self._screens is not None:
-            x, y = self.center
-            for key in self._screens:
-                if pointInBox(x, y, self._screens[key]["pos"].x, self._screens[key]["pos"].y, self._screens[key]["size"].width, self._screens[key]["size"].height):
-                    name = key
-                    break
+        x, y = self.center
+        for key in self._screens:
+            if pointInBox(x, y, self._screens[key]["pos"].x, self._screens[key]["pos"].y, self._screens[key]["size"].width, self._screens[key]["size"].height):
+                name = key
+                break
         return name
 
     @property

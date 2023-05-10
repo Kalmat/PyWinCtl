@@ -1250,12 +1250,11 @@ class MacOSWindow(BaseWindow):
         if isMonitorPlugDetectionEnabled():
             self._screens = _getScreens()
         name = ""
-        if self._screens is not None:
-            x, y = self.center
-            for key in self._screens:
-                if pointInBox(x, y, self._screens[key]["pos"].x, self._screens[key]["pos"].y, self._screens[key]["size"].width, self._screens[key]["size"].height):
-                    name = key
-                    break
+        x, y = self.center
+        for key in self._screens:
+            if pointInBox(x, y, self._screens[key]["pos"].x, self._screens[key]["pos"].y, self._screens[key]["size"].width, self._screens[key]["size"].height):
+                name = key
+                break
         return name
 
     @property
@@ -2415,12 +2414,11 @@ class MacOSNSWindow(BaseWindow):
         if isMonitorPlugDetectionEnabled():
             self._screens = _getScreens()
         name = ""
-        if self._screens is not None:
-            x, y = self.center
-            for key in self._screens:
-                if pointInBox(x, y, self._screens[key]["pos"].x, self._screens[key]["pos"].y, self._screens[key]["size"].width, self._screens[key]["size"].height):
-                    name = key
-                    break
+        x, y = self.center
+        for key in self._screens:
+            if pointInBox(x, y, self._screens[key]["pos"].x, self._screens[key]["pos"].y, self._screens[key]["size"].width, self._screens[key]["size"].height):
+                name = key
+                break
         return name
 
 
@@ -2515,8 +2513,8 @@ def getMousePos(unflipValues: bool = False) -> Point:
     if unflipValues:
         screens = getAllScreens()
         for key in screens:
-            if pointInBox(mp.x, mp.y, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width,
-                          screens[key]["size"].height):
+            if pointInBox(x, y, screens[key]["pos"].x, screens[key]["pos"].y,
+                          screens[key]["size"].width, screens[key]["size"].height):
                 x = x
                 y = (-1 if y < 0 else 1) * int(screens[key]["size"].height) - abs(y)
                 break
@@ -2525,7 +2523,7 @@ cursor = getMousePos  # cursor is an alias for getMousePos
 
 
 def _getMonitorsCount():
-    len(AppKit.NSScreen.screens())
+    return len(AppKit.NSScreen.screens())
 
 
 def getAllScreens():
@@ -2667,15 +2665,22 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
     automatically display the position of mouse pointer and the titles
     of the windows under it
     """
+    screens = getAllScreens()
     if xOffset != 0 or yOffset != 0:
         print('xOffset: %s yOffset: %s' % (xOffset, yOffset))
     try:
         index = 0
         prevWindows = None
         while True:
-            x, y = getMousePos(unflipValues=True)
+            x, y = getMousePos()
+            for key in screens:
+                if pointInBox(x, y, screens[key]["pos"].x, screens[key]["pos"].y,
+                              screens[key]["size"].width, screens[key]["size"].height):
+                    x = x
+                    y = (-1 if y < 0 else 1) * int(screens[key]["size"].height) - abs(y)
+                    break
             positionStr = 'X: ' + str(x - xOffset).rjust(4) + ' Y: ' + str(y - yOffset).rjust(4) + '  (Press Ctrl-C to quit)'
-            allWindows = getAllWindows() if index % 20 == 0 else None
+            allWindows = getAllWindows() if index % 100 == 0 else None
             windows = getWindowsAt(x, y, app=None, allWindows=allWindows)
             if windows != prevWindows:
                 prevWindows = windows

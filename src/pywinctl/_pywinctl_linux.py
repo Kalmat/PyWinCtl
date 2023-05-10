@@ -503,7 +503,6 @@ class LinuxWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
-        box = self.box
         self._win.setMoveResize(width=newWidth, height=newHeight)
         box = self.box
         retries = 0
@@ -540,7 +539,6 @@ class LinuxWindow(BaseWindow):
         """
         newLeft = max(0, newLeft)  # Xlib won't accept negative positions
         newTop = max(0, newTop)
-        box = self.box
         self._win.setMoveResize(x=newLeft, y=newTop)
         box = self.box
         retries = 0
@@ -754,12 +752,11 @@ class LinuxWindow(BaseWindow):
         if isMonitorPlugDetectionEnabled():
             self._screens = _getScreens()
         name = ""
-        if self._screens is not None:
-            x, y = self.center
-            for key in self._screens:
-                if pointInBox(x, y, self._screens[key]["pos"].x, self._screens[key]["pos"].y, self._screens[key]["size"].width, self._screens[key]["size"].height):
-                    name = key
-                    break
+        x, y = self.center
+        for key in self._screens:
+            if pointInBox(x, y, self._screens[key]["pos"].x, self._screens[key]["pos"].y, self._screens[key]["size"].width, self._screens[key]["size"].height):
+                name = key
+                break
         return name
 
     @property
