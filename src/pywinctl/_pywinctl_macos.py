@@ -2515,7 +2515,6 @@ def getMousePos(unflipValues: bool = False) -> Point:
         for key in screens:
             if pointInBox(x, y, screens[key]["pos"].x, screens[key]["pos"].y,
                           screens[key]["size"].width, screens[key]["size"].height):
-                x = x
                 y = (-1 if y < 0 else 1) * int(screens[key]["size"].height) - abs(y)
                 break
     return Point(x, y)
@@ -2623,7 +2622,7 @@ def getScreenSize(name: str = "") -> Optional[Size]:
     """
     Get the width and height of the screen, in pixels
 
-    :return: Size struct
+    :return: Size struct or None (couldn't be retrieved)
     """
     res: Optional[Size] = None
     if name:
@@ -2643,7 +2642,7 @@ def getWorkArea(name: str = "") -> Optional[Rect]:
     """
     Get the Rect struct (left, top, right, bottom) of the working (usable by windows) area of the screen, in pixels
 
-    :return: Rect struct
+    :return: Rect struct or None (couldn't be retrieved)
     """
     res: Optional[Rect] = None
     if name:
