@@ -2061,8 +2061,8 @@ class MacOSNSWindow(BaseWindow):
         res = resolution(self._getMonitor(x, y, w, h))
         if res is None:
             res = resolution()
-            if res is not None:
-                y = (-1 if frame.origin.y < 0 else 1) * (int(res.height) - abs(int(frame.origin.y)) - int(frame.size.height))
+        if res is not None:
+            y = (-1 if frame.origin.y < 0 else 1) * (int(res.height) - abs(int(frame.origin.y)) - int(frame.size.height))
         return Box(x, y, w, h)
 
     def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
