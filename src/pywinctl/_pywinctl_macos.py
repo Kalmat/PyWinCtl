@@ -2088,8 +2088,12 @@ class MacOSNSWindow(BaseWindow):
         """
         frame = self._hWnd.contentRectForFrameRect_(self._hWnd.frame())
         x = int(frame.origin.x)
+        y = int(frame.origin.y)
         res = resolution(self.getDisplay())
-        y = int(res.height) - int(frame.origin.y) - int(frame.size.height)
+        if res is None:
+            res = resolution()
+        if res is not None:
+            y = int(res.height) - int(frame.origin.y) - int(frame.size.height)
         r = x + int(frame.size.width)
         b = y + int(frame.size.height)
         return Rect(x, y, r, b)
