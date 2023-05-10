@@ -1374,14 +1374,14 @@ def getMousePos() -> Point:
 cursor = getMousePos  # cursor is an alias for getMousePos
 
 
-def getScreenSize(name: str = "") -> Size:
+def getScreenSize(name: str = "") -> Optional[Size]:
     """
     Get the width and height, in pixels, of the given screen, or main screen if no screen name provided or not found
 
     :param name: name of the screen as returned by getAllScreens() and getDisplay() methods.
     :return: Size struct or None
     """
-    size = Size(0, 0)
+    size: Optional[Size] = None
     if name:
         screens = getAllScreens()
         try:
@@ -1394,7 +1394,7 @@ def getScreenSize(name: str = "") -> Size:
 resolution = getScreenSize  # resolution is an alias for getScreenSize
 
 
-def getWorkArea(name: str = "") -> Rect:
+def getWorkArea(name: str = "") -> Optional[Rect]:
     """
     Get the Rect struct (left, top, right, bottom), in pixels, of the working (usable by windows) area
     of the given screen,  or main screen if no screen name provided or not found
@@ -1402,7 +1402,7 @@ def getWorkArea(name: str = "") -> Rect:
     :param name: name of the screen as returned by getAllScreens() and getDisplay() methods.
     :return: Rect struct or None
     """
-    workarea = Rect(0, 0, 0, 0)
+    workarea: Optional[Rect] = None
     if name:
         screens = getAllScreens()
         try:

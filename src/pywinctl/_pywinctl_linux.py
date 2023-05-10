@@ -855,11 +855,10 @@ def _getMonitorsCount():
         if f.startswith("X"):
             displays.append(":"+f[1:])
     count = 0
-    if displays:
-        for display in displays:
-            root = Xlib.display.Display(display).screen().root
-            count += len(root.xrandr_get_monitors().monitors)
-    else:
+    for display in displays:
+        root = Xlib.display.Display(display).screen().root
+        count += len(root.xrandr_get_monitors().monitors)
+    if count == 0:
         count = len(defaultRootWindow.root.xrandr_get_monitors().monitors)
     return count
 
@@ -1000,14 +999,14 @@ def getMousePos() -> Point:
 cursor = getMousePos  # cursor is an alias for getMousePos
 
 
-def getScreenSize(name: str = "") -> Size:
+def getScreenSize(name: str = "") -> Optional[Size]:
     """
     Get the width and height, in pixels, of the given screen, or main screen if no screen given or not found
 
     :param name: name of screen as returned by getAllScreens() and getDisplay()
     :return: Size struct or None
     """
-    res = Size(0, 0)
+    res: Optional[Size] = None
     if name:
         screens = getAllScreens()
         try:
@@ -1021,14 +1020,14 @@ def getScreenSize(name: str = "") -> Size:
 resolution = getScreenSize  # resolution is an alias for getScreenSize
 
 
-def getWorkArea(name: str = "") -> Rect:
+def getWorkArea(name: str = "") -> Optional[Rect]:
     """
     Get the Rect struct (left, top, right, bottom) of the working (usable by windows) area of the screen, in pixels
 
     :param name: name of screen as returned by getAllScreens() and getDisplay()
     :return: Rect struct or None
     """
-    res = Rect(0, 0, 0, 0)
+    res: Optional[Rect] = None
     if name:
         screens = getAllScreens()
         try:

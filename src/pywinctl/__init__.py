@@ -942,7 +942,7 @@ class _UpdateScreensWorker(threading.Thread):
             if self._screens is None or self._monitorsCount != count:
                 self._monitorsCount = count
                 self._screens = getAllScreens()
-                self._kill.wait(self._interval)
+            self._kill.wait(self._interval)
 
     def getScreens(self) -> Optional[_ScreenValue]:
         return self._screens

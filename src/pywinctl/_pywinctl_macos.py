@@ -2628,13 +2628,13 @@ def _findMonitor(x: int, y: int) -> Tuple[bool, Optional[_ScreenValue]]:
     return found, ret
 
 
-def getScreenSize(name: str = "") -> Size:
+def getScreenSize(name: str = "") -> Optional[Size]:
     """
     Get the width and height of the screen, in pixels
 
     :return: Size struct
     """
-    res = Size(0, 0)
+    res: Optional[Size] = None
     if name:
         screens = getAllScreens()
         try:
@@ -2648,13 +2648,13 @@ def getScreenSize(name: str = "") -> Size:
 resolution = getScreenSize  # resolution is an alias for getScreenSize
 
 
-def getWorkArea(name: str = "") -> Rect:
+def getWorkArea(name: str = "") -> Optional[Rect]:
     """
     Get the Rect struct (left, top, right, bottom) of the working (usable by windows) area of the screen, in pixels
 
     :return: Rect struct
     """
-    res = Rect(0, 0, 0, 0)
+    res: Optional[Rect] = None
     if name:
         screens = getAllScreens()
         try:
