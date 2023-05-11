@@ -930,7 +930,7 @@ class _UpdateScreensWorker(threading.Thread):
     def __init__(self, interval: float = 0.3):
         threading.Thread.__init__(self)
 
-        self._screens = {}
+        self._screens: dict[str, _ScreenValue] = {}
         self._kill = threading.Event()
         self._interval = interval
 

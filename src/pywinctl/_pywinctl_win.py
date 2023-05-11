@@ -1337,9 +1337,9 @@ def getAllScreens() -> dict[str, _ScreenValue]:
     return result
 
 
-def _findMonitor(x: int, y: int) -> Optional[dict[str, _ScreenValue]]:
+def _findMonitor(x: int, y: int) -> dict[str, _ScreenValue]:
 
-    ret: Optional[dict[str, _ScreenValue]] = None
+    ret: dict[str, _ScreenValue] = {}
     screens = getAllScreens()
 
     for monitor in screens.keys():
