@@ -23,7 +23,7 @@ import AppKit
 import Quartz
 
 from pywinctl._mybox import MyBox, Box, Rect, Point, Size, pointInBox
-from pywinctl import BaseWindow, Re, _WatchDog, _ScreenValue, _getScreens, isMonitorPlugDetectionEnabled
+from pywinctl import BaseWindow, Re, _WatchDog, _ScreenValue, _getScreens, isMonitorUpdateEnabled
 
 Incomplete: TypeAlias = Any
 Attribute: TypeAlias = Sequence['Tuple[str, str, bool, str]']
@@ -1247,7 +1247,7 @@ class MacOSWindow(BaseWindow):
 
         :return: display name as string or empty (couldn't retrieve it)
         """
-        if isMonitorPlugDetectionEnabled():
+        if isMonitorUpdateEnabled():
             self._screens = _getScreens()
         name = ""
         x, y = self.center
@@ -2411,7 +2411,7 @@ class MacOSNSWindow(BaseWindow):
 
         :return: display name as string or empty (couldn't retrieve it)
         """
-        if isMonitorPlugDetectionEnabled():
+        if isMonitorUpdateEnabled():
             self._screens = _getScreens()
         name = ""
         x, y = self.center
@@ -2597,25 +2597,19 @@ def getAllScreens():
     return result
 
 
-def _findMonitor(x: int, y: int) -> Tuple[bool, Optional[_ScreenValue]]:
+def _findMonitor(x: int, y: int) -> Optional[dict[str, _ScreenValue]]:
+
+    ret: Optional[dict[str, _ScreenValue]] = None
     screens = getAllScreens()
-    monitors = list(screens.keys())
 
-    found: bool = False
-    ret: Optional[_ScreenValue] = None
+    for monitor in screens.keys():
+        pos = screens[monitor]["pos"]
+        size = screens[monitor]["size"]
+        if pos.x <= x <= pos.x + size.width and pos.y <= y <= pos.y + size.height:
+            ret[monitor] = screens[monitor]
+            break
 
-    if len(monitors) > 1:
-
-        ret = screens[monitors[0]]
-        for screen in screens.keys():
-            pos = screens[screen]["pos"]
-            size = screens[screen]["size"]
-            if pos.x <= x <= pos.x + size.width and pos.y <= y <= pos.y + size.height:
-                found = True
-                ret = screens[screen]
-                break
-
-    return found, ret
+    return ret
 
 
 def getScreenSize(name: str = "") -> Optional[Size]:

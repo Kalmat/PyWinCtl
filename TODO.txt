@@ -23,6 +23,7 @@ Windows:
 - alwaysOnBottom(): Try to find other smarter methods to keep window at the bottom (now it's a thread)
 
 macOS / AppleScript:
+- Test in an actual macOS multi-monitor (preferably 3+ monitors) system
 - In general, find a way to optimize all AppScript calls in terms of time and resources
         https://discussions.apple.com/thread/1877444
         https://discussions.apple.com/thread/2189505

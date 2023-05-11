@@ -15,7 +15,7 @@ from ._mybox import MyBox, Box, BoundingBox, Rect, Point, Size
 
 
 __all__ = [
-    "BaseWindow", "version", "Re", "monitorPlugDetection", "isMonitorPlugDetectionEnabled",
+    "BaseWindow", "version", "Re", "monitorUpdate", "isMonitorUpdateEnabled",
     # OS Specifics
     "Window", "checkPermissions", "getActiveWindow", "getActiveWindowTitle", "getAllAppsNames",
     "getAllAppsWindowsTitles", "getAllScreens", "getAllTitles", "getAllWindows", "getAppsWithName", "getMousePos",
@@ -912,12 +912,12 @@ class _WatchDogWorker(threading.Thread):
 
 class _UpdateScreens:
 
-    def __init__(self):
-        self._worker: _UpdateScreensWorker = _UpdateScreensWorker()
+    def __init__(self, interval: float = 0.3):
+        self._worker = _UpdateScreensWorker(interval)
         self._worker.daemon = True
         self._worker.start()
 
-    def getScreens(self) -> dict[str, _ScreenValue]:
+    def getScreens(self):
         return self._worker.getScreens()
 
     def stop(self):
@@ -927,60 +927,58 @@ class _UpdateScreens:
 
 class _UpdateScreensWorker(threading.Thread):
 
-    def __init__(self):
+    def __init__(self, interval: float = 0.3):
         threading.Thread.__init__(self)
 
-        self._screens: dict[str, _ScreenValue] = {}
-        self._monitorsCount: int = 0
+        self._screens = {}
         self._kill = threading.Event()
-        self._interval = 0.3
+        self._interval = interval
 
     def run(self):
 
         while not self._kill.is_set():
-            count: int = _getMonitorsCount()
-            if self._screens is None or self._monitorsCount != count:
-                self._monitorsCount = count
-                self._screens = getAllScreens()
+            self._screens = getAllScreens()
             self._kill.wait(self._interval)
 
-    def getScreens(self) -> dict[str, _ScreenValue]:
+    def getScreens(self):
         return self._screens
 
     def kill(self):
         self._kill.set()
 
 
-_updateScreens: Optional[_UpdateScreens] = None
+_updateScreens = None
 
 
-def monitorPlugDetection(enable: bool):
+def monitorUpdate(enable: bool, interval: float = 0.3):
     """
-    Enable this only in a multi-monitor setup in which monitors can be dynamically plugged or unplugged, and
-    only if you need to keep track of these monitors to manipulate or control the window objects.
+    Enable this only if you need to keep track of monitor-related events like changing its resolution, position,
+    or if monitors can be dynamically plugged or unplugged in a multi-monitor setup. And specially if you rely on
+    getDisplay() method to somehow control window objects.
 
-    If enabled, it will activate a separate thread which will periodically update the list of Monitors
-    connected to or disconnected from the system.
+    If enabled, it will activate a separate thread which will periodically update the list of monitors and
+    their properties (see getAllScreens() function).
 
     If disabled, the information on the monitors connected to the system will be static as it was when
-    the window object was created (if a monitor is connected or disconnected afterward, it will not be detected)
+    the window object was created (changes produced afterwards will not be detected nor updated).
 
-    :param enable: Set to ''True'' to activate monitor plug/unplug detection.
+    :param enable: Set to ''True'' to activate monitor changes detection.
                    Set to ''False'' to stop and kill the thread.
+    :param interval: Wait interval for the thread loop in seconds (or fractions). Adapt to your needs. Defaults to 0.3.
     """
     global _updateScreens
     if enable:
         if _updateScreens is None:
-            _updateScreens = _UpdateScreens()
+            _updateScreens = _UpdateScreens(interval)
     else:
         if _updateScreens is not None:
             _updateScreens.stop()
             _updateScreens = None
 
 
-def isMonitorPlugDetectionEnabled() -> bool:
+def isMonitorUpdateEnabled() -> bool:
     """
-    Get the dynamic monitor plug/unplug detection status.
+    Get the dynamic monitor update status (enabled / disabled).
 
     :return: ''True'' if the dynamic monitor plug/unplug detection is enabled. ''False'' otherwise
     """
@@ -988,7 +986,7 @@ def isMonitorPlugDetectionEnabled() -> bool:
     return bool(_updateScreens is not None)
 
 
-def _getScreens() -> dict[str, _ScreenValue]:
+def _getScreens():
     global _updateScreens
     if _updateScreens is not None:
         return _updateScreens.getScreens()
@@ -1000,19 +998,19 @@ if sys.platform == "darwin":
     from ._pywinctl_macos import (MacOSNSWindow as NSWindow, MacOSWindow as Window, checkPermissions, getActiveWindow,
                                   getActiveWindowTitle, getAllAppsNames, getAllAppsWindowsTitles, getAllScreens,
                                   getAllTitles, getAllWindows, getAppsWithName, getMousePos, getScreenSize,
-                                  getTopWindowAt, getWindowsAt, getWindowsWithTitle, getWorkArea, _getMonitorsCount)
+                                  getTopWindowAt, getWindowsAt, getWindowsWithTitle, getWorkArea)
 
 elif sys.platform == "win32":
     from ._pywinctl_win import (Win32Window as Window, checkPermissions, getActiveWindow, getActiveWindowTitle,
                                 getAllAppsNames, getAllAppsWindowsTitles, getAllScreens, getAllTitles, getAllWindows,
                                 getAppsWithName, getMousePos, getScreenSize, getTopWindowAt, getWindowsAt,
-                                getWindowsWithTitle, getWorkArea, _getMonitorsCount)
+                                getWindowsWithTitle, getWorkArea)
 
 elif sys.platform == "linux":
     from ._pywinctl_linux import (LinuxWindow as Window, checkPermissions, getActiveWindow, getActiveWindowTitle,
                                   getAllAppsNames, getAllAppsWindowsTitles, getAllScreens, getAllTitles, getAllWindows,
                                   getAppsWithName, getMousePos, getScreenSize, getTopWindowAt, getWindowsAt,
-                                  getWindowsWithTitle, getWorkArea, _getMonitorsCount)
+                                  getWindowsWithTitle, getWorkArea)
 
 else:
     raise NotImplementedError('PyWinCtl currently does not support this platform. If you think you can help, please contribute! https://github.com/Kalmat/PyWinCtl')

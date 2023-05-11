@@ -43,11 +43,12 @@ These functions are available at the moment, in all three platforms (Windows, Li
 |           getWorkArea           |      lowerWindow      |                                 |
 |             version             |      alwaysOnTop      |                                 |
 |  checkPermissions (macOS only)  |    alwaysOnBottom     |                                 |
-|      monitorPlugDetection       |      sendBehind       |                                 |
-|  isMonitorPlugDetectionEnabled  |      acceptInput      |                                 |
+|          monitorUpdate          |      sendBehind       |                                 |
+|     isMonitorUpdateEnabled      |      acceptInput      |                                 |
 |                                 |      getAppName       |                                 |
 |                                 |       getHandle       |                                 |
 |                                 |       getParent       |                                 |
+|                                 |       setParent       |                                 |
 |                                 |      getChildren      |                                 |
 |                                 |       isParent        |                                 |
 |                                 |        isChild        |                                 |

@@ -26,7 +26,7 @@ from Xlib.xobject.drawable import Window as XWindow
 
 from pywinctl._xlibcontainer import RootWindow, EwmhWindow, Props, defaultRootWindow, _xlibGetAllWindows
 from pywinctl._mybox import MyBox, Box, Rect, Point, Size, pointInBox
-from pywinctl import BaseWindow, Re, _WatchDog, _ScreenValue, isMonitorPlugDetectionEnabled, _getScreens
+from pywinctl import BaseWindow, Re, _WatchDog, _ScreenValue, isMonitorUpdateEnabled, _getScreens
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -613,7 +613,6 @@ class LinuxWindow(BaseWindow):
         if sb:
             # This sends window below all others, but not behind the desktop icons
             self._win.setWmWindowType(Props.WindowType.DESKTOP)
-            # self._sendBehind()
 
             # This will try to raise the desktop icons layer on top of the window
             # Ubuntu: "@!0,0;BDHF" is the new desktop icons NG extension on Ubuntu 22.04
@@ -749,7 +748,7 @@ class LinuxWindow(BaseWindow):
 
         :return: display name as string or empty (couldn't retrieve it)
         """
-        if isMonitorPlugDetectionEnabled():
+        if isMonitorUpdateEnabled():
             self._screens = _getScreens()
         name = ""
         x, y = self.center
@@ -843,19 +842,21 @@ class LinuxWindow(BaseWindow):
 
 
 def _getMonitorsCount():
-    displays = []
     try:
         files = os.listdir("/tmp/.X11-unix")
     except:
         files = []
+    displays = []
     for f in files:
         if f.startswith("X"):
             displays.append(":"+f[1:])
     count = 0
-    for display in displays:
-        root = Xlib.display.Display(display).screen().root
-        count += len(root.xrandr_get_monitors().monitors)
+    if len(displays) > 1:
+        for display in displays:
+            root = Xlib.display.Display(display).screen().root
+            count += len(root.xrandr_get_monitors().monitors)
     if count == 0:
+        print(defaultRootWindow.root.xrandr_get_monitors().monitors)
         count = len(defaultRootWindow.root.xrandr_get_monitors().monitors)
     return count
 
@@ -964,25 +965,19 @@ def getAllScreens():
     return result
 
 
-def _findMonitor(x: int, y: int) -> Tuple[bool, Optional[_ScreenValue]]:
+def _findMonitor(x: int, y: int) -> Optional[dict[str, _ScreenValue]]:
+
+    ret: Optional[dict[str, _ScreenValue]] = None
     screens = getAllScreens()
-    monitors = list(screens.keys())
 
-    found: bool = False
-    ret: Optional[_ScreenValue] = None
+    for monitor in screens.keys():
+        pos = screens[monitor]["pos"]
+        size = screens[monitor]["size"]
+        if pos.x <= x <= pos.x + size.width and pos.y <= y <= pos.y + size.height:
+            ret[monitor] = screens[monitor]
+            break
 
-    if len(monitors) > 1:
-
-        ret = screens[monitors[0]]
-        for screen in screens.keys():
-            pos = screens[screen]["pos"]
-            size = screens[screen]["size"]
-            if pos.x <= x <= pos.x + size.width and pos.y <= y <= pos.y + size.height:
-                found = True
-                ret = screens[screen]
-                break
-
-    return found, ret
+    return ret
 
 
 def getMousePos() -> Point:
