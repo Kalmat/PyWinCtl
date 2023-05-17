@@ -38,7 +38,7 @@ setup(
         "pywin32>=302; sys_platform == 'win32'",
         "python-xlib>=0.21; sys_platform == 'linux'",
         "pyobjc>=8.1; sys_platform == 'darwin'",
-        "pymonctl>=0.0.2"
+        "pymonctl>=0.0.3"
     ],
     extras_require={
         'dev': [
