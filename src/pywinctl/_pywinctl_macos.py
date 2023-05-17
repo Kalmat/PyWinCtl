@@ -22,8 +22,9 @@ from typing_extensions import TypeAlias, TypedDict, Literal
 import AppKit
 import Quartz
 
-from pywinctl._mybox import MyBox, Box, Rect, Point, Size, pointInBox
-from pywinctl import BaseWindow, Re, _WatchDog, _ScreenValue, _getScreens, isMonitorUpdateEnabled
+from pywinctl._mybox import MyBox, Box, Rect, pointInBox
+from pywinctl import BaseWindow, Re, _WatchDog, monitorsCtl, displayWindowsUnderMouse
+
 
 Incomplete: TypeAlias = Any
 Attribute: TypeAlias = Sequence['Tuple[str, str, bool, str]']
@@ -514,7 +515,6 @@ class MacOSWindow(BaseWindow):
         self._winTitle: str = title
         # self._parent = self.getParent()  # It is slow and not required by now
         self._monitorPlugDetectionEnabled = False
-        self._screens = getAllScreens()
         if bounds is None:
             bounds = self._getWindowRect()
         self._rect: MyBox = self._boxFactory(bounds)
@@ -1247,12 +1247,11 @@ class MacOSWindow(BaseWindow):
 
         :return: display name as string or empty (couldn't retrieve it)
         """
-        if isMonitorUpdateEnabled():
-            self._screens = _getScreens()
+        screens = monitorsCtl.getMonitors()
         name = ""
         x, y = self.center
-        for key in self._screens:
-            if pointInBox(x, y, self._screens[key]["pos"].x, self._screens[key]["pos"].y, self._screens[key]["size"].width, self._screens[key]["size"].height):
+        for key in screens:
+            if pointInBox(x, y, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
                 name = key
                 break
         return name
@@ -2038,11 +2037,11 @@ class MacOSNSWindow(BaseWindow):
         self._hWnd = hWnd
         self._parent = hWnd.parentWindow()
         self._monitorPlugDetectionEnabled = False
-        self._screens = getAllScreens()
         self._rect = self._boxFactory(self._getWindowRect())
         self.watchdog = _WatchDog(self)
 
     def _getWindowRect(self) -> Box:
+        screenSize = self._hWnd.screen().frame().size
         frame = self._hWnd.frame()
         x = int(frame.origin.x)
         y = int(frame.origin.y)
@@ -2409,18 +2408,10 @@ class MacOSNSWindow(BaseWindow):
         """
         Get display name in which current window space is mostly visible
 
-        :return: display name as string or empty (couldn't retrieve it)
+        :return: display name as string or empty (couldn't retrieve it or window is offscreen)
         """
-        if isMonitorUpdateEnabled():
-            self._screens = _getScreens()
-        name = ""
         x, y = self.center
-        for key in self._screens:
-            if pointInBox(x, y, self._screens[key]["pos"].x, self._screens[key]["pos"].y, self._screens[key]["size"].width, self._screens[key]["size"].height):
-                name = key
-                break
-        return name
-
+        return monitorsCtl.findMonitorName(x, y)
 
     @property
     def isMinimized(self) -> bool:
@@ -2497,207 +2488,10 @@ class MacOSNSWindow(BaseWindow):
     #     return False
 
 
-def getMousePos(unflipValues: bool = False) -> Point:
-    """
-    Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
-
-    Notice in AppKit the origin (0, 0) is bottom left (unflipped), which may differ to coordinates obtained
-    using AppScript or CoreGraphics (flipped). To manage this, use 'unflipValues' accordingly.
-
-    :param unflipValues: set to ''True'' to convert coordinates to origin (0, 0) at upper left corner
-    :return: Point struct
-    """
-    # https://stackoverflow.com/questions/3698635/getting-cursor-position-in-python/24567802
-    mp = Quartz.NSEvent.mouseLocation()
-    x, y = int(mp.x), int(mp.y)
-    if unflipValues:
-        screens = getAllScreens()
-        for key in screens:
-            if pointInBox(x, y, screens[key]["pos"].x, screens[key]["pos"].y,
-                          screens[key]["size"].width, screens[key]["size"].height):
-                y = (-1 if y < 0 else 1) * int(screens[key]["size"].height) - abs(y)
-                break
-    return Point(x, y)
-cursor = getMousePos  # cursor is an alias for getMousePos
-
-
-def _getMonitorsCount():
-    return len(AppKit.NSScreen.screens())
-
-
-def getAllScreens():
-    """
-    load all monitors plugged to the pc, as a dict
-
-    :return: Monitors info as python dictionary
-
-    Output Format:
-        Key:
-            Display name
-
-        Values:
-            "id":
-                display id as returned by AppKit.NSScreen.screens() and Quartz.CGGetOnlineDisplayList()
-            "is_primary":
-                ''True'' if monitor is primary (shows clock and notification area, sign in, lock, CTRL+ALT+DELETE screens...)
-            "pos":
-                Point(x, y) struct containing the display position ((0, 0) for the primary screen)
-            "size":
-                Size(width, height) struct containing the display size, in pixels
-            "workarea":
-                Rect(left, top, right, bottom) struct with the screen workarea, in pixels
-            "scale":
-                Scale ratio, as a tuple of (x, y) scale percentage
-            "dpi":
-                Dots per inch, as a tuple of (x, y) dpi values
-            "orientation":
-                Display orientation: 0 - Landscape / 1 - Portrait / 2 - Landscape (reversed) / 3 - Portrait (reversed)
-            "frequency":
-                Refresh rate of the display, in Hz
-            "colordepth":
-                Bits per pixel referred to the display color depth
-    """
-    result: dict[str, _ScreenValue] = {}
-    screens = AppKit.NSScreen.screens()
-    for i, screen in enumerate(screens):
-        try:
-            name = screen.localizedName()   # In older macOS, screen doesn't have localizedName() method
-        except:
-            name = "Display"
-
-        try:
-            desc = screen.deviceDescription()
-            display = desc['NSScreenNumber']  # Quartz.NSScreenNumber seems to be wrong
-            is_primary = Quartz.CGDisplayIsMain(display) == 1
-            x, y, w, h = int(screen.frame().origin.x), int(screen.frame().origin.y), int(screen.frame().size.width), int(screen.frame().size.height)
-            wa = screen.visibleFrame()
-            wx, wy, wr, wb = int(wa.origin.x), int(wa.origin.y), int(wa.size.width), int(wa.size.height)
-            scale = int(screen.backingScaleFactor() * 100)
-            dpi = desc[Quartz.NSDeviceResolution].sizeValue()
-            dpiX, dpiY = int(dpi.width), int(dpi.height)
-            rot = int(Quartz.CGDisplayRotation(display))
-            freq = Quartz.CGDisplayModeGetRefreshRate(Quartz.CGDisplayCopyDisplayMode(display))
-            depth = Quartz.CGDisplayBitsPerPixel(display)
-
-            result[name + "_" + str(i+1)] = {
-                'id': display,
-                'is_primary': is_primary,
-                'pos': Point(x, y),
-                'size': Size(w, h),
-                'workarea': Rect(wx, wy, wr, wb),
-                'scale': (scale, scale),
-                'dpi': (dpiX, dpiY),
-                'orientation': rot,
-                'frequency': freq,
-                'colordepth': depth
-            }
-        except:
-            # print(traceback.format_exc())
-            pass
-    return result
-
-
-def _findMonitor(x: int, y: int) -> dict[str, _ScreenValue]:
-
-    ret: dict[str, _ScreenValue] = {}
-    screens = getAllScreens()
-
-    for monitor in screens.keys():
-        pos = screens[monitor]["pos"]
-        size = screens[monitor]["size"]
-        if pos.x <= x <= pos.x + size.width and pos.y <= y <= pos.y + size.height:
-            ret[monitor] = screens[monitor]
-            break
-
-    return ret
-
-
-def getScreenSize(name: str = "") -> Optional[Size]:
-    """
-    Get the width and height of the screen, in pixels
-
-    :return: Size struct or None (couldn't be retrieved)
-    """
-    res: Optional[Size] = None
-    if name:
-        screens = getAllScreens()
-        try:
-            res = screens[name]["size"]
-        except:
-            pass
-    else:
-        size = AppKit.NSScreen.mainScreen().frame().size
-        res = Size(int(size.width), int(size.height))
-    return res
-resolution = getScreenSize  # resolution is an alias for getScreenSize
-
-
-def getWorkArea(name: str = "") -> Optional[Rect]:
-    """
-    Get the Rect struct (left, top, right, bottom) of the working (usable by windows) area of the screen, in pixels
-
-    :return: Rect struct or None (couldn't be retrieved)
-    """
-    res: Optional[Rect] = None
-    if name:
-        screens = getAllScreens()
-        try:
-            res = screens[name]["workarea"]
-        except:
-            pass
-    else:
-        wa = AppKit.NSScreen.mainScreen().visibleFrame()
-        wx, wy, wr, wb = int(wa.origin.x), int(wa.origin.y), int(wa.size.width), int(wa.size.height)
-        res = Rect(wx, wy, wr, wb)
-    return res
-
-
-def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
-    """
-    This function is meant to be run from the command line. It will
-    automatically display the position of mouse pointer and the titles
-    of the windows under it
-    """
-    screens = getAllScreens()
-    if xOffset != 0 or yOffset != 0:
-        print('xOffset: %s yOffset: %s' % (xOffset, yOffset))
-    try:
-        index = 0
-        prevWindows = None
-        while True:
-            x, y = getMousePos()
-            for key in screens:
-                if pointInBox(x, y, screens[key]["pos"].x, screens[key]["pos"].y,
-                              screens[key]["size"].width, screens[key]["size"].height):
-                    x = x
-                    y = (-1 if y < 0 else 1) * int(screens[key]["size"].height) - abs(y)
-                    break
-            positionStr = 'X: ' + str(x - xOffset).rjust(4) + ' Y: ' + str(y - yOffset).rjust(4) + '  (Press Ctrl-C to quit)'
-            allWindows = getAllWindows() if index % 100 == 0 else None
-            windows = getWindowsAt(x, y, app=None, allWindows=allWindows)
-            if windows != prevWindows:
-                prevWindows = windows
-                print('\n')
-                for win in windows:
-                    name = win.title or ''
-                    eraser = '' if len(name) >= len(positionStr) else ' ' * (len(positionStr) - len(name))
-                    sys.stdout.write(name + eraser + '\n')
-            sys.stdout.write('\b' * len(positionStr))
-            sys.stdout.write(positionStr)
-            sys.stdout.flush()
-            index += 1
-            time.sleep(0.1)
-    except KeyboardInterrupt:
-        sys.stdout.write('\n\n')
-        sys.stdout.flush()
-
-
 def main():
     """Run this script from command-line to get windows under mouse pointer"""
     print("PLATFORM:", sys.platform)
-    print("MONITORS:", getAllScreens())
-    print("SCREEN SIZE:", resolution())
-    print("WORKAREA:", getWorkArea())
+    print("MONITORS:", monitorsCtl.getMonitors())
     if checkPermissions(activate=True):
         print("ALL WINDOWS", getAllTitles())
         npw = getActiveWindow()
@@ -2705,6 +2499,10 @@ def main():
             print("ACTIVE WINDOW:", None)
         else:
             print("ACTIVE WINDOW:", npw.title, "/", npw.box)
+            dpy = npw.getDisplay()
+            print("DISPLAY", dpy)
+            print("SCREEN SIZE:", monitorsCtl.getMonitorSize(dpy))
+            print("WORKAREA:", monitorsCtl.getWorkArea(dpy))
         print()
         displayWindowsUnderMouse(0, 0)
 

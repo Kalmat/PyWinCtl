@@ -15,10 +15,11 @@ My most sincere thanks and acknowledgement to [MestreLion](https://github.com/Me
    1. [Important comments](#watchdog-comments)
    2. [Important macOS Apple Script version notice](#watchdog-macos-comments)
 3. [Menu Features](#menu-features)
-4. [Install](#install)
-5. [Support](#support)
-6. [Using this code](#using)
-7. [Test](#test)
+4. [Monitors Info and Change Notifications](#monitor-features)
+5. [Install](#install)
+6. [Support](#support)
+7. [Using this code](#using)
+8. [Test](#test)
 
 ## Window Features <a name="window-features"></a>
 
@@ -37,14 +38,14 @@ These functions are available at the moment, in all three platforms (Windows, Li
 |         getAppsWithName         |       activate        |             isAlive             |
 |     getAllAppsWindowsTitles     |  resize / resizeRel   |                                 |
 |          getWindowsAt           |       resizeTo        |                                 |
-|          getAllScreens          |    move / moveRel     |                                 |
+|  checkPermissions (macOS only)  |    move / moveRel     |                                 |
 |           getMousePos           |        moveTo         |                                 |
-|          getScreenSize          |      raiseWindow      |                                 |
-|           getWorkArea           |      lowerWindow      |                                 |
-|             version             |      alwaysOnTop      |                                 |
-|  checkPermissions (macOS only)  |    alwaysOnBottom     |                                 |
-|          monitorUpdate          |      sendBehind       |                                 |
-|     isMonitorUpdateEnabled      |      acceptInput      |                                 |
+|             version             |      raiseWindow      |                                 |
+|                                 |      lowerWindow      |                                 |
+|                                 |      alwaysOnTop      |                                 |
+|                                 |    alwaysOnBottom     |                                 |
+|                                 |      sendBehind       |                                 |
+|                                 |      acceptInput      |                                 |
 |                                 |      getAppName       |                                 |
 |                                 |       getHandle       |                                 |
 |                                 |       getParent       |                                 |
@@ -72,7 +73,7 @@ In case you find problems in other configs, please [open an issue](https://githu
 
 ## Window Change Notifications <a name="watchdog"></a>
 
-watchdog sub-class, running in a separate Thread, will allow you to define hooks and its callbacks to be notified when some window states change. Accessible through 'watchdog' submodule.
+Window watchdog sub-class, running in a separate Thread, will allow you to define hooks and its callbacks to be notified when some window states change. Accessible through 'watchdog' submodule.
 
 The watchdog will automatically stop when window doesn't exist anymore or main program quits.
 
@@ -205,6 +206,100 @@ Menu dictionary (returned by getMenu() method) will likely contain all you may n
                     these sub-items will have this very same format, in a nested struct.
 
 Note not all windows/applications will have a menu accessible by these methods.
+
+## Monitors Info and Change Notifications <a name="monitor-features"></a>
+
+This submodule provides a set of functions to get information on and control monitors.
+
+These features are available through 'monitorsCtl' submodule (pywinctl.monitorsCtl.*).
+This submodule is also available as standalone module (https://github.com/Kalmat/PyMonCtl)
+
+| Monitor features: |
+|:-----------------:|
+|    getMonitors    |
+| getMonitorsCount  |
+|      getSize      |
+|    getWorkArea    |
+|    getPosition    |
+|      getRect      |
+|  findMonitorInfo  |
+|  findMonitorName  |
+|    getMousePos    |
+|  getCurrentMode   |
+|  getAllowedModes  |
+|    changeMode     |
+
+### Update Info
+
+These features include a watchdog, running in a separate Thread, which will allow you to keep monitors 
+information updated and define hooks and its callbacks to be notified when monitors are plugged/unplugged or 
+their properties change. 
+
+| watchdog sub-module methods: |
+|:----------------------------:|
+|         enableUpdate         |
+|        disableUpdate         |
+|       isUpdateEnabled        |
+|        updateInterval        |
+
+Notice this is a module-level information, completely independent (though related to and used by) window objects.
+Also notice that the information provided by `getMonitors()` method will be static unless the watchdog is enabled,
+or invoked with `forceUpdate=True`.
+
+Enable this only if you need to keep track of monitor-related events like changing its resolution, position,
+or if monitors can be dynamically plugged or unplugged in a multi-monitor setup. If you need monitors info updated 
+at a given moment, but not continuously updated, just invoke getMonitors(True/False) at your convenience.
+
+If enabled, it will activate a separate thread which will periodically update the list of monitors and
+their properties (see getMonitors() function).
+
+If disabled, the information on the monitors connected to the system will be static as it was when
+PyMonCtl module was initially loaded (changes produced afterwards will not be returned by `getMonitors()`).
+
+By default, the monitors info will be checked (and updated) every 0.3 seconds. Adjust this value to your needs, 
+but take into account higher values will take longer to detect and notify changes; whilst lower values will 
+consume more CPU.
+
+### Get notifications on changes
+
+When enabling the watchdog using `enableUpdate()`, it is possible to define callbacks to be invoked in case the 
+number of connected monitors or their properties change. The information passed to the callbacks is:
+
+   - Names of the monitors which have changed (as a list of strings)
+   - All monitors info, as returned by getMonitors()
+
+To access monitors properties, use monitor name as dictionary key
+
+    monitorCountChange: callback to invoke when a monitor is plugged or unplugged
+                        Passes the list of monitors that produced the event and the info on all monitors (see getMonitors())
+    
+    monitorPropsChange: callback to invoke if a monitor changes its properties (e.g. position or resolution)
+                        Passes the list of monitors that produced the event and the info on all monitors (see getMonitors())
+
+Example:
+
+    import pymonctl as pmc
+    import time
+
+    def countChanged(names, screensInfo):
+        print("MONITOR PLUGGED/UNPLUGGED:", names)
+        for name in names:
+            print("MONITORS INFO:", screensInfo[name])
+
+    def propsChanged(names, screensInfo):
+        print("MONITOR CHANGED:", names)
+        for name in names:
+            print("MONITORS INFO:", screensInfo[name])
+
+    pmc.enableUpdate(monitorCountChanged=countChanged, monitorPropsChanged=propsChanged)
+    print("Plug/Unplug monitors, or change monitor properties while running")
+    print("Press Ctl-C to Quit")
+    while True:
+        try:
+            time.sleep(1)
+        except KeyboardInterrupt:
+            break
+    pmc.disableUpdate()
 
 ## INSTALL <a name="install"></a>
 

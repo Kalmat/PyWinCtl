@@ -134,12 +134,12 @@ class Delegate(NSObject):
             assert self.npw.right == 200
 
             self.npw.top = 200
-            print("MOVE", self.npw.topleft)
+            print("MOVE", self.npw.topleft, self.npw._getWindowRect())
             time.sleep(timelap)
             assert self.npw.top == 200
 
             self.npw.bottom = 800
-            print("MOVE", self.npw.topleft)
+            print("MOVE", self.npw.topleft, self.npw._getWindowRect())
             time.sleep(timelap)
             assert self.npw.bottom == 800
 

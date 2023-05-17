@@ -7,19 +7,22 @@ import difflib
 import re
 import sys
 import threading
+import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any, cast, List, Tuple, Union, TypedDict, Optional, Dict
+from typing import Any, cast, List, Tuple, Union, TypedDict
 
-from ._mybox import MyBox, Box, BoundingBox, Rect, Point, Size
+import pymonctl as pmc
+
+from ._mybox import MyBox, Box, BoundingBox, Rect, Point, Size, pointInBox
 
 
 __all__ = [
-    "BaseWindow", "version", "Re", "monitorUpdate", "isMonitorUpdateEnabled",
+    "BaseWindow", "version", "Re", "monitorsCtl",
     # OS Specifics
     "Window", "checkPermissions", "getActiveWindow", "getActiveWindowTitle", "getAllAppsNames",
-    "getAllAppsWindowsTitles", "getAllScreens", "getAllTitles", "getAllWindows", "getAppsWithName", "getMousePos",
-    "getScreenSize", "getTopWindowAt", "getWindowsAt", "getWindowsWithTitle", "getWorkArea",
+    "getAllAppsWindowsTitles", "getAllTitles", "getAllWindows", "getAppsWithName", "getMousePos",
+    "getTopWindowAt", "getWindowsAt", "getWindowsWithTitle", "displayWindowsUnderMouse"
 ]
 # Mac only
 if sys.platform == "darwin":
@@ -910,107 +913,87 @@ class _WatchDogWorker(threading.Thread):
         self.run()
 
 
-class _UpdateScreens:
-
-    def __init__(self, interval: float = 0.3):
-        self._worker = _UpdateScreensWorker(interval)
-        self._worker.daemon = True
-        self._worker.start()
-
-    def getScreens(self):
-        return self._worker.getScreens()
-
-    def stop(self):
-        self._worker.kill()
-        self._worker.join()
+monitorsCtl = pmc
 
 
-class _UpdateScreensWorker(threading.Thread):
-
-    def __init__(self, interval: float = 0.3):
-        threading.Thread.__init__(self)
-
-        self._screens: dict[str, _ScreenValue] = {}
-        self._kill = threading.Event()
-        self._interval = interval
-
-    def run(self):
-
-        while not self._kill.is_set():
-            self._screens = getAllScreens()
-            self._kill.wait(self._interval)
-
-    def getScreens(self):
-        return self._screens
-
-    def kill(self):
-        self._kill.set()
+def getAllScreens():
+    import warnings
+    warnings.warn('getAllScreens() is deprecated, use monitorsCtl.getMonitors() instead',
+                  DeprecationWarning, stacklevel=2)
+    return monitorsCtl.getMonitors()
 
 
-_updateScreens = None
+def getScreenSize(name: str = ""):
+    import warnings
+    warnings.warn('getScreenSize() is deprecated, use monitorsCtl.getScreenSize() instead',
+                  DeprecationWarning, stacklevel=2)
+    return monitorsCtl.getMonitorSize(name)
 
 
-def monitorUpdate(enable: bool, interval: float = 0.3):
+def getWorkArea(name: str = ""):
+    import warnings
+    warnings.warn('getWorkArea() is deprecated, use monitorsCtl.getWorkArea() instead',
+                  DeprecationWarning, stacklevel=2)
+    return monitorsCtl.getWorkArea()
+
+
+def getMousePos():
+    import warnings
+    warnings.warn('getMousePos() is deprecated, use monitorsCtl.getMousePos() instead',
+                  DeprecationWarning, stacklevel=2)
+    return monitorsCtl.getMousePos()
+
+
+def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
     """
-    Enable this only if you need to keep track of monitor-related events like changing its resolution, position,
-    or if monitors can be dynamically plugged or unplugged in a multi-monitor setup. And specially if you rely on
-    getDisplay() method to somehow control window objects.
-
-    If enabled, it will activate a separate thread which will periodically update the list of monitors and
-    their properties (see getAllScreens() function).
-
-    If disabled, the information on the monitors connected to the system will be static as it was when
-    the window object was created (changes produced afterwards will not be detected nor updated).
-
-    :param enable: Set to ''True'' to activate monitor changes detection.
-                   Set to ''False'' to stop and kill the thread.
-    :param interval: Wait interval for the thread loop in seconds (or fractions). Adapt to your needs. Defaults to 0.3.
+    This function is meant to be run from the command line. It will
+    automatically display the position of mouse pointer and the titles
+    of the windows under it
     """
-    global _updateScreens
-    if enable:
-        if _updateScreens is None:
-            _updateScreens = _UpdateScreens(interval)
-    else:
-        if _updateScreens is not None:
-            _updateScreens.stop()
-            _updateScreens = None
-
-
-def isMonitorUpdateEnabled() -> bool:
-    """
-    Get the dynamic monitor update status (enabled / disabled).
-
-    :return: ''True'' if the dynamic monitor plug/unplug detection is enabled. ''False'' otherwise
-    """
-    global _updateScreens
-    return bool(_updateScreens is not None)
-
-
-def _getScreens():
-    global _updateScreens
-    if _updateScreens is not None:
-        return _updateScreens.getScreens()
-    else:
-        return {}
+    if xOffset != 0 or yOffset != 0:
+        print('xOffset: %s yOffset: %s' % (xOffset, yOffset))
+    try:
+        prevWindows = None
+        while True:
+            x, y = monitorsCtl.getMousePos()
+            positionStr = 'X: ' + str(x - xOffset).rjust(4) + ' Y: ' + str(y - yOffset).rjust(4) + '  (Press Ctrl-C to quit)'
+            windows = getWindowsAt(x, y)
+            if windows != prevWindows:
+                print('\n')
+                prevWindows = windows
+                for win in windows:
+                    name = win.title
+                    eraser = '' if len(name) >= len(positionStr) else ' ' * (len(positionStr) - len(name))
+                    sys.stdout.write(name + eraser + '\n')
+            sys.stdout.write('\b' * len(positionStr))
+            sys.stdout.write(positionStr)
+            sys.stdout.flush()
+            time.sleep(0.3)
+    except KeyboardInterrupt:
+        sys.stdout.write('\n\n')
+        sys.stdout.flush()
 
 
 if sys.platform == "darwin":
     from ._pywinctl_macos import (MacOSNSWindow as NSWindow, MacOSWindow as Window, checkPermissions, getActiveWindow,
-                                  getActiveWindowTitle, getAllAppsNames, getAllAppsWindowsTitles, getAllScreens,
-                                  getAllTitles, getAllWindows, getAppsWithName, getMousePos, getScreenSize,
-                                  getTopWindowAt, getWindowsAt, getWindowsWithTitle, getWorkArea)
+                                  getActiveWindowTitle, getAllAppsNames, getAllAppsWindowsTitles,
+                                  getAllTitles, getAllWindows, getAppsWithName, getWindowsWithTitle,
+                                  getTopWindowAt, getWindowsAt
+                                  )
 
 elif sys.platform == "win32":
-    from ._pywinctl_win import (Win32Window as Window, checkPermissions, getActiveWindow, getActiveWindowTitle,
-                                getAllAppsNames, getAllAppsWindowsTitles, getAllScreens, getAllTitles, getAllWindows,
-                                getAppsWithName, getMousePos, getScreenSize, getTopWindowAt, getWindowsAt,
-                                getWindowsWithTitle, getWorkArea)
+    from ._pywinctl_win import (Win32Window as Window, checkPermissions, getActiveWindow,
+                                getActiveWindowTitle, getAllAppsNames, getAllAppsWindowsTitles,
+                                getAllTitles, getAllWindows, getAppsWithName, getWindowsWithTitle,
+                                getTopWindowAt, getWindowsAt
+                                )
 
 elif sys.platform == "linux":
-    from ._pywinctl_linux import (LinuxWindow as Window, checkPermissions, getActiveWindow, getActiveWindowTitle,
-                                  getAllAppsNames, getAllAppsWindowsTitles, getAllScreens, getAllTitles, getAllWindows,
-                                  getAppsWithName, getMousePos, getScreenSize, getTopWindowAt, getWindowsAt,
-                                  getWindowsWithTitle, getWorkArea)
+    from ._pywinctl_linux import (LinuxWindow as Window, checkPermissions, getActiveWindow,
+                                  getActiveWindowTitle, getAllAppsNames, getAllAppsWindowsTitles,
+                                  getAllTitles, getAllWindows, getAppsWithName, getWindowsWithTitle,
+                                  getTopWindowAt, getWindowsAt
+                                  )
 
 else:
     raise NotImplementedError('PyWinCtl currently does not support this platform. If you think you can help, please contribute! https://github.com/Kalmat/PyWinCtl')

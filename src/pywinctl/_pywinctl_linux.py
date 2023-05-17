@@ -6,7 +6,6 @@ import sys
 
 assert sys.platform == "linux"
 
-import math
 import os
 import platform
 import re
@@ -25,8 +24,8 @@ import Xlib.ext
 from Xlib.xobject.drawable import Window as XWindow
 
 from pywinctl._xlibcontainer import RootWindow, EwmhWindow, Props, defaultRootWindow, _xlibGetAllWindows
-from pywinctl._mybox import MyBox, Box, Rect, Point, Size, pointInBox
-from pywinctl import BaseWindow, Re, _WatchDog, _ScreenValue, isMonitorUpdateEnabled, _getScreens
+from pywinctl._mybox import MyBox, Box, Rect, pointInBox
+from pywinctl import BaseWindow, Re, _WatchDog, monitorsCtl, displayWindowsUnderMouse
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -267,7 +266,6 @@ class LinuxWindow(BaseWindow):
         self._rootWin: RootWindow = self._win.rootWindow
         self._xWin: XWindow = self._win.xWindow
 
-        self._screens = getAllScreens()
         self._rect: MyBox = self._boxFactory(self._getWindowRect())
         self.watchdog = _WatchDog(self)
 
@@ -746,17 +744,10 @@ class LinuxWindow(BaseWindow):
         """
         Get display name in which current window space is mostly visible
 
-        :return: display name as string or empty (couldn't retrieve it)
+        :return: display name as string or empty (couldn't retrieve it or window is offscreen)
         """
-        if isMonitorUpdateEnabled():
-            self._screens = _getScreens()
-        name = ""
         x, y = self.center
-        for key in self._screens:
-            if pointInBox(x, y, self._screens[key]["pos"].x, self._screens[key]["pos"].y, self._screens[key]["size"].width, self._screens[key]["size"].height):
-                name = key
-                break
-        return name
+        return monitorsCtl.findMonitorName(x, y)
 
     @property
     def isMinimized(self) -> bool:
@@ -841,241 +832,22 @@ class LinuxWindow(BaseWindow):
         return bool(state != Xlib.X.IsUnmapped)
 
 
-def _getMonitorsCount():
-    try:
-        files = os.listdir("/tmp/.X11-unix")
-    except:
-        files = []
-    displays = []
-    for f in files:
-        if f.startswith("X"):
-            displays.append(":"+f[1:])
-    count = 0
-    if len(displays) > 1:
-        for display in displays:
-            root = Xlib.display.Display(display).screen().root
-            count += len(root.xrandr_get_monitors().monitors)
-    if count == 0:
-        print(defaultRootWindow.root.xrandr_get_monitors().monitors)
-        count = len(defaultRootWindow.root.xrandr_get_monitors().monitors)
-    return count
-
-
-def getAllScreens():
-    """
-    load all monitors plugged to the pc, as a dict
-
-    :return: Monitors info as python dictionary
-
-    Output Format:
-        Key:
-            Display name
-
-        Values:
-            "id":
-                display sequence_number as identified by Xlib.Display()
-            "is_primary":
-                ''True'' if monitor is primary (shows clock and notification area, sign in, lock, CTRL+ALT+DELETE screens...)
-            "pos":
-                Point(x, y) struct containing the display position ((0, 0) for the primary screen)
-            "size":
-                Size(width, height) struct containing the display size, in pixels
-            "workarea":
-                Rect(left, top, right, bottom) struct with the screen workarea, in pixels
-            "scale":
-                Scale ratio, as a tuple of (x, y) scale percentage
-            "dpi":
-                Dots per inch, as a tuple of (x, y) dpi values
-            "orientation":
-                Display orientation: 0 - Landscape / 1 - Portrait / 2 - Landscape (reversed) / 3 - Portrait (reversed) / 4 - Reflect X / 5 - Reflect Y
-            "frequency":
-                Refresh rate of the display, in Hz
-            "colordepth":
-                Bits per pixel referred to the display color depth
-    """
-    # https://stackoverflow.com/questions/8705814/get-display-count-and-resolution-for-each-display-in-python-without-xrandr
-    # https://www.x.org/releases/X11R7.7/doc/libX11/libX11/libX11.html#Obtaining_Information_about_the_Display_Image_Formats_or_Screens
-    displays = []
-    try:
-        files = os.listdir("/tmp/.X11-unix")
-    except:
-        files = []
-    for f in files:
-        if f.startswith("X"):
-            displays.append(":"+f[1:])
-    if not displays:
-        d = Xlib.display.Display()
-        displays = [d.get_display_name()]
-        d.close()
-    result: dict[str, _ScreenValue] = {}
-    for display in displays:
-        dsp = Xlib.display.Display(display)
-        for i in range(dsp.screen_count()):
-            try:
-                screen = dsp.screen(i)
-                root = screen.root
-            except:
-                continue
-
-            res = root.xrandr_get_screen_resources()
-            modes = res.modes
-            wa = root.get_full_property(dsp.get_atom(Props.Root.WORKAREA.value, True), Xlib.X.AnyPropertyType).value
-            for output in res.outputs:
-                params = dsp.xrandr_get_output_info(output, res.config_timestamp)
-                try:
-                    crtc = dsp.xrandr_get_crtc_info(params.crtc, res.config_timestamp)
-                except:
-                    crtc = None
-
-                if crtc and crtc.mode:  # displays with empty (0) mode seem not to be valid
-                    name = params.name
-                    id = crtc.sequence_number
-                    x, y, w, h = crtc.x, crtc.y, crtc.width, crtc.height
-                    wx, wy, wr, wb = x + wa[0], y + wa[1], x + w - (screen.width_in_pixels - wa[2] - wa[0]), y + h - (screen.height_in_pixels - wa[3] - wa[1])
-                    # check all these values using dpi, mms or other possible values or props
-                    try:
-                        dpiX, dpiY = round(crtc.width * 25.4 / params.mm_width), round(crtc.height * 25.4 / params.mm_height)
-                    except:
-                        try:
-                            dpiX, dpiY = round(w * 25.4 / screen.width_in_mms), round(h * 25.4 / screen.height_in_mms)
-                        except:
-                            dpiX = dpiY = 0
-                    scaleX, scaleY = round(dpiX / 96 * 100), round(dpiY / 96 * 100)
-                    rot = int(math.log(crtc.rotation, 2))
-                    freq = 0.0
-                    for mode in modes:
-                        if crtc.mode == mode.id:
-                            freq = mode.dot_clock / (mode.h_total * mode.v_total)
-                            break
-                    depth = screen.root_depth
-
-                    result[name] = {
-                        'id': id,
-                        'is_primary': (x, y) == (0, 0),
-                        'pos': Point(x, y),
-                        'size': Size(w, h),
-                        'workarea': Rect(wx, wy, wr, wb),
-                        'scale': (scaleX, scaleY),
-                        'dpi': (dpiX, dpiY),
-                        'orientation': rot,
-                        'frequency': freq,
-                        'colordepth': depth
-                    }
-        dsp.close()
-    return result
-
-
-def _findMonitor(x: int, y: int) -> dict[str, _ScreenValue]:
-
-    ret: dict[str, _ScreenValue] = {}
-    screens = getAllScreens()
-
-    for monitor in screens.keys():
-        pos = screens[monitor]["pos"]
-        size = screens[monitor]["size"]
-        if pos.x <= x <= pos.x + size.width and pos.y <= y <= pos.y + size.height:
-            ret[monitor] = screens[monitor]
-            break
-
-    return ret
-
-
-def getMousePos() -> Point:
-    """
-    Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
-
-    :return: Point struct
-    """
-    mp = defaultRootWindow.root.query_pointer()
-    return Point(mp.root_x, mp.root_y)
-cursor = getMousePos  # cursor is an alias for getMousePos
-
-
-def getScreenSize(name: str = "") -> Optional[Size]:
-    """
-    Get the width and height, in pixels, of the given screen, or main screen if no screen given or not found
-
-    :param name: name of screen as returned by getAllScreens() and getDisplay()
-    :return: Size struct or None
-    """
-    res: Optional[Size] = None
-    if name:
-        screens = getAllScreens()
-        try:
-            res = screens[name]["size"]
-        except:
-            pass
-    else:
-        size: Tuple[int, int] = defaultRootWindow.getDesktopGeometry()
-        res = Size(*size)
-    return res
-resolution = getScreenSize  # resolution is an alias for getScreenSize
-
-
-def getWorkArea(name: str = "") -> Optional[Rect]:
-    """
-    Get the Rect struct (left, top, right, bottom) of the working (usable by windows) area of the screen, in pixels
-
-    :param name: name of screen as returned by getAllScreens() and getDisplay()
-    :return: Rect struct or None
-    """
-    res: Optional[Rect] = None
-    if name:
-        screens = getAllScreens()
-        try:
-            res = screens[name]["workarea"]
-        except:
-            pass
-    else:
-        out: List[int] = defaultRootWindow.getWorkArea()
-        wa: List[int] = out[:4]
-        res = Rect(*wa)
-    return res
-
-
-def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
-    """
-    This function is meant to be run from the command line. It will
-    automatically display the position of mouse pointer and the titles
-    of the windows under it
-    """
-    if xOffset != 0 or yOffset != 0:
-        print('xOffset: %s yOffset: %s' % (xOffset, yOffset))
-    try:
-        prevWindows = None
-        while True:
-            x, y = getMousePos()
-            positionStr = 'X: ' + str(x - xOffset).rjust(4) + ' Y: ' + str(y - yOffset).rjust(4) + '  (Press Ctrl-C to quit)'
-            windows = getWindowsAt(x, y)
-            if windows != prevWindows:
-                print('\n')
-                prevWindows = windows
-                for win in windows:
-                    name = win.title
-                    eraser = '' if len(name) >= len(positionStr) else ' ' * (len(positionStr) - len(name))
-                    sys.stdout.write(name + eraser + '\n')
-            sys.stdout.write('\b' * len(positionStr))
-            sys.stdout.write(positionStr)
-            sys.stdout.flush()
-            time.sleep(0.3)
-    except KeyboardInterrupt:
-        sys.stdout.write('\n\n')
-        sys.stdout.flush()
-
-
 def main():
     """Run this script from command-line to get windows under mouse pointer"""
     print("PLATFORM:", sys.platform)
-    print("MONITORS:", getAllScreens())
-    print("SCREEN SIZE:", resolution())
-    print("WORKAREA:", getWorkArea())
-    print("ALL WINDOWS:", getAllTitles())
+    print("ALL WINDOWS", getAllTitles())
+    print("MONITORS:", monitorsCtl.getMonitors())
     npw = getActiveWindow()
     if npw is None:
         print("ACTIVE WINDOW:", None)
     else:
         print("ACTIVE WINDOW:", npw.title, "/", npw.box)
-    displayWindowsUnderMouse(0, 0)
+        dpy = npw.getDisplay()
+        print("DISPLAY", dpy)
+        print("SCREEN SIZE:", monitorsCtl.getMonitorSize(dpy))
+        print("WORKAREA:", monitorsCtl.getWorkArea(dpy))
+    print()
+    displayWindowsUnderMouse()
 
 
 if __name__ == "__main__":

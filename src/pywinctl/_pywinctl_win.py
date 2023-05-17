@@ -14,6 +14,7 @@ from collections.abc import Sequence
 from ctypes import wintypes
 from typing import cast, Any, TYPE_CHECKING, Tuple, Optional, Union, List
 from typing_extensions import NotRequired, TypedDict
+
 if TYPE_CHECKING:
     from win32.lib.win32gui_struct import _MENUITEMINFO, _MENUINFO
 
@@ -24,8 +25,8 @@ import win32con
 import win32api
 import win32gui
 
-from pywinctl._mybox import MyBox, Box, Rect, Point, Size, pointInBox
-from pywinctl import BaseWindow, Re, _WatchDog, _ScreenValue, isMonitorUpdateEnabled, _getScreens
+from pywinctl._mybox import MyBox, Box, Rect, pointInBox
+from pywinctl import BaseWindow, Re, _WatchDog, monitorsCtl, displayWindowsUnderMouse
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -408,7 +409,6 @@ class Win32Window(BaseWindow):
     def __init__(self, hWnd: Union[int, str]):
 
         self._hWnd = int(hWnd, base=16) if isinstance(hWnd, str) else hWnd
-        self._screens = getAllScreens()
         self._rect: MyBox = self._boxFactory(self._getWindowRect())
         self._parent = win32gui.GetParent(self._hWnd)
         self._t: Optional[_SendBottom] = None
@@ -831,17 +831,10 @@ class Win32Window(BaseWindow):
         """
         Get display name in which current window space is mostly visible
 
-        :return: display name as string or empty (couldn't retrieve it)
+        :return: display name as string or empty (couldn't retrieve it or window is offscreen)
         """
-        if isMonitorUpdateEnabled():
-            self._screens = _getScreens()
-        name = ""
         x, y = self.center
-        for key in self._screens:
-            if pointInBox(x, y, self._screens[key]["pos"].x, self._screens[key]["pos"].y, self._screens[key]["size"].width, self._screens[key]["size"].height):
-                name = key
-                break
-        return name
+        return monitorsCtl.findMonitorName(x, y)
 
     @property
     def isMinimized(self) -> bool:
@@ -1237,208 +1230,6 @@ class _SendBottom(threading.Thread):
         self.run()
 
 
-def _getMonitorsCount():
-    return len(win32api.EnumDisplayMonitors())
-
-
-def getAllScreens() -> dict[str, _ScreenValue]:
-    """
-    load all monitors plugged to the pc, as a dict
-
-    :return: Monitors info as python dictionary
-
-    Output Format:
-        Key:
-            Display name
-
-        Values:
-            "id":
-                display index as returned by EnumDisplayDevices()
-            "is_primary":
-                ''True'' if monitor is primary (shows clock and notification area, sign in, lock, CTRL+ALT+DELETE screens...)
-            "pos":
-                Point(x, y) struct containing the display position ((0, 0) for the primary screen)
-            "size":
-                Size(width, height) struct containing the display size, in pixels
-            "workarea":
-                Rect(left, top, right, bottom) struct with the screen workarea, in pixels
-            "scale":
-                Scale ratio, as a tuple of (x, y) scale percentage
-            "dpi":
-                Dots per inch, as a tuple of (x, y) dpi values
-            "orientation":
-                Display orientation: 0 - Landscape / 1 - Portrait / 2 - Landscape (reversed) / 3 - Portrait (reversed)
-            "frequency":
-                Refresh rate of the display, in Hz
-            "colordepth":
-                Bits per pixel referred to the display color depth
-    """
-    # https://stackoverflow.com/questions/35814309/winapi-changedisplaysettingsex-does-not-work
-    result: dict[str, _ScreenValue] = {}
-    dpiAware = ctypes.windll.user32.GetAwarenessFromDpiAwarenessContext(ctypes.windll.user32.GetThreadDpiAwarenessContext())
-    if dpiAware == 0:
-        ctypes.windll.shcore.SetProcessDpiAwareness(2)
-    monitors = win32api.EnumDisplayMonitors()
-    i = 0
-    while True:
-        try:
-            dev = win32api.EnumDisplayDevices(None, i, 0)
-        except:
-            break
-
-        if dev and dev.StateFlags & win32con.DISPLAY_DEVICE_ATTACHED_TO_DESKTOP:
-            try:
-                # Device content: http://timgolden.me.uk/pywin32-docs/PyDISPLAY_DEVICE.html
-                # Settings content: http://timgolden.me.uk/pywin32-docs/PyDEVMODE.html
-                monitor_info = None
-                monitor = None
-                for mon in monitors:
-                    monitor = mon[0].handle
-                    monitor_info = win32api.GetMonitorInfo(monitor)
-                    if monitor_info["Device"] == dev.DeviceName:
-                        break
-
-                if monitor_info:
-                    name = dev.DeviceName
-                    x, y, r, b = monitor_info["Monitor"]
-                    wx, wy, wr, wb = monitor_info["Work"]
-                    settings = win32api.EnumDisplaySettings(dev.DeviceName, win32con.ENUM_CURRENT_SETTINGS)
-                    # values seem to be affected by the scale factor of the first display
-                    wr, wb = wx + settings.PelsWidth + (wr - r), wy + settings.PelsHeight + (wb - b)
-                    is_primary = ((x, y) == (0, 0))
-                    r, b = x + settings.PelsWidth, y + settings.PelsHeight
-                    pScale = ctypes.c_uint()
-                    ctypes.windll.shcore.GetScaleFactorForMonitor(monitor, ctypes.byref(pScale))
-                    scale = pScale.value
-                    dpiX = ctypes.c_uint()
-                    dpiY = ctypes.c_uint()
-                    ctypes.windll.shcore.GetDpiForMonitor(monitor, 0, ctypes.byref(dpiX), ctypes.byref(dpiY))
-                    rot = settings.DisplayOrientation
-                    freq = settings.DisplayFrequency
-                    depth = settings.BitsPerPel
-
-                    result[name] = {
-                        "id": i,
-                        # "is_primary": monitor_info.get("Flags", 0) & win32con.MONITORINFOF_PRIMARY == 1,
-                        "is_primary": is_primary,
-                        "pos": Point(x, y),
-                        "size": Size(r - x, b - y),
-                        "workarea": Rect(wx, wy, wr, wb),
-                        "scale": (scale, scale),
-                        "dpi": (dpiX.value, dpiY.value),
-                        "orientation": rot,
-                        "frequency": freq,
-                        "colordepth": depth
-                    }
-            except:
-                # print(traceback.format_exc())
-                pass
-        i += 1
-    return result
-
-
-def _findMonitor(x: int, y: int) -> dict[str, _ScreenValue]:
-
-    ret: dict[str, _ScreenValue] = {}
-    screens = getAllScreens()
-
-    for monitor in screens.keys():
-        pos = screens[monitor]["pos"]
-        size = screens[monitor]["size"]
-        if pos.x <= x <= pos.x + size.width and pos.y <= y <= pos.y + size.height:
-            ret[monitor] = screens[monitor]
-            break
-
-    return ret
-
-
-def getMousePos() -> Point:
-    """
-    Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
-
-    :return: Point struct
-    """
-    dpiAware = ctypes.windll.user32.GetAwarenessFromDpiAwarenessContext(ctypes.windll.user32.GetThreadDpiAwarenessContext())
-    if dpiAware == 0:
-        # It seems that this can't be invoked twice. Setting it to 2 for apps having 0 (unaware) may have less impact
-        ctypes.windll.shcore.SetProcessDpiAwareness(2)
-    x, y = win32api.GetCursorPos()
-    return Point(x, y)
-cursor = getMousePos  # cursor is an alias for getMousePos
-
-
-def getScreenSize(name: str = "") -> Optional[Size]:
-    """
-    Get the width and height, in pixels, of the given screen, or main screen if no screen name provided or not found
-
-    :param name: name of the screen as returned by getAllScreens() and getDisplay() methods.
-    :return: Size struct or None
-    """
-    size: Optional[Size] = None
-    if name:
-        screens = getAllScreens()
-        try:
-            size = screens[name]["size"]
-        except:
-            pass
-    else:
-        size = Size(ctypes.windll.user32.GetSystemMetrics(0), ctypes.windll.user32.GetSystemMetrics(1))
-    return size
-resolution = getScreenSize  # resolution is an alias for getScreenSize
-
-
-def getWorkArea(name: str = "") -> Optional[Rect]:
-    """
-    Get the Rect struct (left, top, right, bottom), in pixels, of the working (usable by windows) area
-    of the given screen,  or main screen if no screen name provided or not found
-
-    :param name: name of the screen as returned by getAllScreens() and getDisplay() methods.
-    :return: Rect struct or None
-    """
-    workarea: Optional[Rect] = None
-    if name:
-        screens = getAllScreens()
-        try:
-            workarea = screens[name]["workarea"]
-        except:
-            pass
-    else:
-        monitor_info = win32api.GetMonitorInfo(win32api.MonitorFromPoint((0, 0)))
-        res: Tuple[int, int, int, int] = monitor_info.get("Work")
-        workarea = Rect(*res)
-    return workarea
-
-
-def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0):
-    """
-    This function is meant to be run from the command line. It will
-    automatically display the position of mouse pointer and the titles
-    of the windows under it
-    """
-    print('Press Ctrl-C to quit.')
-    if xOffset != 0 or yOffset != 0:
-        print('xOffset: %s yOffset: %s' % (xOffset, yOffset))
-    try:
-        prevWindows = None
-        while True:
-            x, y = getMousePos()
-            positionStr = 'X: ' + str(x - xOffset).rjust(4) + ' Y: ' + str(y - yOffset).rjust(4) + '  (Press Ctrl-C to quit)'
-            windows = getWindowsAt(x, y)
-            if windows != prevWindows:
-                print('\n')
-                prevWindows = windows
-                for win in windows:
-                    name = win.title
-                    eraser = '' if len(name) >= len(positionStr) else ' ' * (len(positionStr) - len(name))
-                    sys.stdout.write((name or ("<No Name> ID: " + str(win._hWnd))) + eraser + '\n')
-            sys.stdout.write('\b' * len(positionStr))
-            sys.stdout.write(positionStr)
-            sys.stdout.flush()
-            time.sleep(0.3)
-    except KeyboardInterrupt:
-        sys.stdout.write('\n\n')
-        sys.stdout.flush()
-
 # Futile attempt to get the taskbar buttons handles without using pywinauto (but useful as "hard" pywin32 example!)
 # def _getSysTrayButtons(window_class: str = ""):
 #     # https://stackoverflow.com/questions/31068541/how-to-use-win32gui-or-similar-to-click-an-other-window-toolstrip1-item-button
@@ -1613,15 +1404,17 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0):
 def main():
     """Run this script from command-line to get windows under mouse pointer"""
     print("PLATFORM:", sys.platform)
-    print("MONITORS:", getAllScreens())
-    print("SCREEN SIZE:", resolution())
-    print("WORKAREA:", getWorkArea())
     print("ALL WINDOWS", getAllTitles())
+    print("MONITORS:", monitorsCtl.getMonitors())
     npw = getActiveWindow()
     if npw is None:
         print("ACTIVE WINDOW:", None)
     else:
         print("ACTIVE WINDOW:", npw.title, "/", npw.box)
+        dpy = npw.getDisplay()
+        print("DISPLAY", dpy)
+        print("SCREEN SIZE:", monitorsCtl.getMonitorSize(dpy))
+        print("WORKAREA:", monitorsCtl.getWorkArea(dpy))
     print()
     displayWindowsUnderMouse()
     # print(npw.menu.getMenu())  # Not working in windows 11?!?!?!?!

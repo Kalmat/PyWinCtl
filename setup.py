@@ -37,7 +37,8 @@ setup(
     install_requires=[
         "pywin32>=302; sys_platform == 'win32'",
         "python-xlib>=0.21; sys_platform == 'linux'",
-        "pyobjc>=8.1; sys_platform == 'darwin'"
+        "pyobjc>=8.1; sys_platform == 'darwin'",
+        "pymonctl>=0.0.2"
     ],
     extras_require={
         'dev': [
@@ -61,9 +62,6 @@ setup(
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3 :: Only',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
