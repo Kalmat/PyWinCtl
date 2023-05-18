@@ -50,7 +50,7 @@ class Delegate(NSObject):
                     print("ACTIVE WINDOW:", self.npw.title)
 
                     def moveChanged(pos):
-                        print("CHANGED!!!", pos, self.npw.box, self.npw.rect)
+                        print("CHANGED!!!", pos, self.npw.box if self.npw is not None else "", self.npw.rect if self.npw is not None else "")
 
                     self.npw.watchdog.start(movedCB=moveChanged)
 
