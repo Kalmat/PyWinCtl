@@ -925,9 +925,9 @@ def getAllScreens():
 
 def getScreenSize(name: str = ""):
     import warnings
-    warnings.warn('getScreenSize() is deprecated, use monitorsCtl.getScreenSize() instead',
+    warnings.warn('getScreenSize() is deprecated, use monitorsCtl.getSize() instead',
                   DeprecationWarning, stacklevel=2)
-    return monitorsCtl.getMonitorSize(name)
+    return monitorsCtl.getSize(name)
 
 
 def getWorkArea(name: str = ""):

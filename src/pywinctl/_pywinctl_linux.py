@@ -56,6 +56,35 @@ def getActiveWindow() -> Optional[LinuxWindow]:
         return LinuxWindow(win_id)
     return None
 
+# The code above doesn't work in Wayland (new GNOME X server since Ubuntu 22.04)
+# Looking for an alternative to get active window and window titles
+# Even this stopped working in new GNOME...
+# https://unix.stackexchange.com/questions/399753/how-to-get-a-list-of-active-windows-when-using-wayland
+# https://stackoverflow.com/questions/45465016/how-do-i-get-the-active-window-on-gnome-wayland
+# https://askubuntu.com/questions/1412130/dbus-calls-to-gnome-shell-dont-work-under-ubuntu-22-04
+# def DBUS_getWindows():
+#     import pydbus
+#     bus = pydbus.SessionBus()
+#
+#     shell = bus.get('org.gnome.Shell')
+#     windows = shell.Eval("global.get_window_actors()")
+#     print(windows)
+#
+#     # gdbus call \
+#     #   --session \
+#     #   --dest org.gnome.Shell \
+#     #   --object-path /org/gnome/Shell \
+#     #   --method org.gnome.Shell.Eval "
+#     #     global
+#     #       .get_window_actors()
+#     #       .map(a=>a.meta_window)
+#     #       .map(w=>({class: w.get_wm_class(), title: w.get_title()}))" \
+#     #   | sed -E -e "s/^\(\S+, '//" -e "s/'\)$//" \
+#     #   | jq .
+#
+#     # This needs WindowsExt to be installed. Not suitable.
+#     # gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell/Extensions/WindowsExt --method org.gnome.Shell.Extensions.WindowsExt.FocusPID | sed -E "s/\\('(.*)',\\)/\\1/g"
+
 
 def getActiveWindowTitle():
     """
