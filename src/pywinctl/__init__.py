@@ -10,15 +10,14 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any, cast, List, Tuple, Union, TypedDict
+from typing import Any, cast, List, Tuple, Union
 
 import pymonctl as pmc
-
 from ._mybox import MyBox, Box, BoundingBox, Rect, Point, Size, pointInBox
 
 
 __all__ = [
-    "BaseWindow", "version", "Re", "monitorsCtl",
+    "BaseWindow", "version", "Re",
     # OS Specifics
     "Window", "checkPermissions", "getActiveWindow", "getActiveWindowTitle", "getAllAppsNames",
     "getAllAppsWindowsTitles", "getAllTitles", "getAllWindows", "getAppsWithName", "getMousePos",
@@ -97,19 +96,6 @@ def _levenshtein(seq1: str, seq2: str) -> float:
                 )
     dist = matrix[size_x - 1][size_y - 1]
     return (1 - dist / max(len(seq1), len(seq2))) * 100
-
-
-class _ScreenValue(TypedDict):
-    id: int
-    is_primary: bool
-    pos: Point
-    size: Size
-    workarea: Rect
-    scale: Tuple[int, int]
-    dpi: Tuple[int, int]
-    orientation: int
-    frequency: float
-    colordepth: int
 
 
 class BaseWindow(ABC):
@@ -913,35 +899,91 @@ class _WatchDogWorker(threading.Thread):
         self.run()
 
 
-monitorsCtl = pmc
+def _findMonitorName(x: int, y: int):
+    return pmc.findMonitorName(x, y)
 
 
 def getAllScreens():
+    """
+    Get all monitors info plugged to the system, as a dict.
+
+    If watchdog thread is enabled or the 'forceUpdate' param is set to ''True'', it will return updated information.
+    Otherwise, it will return the monitors info as it was when the PyMonCtl module was initially loaded (static).
+
+    Use 'forceUpdate' carefully since it can be CPU-consuming and slow in scenarios in which this function is
+    repeatedly and quickly invoked, so if it is directly called or indirectly by other functions.
+
+    :return: Monitors info as python dictionary
+
+    Output Format:
+        Key:
+            Display name
+
+        Values:
+            "id":
+                display index as returned by EnumDisplayDevices()
+            "is_primary":
+                ''True'' if monitor is primary (shows clock and notification area, sign in, lock, CTRL+ALT+DELETE screens...)
+            "pos":
+                Point(x, y) struct containing the display position ((0, 0) for the primary screen)
+            "size":
+                Size(width, height) struct containing the display size, in pixels
+            "workarea":
+                Rect(left, top, right, bottom) struct with the screen workarea, in pixels
+            "scale":
+                Scale ratio, as a tuple of (x, y) scale percentage
+            "dpi":
+                Dots per inch, as a tuple of (x, y) dpi values
+            "orientation":
+                Display orientation: 0 - Landscape / 1 - Portrait / 2 - Landscape (reversed) / 3 - Portrait (reversed)
+            "frequency":
+                Refresh rate of the display, in Hz
+            "colordepth":
+                Bits per pixel referred to the display color depth
+    """
     import warnings
-    warnings.warn('getAllScreens() is deprecated, use monitorsCtl.getMonitors() instead',
+    warnings.warn('getAllScreens() is deprecated. Use getMonitors() from PyMonCtl module instead',
                   DeprecationWarning, stacklevel=2)
-    return monitorsCtl.getMonitors()
+    return pmc.getMonitors()
 
 
 def getScreenSize(name: str = ""):
+    """
+    Get the width and height, in pixels, of the given monitor, or main monitor if no monitor name provided
+
+    :param name: name of the monitor as returned by getMonitors() and getDisplay() methods.
+    :return: Size struct or None
+    """
     import warnings
-    warnings.warn('getScreenSize() is deprecated, use monitorsCtl.getSize() instead',
+    warnings.warn('getScreenSize() is deprecated. Use getSize() from PyMonCtl module instead',
                   DeprecationWarning, stacklevel=2)
-    return monitorsCtl.getSize(name)
+    return pmc.getSize(name)
 
 
 def getWorkArea(name: str = ""):
+    """
+    Get coordinates (left, top, right, bottom), in pixels, of the working (usable by windows) area
+    of the given screen, or main screen if no screen name provided
+
+    :param name: name of the monitor as returned by getMonitors() and getDisplay() methods.
+    :return: Rect struct or None
+    """
     import warnings
-    warnings.warn('getWorkArea() is deprecated, use monitorsCtl.getWorkArea() instead',
+    warnings.warn('getWorkArea() is deprecated. Use getWorkArea() from PyMonCtl module instead',
                   DeprecationWarning, stacklevel=2)
-    return monitorsCtl.getWorkArea()
+    return pmc.getWorkArea(name)
 
 
 def getMousePos():
+    """
+    Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
+
+    :return: Point struct
+    """
     import warnings
-    warnings.warn('getMousePos() is deprecated, use monitorsCtl.getMousePos() instead',
+    warnings.warn('getMousePos() is deprecated. Use getMousePos() from PyMonCtl module instead',
                   DeprecationWarning, stacklevel=2)
-    return monitorsCtl.getMousePos()
+    return pmc.getMousePos()
 
 
 def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
@@ -955,7 +997,7 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
     try:
         prevWindows = None
         while True:
-            x, y = monitorsCtl.getMousePos()
+            x, y = pmc.getMousePos()
             positionStr = 'X: ' + str(x - xOffset).rjust(4) + ' Y: ' + str(y - yOffset).rjust(4) + '  (Press Ctrl-C to quit)'
             windows = getWindowsAt(x, y)
             if windows != prevWindows:

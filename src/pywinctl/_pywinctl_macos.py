@@ -23,7 +23,7 @@ import AppKit
 import Quartz
 
 from pywinctl._mybox import MyBox, Box, Rect, pointInBox
-from pywinctl import BaseWindow, Re, _WatchDog, monitorsCtl, displayWindowsUnderMouse
+from pywinctl import BaseWindow, Re, _WatchDog, _findMonitorName
 
 
 Incomplete: TypeAlias = Any
@@ -1247,14 +1247,8 @@ class MacOSWindow(BaseWindow):
 
         :return: display name as string or empty (couldn't retrieve it)
         """
-        screens = monitorsCtl.getMonitors()
-        name = ""
         x, y = self.center
-        for key in screens:
-            if pointInBox(x, y, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
-                name = key
-                break
-        return name
+        return _findMonitorName(x, y)
 
     @property
     def isMinimized(self) -> bool:
@@ -2411,7 +2405,7 @@ class MacOSNSWindow(BaseWindow):
         :return: display name as string or empty (couldn't retrieve it or window is offscreen)
         """
         x, y = self.center
-        return monitorsCtl.findMonitorName(x, y)
+        return _findMonitorName(x, y)
 
     @property
     def isMinimized(self) -> bool:
@@ -2486,26 +2480,3 @@ class MacOSNSWindow(BaseWindow):
     #     :return:  ''True'' if window is demanding attention
     #     """
     #     return False
-
-
-def main():
-    """Run this script from command-line to get windows under mouse pointer"""
-    print("PLATFORM:", sys.platform)
-    print("MONITORS:", monitorsCtl.getMonitors())
-    if checkPermissions(activate=True):
-        print("ALL WINDOWS", getAllTitles())
-        npw = getActiveWindow()
-        if npw is None:
-            print("ACTIVE WINDOW:", None)
-        else:
-            print("ACTIVE WINDOW:", npw.title, "/", npw.box)
-            dpy = npw.getDisplay()
-            print("DISPLAY", dpy)
-            print("SCREEN SIZE:", monitorsCtl.getMonitorSize(dpy))
-            print("WORKAREA:", monitorsCtl.getWorkArea(dpy))
-        print()
-        displayWindowsUnderMouse(0, 0)
-
-
-if __name__ == "__main__":
-    main()
