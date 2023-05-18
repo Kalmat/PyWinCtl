@@ -2035,7 +2035,7 @@ class MacOSNSWindow(BaseWindow):
         self.watchdog = _WatchDog(self)
 
     def _getWindowRect(self) -> Box:
-        screenSize = self._hWnd.screen().frame().size
+        # screenSize = self._hWnd.screen().frame().size
         frame = self._hWnd.frame()
         x = int(frame.origin.x)
         y = int(frame.origin.y)

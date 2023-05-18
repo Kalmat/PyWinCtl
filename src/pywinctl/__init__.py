@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any, cast, List, Tuple, Union
 
-import pymonctl as pmc
+import pymonctl as pmc  # type: ignore[import]
 from ._mybox import MyBox, Box, BoundingBox, Rect, Point, Size, pointInBox
 
 

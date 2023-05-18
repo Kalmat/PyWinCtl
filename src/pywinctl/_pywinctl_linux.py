@@ -776,7 +776,7 @@ class LinuxWindow(BaseWindow):
         :return: display name as string or empty (couldn't retrieve it or window is offscreen)
         """
         x, y = self.center
-        return _findMonitorName(x, y)
+        return str(_findMonitorName(x, y))
 
     @property
     def isMinimized(self) -> bool:
