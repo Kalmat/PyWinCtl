@@ -83,23 +83,23 @@ class Delegate(NSObject):
             assert self.npw.visible
 
             # Test resizing
-            self.npw.resizeTo(600, 400, wait=wait)
             print("RESIZE", self.npw.size)
+            self.npw.resizeTo(600, 400, wait=wait)
             time.sleep(timelap)
             assert self.npw.size == (600, 400)
             assert self.npw.width == 600
             assert self.npw.height == 400
 
-            self.npw.resizeRel(10, 20, wait=wait)
             print("RESIZEREL", self.npw.size)
+            self.npw.resizeRel(10, 20, wait=wait)
             time.sleep(timelap)
             assert self.npw.size == (610, 420)
             assert self.npw.width == 610
             assert self.npw.height == 420
 
             # Test moving
-            self.npw.moveTo(600, 300, wait=wait)
             print("MOVE", self.npw.topleft)
+            self.npw.moveTo(600, 300, wait=wait)
             time.sleep(timelap)
             assert self.npw.topleft == (600, 300)
             assert self.npw.left == 600
@@ -110,8 +110,8 @@ class Delegate(NSObject):
             assert self.npw.bottomleft == (600, 720)
             assert self.npw.topright == (1210, 300)
 
-            self.npw.moveRel(1, 2, wait=wait)
             print("MOVEREL", self.npw.topleft)
+            self.npw.moveRel(1, 2, wait=wait)
             time.sleep(timelap)
             assert self.npw.topleft == (601, 302)
             assert self.npw.left == 601
@@ -123,99 +123,100 @@ class Delegate(NSObject):
             assert self.npw.topright == (1211, 302)
 
             # Move via the properties
-            self.npw.resizeTo(601, 401, wait=wait)
             print("RESIZE", self.npw.size)
+            self.npw.resizeTo(601, 401, wait=wait)
             time.sleep(timelap)
-            self.npw.moveTo(100, 600, wait=wait)
             print("MOVE moveTo(100, 600)", self.npw.box, self.npw.rect)
+            self.npw.moveTo(100, 600, wait=wait)
             time.sleep(timelap)
-            self.npw.left = 200
+
             print("MOVE left = 200", self.npw.box, self.npw.rect)
+            self.npw.left = 200
             time.sleep(timelap)
             assert self.npw.left == 200
 
-            self.npw.right = 200
             print("MOVE right = 200", self.npw.box, self.npw.rect)
+            self.npw.right = 200
             time.sleep(timelap)
             assert self.npw.right == 200
 
-            self.npw.top = 200
             print("MOVE top = 200", self.npw.box, self.npw.rect)
+            self.npw.top = 200
             time.sleep(timelap)
             assert self.npw.top == 200
 
-            self.npw.bottom = 800
             print("MOVE bottom = 800", self.npw.box, self.npw.rect)
+            self.npw.bottom = 800
             time.sleep(timelap)
             assert self.npw.bottom == 800
 
-            self.npw.topleft = (300, 400)
             print("MOVE topleft = (300, 400)", self.npw.box, self.npw.rect)
+            self.npw.topleft = (300, 400)
             time.sleep(timelap)
             assert self.npw.topleft == (300, 400)
 
-            self.npw.topright = (300, 400)
             print("MOVE topright = (300, 400)", self.npw.box, self.npw.rect)
+            self.npw.topright = (300, 400)
             time.sleep(timelap)
             assert self.npw.topright == (300, 400)
 
-            self.npw.bottomleft = (300, 700)
             print("MOVE bottomleft = (300, 700)", self.npw.box, self.npw.rect)
+            self.npw.bottomleft = (300, 700)
             time.sleep(timelap)
             assert self.npw.bottomleft == (300, 700)
 
-            self.npw.bottomright = (300, 900)
             print("MOVE bottomright = (300, 900)", self.npw.box, self.npw.rect)
+            self.npw.bottomright = (300, 900)
             time.sleep(timelap)
             assert self.npw.bottomright == (300, 900)
 
-            self.npw.midleft = (300, 400)
             print("MOVE midleft = (300, 400)", self.npw.box, self.npw.rect)
+            self.npw.midleft = (300, 400)
             time.sleep(timelap)
             assert self.npw.midleft == (300, 400)
 
-            self.npw.midright = (300, 400)
             print("MOVE midright = (300, 400)", self.npw.box, self.npw.rect)
+            self.npw.midright = (300, 400)
             time.sleep(timelap)
             assert self.npw.midright == (300, 400)
 
-            self.npw.midtop = (300, 400)
             print("MOVE midtop = (300, 400)", self.npw.box, self.npw.rect)
+            self.npw.midtop = (300, 400)
             time.sleep(timelap)
             assert self.npw.midtop == (300, 400)
 
-            self.npw.midbottom = (300, 700)
             print("MOVE midbottom = (300, 700)", self.npw.box, self.npw.rect)
+            self.npw.midbottom = (300, 700)
             time.sleep(timelap)
             assert self.npw.midbottom == (300, 700)
 
-            self.npw.center = (300, 400)
             print("MOVE center = (300, 400)", self.npw.box, self.npw.rect)
+            self.npw.center = (300, 400)
             time.sleep(timelap)
             assert self.npw.center == (300, 400)
 
-            self.npw.centerx = 1000
             print("MOVE centerx = 1000", self.npw.box, self.npw.rect)
+            self.npw.centerx = 1000
             time.sleep(timelap)
             assert self.npw.centerx == 1000
 
-            self.npw.centery = 300
             print("MOVE centery = 300", self.npw.box, self.npw.rect)
+            self.npw.centery = 300
             time.sleep(timelap)
             assert self.npw.centery == 300
 
-            self.npw.width = 600
             print("RESIZE width = 600", self.npw.size)
+            self.npw.width = 600
             time.sleep(timelap)
             assert self.npw.width == 600
 
-            self.npw.height = 400
             print("RESIZE height = 400", self.npw.size)
+            self.npw.height = 400
             time.sleep(timelap)
             assert self.npw.height == 400
 
-            self.npw.size = (810, 610)
             print("RESIZE size = (810, 610)", self.npw.size)
+            self.npw.size = (810, 610)
             time.sleep(timelap)
             assert self.npw.size == (810, 610)
 
@@ -270,6 +271,7 @@ class Delegate(NSObject):
 
             # Test closing
             print("CLOSE")
+            self.npw.watchdog.stop()
             self.npw.close()
             assert not self.npw.isVisible
             assert not self.npw.isAlive
