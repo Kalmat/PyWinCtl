@@ -2436,10 +2436,6 @@ class MacOSNSWindow(BaseWindow):
         return self.title
 
     @property
-    def updatedTitle(self) -> str:
-        raise NotImplementedError
-
-    @property
     def visible(self) -> bool:
         """
         Check if current window is visible (minimized windows are also visible)

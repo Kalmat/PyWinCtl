@@ -295,7 +295,6 @@ class LinuxWindow(BaseWindow):
         self._display: Xlib.display.Display = self._win.display
         self._rootWin: RootWindow = self._win.rootWindow
         self._xWin: XWindow = self._win.xWindow
-        self._xWin: XWindow = self._win.xWindow
         self.watchdog = _WatchDog(self)
 
         self._currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()
