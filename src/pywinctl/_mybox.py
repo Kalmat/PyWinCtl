@@ -5,8 +5,6 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import NamedTuple, Union, Tuple, Optional
 
-import pywinctl as pwc
-
 
 class Box(NamedTuple):
     left: int
@@ -43,10 +41,10 @@ def pointInBox(x: int, y: int, left: int, top: int, width: int, height: int):
 
 class MyBox:
 
-    def __init__(self, windowBox: Box, onSet: Callable[[Box], None], onQuery: Callable[[], Box]):
-        self._box: Box = windowBox
+    def __init__(self, onSet: Callable[[Box], None], onQuery: Callable[[], Box]):
         self._onSet: Callable[[Box], None] = onSet
         self._onQuery: Callable[[], Box] = onQuery
+        self._box: Box = Box(0, 0, 0, 0)
 
     def __repr__(self):
         """Return a string of the constructor function call to create this Box object."""

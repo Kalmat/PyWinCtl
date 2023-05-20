@@ -20,8 +20,9 @@ __all__ = [
     "BaseWindow", "version", "Re",
     # OS Specifics
     "Window", "checkPermissions", "getActiveWindow", "getActiveWindowTitle", "getAllAppsNames",
-    "getAllAppsWindowsTitles", "getAllTitles", "getAllWindows", "getAppsWithName", "getMousePos",
-    "getTopWindowAt", "getWindowsAt", "getWindowsWithTitle", "displayWindowsUnderMouse"
+    "getAllAppsWindowsTitles", "getAllTitles", "getAllWindows", "getAppsWithName",
+    "getTopWindowAt", "getWindowsAt", "getWindowsWithTitle", "displayWindowsUnderMouse",
+    "getAllScreens", "getScreenSize", "getWorkArea", "getMousePos"
 ]
 # Mac only
 if sys.platform == "darwin":
@@ -100,9 +101,8 @@ def _levenshtein(seq1: str, seq2: str) -> float:
 
 class BaseWindow(ABC):
 
-    def _boxFactory(self, box: Box) -> MyBox:
-        self._box: MyBox = MyBox(box, self._onSet, self._onQuery)
-        return self._box
+    def __init__(self):
+        self._box: MyBox = MyBox(self._onSet, self._onQuery)
 
     def _onSet(self, newBox: Box):
         self._moveResizeTo(newBox)
@@ -112,15 +112,15 @@ class BaseWindow(ABC):
         raise NotImplementedError
 
     def _onQuery(self) -> Box:
-        box: Box = self._getWindowRect()
+        box: Box = self._getWindowBox()
         return box
 
     @abstractmethod
-    def _getWindowRect(self) -> Box:
+    def _getWindowBox(self) -> Box:
         raise NotImplementedError
 
     def __str__(self):
-        r = self._getWindowRect()
+        r = self._getWindowBox()
         return '<%s left="%s", top="%s", width="%s", height="%s", title="%s">' % (
             self.__class__.__qualname__,
             self.title,

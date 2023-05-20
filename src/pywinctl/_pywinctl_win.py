@@ -407,9 +407,9 @@ class _SubMenuStructure(TypedDict):
 class Win32Window(BaseWindow):
 
     def __init__(self, hWnd: Union[int, str]):
+        super().__init__()
 
         self._hWnd = int(hWnd, base=16) if isinstance(hWnd, str) else hWnd
-        self._rect: MyBox = self._boxFactory(self._getWindowRect())
         self._parent = win32gui.GetParent(self._hWnd)
         self._t: Optional[_SendBottom] = None
         self.menu = self._Menu(self)
@@ -418,7 +418,7 @@ class Win32Window(BaseWindow):
         self._hDpy: Optional[int] = None
         self._display: str = ""
 
-    def _getWindowRect(self) -> Box:
+    def _getWindowBox(self) -> Box:
         dpiAware = ctypes.windll.user32.GetAwarenessFromDpiAwarenessContext(ctypes.windll.user32.GetThreadDpiAwarenessContext())
         if dpiAware == 0:
             ctypes.windll.shcore.SetProcessDpiAwareness(2)

@@ -113,7 +113,7 @@ def getActiveWindow(app: Optional[AppKit.NSApplication] = None):
                 activeApps = _getAllApps()
                 for a in activeApps:
                     if str(a.processIdentifier()) == appID:
-                        return MacOSWindow(a, title, bounds)
+                        return MacOSWindow(a, title)
         except Exception as e:
             print(e)
     else:
@@ -156,19 +156,11 @@ def getAllWindows(app:Optional[AppKit.NSApplication] = None):
             try:
                 pID = item[0]
                 title = item[1]
-                if len(item) > 3 and len(item[2]) > 1 and len(item[3]) > 1:
-                    x = int(item[2][0])
-                    y = int(item[2][1])
-                    w = int(item[3][0])
-                    h = int(item[3][1])
-                    box = Box(x, y, w, h)
-                else:
-                    rect = None
             except:
                 continue
             for activeApp in activeApps:
                 if activeApp.processIdentifier() == pID:
-                    windows.append(MacOSWindow(activeApp, title, box))
+                    windows.append(MacOSWindow(activeApp, title))
                     break
         return windows
     else:
@@ -258,11 +250,9 @@ def getWindowsWithTitle(title: Union[str, re.Pattern[str]], app: Optional[Union[
             pID = item[0]
             winTitle = item[1].lower() if lower else item[1]
             if winTitle and Re._cond_dic[condition](title, winTitle, flags):
-                x, y, w, h = int(item[2][0]), int(item[2][1]), int(item[3][0]), int(item[3][1])
-                box = Box(x, y, w, h)
                 for a in activeApps:
                     if (app and a.localizedName() in app) or (a.processIdentifier() == pID):
-                        matches.append(MacOSWindow(a, item[1], box))
+                        matches.append(MacOSWindow(a, item[1]))
                         break
         return matches
     else:
@@ -507,7 +497,8 @@ class _SubMenuStructure(TypedDict, total=False):
 
 class MacOSWindow(BaseWindow):
 
-    def __init__(self, app: AppKit.NSRunningApplication, title: str, bounds: Optional[Box] = None):
+    def __init__(self, app: AppKit.NSRunningApplication, title: str):
+        super().__init__()
 
         self._app = app
         self._appName: str = app.localizedName()
@@ -515,9 +506,6 @@ class MacOSWindow(BaseWindow):
         self._winTitle: str = title
         # self._parent = self.getParent()  # It is slow and not required by now
         self._monitorPlugDetectionEnabled = False
-        if bounds is None:
-            bounds = self._getWindowRect()
-        self._rect: MyBox = self._boxFactory(bounds)
         v = platform.mac_ver()[0].split(".")
         ver = float(v[0]+"."+v[1])
         # On Yosemite and below we need to use Zoom instead of FullScreen to maximize windows
@@ -527,7 +515,7 @@ class MacOSWindow(BaseWindow):
         self.menu = self._Menu(self)
         self.watchdog = _WatchDog(self)
 
-    def _getWindowRect(self) -> Box:
+    def _getWindowBox(self) -> Box:
         if not self.title:
             return Box(0, 0, 0, 0)
 
@@ -1345,17 +1333,9 @@ class MacOSWindow(BaseWindow):
     @property
     def updatedTitle(self) -> str:
         """
-        Get and updated title by finding a similar window title within same application.
-        It uses a similarity check to find the best match in case title changes (no way to effectively detect it).
-        This can be useful since this class uses window title to identify the target window.
-        If watchdog is activated, it will stop in case title changes.
+        WARNING: MacOSWindow ONLY. For MacOSNSWindow, this property returns actual title
 
-        IMPORTANT:
-
-        - New title may not belong to the original target window, it is just similar within same application
-        - If original title or a similar one is not found, window may still exist
-
-        :return: possible new title, empty if no similar title found or same title if it didn't change, as a string
+        :return: title as a string
         """
         titles = _getAppWindowsTitles(self._app)
         if self._winTitle not in titles:
@@ -2026,15 +2006,15 @@ class _SendBottom(threading.Thread):
 class MacOSNSWindow(BaseWindow):
 
     def __init__(self, app: AppKit.NSApplication, hWnd: AppKit.NSWindow):
+        super().__init__()
 
         self._app = app
         self._hWnd = hWnd
         self._parent = hWnd.parentWindow()
         self._monitorPlugDetectionEnabled = False
-        self._rect = self._boxFactory(self._getWindowRect())
         self.watchdog = _WatchDog(self)
 
-    def _getWindowRect(self) -> Box:
+    def _getWindowBox(self) -> Box:
         # screenSize = self._hWnd.screen().frame().size
         frame = self._hWnd.frame()
         x = int(frame.origin.x)
@@ -2445,6 +2425,15 @@ class MacOSNSWindow(BaseWindow):
         :return: title as a string
         """
         return self._hWnd.title()
+
+    @property
+    def updatedTitle(self) -> str:
+        """
+        WARNING: MacOSWindow ONLY. For MacOSNSWindow, this property returns actual title
+
+        :return: title as a string
+        """
+        return self.title
 
     @property
     def updatedTitle(self) -> str:

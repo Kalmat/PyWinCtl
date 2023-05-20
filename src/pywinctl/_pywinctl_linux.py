@@ -283,6 +283,7 @@ def getTopWindowAt(x: int, y: int):
 class LinuxWindow(BaseWindow):
 
     def __init__(self, hWnd: Union[XWindow, int, str]):
+        super().__init__()
 
         if isinstance(hWnd, XWindow):
             self._hWnd = hWnd.id
@@ -294,14 +295,13 @@ class LinuxWindow(BaseWindow):
         self._display: Xlib.display.Display = self._win.display
         self._rootWin: RootWindow = self._win.rootWindow
         self._xWin: XWindow = self._win.xWindow
-
-        self._rect: MyBox = self._boxFactory(self._getWindowRect())
+        self._xWin: XWindow = self._win.xWindow
         self.watchdog = _WatchDog(self)
 
         self._currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()
         self._motifHints: List[int] = []
 
-    def _getWindowRect(self) -> Box:
+    def _getWindowBox(self) -> Box:
         # https://stackoverflow.com/questions/12775136/get-window-position-and-size-in-python-with-xlib - mgalgs
         win = self._xWin
         geom = win.get_geometry()
