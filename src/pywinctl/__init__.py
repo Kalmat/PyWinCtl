@@ -19,9 +19,9 @@ from ._mybox import MyBox, Box, BoundingBox, Rect, Point, Size, pointInBox
 __all__ = [
     "BaseWindow", "version", "Re",
     # OS Specifics
-    "Window", "checkPermissions", "getActiveWindow", "getActiveWindowTitle", "getAllAppsNames",
-    "getAllAppsWindowsTitles", "getAllTitles", "getAllWindows", "getAppsWithName",
-    "getTopWindowAt", "getWindowsAt", "getWindowsWithTitle", "displayWindowsUnderMouse",
+    "Window", "checkPermissions", "getActiveWindow", "getActiveWindowTitle", "getWindowsWithTitle",
+    "getAllWindows", "getAllTitles", "getAppsWithName", "getAllAppsNames", "getAllAppsWindowsTitles",
+    "getTopWindowAt", "getWindowsAt", "displayWindowsUnderMouse",
     "getAllScreens", "getScreenSize", "getWorkArea", "getMousePos"
 ]
 # Mac only

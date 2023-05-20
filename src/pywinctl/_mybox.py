@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import NamedTuple, Union, Tuple, Optional
+from typing import NamedTuple, Union, Tuple
 
 
 class Box(NamedTuple):

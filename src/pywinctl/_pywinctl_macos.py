@@ -2016,7 +2016,8 @@ class MacOSNSWindow(BaseWindow):
 
     def _getWindowBox(self) -> Box:
         # screenSize = self._hWnd.screen().frame().size
-        frame = self._hWnd.frame()
+        # frame = self._hWnd.frame()
+        frame = Quartz.convertRectToScreen(self._hWnd.frame())
         x = int(frame.origin.x)
         y = int(frame.origin.y)
         w = int(frame.size.width)
