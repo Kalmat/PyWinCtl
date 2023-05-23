@@ -25,8 +25,8 @@ import win32con
 import win32api
 import win32gui
 
-from pywinbox import Box, Rect, pointInBox
 from pywinctl import BaseWindow, Re, _WatchDog, _findMonitorName
+from pywinbox import Rect, pointInBox  # type: ignore[import]
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.

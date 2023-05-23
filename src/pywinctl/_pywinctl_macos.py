@@ -22,8 +22,8 @@ from typing_extensions import TypeAlias, TypedDict, Literal
 import AppKit
 import Quartz
 
-from pywinbox import Box, Rect, pointInBox
 from pywinctl import BaseWindow, Re, _WatchDog, _findMonitorName
+from pywinbox import Box, Rect, pointInBox  # type: ignore[import]
 
 
 Incomplete: TypeAlias = Any

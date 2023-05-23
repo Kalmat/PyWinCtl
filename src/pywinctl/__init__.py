@@ -13,7 +13,7 @@ from collections.abc import Callable
 from typing import Any, cast, List, Tuple, Union
 
 import pymonctl as pmc  # type: ignore[import]
-from pywinbox import PyWinBox, defaultOnQuery, defaultOnSet, Box, Rect, Point, Size
+from pywinbox import PyWinBox, defaultOnQuery, defaultOnSet, Box, Rect, Point, Size  # type: ignore[import]
 
 
 __all__ = [

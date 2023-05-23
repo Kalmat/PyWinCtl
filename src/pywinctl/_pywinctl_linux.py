@@ -24,8 +24,8 @@ import Xlib.ext
 from Xlib.xobject.drawable import Window as XWindow
 
 from pywinctl._xlibcontainer import RootWindow, EwmhWindow, Props, defaultRootWindow, _xlibGetAllWindows
-from pywinbox import Rect, pointInBox
 from pywinctl import BaseWindow, Re, _WatchDog, _findMonitorName
+from pywinbox import Rect, pointInBox   # type: ignore[import]
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.

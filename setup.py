@@ -39,7 +39,7 @@ setup(
         "python-xlib>=0.21; sys_platform == 'linux'",
         "pyobjc>=8.1; sys_platform == 'darwin'",
         "pymonctl>=0.0.6",
-        "pywinbox>=0.0.1"
+        "pywinbox>=0.0.2"
     ],
     extras_require={
         'dev': [
