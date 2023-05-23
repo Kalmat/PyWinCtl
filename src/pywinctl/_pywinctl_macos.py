@@ -23,7 +23,7 @@ import AppKit
 import Quartz
 
 from pywinctl import BaseWindow, Re, _WatchDog, _findMonitorName
-from pywinbox import Box, Rect, pointInBox
+from pywinbox import Rect, pointInBox
 
 
 Incomplete: TypeAlias = Any
@@ -1950,7 +1950,6 @@ class MacOSNSWindow(BaseWindow):
         self._hWnd = hWnd
         self._parent = hWnd.parentWindow()
         self.watchdog = _WatchDog(self)
-        self._flipValues = False
 
     def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
         """
@@ -1981,8 +1980,6 @@ class MacOSNSWindow(BaseWindow):
         w = int(frame.size.width)
         h = int(frame.size.height)
         r = x + w
-        if self._flipValues:
-            y = self._flipTop(Box(x, y, w, h))
         b = y + h
         return Rect(x, y, r, b)
 
@@ -2157,9 +2154,6 @@ class MacOSNSWindow(BaseWindow):
         :return: ''True'' if window moved to the given position
         """
         box = self.box
-        if self._flipValues:
-            box.top = newTop
-            newTop = self._flipTop(box)
         self._hWnd.setFrame_display_animate_(AppKit.NSMakeRect(newLeft, newTop, box.width, box.height), True, True)
         box = self.box
         retries = 0
