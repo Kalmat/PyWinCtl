@@ -236,11 +236,6 @@ if sys.platform == "linux":
         # WARNING: Xlib/EWMH does not support negative positions, so be careful with positions calculations
         # and/or set proper screen resolution to avoid negative values (tested OK on 1920x1200)
 
-        windows = pywinctl.getAllWindows()
-        print(windows)
-        for window in windows:
-            print(window.title)
-        npw = pywinctl.getWindowsWithTitle("Mozilla Firefox")[0]
         assert npw is not None
 
         wait = True

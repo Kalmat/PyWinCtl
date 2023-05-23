@@ -25,7 +25,7 @@ import win32con
 import win32api
 import win32gui
 
-from pywinctl._mybox import MyBox, Box, Rect, pointInBox
+from pywinctl._mybox import Box, Rect, pointInBox
 from pywinctl import BaseWindow, Re, _WatchDog, _findMonitorName
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
@@ -407,7 +407,7 @@ class _SubMenuStructure(TypedDict):
 class Win32Window(BaseWindow):
 
     def __init__(self, hWnd: Union[int, str]):
-        super().__init__()
+        super().__init__(hWnd)
 
         self._hWnd = int(hWnd, base=16) if isinstance(hWnd, str) else hWnd
         self._parent = win32gui.GetParent(self._hWnd)
@@ -417,13 +417,6 @@ class Win32Window(BaseWindow):
 
         self._hDpy: Optional[int] = None
         self._display: str = ""
-
-    def _getWindowBox(self) -> Box:
-        dpiAware = ctypes.windll.user32.GetAwarenessFromDpiAwarenessContext(ctypes.windll.user32.GetThreadDpiAwarenessContext())
-        if dpiAware == 0:
-            ctypes.windll.shcore.SetProcessDpiAwareness(2)
-        x, y, r, b = win32gui.GetWindowRect(self._hWnd)
-        return Box(x, y, r - x, b - y)
 
     def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
         """
@@ -636,10 +629,6 @@ class Win32Window(BaseWindow):
             box = self.box
         return box.left == newLeft and box.top == newTop
 
-    def _moveResizeTo(self, newBox: Box) -> bool:
-        win32gui.MoveWindow(self._hWnd, newBox.left, newBox.top, newBox.width, newBox.height, True)
-        return newBox == self.box
-
     def alwaysOnTop(self, aot: bool = True) -> bool:
         """
         Keeps window on top of all others, except some games (not all, anyway) and media player.
@@ -653,9 +642,11 @@ class Win32Window(BaseWindow):
         # https://www.codeproject.com/articles/730/apihijack-a-library-for-easy-dll-function-hooking?fid=1267&df=90&mpp=25&sort=Position&view=Normal&spc=Relaxed&select=116946&fr=73&prof=True
         # https://guidedhacking.com/threads/d3d9-hooking.8481/
         # https://stackoverflow.com/questions/25601362/transparent-window-on-top-of-immersive-full-screen-mode
+        # https://stackoverflow.com/questions/17131857/python-windows-keep-program-on-top-of-another-full-screen-application
+        # This can be interesting to do all of the above with Python
+        # https://www.apriorit.com/dev-blog/727-win-guide-to-hooking-windows-apis-with-python
         if self._t and self._t.is_alive():
             self._t.kill()
-        # https://stackoverflow.com/questions/17131857/python-windows-keep-program-on-top-of-another-full-screen-application
         zorder = win32con.HWND_TOPMOST if aot else win32con.HWND_NOTOPMOST
         win32gui.SetWindowPos(self._hWnd, zorder, 0, 0, 0, 0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE |
                                                               win32con.SWP_NOACTIVATE)

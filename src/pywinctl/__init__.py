@@ -12,8 +12,9 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any, cast, List, Tuple, Union
 
+import pybox
 import pymonctl as pmc  # type: ignore[import]
-from ._mybox import MyBox, Box, BoundingBox, Rect, Point, Size, pointInBox
+from pybox import PyBox, Box, Rect, Point, Size
 
 
 __all__ = [
@@ -101,26 +102,11 @@ def _levenshtein(seq1: str, seq2: str) -> float:
 
 class BaseWindow(ABC):
 
-    def __init__(self):
-        self._box: MyBox = MyBox(self._onSet, self._onQuery)
-
-    def _onSet(self, newBox: Box):
-        self._moveResizeTo(newBox)
-
-    @abstractmethod
-    def _moveResizeTo(self, newBox: Box) -> bool:
-        raise NotImplementedError
-
-    def _onQuery(self) -> Box:
-        box: Box = self._getWindowBox()
-        return box
-
-    @abstractmethod
-    def _getWindowBox(self) -> Box:
-        raise NotImplementedError
+    def __init__(self, handle):
+        self._box: PyBox = PyBox(pybox.defaultOnQuery, pybox.defaultOnSet, handle)
 
     def __str__(self):
-        r = self._getWindowBox()
+        r = self._box.box
         return '<%s left="%s", top="%s", width="%s", height="%s", title="%s">' % (
             self.__class__.__qualname__,
             self.title,

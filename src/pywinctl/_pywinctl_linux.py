@@ -24,7 +24,7 @@ import Xlib.ext
 from Xlib.xobject.drawable import Window as XWindow
 
 from pywinctl._xlibcontainer import RootWindow, EwmhWindow, Props, defaultRootWindow, _xlibGetAllWindows
-from pywinctl._mybox import MyBox, Box, Rect, pointInBox
+from pybox import Rect, pointInBox
 from pywinctl import BaseWindow, Re, _WatchDog, _findMonitorName
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
@@ -283,7 +283,7 @@ def getTopWindowAt(x: int, y: int):
 class LinuxWindow(BaseWindow):
 
     def __init__(self, hWnd: Union[XWindow, int, str]):
-        super().__init__()
+        super().__init__(hWnd)
 
         if isinstance(hWnd, XWindow):
             self._hWnd = hWnd.id
@@ -299,26 +299,6 @@ class LinuxWindow(BaseWindow):
 
         self._currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()
         self._motifHints: List[int] = []
-
-    def _getWindowBox(self) -> Box:
-        # https://stackoverflow.com/questions/12775136/get-window-position-and-size-in-python-with-xlib - mgalgs
-        win = self._xWin
-        geom = win.get_geometry()
-        x = geom.x
-        y = geom.y
-        w = geom.width
-        h = geom.height
-        while True:
-            parent = win.query_tree().parent
-            if not isinstance(parent, XWindow):
-                break
-            pgeom = parent.get_geometry()
-            x += pgeom.x
-            y += pgeom.y
-            if parent.id == self._rootWin.id:
-                break
-            win = parent
-        return Box(x, y, w, h)
 
     def _getBorderSizes(self):
 
@@ -573,12 +553,6 @@ class LinuxWindow(BaseWindow):
             time.sleep(WAIT_DELAY * retries)
             box = self.box
         return box.left == newLeft and box.top == newTop
-
-    def _moveResizeTo(self, newBox: Box):
-        newLeft = max(0, newBox.left)  # Xlib won't accept negative positions
-        newTop = max(0, newBox.top)
-        self._win.setMoveResize(x=newLeft, y=newTop, width=newBox.width, height=newBox.height)
-        return newBox == self.box
 
     def alwaysOnTop(self, aot: bool = True) -> bool:
         """
