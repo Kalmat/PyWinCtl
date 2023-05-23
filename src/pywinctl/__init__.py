@@ -13,7 +13,7 @@ from collections.abc import Callable
 from typing import Any, cast, List, Tuple, Union
 
 import pymonctl as pmc  # type: ignore[import]
-from pywinbox import PyWinBox, Box, Rect, Point, Size
+from pywinbox import PyWinBox, defaultOnQuery, defaultOnSet, Box, Rect, Point, Size
 
 
 __all__ = [
@@ -102,7 +102,7 @@ def _levenshtein(seq1: str, seq2: str) -> float:
 class BaseWindow(ABC):
 
     def __init__(self, handle):
-        self._box: PyBox = PyBox(pybox.defaultOnQuery, pybox.defaultOnSet, handle)
+        self._box: PyWinBox = PyWinBox(defaultOnQuery, defaultOnSet, handle)
 
     def __str__(self):
         r = self._box.box
@@ -415,16 +415,9 @@ class BaseWindow(ABC):
         self._box.box = value
 
     @property
-    def bbox(self) -> BoundingBox:
-        return self._box.bbox
-
-    @bbox.setter
-    def bbox(self, value: Union[BoundingBox, Tuple[int, int, int, int]]):
-        self._box.bbox = value
-
-    @property
     def rect(self) -> Rect:
         return self._box.rect
+    bbox = rect
 
     @rect.setter
     def rect(self, value: Union[Rect, Tuple[int, int, int, int]]):
