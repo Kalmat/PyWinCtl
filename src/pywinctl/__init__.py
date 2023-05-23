@@ -12,8 +12,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any, cast, List, Tuple, Union
 
-import pymonctl as pmc  # type: ignore[import]
-from pywinbox import PyWinBox, defaultOnQuery, defaultOnSet, Box, Rect, Point, Size  # type: ignore[import]
+import pymonctl as pmc
+from pywinbox import PyWinBox, defaultOnQuery, defaultOnSet, Box, Rect, Point, Size
 
 
 __all__ = [

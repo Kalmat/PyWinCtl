@@ -23,7 +23,7 @@ import AppKit
 import Quartz
 
 from pywinctl import BaseWindow, Re, _WatchDog, _findMonitorName
-from pywinbox import Box, Rect, pointInBox  # type: ignore[import]
+from pywinbox import Box, Rect, pointInBox
 
 
 Incomplete: TypeAlias = Any
