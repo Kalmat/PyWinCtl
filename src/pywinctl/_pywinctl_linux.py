@@ -261,7 +261,7 @@ def getWindowsAt(x: int, y: int):
     return [
         window for (window, box)
         in windowBoxGenerator
-        if pointInBox(x, y, box.left, box.top, box.width, box.height)]
+        if pointInBox(x, y, box)]
 
 
 def getTopWindowAt(x: int, y: int):
@@ -274,7 +274,7 @@ def getTopWindowAt(x: int, y: int):
     """
     windows: List[LinuxWindow] = getAllWindows()
     for window in reversed(windows):
-        if pointInBox(x, y, window.left, window.top, window.width, window.height):
+        if pointInBox(x, y, window.box):
             return window
     else:
         return None

@@ -1,4 +1,5 @@
 # PyWinCtl <a name="pywinctl"></a>
+[![Type Checking](https://github.com/Kalmat/PyWinCtl/actions/workflows/type-checking.yml/badge.svg)](https://github.com/Kalmat/PyWinCtl/actions/workflows/type-checking.yml)
 
 Cross-Platform module to get info on and control windows on screen.
 

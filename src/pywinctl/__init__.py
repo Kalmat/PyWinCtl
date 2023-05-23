@@ -417,11 +417,11 @@ class BaseWindow(ABC):
     @property
     def rect(self) -> Rect:
         return self._box.rect
-    bbox = rect
 
     @rect.setter
     def rect(self, value: Union[Rect, Tuple[int, int, int, int]]):
         self._box.rect = value
+    bbox = rect
 
     @property
     def topleft(self) -> Point:

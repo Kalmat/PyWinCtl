@@ -368,7 +368,7 @@ def getWindowsAt(x: int, y: int, app: Optional[AppKit.NSApplication] = None, all
     return [
         window for (window, box)
         in windowBoxGenerator
-        if pointInBox(x, y, box.left, box.top, box.width, box.height)]
+        if pointInBox(x, y, box)]
 
 @overload
 def getTopWindowAt(x: int, y: int, app: AppKit.NSApplication, allWindows: Optional[List[MacOSNSWindow]] = ...) -> Optional[MacOSNSWindow]: ...

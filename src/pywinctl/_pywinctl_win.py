@@ -228,7 +228,7 @@ def getWindowsAt(x: int, y: int) -> List[Win32Window]:
     return [
         window for (window, box)
         in windowBoxGenerator
-        if pointInBox(x, y, box.left, box.top, box.width, box.height)]
+        if pointInBox(x, y, box)]
 
 
 def getTopWindowAt(x: int, y: int) -> Optional[Win32Window]:
