@@ -22,7 +22,7 @@ from typing_extensions import TypeAlias, TypedDict, Literal
 import AppKit
 import Quartz
 
-from pybox import Box, Rect, pointInBox
+from pywinbox import Box, Rect, pointInBox
 from pywinctl import BaseWindow, Re, _WatchDog, _findMonitorName
 
 
