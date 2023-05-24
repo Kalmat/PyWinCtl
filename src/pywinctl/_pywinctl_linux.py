@@ -23,8 +23,7 @@ import Xlib.Xutil
 import Xlib.ext
 from Xlib.xobject.drawable import Window as XWindow
 
-from pywinctl._xlibcontainer import RootWindow, EwmhWindow, Props, defaultRootWindow, _xlibGetAllWindows
-# from ewmhlib import RootWindow, EwmhWindow, Props, defaultRootWindow, _xlibGetAllWindows
+from ewmhlib import RootWindow, EwmhWindow, Props, defaultRootWindow, _xlibGetAllWindows
 from pywinctl import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
 from pywinbox import Rect, pointInBox
 
