@@ -25,7 +25,7 @@ import win32con
 import win32api
 import win32gui
 
-from pywinctl import BaseWindow, Re, _WatchDog, _findMonitorName
+from pywinctl import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
 from pywinbox import Rect, pointInBox
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
@@ -1390,3 +1390,26 @@ class _SendBottom(threading.Thread):
 #         buttons.append((tbButton.idCommand, idx_rect, butPid))
 #
 #     return hWnd, buttons
+
+
+def main():
+    """Run this script from command-line to get windows under mouse pointer"""
+    print("PLATFORM:", sys.platform)
+    print("MONITORS:", getAllScreens())
+    npw = getActiveWindow()
+    if npw is None:
+        print("ACTIVE WINDOW:", None)
+    else:
+        dpy = npw.getDisplay()
+        print("DISPLAY", dpy)
+        print("SCREEN SIZE:", getScreenSize(dpy))
+        print("WORKAREA:", getWorkArea(dpy))
+        print("ALL WINDOWS", getAllTitles())
+        print("ACTIVE WINDOW:", npw.title, "/", npw.box)
+    print()
+    displayWindowsUnderMouse()
+    # print(npw.menu.getMenu())  # Not working in windows 11?!?!?!?!
+
+
+if __name__ == "__main__":
+    main()

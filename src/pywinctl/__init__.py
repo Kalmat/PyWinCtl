@@ -10,7 +10,7 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any, cast, List, Tuple, Union, overload
+from typing import Any, cast, List, Tuple, Union
 
 import pymonctl as pmc
 from pywinbox import PyWinBox, defaultOnQuery, defaultOnSet, Box, Rect, Point, Size

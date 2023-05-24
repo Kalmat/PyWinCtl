@@ -22,7 +22,7 @@ from typing_extensions import TypeAlias, TypedDict, Literal
 import AppKit
 import Quartz
 
-from pywinctl import BaseWindow, Re, _WatchDog, _findMonitorName
+from pywinctl import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
 from pywinbox import Rect, pointInBox
 
 
@@ -2393,3 +2393,27 @@ class MacOSNSWindow(BaseWindow):
     #     :return:  ''True'' if window is demanding attention
     #     """
     #     return False
+
+
+def main():
+    """Run this script from command-line to get windows under mouse pointer"""
+    print("PLATFORM:", sys.platform)
+    print("MONITORS:", getAllScreens())
+    if checkPermissions(activate=True):
+        print("ALL WINDOWS", getAllTitles())
+        npw = getActiveWindow()
+        if npw is None:
+            print("ACTIVE WINDOW:", None)
+        else:
+            dpy = npw.getDisplay()
+            print("DISPLAY", dpy)
+            print("SCREEN SIZE:", getScreenSize(dpy))
+            print("WORKAREA:", getWorkArea(dpy))
+            print("ALL WINDOWS", getAllTitles())
+            print("ACTIVE WINDOW:", npw.title, "/", npw.box)
+        print()
+        displayWindowsUnderMouse(0, 0)
+
+
+if __name__ == "__main__":
+    main()

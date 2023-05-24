@@ -38,7 +38,7 @@ setup(
         "pywin32>=302; sys_platform == 'win32'",
         "python-xlib>=0.21; sys_platform == 'linux'",
         "pyobjc>=8.1; sys_platform == 'darwin'",
-        "pymonctl>=0.0.7",
+        "pymonctl>=0.0.8",
         "pywinbox>=0.0.5"
     ],
     extras_require={
@@ -51,7 +51,7 @@ setup(
         ]
     },
     keywords="gui window control menu title name geometry size position move resize minimize maximize restore "
-             + "hide show activate raise lower close always-on-top always-at-bottom events screen-size mouse-position",
+             + "hide show activate raise lower close always-on-top always-at-bottom events",
     classifiers=[
         'Development Status :: 4 - Beta',
         'Environment :: Win32 (MS Windows)',

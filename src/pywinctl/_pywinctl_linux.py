@@ -24,7 +24,8 @@ import Xlib.ext
 from Xlib.xobject.drawable import Window as XWindow
 
 from pywinctl._xlibcontainer import RootWindow, EwmhWindow, Props, defaultRootWindow, _xlibGetAllWindows
-from pywinctl import BaseWindow, Re, _WatchDog, _findMonitorName
+# from ewmhlib import RootWindow, EwmhWindow, Props, defaultRootWindow, _xlibGetAllWindows
+from pywinctl import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
 from pywinbox import Rect, pointInBox
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
@@ -832,3 +833,25 @@ class LinuxWindow(BaseWindow):
         # Returns ``True`` if the window is currently mapped
         state: int = self._xWin.get_attributes().map_state
         return bool(state != Xlib.X.IsUnmapped)
+
+
+def main():
+    """Run this script from command-line to get windows under mouse pointer"""
+    print("PLATFORM:", sys.platform)
+    print("ALL WINDOWS", getAllTitles())
+    print("MONITORS:", getAllScreens())
+    npw = getActiveWindow()
+    if npw is None:
+        print("ACTIVE WINDOW:", None)
+    else:
+        print("ACTIVE WINDOW:", npw.title, "/", npw.box)
+        dpy = npw.getDisplay()
+        print("DISPLAY", dpy)
+        print("SCREEN SIZE:", getScreenSize(dpy))
+        print("WORKAREA:", getWorkArea(dpy))
+    print()
+    displayWindowsUnderMouse()
+
+
+if __name__ == "__main__":
+    main()
