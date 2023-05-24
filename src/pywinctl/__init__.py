@@ -10,7 +10,7 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any, cast, List, Tuple, Union
+from typing import Any, cast, List, Tuple, Union, overload
 
 import pymonctl as pmc
 from pywinbox import PyWinBox, defaultOnQuery, defaultOnSet, Box, Rect, Point, Size
@@ -871,9 +871,9 @@ class _WatchDogWorker(threading.Thread):
         interval: float = 0.3
     ):
         self._kill.set()
-        self._kill.clear()
         self.updateCallbacks(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB, resizedCB, movedCB, changedTitleCB, changedDisplayCB)
         self.updateInterval(interval)
+        self._kill.clear()
         self.run()
 
 

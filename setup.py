@@ -32,7 +32,7 @@ setup(
     license='BSD 3',
     packages=find_packages(where='src'),
     package_dir={'': 'src'},
-    package_data={"pywinctl": ["py.typed"]},
+    package_data={"pywinctl": ["src/pywinctl/py.typed"]},
     test_suite='tests',
     install_requires=[
         "pywin32>=302; sys_platform == 'win32'",
@@ -51,7 +51,7 @@ setup(
         ]
     },
     keywords="gui window control menu title name geometry size position move resize minimize maximize restore "
-             + "hide show activate raise lower close screen-size mouse-position",
+             + "hide show activate raise lower close always-on-top always-at-bottom events screen-size mouse-position",
     classifiers=[
         'Development Status :: 4 - Beta',
         'Environment :: Win32 (MS Windows)',
