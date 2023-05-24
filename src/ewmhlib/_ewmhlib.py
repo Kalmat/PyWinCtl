@@ -481,7 +481,7 @@ class RootWindow:
 
     def __init__(self, root: Optional[XWindow] = None):
 
-        if root:
+        if root and root.id != defaultRoot.id:
             self.display, self.screen, self.root = getDisplayFromRoot(root.id)
         else:
             self.display = defaultDisplay
@@ -1188,9 +1188,10 @@ class EwmhWindow:
     available using extensions subclass (EwmhWindow.extensions.*)
     """
 
-    def __init__(self, winId: int):
+    def __init__(self, winId: int, root: XWindow = defaultRoot, display: Xlib.display.Display = defaultDisplay):
 
-        self.display, self.screen, self.root = getDisplayFromWindow(winId)
+        self.display = display
+        self.root = root
         self.rootWindow: RootWindow = defaultRootWindow if self.root.id == defaultRoot.id else RootWindow(self.root)
         self.xWindow: XWindow = self.display.create_resource_object('window', winId)
         self.id: int = winId
