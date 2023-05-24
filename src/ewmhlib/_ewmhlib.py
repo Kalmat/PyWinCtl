@@ -1188,10 +1188,13 @@ class EwmhWindow:
     available using extensions subclass (EwmhWindow.extensions.*)
     """
 
-    def __init__(self, winId: int, root: XWindow = defaultRoot, display: Xlib.display.Display = defaultDisplay):
+    def __init__(self, winId: int, root: XWindow = defaultRoot):
 
-        self.display = display
         self.root = root
+        if root.id != defaultRoot.id:
+            self.display, _, _ = getDisplayFromRoot(root.id)
+        else:
+            self.display = defaultDisplay
         self.rootWindow: RootWindow = defaultRootWindow if self.root.id == defaultRoot.id else RootWindow(self.root)
         self.xWindow: XWindow = self.display.create_resource_object('window', winId)
         self.id: int = winId
