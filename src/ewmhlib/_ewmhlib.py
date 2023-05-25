@@ -220,7 +220,7 @@ class Structs:
                     ('do_not_propagate_mask', c_ulong), ('override_redirect', c_int32), ('screen', c_ulong)]
 
 
-def getAllDisplaysInfo() -> Structs.DisplaysInfo:
+def getAllDisplaysInfo() -> dict[str, Structs.DisplaysInfo]:
     """
     Gets relevant information on all present displays, including its screens and roots
 
@@ -237,8 +237,8 @@ def getAllDisplaysInfo() -> Structs.DisplaysInfo:
     :return: dict with all displays, screens and roots info
     """
     displays: List[str] = os.listdir("/tmp/.X11-unix")
-    dspInfo: Structs.DisplaysInfo = cast(Structs.DisplaysInfo, {})
-    for i, d in enumerate(displays):
+    dspInfo: dict[str, Structs.DisplaysInfo] = {}
+    for d in displays:
         if d.startswith("X"):
             name: str = ":" + d[1:]
             display: Xlib.display.Display = Xlib.display.Display(name)
@@ -261,9 +261,7 @@ def getAllDisplaysInfo() -> Structs.DisplaysInfo:
                 "screens": screens
             }
             display.close()
-            # How to use variables as keys to add new items???
-            # https://github.com/python/mypy/issues/7178
-            dspInfo[name] = displayInfo  # type: ignore[literal-required]
+            dspInfo[name] = displayInfo
     return dspInfo
 
 
@@ -1176,6 +1174,8 @@ class EwmhWindow:
 
     - display: XDisplay connection
 
+    - screen: screen Struct
+
     - root: root X Window object
 
     - rootWindow: object to access RootWindow methods
@@ -1192,9 +1192,10 @@ class EwmhWindow:
 
         self.root = root
         if root.id != defaultRoot.id:
-            self.display, _, _ = getDisplayFromRoot(root.id)
+            self.display, self.screen, _ = getDisplayFromRoot(root.id)
         else:
             self.display = defaultDisplay
+            self.screen = defaultScreen
         self.rootWindow: RootWindow = defaultRootWindow if self.root.id == defaultRoot.id else RootWindow(self.root)
         self.xWindow: XWindow = self.display.create_resource_object('window', winId)
         self.id: int = winId
