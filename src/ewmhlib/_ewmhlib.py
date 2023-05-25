@@ -2430,7 +2430,7 @@ class _Extensions:
         :param width_inc: width changes increments (in pixels)
         :param height_inc: height changes increments (in pixels)
         :param min_aspect: X (numerator), Y (denumerator) ratio for min_aspect
-        :param max_aspect: X (numerator, Y (denumerator) ratio for max_aspect
+        :param max_aspect: X (numerator), Y (denumerator) ratio for max_aspect
         :param base_width: Preferred width of window
         :param base_height: Preferred height of window
         :param int win_gravity: window gravity for placing an re-stacking
@@ -2534,7 +2534,7 @@ class _Extensions:
             WM_SAVE_YOURSELF	Appendix C	Save client state request (deprecated)
             WM_DELETE_WINDOW	4.2.8.1 	Request to delete top-level window
 
-        :param text: select whether the procols will be returned as integers or strings
+        :param text: select whether the protocols will be returned as integers or strings
         :return: List of protocols in integer or string format
         """
         prots: List[int] = self.xWindow.get_wm_protocols()
