@@ -24,8 +24,8 @@ import Xlib.ext
 from Xlib.xobject.drawable import Window as XWindow
 
 from pywinctl import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
-from ewmhlib import RootWindow, EwmhWindow, Props, defaultRootWindow, _xlibGetAllWindows
 from pywinbox import Rect, pointInBox
+from ewmhlib import Props, RootWindow, EwmhWindow, defaultRootWindow, _xlibGetAllWindows
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -302,14 +302,14 @@ class LinuxWindow(BaseWindow):
 
     def _getBorderSizes(self):
 
-        # Didn't find a way to get title bar height using Xlib in GNOME
+        # # Didn't find a way to get title bar height using Xlib in GNOME
         # ret, a = self.XlibAttributes()  # -> Should return client area, but it doesn't...
         # if res:
         #     res = Rect(a.x, a.y, a.x + a.width, a.y + a.height)
         # else:
         #     res = self.getWindowRect()
         #
-        # This works in Cinnamon, but not in GNOME
+        # # This works in Cinnamon, but not in GNOME
         # titleHeight = 0
         # extents = self._win.getFrameExtents()
         # if extents and len(extents) >= 4:

@@ -10,6 +10,7 @@ macdeport https://github.com/macdeport
 holychowders https://github.com/holychowders
 Anthony Molinaro (djnym) https://github.com/djnym
 Kyle King https://github.com/KyleKing
+Leonard Bruns https://github.com/roym899
 In general, all those who so generously share their work and knowledge on Internet (stackoverflow, github, ...) so I could find a solution or a string to pull!
 
 PyGetWindow (original module): Here is an inevitably incomplete list of MUCH-APPRECIATED CONTRIBUTORS --

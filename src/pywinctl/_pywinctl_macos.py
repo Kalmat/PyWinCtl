@@ -4,6 +4,7 @@
 # mypy: disable_error_code = no-any-return
 from __future__ import annotations
 
+import ctypes
 import sys
 
 assert sys.platform == "darwin"
@@ -180,7 +181,8 @@ def getAllTitles(app: Optional[AppKit.NSApplication] = None):
                                     end try
                                 end tell
                                 return winNames'"""
-        ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
+        ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8")\
+            .replace("\n", "").replace("{", "[").replace("}", "]").replace('missing value', '"missing value"')
         res = ast.literal_eval(ret)
         matches: List[str] = []
         if len(res) > 0:
@@ -271,7 +273,8 @@ def getAllAppsNames() -> List[str]:
                                     end try
                                 end tell
                                 return winNames'"""
-    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
+    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8")\
+        .replace("\n", "").replace("{", "[").replace("}", "]").replace('missing value', '"missing value"')
     res = ast.literal_eval(ret)
     return res or []
 
@@ -337,7 +340,8 @@ def getAllAppsWindowsTitles():
                                     end try
                                 end tell
                                 return winNames'"""
-    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
+    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8")\
+        .replace("\n", "").replace("{", "[").replace("}", "]").replace('missing value', '"missing value"')
     res: Tuple[List[str], List[List[str]]] = ast.literal_eval(ret)
     result: dict[str, List[str]] = {}
     if res and len(res) > 0:
@@ -442,7 +446,7 @@ def _getAppWindowsTitles(app: AppKit.NSRunningApplication):
     proc = subprocess.Popen(['osascript', '-s', 's', '-', pid],
                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
     ret, err = proc.communicate(cmd)
-    ret = ret.replace("\n", "").replace("{", "[").replace("}", "]")
+    ret = ret.replace("\n", "").replace("{", "[").replace("}", "]").replace('missing value', '"missing value"')
     res = ast.literal_eval(ret)
     return res or []
 
@@ -456,7 +460,8 @@ def _getWindowTitles() -> List[List[str]]:
                                     end try
                                 end tell
                                 return winNames'"""
-    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
+    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8")\
+        .replace("\n", "").replace("{", "[").replace("}", "]").replace('missing value', '"missing value"')
     res = ast.literal_eval(ret)
     result: List[List[str]] = []
     if len(res) > 0:
@@ -1128,7 +1133,7 @@ class MacOSWindow(BaseWindow):
         proc = subprocess.Popen(['osascript', '-s', 's', '-', self._appName, self.title], 
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
-        ret = ret.replace("\n", "").replace("{", "['").replace("}", "']").replace('"', '').replace(", ", "', '")
+        ret = ret.replace("\n", "").replace("{", "['").replace("}", "']").replace('"', '').replace(", ", "', '").replace('missing value', '"missing value"')
         ret = ast.literal_eval(ret)
         for item in ret:
             if item.startswith("window"):
@@ -1745,7 +1750,7 @@ class MacOSWindow(BaseWindow):
                     proc = subprocess.Popen(['osascript', '-s', 's', '-', str(self._parent._app.localizedName())], 
                                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
                     ret, err = proc.communicate(cmd)
-                    ret = ret.replace("\n", "").replace("{", "[").replace("}", "]")
+                    ret = ret.replace("\n", "").replace("{", "[").replace("}", "]").replace('missing value', '"missing value"')
                     rect = ast.literal_eval(ret)
                     x, y = rect[0]
                     w, h = rect[1]
@@ -1905,6 +1910,22 @@ class _SendTop(threading.Thread):
         self._kill = threading.Event()
         self.run()
 
+    def getTid(self):
+        if self.is_alive():
+            if hasattr(self, '_thread_id'):
+                return self._thread_id
+            for id, thread in threading._active.items():
+                if thread is self:
+                    return id
+        return None
+
+    def forceStop(self):
+        thread_id = self.getTid()
+        if thread_id is not None:
+            res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, ctypes.py_object(SystemExit))
+            if res > 1:
+                ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
+
 
 class _SendBottom(threading.Thread):
 
@@ -1939,6 +1960,22 @@ class _SendBottom(threading.Thread):
         self.kill()
         self._kill = threading.Event()
         self.run()
+
+    def getTid(self):
+        if self.is_alive():
+            if hasattr(self, '_thread_id'):
+                return self._thread_id
+            for id, thread in threading._active.items():
+                if thread is self:
+                    return id
+        return None
+
+    def forceStop(self):
+        thread_id = self.getTid()
+        if thread_id is not None:
+            res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, ctypes.py_object(SystemExit))
+            if res > 1:
+                ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
 
 
 class MacOSNSWindow(BaseWindow):
@@ -2401,6 +2438,7 @@ def main():
     print("MONITORS:", getAllScreens())
     if checkPermissions(activate=True):
         print("ALL WINDOWS", getAllTitles())
+        print("ALL APPS AND WINDOWS:", getAllAppsWindowsTitles())
         npw = getActiveWindow()
         if npw is None:
             print("ACTIVE WINDOW:", None)

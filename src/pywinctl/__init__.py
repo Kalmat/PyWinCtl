@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-
+import ctypes
 import difflib
 import re
 import sys
@@ -106,7 +106,7 @@ class BaseWindow(ABC):
 
     def __str__(self):
         r = self._box.box
-        return '<%s left="%s", top="%s", width="%s", height="%s", title="%s">' % (
+        return '<%s title="%s", left="%s", top="%s", width="%s", height="%s">' % (
             self.__class__.__qualname__,
             self.title,
             r.left,
@@ -878,7 +878,10 @@ class _WatchDogWorker(threading.Thread):
 
 
 def _findMonitorName(x: int, y: int):
-    return pmc.findMonitorName(x, y)
+    monitor = pmc.findMonitor(x, y)
+    if monitor:
+        return monitor.name
+    return ""
 
 
 def getAllScreens():
@@ -895,14 +898,16 @@ def getAllScreens():
 
     Output Format:
         Key:
-            Display name
+            Display name (in macOS it is necessary to add handle to avoid duplicates)
 
         Values:
-            "id":
+            "system_name":
+                name of display as returned by system (in macOS this name can be duplicated!)
+            "handle":
                 display index as returned by EnumDisplayDevices()
             "is_primary":
                 ''True'' if monitor is primary (shows clock and notification area, sign in, lock, CTRL+ALT+DELETE screens...)
-            "pos":
+            "position":
                 Point(x, y) struct containing the display position ((0, 0) for the primary screen)
             "size":
                 Size(width, height) struct containing the display size, in pixels
@@ -918,11 +923,12 @@ def getAllScreens():
                 Refresh rate of the display, in Hz
             "colordepth":
                 Bits per pixel referred to the display color depth
+    import warnings
     """
     import warnings
-    warnings.warn('getAllScreens() is deprecated. Use getMonitors() from PyMonCtl module instead',
+    warnings.warn('getAllScreens() is deprecated. Use getAllMonitorsDict() from PyMonCtl module instead',
                   DeprecationWarning, stacklevel=2)
-    return pmc.getMonitors()
+    return pmc.getAllMonitorsDict()
 
 
 def getScreenSize(name: str = ""):
@@ -935,7 +941,10 @@ def getScreenSize(name: str = ""):
     import warnings
     warnings.warn('getScreenSize() is deprecated. Use getSize() from PyMonCtl module instead',
                   DeprecationWarning, stacklevel=2)
-    return pmc.getSize(name)
+    for monitor in pmc.getAllMonitors():
+        if (name and name == monitor.name) or (not name and monitor.isPrimary):
+            return monitor.size
+    return None
 
 
 def getWorkArea(name: str = ""):
@@ -949,7 +958,10 @@ def getWorkArea(name: str = ""):
     import warnings
     warnings.warn('getWorkArea() is deprecated. Use getWorkArea() from PyMonCtl module instead',
                   DeprecationWarning, stacklevel=2)
-    return pmc.getWorkArea(name)
+    for monitor in pmc.getAllMonitors():
+        if (name and name == monitor.name) or (not name and monitor.isPrimary):
+            return monitor.workarea
+    return None
 
 
 def getMousePos():

@@ -25,6 +25,7 @@ import win32con
 import win32api
 import win32gui
 
+
 from pywinctl import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
 from pywinbox import Rect, pointInBox
 
@@ -79,7 +80,18 @@ def getAllWindows() -> List[Win32Window]:
     :return: list of Window objects
     """
     # https://stackoverflow.com/questions/64586371/filtering-background-processes-pywin32
-    return [Win32Window(hwnd[0]) for hwnd in _findMainWindowHandles()]
+    # return [Win32Window(hwnd[0]) for hwnd in _findMainWindowHandles()]
+    return [Win32Window(hwnd) for hwnd in _findWindowHandles()]
+
+def getAllWindows2() -> List[Win32Window]:
+    """
+    Get the list of Window objects for all visible windows
+
+    :return: list of Window objects
+    """
+    # https://stackoverflow.com/questions/64586371/filtering-background-processes-pywin32
+    # return [Win32Window(hwnd[0]) for hwnd in _findMainWindowHandles()]
+    return [Win32Window(hwnd) for hwnd in _findWindowHandles2()]
 
 
 def getAllTitles() -> List[str]:
@@ -248,7 +260,7 @@ def getTopWindowAt(x: int, y: int) -> Optional[Win32Window]:
     return Win32Window(hwnd) if hwnd else None
 
 
-def _findWindowHandles(parent: Optional[int] = None, window_class: Optional[str] = None, title: Optional[str] = None, onlyVisible: bool = False) -> List[int]:
+def _findWindowHandles(parent: Optional[int] = None, window_class: Optional[str] = None, title: Optional[str] = None, onlyVisible: bool = True) -> List[int]:
 
     handle_list: List[int] = []
 
@@ -260,6 +272,30 @@ def _findWindowHandles(parent: Optional[int] = None, window_class: Optional[str]
             return True
         if not onlyVisible or (onlyVisible and win32gui.IsWindowVisible(hwnd)):
             handle_list.append(hwnd)
+        return True
+
+    if not parent:
+        parent = win32gui.GetDesktopWindow()  # type: ignore[no-untyped-call]  # pyright: ignore[reportUnknownMemberType]
+    win32gui.EnumChildWindows(parent, findit, None)
+    return handle_list
+
+
+def _findWindowHandles2(parent: Optional[int] = None, window_class: Optional[str] = None, title: Optional[str] = None, onlyVisible: bool = True) -> List[int]:
+
+    handle_list: List[int] = []
+
+    def findit(hwnd: int, ctx: Any) -> bool:
+
+        if window_class and window_class != win32gui.GetClassName(hwnd):
+            return True
+        if title and title != win32gui.GetWindowText(hwnd):
+            return True
+        if not onlyVisible or (onlyVisible and win32gui.IsWindowVisible(hwnd)):
+            WS_EX_TOOLWINDOW = 0x00000080   # https://learn.microsoft.com/de-de/windows/win32/winmsg/extended-window-styles
+            GWL_EXSTYLE = -20   # https://learn.microsoft.com/de-de/windows/win32/api/winuser/nf-winuser-getwindowlonga
+            extended_style = win32gui.GetWindowLong(hwnd, GWL_EXSTYLE)
+            if (extended_style & WS_EX_TOOLWINDOW) != 0:
+                handle_list.append(hwnd)
         return True
 
     if not parent:
@@ -409,7 +445,7 @@ class Win32Window(BaseWindow):
     def __init__(self, hWnd: Union[int, str]):
         super().__init__(hWnd)
 
-        self._hWnd = int(hWnd, base=16) if isinstance(hWnd, str) else hWnd
+        self._hWnd = int(hWnd, base=16) if isinstance(hWnd, str) else int(hWnd)
         self._parent = win32gui.GetParent(self._hWnd)
         self._t: Optional[_SendBottom] = None
         self.menu = self._Menu(self)
@@ -509,7 +545,7 @@ class Win32Window(BaseWindow):
 
     def restore(self, wait: bool = False, user: bool = True) -> bool:
         """
-        If maximized or minimized, restores the window to it's normal size
+        If maximized or minimized, restores the window to its normal size
 
         :param wait: set to ''True'' to confirm action requested (in a reasonable time)
         :param user: ignored on Windows platform
@@ -558,7 +594,10 @@ class Win32Window(BaseWindow):
         :param user: ignored on Windows platform
         :return: ''True'' if window activated
         """
-        win32gui.SetForegroundWindow(self._hWnd)
+        try:
+            win32gui.SetForegroundWindow(self._hWnd)
+        except:
+            pass
         return self.isActive
 
     def resize(self, widthOffset: int, heightOffset: int, wait: bool = False) -> bool:
@@ -1220,6 +1259,22 @@ class _SendBottom(threading.Thread):
         self._keep.set()
         self.run()
 
+    def getTid(self):
+        if self.is_alive():
+            if hasattr(self, '_thread_id'):
+                return self._thread_id
+            for id, thread in threading._active.items():
+                if thread is self:
+                    return id
+        return None
+
+    def forceStop(self):
+        thread_id = self.getTid()
+        if thread_id is not None:
+            res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, ctypes.py_object(SystemExit))
+            if res > 1:
+                ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
+
 
 # Futile attempt to get the taskbar buttons handles without using pywinauto (but useful as "hard" pywin32 example!)
 # def _getSysTrayButtons(window_class: str = ""):
@@ -1394,6 +1449,7 @@ class _SendBottom(threading.Thread):
 
 def main():
     """Run this script from command-line to get windows under mouse pointer"""
+
     print("PLATFORM:", sys.platform)
     print("MONITORS:", getAllScreens())
     npw = getActiveWindow()
@@ -1412,4 +1468,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    print("=========================== ALL =======================================")
+    for win in getAllWindows():
+        print(win.title)
+    print()
+    print("=========================== FILTERED =======================================")
+    for win in getAllWindows2():
+        print(win.title)
+    # main()
