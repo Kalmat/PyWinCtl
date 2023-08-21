@@ -310,7 +310,7 @@ class LinuxWindow(BaseWindow):
             h = h - int(_net_extents[2]) + int(_net_extents[3])
             ret = Rect(x, y, x + w, y + h)
         else:
-            # TODO: Find a way to find window sizes in GNOME.
+            # TODO: Find a way to find window title and borders sizes in GNOME
             # Don't add / subtract anything to avoid missing window parts (for windows not following WM standards)
             ret = Rect(x, y, x + w, y + h)
         return ret
