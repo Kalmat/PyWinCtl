@@ -872,24 +872,9 @@ class MacOSWindow(BaseWindow):
         """
         if not self.title:
             return False
-
-        # https://apple.stackexchange.com/questions/350256/how-to-move-mac-os-application-to-specific-display-and-also-resize-automatically
-        cmd = """on run {arg1, arg2, arg3, arg4}
-                    set appName to arg1 as string
-                    set winName to arg2 as string
-                    set sizeW to arg3 as integer
-                    set sizeH to arg4 as integer
-                    try
-                        tell application "System Events" to tell application process appName
-                            set size of window winName to {sizeW, sizeH}
-                        end tell
-                    end try
-                end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self.title, str(newWidth), str(newHeight)], 
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
-        retries = 0
+        self.size = Size(newWidth, newHeight)
         box = self.box
+        retries = 0
         while wait and retries < WAIT_ATTEMPTS and box.width != newWidth and box.height != newHeight:
             retries += 1
             time.sleep(WAIT_DELAY * retries)
@@ -917,22 +902,7 @@ class MacOSWindow(BaseWindow):
         """
         if not self.title:
             return False
-
-        # https://apple.stackexchange.com/questions/350256/how-to-move-mac-os-application-to-specific-display-and-also-resize-automatically
-        cmd = """on run {arg1, arg2, arg3, arg4}
-                    set appName to arg1 as string
-                    set winName to arg2 as string
-                    set posX to arg3 as integer
-                    set posY to arg4 as integer
-                    try
-                        tell application "System Events" to tell application process appName
-                            set position of window winName to {posX, posY}
-                        end tell
-                    end try
-                end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self.title, str(newLeft), str(newTop)], 
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
+        self.topleft = Point(newLeft, newTop)
         box = self.box
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and box.left != newLeft and box.top != newTop:
@@ -2143,12 +2113,7 @@ class MacOSNSWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
-        box = self.bottomleft
-        self._hWnd.setFrame_display_animate_(
-            AppKit.NSMakeRect(box.x, box.y, newWidth, newHeight),
-            True,
-            True
-        )
+        self.size = Size(newWidth, newHeight)
         box = self.box
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and box.width != newWidth and box.height != newHeight:
@@ -2180,8 +2145,7 @@ class MacOSNSWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
-        box = self.box
-        self._hWnd.setFrame_display_animate_(AppKit.NSMakeRect(newLeft, resolution().height - newTop - box.height, box.width, box.height), True, True)
+        self.topleft = Point(newLeft, newTop)
         box = self.box
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and box.left != newLeft and box.top != newTop:
