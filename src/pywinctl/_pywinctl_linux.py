@@ -12,7 +12,6 @@ import platform
 import re
 import subprocess
 import time
-import tkinter as tk
 from typing import cast, Optional, Union, List, Tuple
 from typing_extensions import TypedDict
 
@@ -274,45 +273,6 @@ class LinuxWindow(BaseWindow):
         self._currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()
         self._motifHints: List[int] = []
 
-    def _getBorderSizes(self):
-
-        # Didn't find a way to get title bar height using Xlib in GNOME
-        # ret, a = self.XlibAttributes()  # -> Should return client area, but it doesn't...
-        # if res:
-        #     res = Rect(a.x, a.y, a.x + a.width, a.y + a.height)
-        # else:
-        #     res = self.getWindowRect()
-        #
-        # This works in Cinnamon, but not in GNOME
-        # titleHeight = 0
-        # extents = self._win.getFrameExtents()
-        # if extents and len(extents) >= 4:
-        #     titleHeight = extents[2]
-        # geom = self._xWin.get_geometry()
-        # borderWidth = geom.border_width
-        # return titleHeight, borderWidth
-
-        class App(tk.Tk):
-            def __init__(self):
-                super().__init__()
-                self.geometry('0x0+200+200')
-                self.update_idletasks()
-
-                pos = self.geometry().split('+')
-                self.bar_height = self.winfo_rooty() - int(pos[2])
-                self.border_width = self.winfo_rootx() - int(pos[1])
-                self.destroy()
-
-            def getTitlebarHeight(self):
-                return self.bar_height
-
-            def getBorderWidth(self):
-                return self.border_width
-
-        app = App()
-        # app.mainloop()
-        return app.getTitlebarHeight(), app.getBorderWidth()
-
     def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
         """
         Get the extra space, in pixels, around the window, including or not the border.
@@ -324,8 +284,8 @@ class LinuxWindow(BaseWindow):
         ret: List[int] = self._win.getFrameExtents() or [0, 0, 0, 0]
         borderWidth = 0
         if includeBorder:
-            if includeBorder:
-                titleHeight, borderWidth = self._getBorderSizes()
+            geom = self._xWin.get_geometry()
+            borderWidth = geom.border_width
         frame = (ret[0] + borderWidth, ret[2] + borderWidth, ret[1] + borderWidth, ret[3] + borderWidth)
         return frame
 
@@ -350,8 +310,8 @@ class LinuxWindow(BaseWindow):
             h = h - int(_net_extents[2]) + int(_net_extents[3])
             ret = Rect(x, y, x + w, y + h)
         else:
-            # titleHeight, borderWidth = self._getBorderSizes()
-            # ret = Rect(x + borderWidth, y + titleHeight, x + w - borderWidth, y + h - borderWidth)
+            # TODO: Find a way to find window sizes in GNOME.
+            # Don't add / subtract anything to avoid missing window parts (for windows not following WM standards)
             ret = Rect(x, y, x + w, y + h)
         return ret
 
