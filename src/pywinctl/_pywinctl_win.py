@@ -24,7 +24,7 @@ import win32con
 import win32api
 import win32gui
 
-from pywinctl._mybox import MyBox, Box, Rect, Point, Size, pointInBox
+from pywinbox import Box, Rect, Point, Size, pointInBox
 from pywinctl import BaseWindow, Re, _WatchDog
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
@@ -78,7 +78,22 @@ def getAllWindows() -> List[Win32Window]:
     :return: list of Window objects
     """
     # https://stackoverflow.com/questions/64586371/filtering-background-processes-pywin32
-    return [Win32Window(hwnd[0]) for hwnd in _findMainWindowHandles()]
+    return [win for win in __remove_bad_windows(_findWindowHandles())]
+
+
+def __remove_bad_windows(windows: Optional[List[int]]):
+    """
+    :param windows: win32 Windows
+    :return: A generator of Win32Window that filters out BadWindows
+    """
+    if windows is not None:
+        for window in windows:
+            try:
+                yield Win32Window(window)
+            except:
+                pass
+    else:
+        return []
 
 
 def getAllTitles() -> List[str]:
@@ -227,7 +242,7 @@ def getWindowsAt(x: int, y: int) -> List[Win32Window]:
     return [
         window for (window, box)
         in windowBoxGenerator
-        if pointInBox(x, y, box.left, box.top, box.width, box.height)]
+        if pointInBox(x, y, box)]
 
 
 def getTopWindowAt(x: int, y: int) -> Optional[Win32Window]:
@@ -406,23 +421,16 @@ class _SubMenuStructure(TypedDict):
 class Win32Window(BaseWindow):
 
     def __init__(self, hWnd: Union[int, str]):
+        super().__init__(hWnd)
 
         self._hWnd = int(hWnd, base=16) if isinstance(hWnd, str) else hWnd
-        self._rect: MyBox = self._boxFactory(self._getWindowRect())
         self._parent = win32gui.GetParent(self._hWnd)
         self._t: Optional[_SendBottom] = None
         self.menu = self._Menu(self)
         self.watchdog = _WatchDog(self)
 
-        self.hDpy = None
-        self.display = ""
-
-    def _getWindowRect(self) -> Box:
-        dpiAware = ctypes.windll.user32.GetAwarenessFromDpiAwarenessContext(ctypes.windll.user32.GetThreadDpiAwarenessContext())
-        if dpiAware == 0:
-            ctypes.windll.shcore.SetProcessDpiAwareness(2)
-        x, y, r, b = win32gui.GetWindowRect(self._hWnd)
-        return Box(x, y, r - x, b - y)
+        self.hDpy: Optional[int] = None
+        self.display: str = ""
 
     def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
         """
@@ -634,10 +642,6 @@ class Win32Window(BaseWindow):
             time.sleep(WAIT_DELAY * retries)
             box = self.box
         return box.left == newLeft and box.top == newTop
-
-    def _moveResizeTo(self, newBox: Box) -> bool:
-        win32gui.MoveWindow(self._hWnd, newBox.left, newBox.top, newBox.width, newBox.height, True)
-        return newBox == self.box
 
     def alwaysOnTop(self, aot: bool = True) -> bool:
         """

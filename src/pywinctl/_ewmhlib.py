@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import array
-import os
 import sys
 
 assert sys.platform == "linux"
 
+import array
+import os
 import threading
 import time
 from enum import Enum, IntEnum
