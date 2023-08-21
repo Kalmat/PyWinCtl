@@ -598,8 +598,7 @@ class Win32Window(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
-        box = self.box
-        win32gui.MoveWindow(self._hWnd, box.left, box.top, newWidth, newHeight, True)
+        self.size = Size(newWidth, newHeight)
         box = self.box
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and (box.width != newWidth or box.height != newHeight):
@@ -633,8 +632,7 @@ class Win32Window(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
-        box = self.box
-        win32gui.MoveWindow(self._hWnd, newLeft, newTop, box.width, box.height, True)
+        self.topleft = Point(newLeft, newTop)
         box = self.box
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and (box.left != newLeft or box.top != newTop):

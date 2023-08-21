@@ -35,7 +35,7 @@ setup(
     package_data={"pywinctl": ["src/pywinctl/py.typed"]},
     test_suite='tests',
     install_requires=[
-        "pywinbox>=0.1",
+        "pywinbox>=0.2",
         "pywin32>=302; sys_platform == 'win32'",
         "python-xlib>=0.21; sys_platform == 'linux'",
         "pyobjc>=8.1; sys_platform == 'darwin'"
