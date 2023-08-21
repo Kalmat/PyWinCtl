@@ -350,8 +350,9 @@ class LinuxWindow(BaseWindow):
             h = h - (_net_extents[2] + _net_extents[3])
             ret = Rect(x, y, x + w, y + h)
         else:
-            titleHeight, borderWidth = self._getBorderSizes()
-            ret = Rect(x + borderWidth, y + titleHeight, x + w - borderWidth, y + h - borderWidth)
+            # titleHeight, borderWidth = self._getBorderSizes()
+            # ret = Rect(x + borderWidth, y + titleHeight, x + w - borderWidth, y + h - borderWidth)
+            ret = Rect(x, y, x + w, y + h)
         return ret
 
     def __repr__(self):
