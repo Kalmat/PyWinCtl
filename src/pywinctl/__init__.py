@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-
 import difflib
 import re
 import sys
@@ -11,7 +10,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any, cast, List, Tuple, Union
 
-from ._mybox import MyBox, Box, BoundingBox, Rect, Point, Size
+from pywinbox import PyWinBox, Box, Rect, Point, Size
 
 
 __all__ = [
@@ -25,7 +24,7 @@ __all__ = [
 if sys.platform == "darwin":
     __all__ += ["NSWindow"]
 
-__version__ = "0.1"
+__version__ = "0.0.44"
 
 
 def version(numberOnly: bool = True):
@@ -98,34 +97,18 @@ def _levenshtein(seq1: str, seq2: str) -> float:
 
 class BaseWindow(ABC):
 
-    def _boxFactory(self, box: Box) -> MyBox:
-        self._box: MyBox = MyBox(box, self._onSet, self._onQuery)
-        return self._box
-
-    def _onSet(self, newBox: Box):
-        self._moveResizeTo(newBox)
-
-    @abstractmethod
-    def _moveResizeTo(self, newBox: Box) -> bool:
-        raise NotImplementedError
-
-    def _onQuery(self) -> Box:
-        box: Box = self._getWindowRect()
-        return box
-
-    @abstractmethod
-    def _getWindowRect(self) -> Box:
-        raise NotImplementedError
+    def __init__(self, handle):
+        self._box: PyWinBox = PyWinBox(None, None, handle)
 
     def __str__(self):
-        r = self._getWindowRect()
+        box = self._box.box
         return '<%s left="%s", top="%s", width="%s", height="%s", title="%s">' % (
             self.__class__.__qualname__,
-            self.title,
-            r.left,
-            r.top,
-            r.width,
-            r.height,
+            box.left,
+            box.top,
+            box.width,
+            box.height,
+            self.title
         )
 
     @abstractmethod
@@ -428,20 +411,13 @@ class BaseWindow(ABC):
         self._box.box = value
 
     @property
-    def bbox(self) -> BoundingBox:
-        return self._box.bbox
-
-    @bbox.setter
-    def bbox(self, value: Union[BoundingBox, Tuple[int, int, int, int]]):
-        self._box.bbox = value
-
-    @property
     def rect(self) -> Rect:
         return self._box.rect
 
     @rect.setter
     def rect(self, value: Union[Rect, Tuple[int, int, int, int]]):
         self._box.rect = value
+    bbox = rect
 
     @property
     def topleft(self) -> Point:

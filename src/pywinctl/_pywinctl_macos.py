@@ -22,7 +22,7 @@ from typing_extensions import TypeAlias, TypedDict, Literal
 import AppKit
 import Quartz
 
-from pywinctl._mybox import MyBox, Box, Rect, Point, Size, pointInBox
+from pywinbox import Box, Rect, Point, Size, pointInBox
 from pywinctl import BaseWindow, Re, _WatchDog
 
 Incomplete: TypeAlias = Any
@@ -103,7 +103,6 @@ def getActiveWindow(app: Optional[AppKit.NSApplication] = None):
         entries = ret.replace("\n", "").split(", ")
         try:
             appID = entries[0]
-            bounds = Box(int(entries[1]), int(entries[2]), int(entries[3]), int(entries[4]))
             # Thanks to Anthony Molinaro (djnym) for pointing out this bug and provide the solution!!!
             # sometimes the title of the window contains ',' characters, so just get the first entry as the appName and join the rest
             # back together as a string
@@ -112,7 +111,7 @@ def getActiveWindow(app: Optional[AppKit.NSApplication] = None):
                 activeApps = _getAllApps()
                 for a in activeApps:
                     if str(a.processIdentifier()) == appID:
-                        return MacOSWindow(a, title, bounds)
+                        return MacOSWindow(a, title)
         except Exception as e:
             print(e)
     else:
@@ -160,14 +159,11 @@ def getAllWindows(app:Optional[AppKit.NSApplication] = None):
                     y = int(item[2][1])
                     w = int(item[3][0])
                     h = int(item[3][1])
-                    box = Box(x, y, w, h)
-                else:
-                    rect = None
             except:
                 continue
             for activeApp in activeApps:
                 if activeApp.processIdentifier() == pID:
-                    windows.append(MacOSWindow(activeApp, title, box))
+                    windows.append(MacOSWindow(activeApp, title))
                     break
         return windows
     else:
@@ -192,7 +188,9 @@ def getAllTitles(app: Optional[AppKit.NSApplication] = None):
                                     end try
                                 end tell
                                 return winNames'"""
-        ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
+        ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "") \
+            .replace('missing value', '"missing value"') \
+            .replace("{", "[").replace("}", "]")
         res = ast.literal_eval(ret)
         matches: List[str] = []
         if len(res) > 0:
@@ -258,10 +256,9 @@ def getWindowsWithTitle(title: Union[str, re.Pattern[str]], app: Optional[Union[
             winTitle = item[1].lower() if lower else item[1]
             if winTitle and Re._cond_dic[condition](title, winTitle, flags):
                 x, y, w, h = int(item[2][0]), int(item[2][1]), int(item[3][0]), int(item[3][1])
-                box = Box(x, y, w, h)
                 for a in activeApps:
                     if (app and a.localizedName() in app) or (a.processIdentifier() == pID):
-                        matches.append(MacOSWindow(a, item[1], box))
+                        matches.append(MacOSWindow(a, item[1]))
                         break
         return matches
     else:
@@ -285,7 +282,9 @@ def getAllAppsNames() -> List[str]:
                                     end try
                                 end tell
                                 return winNames'"""
-    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
+    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "") \
+        .replace('missing value', '"missing value"') \
+        .replace("{", "[").replace("}", "]")
     res = ast.literal_eval(ret)
     return res or []
 
@@ -351,7 +350,9 @@ def getAllAppsWindowsTitles():
                                     end try
                                 end tell
                                 return winNames'"""
-    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
+    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8") \
+        .replace('missing value', '"missing value"') \
+        .replace("\n", "").replace("{", "[").replace("}", "]")
     res: Tuple[List[str], List[List[str]]] = ast.literal_eval(ret)
     result: dict[str, List[str]] = {}
     if res and len(res) > 0:
@@ -382,7 +383,7 @@ def getWindowsAt(x: int, y: int, app: Optional[AppKit.NSApplication] = None, all
     return [
         window for (window, box)
         in windowBoxGenerator
-        if pointInBox(x, y, box.left, box.top, box.width, box.height)]
+        if pointInBox(x, y, box)]
 
 @overload
 def getTopWindowAt(x: int, y: int, app: AppKit.NSApplication, allWindows: Optional[List[MacOSNSWindow]] = ...) -> Optional[MacOSNSWindow]: ...
@@ -456,7 +457,7 @@ def _getAppWindowsTitles(app: AppKit.NSRunningApplication):
     proc = subprocess.Popen(['osascript', '-s', 's', '-', pid],
                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
     ret, err = proc.communicate(cmd)
-    ret = ret.replace("\n", "").replace("{", "[").replace("}", "]")
+    ret = ret.replace("\n", "").replace('missing value', '"missing value"').replace("{", "[").replace("}", "]")
     res = ast.literal_eval(ret)
     return res or []
 
@@ -470,7 +471,9 @@ def _getWindowTitles() -> List[List[str]]:
                                     end try
                                 end tell
                                 return winNames'"""
-    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "").replace("{", "[").replace("}", "]")
+    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "") \
+        .replace('missing value', '"missing value"') \
+        .replace("{", "[").replace("}", "]")
     res = ast.literal_eval(ret)
     result: List[List[str]] = []
     if len(res) > 0:
@@ -506,16 +509,14 @@ class _SubMenuStructure(TypedDict, total=False):
 
 class MacOSWindow(BaseWindow):
 
-    def __init__(self, app: AppKit.NSRunningApplication, title: str, bounds: Optional[Box] = None):
+    def __init__(self, app: AppKit.NSRunningApplication, title: str):
+        super().__init__((app.localizedName(), title))
 
         self._app = app
         self._appName: str = app.localizedName()
         self._appPID = app.processIdentifier()
         self._winTitle: str = title
         # self._parent = self.getParent()  # It is slow and not required by now
-        if bounds is None:
-            bounds = self._getWindowRect()
-        self._rect: MyBox = self._boxFactory(box=bounds)
         v = platform.mac_ver()[0].split(".")
         ver = float(v[0]+"."+v[1])
         # On Yosemite and below we need to use Zoom instead of FullScreen to maximize windows
@@ -524,29 +525,6 @@ class MacOSWindow(BaseWindow):
         self._tb: Optional[_SendBottom] = None
         self.menu = self._Menu(self)
         self.watchdog = _WatchDog(self)
-
-    def _getWindowRect(self) -> Box:
-        if not self.title:
-            return Box(0, 0, 0, 0)
-
-        cmd = """on run {arg1, arg2}
-                    set procName to arg1
-                    set winName to arg2
-                    set appBounds to {{0, 0}, {0, 0}}
-                    try
-                        tell application "System Events" to tell application process procName
-                            set appBounds to {position, size} of window winName
-                        end tell
-                    end try
-                    return appBounds
-                end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self.title],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
-        if not ret:
-            ret = "0, 0, 0, 0"
-        w = ret.replace("\n", "").strip().split(", ")
-        return Box(int(w[0]), int(w[1]), int(w[2]), int(w[3]))
 
     def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
         """
@@ -963,36 +941,6 @@ class MacOSWindow(BaseWindow):
             box = self.box
         return self.left == newLeft and self.top == newTop
 
-    def _moveResizeTo(self, newBox: Box) -> bool:
-        if not self.title:
-            return False
-
-        cmd = """on run {arg1, arg2, arg3, arg4, arg5, arg6}
-                    set appName to arg1 as string
-                    set winName to arg2 as string
-                    set posX to arg3 as integer
-                    set posY to arg4 as integer
-                    set sizeW to arg5 as integer
-                    set sizeH to arg6 as integer
-                    try
-                        tell application "System Events" to tell application process appName
-                            set position of window winName to {posX, posY}
-                            set size of window winName to {sizeW, sizeH}
-                        end tell
-                    end try
-                end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self.title,
-                                 str(newBox.left), str(newBox.top), str(newBox.width), str(newBox.height)],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
-        box = self.box
-        retries = 0
-        while retries < WAIT_ATTEMPTS and newBox != box:
-            retries += 1
-            time.sleep(WAIT_DELAY * retries)
-            box = self.box
-        return newBox != box
-
     def alwaysOnTop(self, aot: bool = True) -> bool:
         """
         Keeps window on top of all others.
@@ -1244,7 +1192,8 @@ class MacOSWindow(BaseWindow):
         screens = getAllScreens()
         name = ""
         for key in screens:
-            if pointInBox(self.centerx, self.centery, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
+            box = Box(screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height)
+            if pointInBox(self.centerx, self.centery, box):
                 name = key
                 break
         return name
@@ -2025,21 +1974,12 @@ class _SendBottom(threading.Thread):
 class MacOSNSWindow(BaseWindow):
 
     def __init__(self, app: AppKit.NSApplication, hWnd: AppKit.NSWindow):
+        super().__init__(hWnd)
 
         self._app = app
         self._hWnd = hWnd
         self._parent = hWnd.parentWindow()
-        self._rect = self._boxFactory(self._getWindowRect())
         self.watchdog = _WatchDog(self)
-
-    def _getWindowRect(self) -> Box:
-        frame = self._hWnd.frame()
-        res = resolution()
-        x = int(frame.origin.x)
-        y = int(res.height) - int(frame.origin.y) - int(frame.size.height)
-        w = int(frame.size.width)
-        h = int(frame.size.height)
-        return Box(x, y, w, h)
 
     def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
         """
@@ -2250,10 +2190,6 @@ class MacOSNSWindow(BaseWindow):
             box = self.box
         return box.left == newLeft and box.top == newTop
 
-    def _moveResizeTo(self, newBox: Box) -> bool:
-        self._hWnd.setFrame_display_animate_(AppKit.NSMakeRect(newBox.left, resolution().height - newBox.top - newBox.height, newBox.width, newBox.height), True, True)
-        return newBox == self.box
-
     def alwaysOnTop(self, aot: bool = True) -> bool:
         """
         Keeps window on top of all others.
@@ -2406,7 +2342,8 @@ class MacOSNSWindow(BaseWindow):
         screens = getAllScreens()
         name = ""
         for key in screens:
-            if pointInBox(self.centerx, self.centery, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
+            box = Box(screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height)
+            if pointInBox(self.centerx, self.centery, box):
                 name = key
                 break
         return name
@@ -2498,7 +2435,8 @@ def getMousePos() -> Point:
     screens = getAllScreens()
     x = y = 0
     for key in screens:
-        if pointInBox(mp.x, mp.y, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
+        box = Box(screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height)
+        if pointInBox(mp.x, mp.y, box):
             x = int(mp.x)
             y = int(screens[key]["size"].height) - abs(int(mp.y))
             break

@@ -25,8 +25,8 @@ import Xlib.Xutil
 import Xlib.ext
 from Xlib.xobject.drawable import Window as XWindow
 
-from pywinctl._xlibcontainer import RootWindow, EwmhWindow, Props, defaultRootWindow, _xlibGetAllWindows
-from pywinctl._mybox import MyBox, Box, Rect, Point, Size, pointInBox
+from ._ewmhlib import RootWindow, EwmhWindow, Props, defaultRootWindow, _xlibGetAllWindows
+from pywinbox import Box, Rect, Point, Size, pointInBox
 from pywinctl import BaseWindow, Re, _WatchDog
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
@@ -234,7 +234,7 @@ def getWindowsAt(x: int, y: int):
     return [
         window for (window, box)
         in windowBoxGenerator
-        if pointInBox(x, y, box.left, box.top, box.width, box.height)]
+        if pointInBox(x, y, box)]
 
 
 def getTopWindowAt(x: int, y: int):
@@ -247,7 +247,8 @@ def getTopWindowAt(x: int, y: int):
     """
     windows: List[LinuxWindow] = getAllWindows()
     for window in reversed(windows):
-        if pointInBox(x, y, window.left, window.top, window.width, window.height):
+        box = Box(window.left, window.top, window.width, window.height)
+        if pointInBox(x, y, box):
             return window
     else:
         return None
@@ -256,6 +257,7 @@ def getTopWindowAt(x: int, y: int):
 class LinuxWindow(BaseWindow):
 
     def __init__(self, hWnd: Union[XWindow, int, str]):
+        super().__init__(hWnd)
 
         if isinstance(hWnd, XWindow):
             self._hWnd = hWnd.id
@@ -267,32 +269,10 @@ class LinuxWindow(BaseWindow):
         self._display: Xlib.display.Display = self._win.display
         self._rootWin: RootWindow = self._win.rootWindow
         self._xWin: XWindow = self._win.xWindow
-
-        self._rect: MyBox = self._boxFactory(self._getWindowRect())
         self.watchdog = _WatchDog(self)
 
         self._currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()
         self._motifHints: List[int] = []
-
-    def _getWindowRect(self) -> Box:
-        # https://stackoverflow.com/questions/12775136/get-window-position-and-size-in-python-with-xlib - mgalgs
-        win = self._xWin
-        geom = win.get_geometry()
-        x = geom.x
-        y = geom.y
-        w = geom.width
-        h = geom.height
-        while True:
-            parent = win.query_tree().parent
-            if not isinstance(parent, XWindow):
-                break
-            pgeom = parent.get_geometry()
-            x += pgeom.x
-            y += pgeom.y
-            if parent.id == self._rootWin.id:
-                break
-            win = parent
-        return Box(x, y, w, h)
 
     def _getBorderSizes(self):
 
@@ -550,12 +530,6 @@ class LinuxWindow(BaseWindow):
             box = self.box
         return box.left == newLeft and box.top == newTop
 
-    def _moveResizeTo(self, newBox: Box):
-        newLeft = max(0, newBox.left)  # Xlib won't accept negative positions
-        newTop = max(0, newBox.top)
-        self._win.setMoveResize(x=newLeft, y=newTop, width=newBox.width, height=newBox.height)
-        return newBox == self.box
-
     def alwaysOnTop(self, aot: bool = True) -> bool:
         """
         Keeps window on top of all others.
@@ -754,7 +728,8 @@ class LinuxWindow(BaseWindow):
         screens = getAllScreens()
         name = ""
         for key in screens:
-            if pointInBox(self.centerx, self.centery, screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height):
+            box = Box(screens[key]["pos"].x, screens[key]["pos"].y, screens[key]["size"].width, screens[key]["size"].height)
+            if pointInBox(self.centerx, self.centery, box):
                 name = key
                 break
         return name

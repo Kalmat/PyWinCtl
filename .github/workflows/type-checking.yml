@@ -5,7 +5,6 @@ on:
   push:
     branches:
       - master
-      - dev
   pull_request:
     paths:
       - "**/requirements.txt"
