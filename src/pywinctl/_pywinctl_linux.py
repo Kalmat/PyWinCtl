@@ -336,10 +336,22 @@ class LinuxWindow(BaseWindow):
 
         :return: Rect struct
         """
-        titleHeight, borderWidth = self._getBorderSizes()
-        rect = self.rect
-        ret = Rect(int(rect.left + borderWidth), int(rect.top - titleHeight),
-                   int(rect.right - borderWidth), int(rect.bottom - borderWidth))
+        box = self.box
+        x = box.left
+        y = box.top
+        w = box.width
+        h = box.height
+        # Thanks to roym899 (https://github.com/roym899) for his HELP!!!!
+        _net_extents = self._win._getNetFrameExtents()
+        if _net_extents and len(_net_extents) >= 4:
+            x = x + _net_extents[0]
+            y = y + _net_extents[2]
+            w = w - (_net_extents[0] + _net_extents[1])
+            h = h - (_net_extents[2] + _net_extents[3])
+            ret = Rect(x, y, x + w, y + h)
+        else:
+            titleHeight, borderWidth = self._getBorderSizes()
+            ret = Rect(x + borderWidth, y + titleHeight, x + w - borderWidth, y + h - borderWidth)
         return ret
 
     def __repr__(self):
@@ -612,7 +624,6 @@ class LinuxWindow(BaseWindow):
     def acceptInput(self, setTo: bool):
         """
         Toggles the window to accept input and focus
-        WARNING: In Linux systems, this effect is not permanent (will work while program is running)
 
         :param setTo: True/False to toggle window ignoring input and focus
         :return: None
@@ -626,9 +637,10 @@ class LinuxWindow(BaseWindow):
 
                 onebyte = int(0xFF)
                 fourbytes = onebyte | (onebyte << 8) | (onebyte << 16) | (onebyte << 24)
-                self._xWin.change_property(self._display.get_atom('_NET_WM_WINDOW_OPACITY'), Xlib.Xatom.CARDINAL, 32, [fourbytes])
+                self._win.changeProperty("_NET_WM_WINDOW_OPACITY", [fourbytes], Xlib.Xatom.CARDINAL)
 
-                self._win.changeProperty(self._display.get_atom("_MOTIF_WM_HINTS"), self._motifHints)
+                if self._motifHints:
+                    self._win.changeProperty("_MOTIF_WM_HINTS", self._motifHints)
 
             self._win.setWmWindowType(Props.WindowType.NORMAL)
 
@@ -640,12 +652,12 @@ class LinuxWindow(BaseWindow):
 
                 onebyte = int(0xFA)  # Calculate as 0xff * target_opacity
                 fourbytes = onebyte | (onebyte << 8) | (onebyte << 16) | (onebyte << 24)
-                self._xWin.change_property(self._display.get_atom('_NET_WM_WINDOW_OPACITY'), Xlib.Xatom.CARDINAL, 32, [fourbytes])
+                self._win.changeProperty("_NET_WM_WINDOW_OPACITY", [fourbytes], Xlib.Xatom.CARDINAL)
 
-                ret = self._win.getProperty(self._display.get_atom("_MOTIF_WM_HINTS"))
+                ret = self._win.getProperty("_MOTIF_WM_HINTS")
                 # Cinnamon uses this as default: [2, 1, 1, 0, 0]
                 self._motifHints = [a for a in ret.value] if ret and hasattr(ret, "value") else [2, 0, 0, 0, 0]
-                self._win.changeProperty(self._display.get_atom("_MOTIF_WM_HINTS"), [0, 0, 0, 0, 0])
+                self._win.changeProperty("_MOTIF_WM_HINTS", [0, 0, 0, 0, 0])
 
             self._win.setWmWindowType(Props.WindowType.DESKTOP)
 
