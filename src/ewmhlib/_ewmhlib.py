@@ -155,7 +155,7 @@ def getDisplayFromRoot(rootId: int) -> Tuple[Xlib.display.Display, Struct, XWind
     return defaultDisplay, defaultScreen, defaultRoot
 
 
-def getProperty(window: XWindow, prop: Union[str, int, Root, Window],
+def getProperty(window: XWindow, prop: Union[str, int],
                 prop_type: int = Xlib.X.AnyPropertyType,
                 display: Xlib.display.Display = defaultDisplay) -> Optional[Xlib.protocol.request.GetProperty]:
     """
@@ -175,7 +175,7 @@ def getProperty(window: XWindow, prop: Union[str, int, Root, Window],
     return None
 
 
-def changeProperty(window: XWindow, prop: Union[str, int, Root, Window], data: Union[List[int], str],
+def changeProperty(window: XWindow, prop: Union[str, int], data: Union[List[int], str],
                    prop_type: int = Xlib.Xatom.ATOM, propMode: int = Xlib.X.PropModeReplace,
                    display: Xlib.display.Display = defaultDisplay):
     """
@@ -204,7 +204,7 @@ def changeProperty(window: XWindow, prop: Union[str, int, Root, Window], data: U
         display.flush()
 
 
-def sendMessage(winId: int, prop: Union[str, int, Root, Window], data: Union[List[int], str],
+def sendMessage(winId: int, prop: Union[str, int], data: Union[List[int], str],
                 display: Xlib.display.Display = defaultDisplay, root: XWindow = defaultRoot):
     """
     Send Client Message to given window/root
@@ -302,7 +302,7 @@ class RootWindow:
         self.id: int = self.root.id
         self.wmProtocols = self._WmProtocols(self.display, self.root)
 
-    def getProperty(self, prop: Union[str, int, Root, Window],
+    def getProperty(self, prop: Union[str, int],
                     prop_type: int = Xlib.X.AnyPropertyType) \
             -> Optional[Xlib.protocol.request.GetProperty]:
         """
@@ -316,7 +316,7 @@ class RootWindow:
             prop = self.display.get_atom(prop)
         return getProperty(self.root, prop, prop_type, self.display)
 
-    def setProperty(self, prop: Union[str, int, Root, Window], data: Union[List[int], str]):
+    def setProperty(self, prop: Union[str, int], data: Union[List[int], str]):
         """
         Sets the given property for root
 
@@ -327,7 +327,7 @@ class RootWindow:
         """
         sendMessage(self.root.id, prop, data, self.display, self.root)
 
-    def sendMessage(self, winId: int, prop: Union[str, int, Root, Window], data: Union[List[int], str]):
+    def sendMessage(self, winId: int, prop: Union[str, int], data: Union[List[int], str]):
         """
         Sends a ClientMessage event to given window
 
@@ -1017,7 +1017,7 @@ class EwmhWindow:
 
         self._currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()
 
-    def getProperty(self, prop: Union[str, int, Root, Window], prop_type: int = Xlib.X.AnyPropertyType) \
+    def getProperty(self, prop: Union[str, int], prop_type: int = Xlib.X.AnyPropertyType) \
             -> Optional[Xlib.protocol.request.GetProperty]:
         """
         Retrieves given property data from given window
@@ -1030,7 +1030,7 @@ class EwmhWindow:
             prop = self.display.get_atom(prop)
         return getProperty(self.xWindow, prop, prop_type, self.display)
 
-    def sendMessage(self, prop: Union[str, int, Root, Window], data: Union[List[int], str]):
+    def sendMessage(self, prop: Union[str, int], data: Union[List[int], str]):
         """
         Sends a ClientMessage event to current window
 
@@ -1039,7 +1039,7 @@ class EwmhWindow:
         """
         return sendMessage(self.id, prop, data)
 
-    def changeProperty(self, prop: Union[str, int, Root, Window], data: Union[List[int], str],
+    def changeProperty(self, prop: Union[str, int], data: Union[List[int], str],
                        prop_type: int = Xlib.Xatom.ATOM, propMode: Mode = Mode.REPLACE):
         """
         Sets given property for the current window. The property might be ignored by the Window Manager, but returned
@@ -1838,7 +1838,7 @@ class EwmhWindow:
             gravity_flags = gravity_flags | (1 << 12)
         else:
             gravity_flags = gravity_flags | (1 << 13)
-        self.sendMessage(Root.MOVERESIZE, [gravity_flags, x, y, width, height])
+        self.sendMessage(Window.MOVERESIZE, [gravity_flags, x, y, width, height])
 
     def setWmMoveResize(self, x_root: int, y_root: int, orientation: Union[int, MoveResize], button: int, userAction: bool = True):
         """
