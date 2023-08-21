@@ -25,7 +25,7 @@ import Xlib.Xutil
 import Xlib.ext
 from Xlib.xobject.drawable import Window as XWindow
 
-from ._ewmhlib import RootWindow, EwmhWindow, Props, defaultRootWindow, _xlibGetAllWindows
+from ewmhlib import RootWindow, EwmhWindow, Props, defaultRootWindow, _xlibGetAllWindows
 from pywinbox import Box, Rect, Point, Size, pointInBox
 from pywinctl import BaseWindow, Re, _WatchDog
 
@@ -337,8 +337,9 @@ class LinuxWindow(BaseWindow):
         :return: Rect struct
         """
         titleHeight, borderWidth = self._getBorderSizes()
-        geom = self._win.xWindow.get_geometry()
-        ret = Rect(int(geom.x + borderWidth), int(geom.y - titleHeight), int(geom.x + geom.width - borderWidth * 2), int(geom.y + geom.height - borderWidth))
+        rect = self.rect
+        ret = Rect(int(rect.left + borderWidth), int(rect.top - titleHeight),
+                   int(rect.right - borderWidth), int(rect.bottom - borderWidth))
         return ret
 
     def __repr__(self):
@@ -538,7 +539,7 @@ class LinuxWindow(BaseWindow):
         action = Props.StateAction.ADD if aot else Props.StateAction.REMOVE
         self._win.changeWmState(action, Props.State.ABOVE)
         states = self._win.getWmState(True)
-        return bool(states and Props.State.ABOVE.value in states)
+        return bool(states and Props.State.ABOVE in states)
 
     def alwaysOnBottom(self, aob: bool = True) -> bool:
         """
@@ -550,7 +551,7 @@ class LinuxWindow(BaseWindow):
         action = Props.StateAction.ADD if aob else Props.StateAction.REMOVE
         self._win.changeWmState(action, Props.State.BELOW)
         states = self._win.getWmState(True)
-        return bool(states and Props.State.BELOW.value in states)
+        return bool(states and Props.State.BELOW in states)
 
     def lowerWindow(self) -> bool:
         """
@@ -601,12 +602,12 @@ class LinuxWindow(BaseWindow):
                 w.raise_window()
                 self._display.flush()
             types = self._win.getWmWindowType(True)
-            return bool(types and Props.WindowType.DESKTOP.value in types)
+            return bool(types and Props.WindowType.DESKTOP in types)
 
         else:
             self._win.setWmWindowType(Props.WindowType.NORMAL)
             types = self._win.getWmWindowType(True)
-            return bool(types and Props.WindowType.NORMAL.value in types and self.isActive)
+            return bool(types and Props.WindowType.NORMAL in types and self.isActive)
 
     def acceptInput(self, setTo: bool):
         """
@@ -625,7 +626,7 @@ class LinuxWindow(BaseWindow):
 
                 onebyte = int(0xFF)
                 fourbytes = onebyte | (onebyte << 8) | (onebyte << 16) | (onebyte << 24)
-                self._win.xWindow.change_property(self._display.get_atom('_NET_WM_WINDOW_OPACITY'), Xlib.Xatom.CARDINAL, 32, [fourbytes])
+                self._xWin.change_property(self._display.get_atom('_NET_WM_WINDOW_OPACITY'), Xlib.Xatom.CARDINAL, 32, [fourbytes])
 
                 self._win.changeProperty(self._display.get_atom("_MOTIF_WM_HINTS"), self._motifHints)
 
@@ -639,7 +640,7 @@ class LinuxWindow(BaseWindow):
 
                 onebyte = int(0xFA)  # Calculate as 0xff * target_opacity
                 fourbytes = onebyte | (onebyte << 8) | (onebyte << 16) | (onebyte << 24)
-                self._win.xWindow.change_property(self._display.get_atom('_NET_WM_WINDOW_OPACITY'), Xlib.Xatom.CARDINAL, 32, [fourbytes])
+                self._xWin.change_property(self._display.get_atom('_NET_WM_WINDOW_OPACITY'), Xlib.Xatom.CARDINAL, 32, [fourbytes])
 
                 ret = self._win.getProperty(self._display.get_atom("_MOTIF_WM_HINTS"))
                 # Cinnamon uses this as default: [2, 1, 1, 0, 0]
@@ -740,7 +741,7 @@ class LinuxWindow(BaseWindow):
         :return: ``True`` if the window is minimized
         """
         state = self._win.getWmState(True)
-        return bool(state and Props.State.HIDDEN.value in state)
+        return bool(state and Props.State.HIDDEN in state)
 
     @property
     def isMaximized(self) -> bool:
@@ -750,7 +751,7 @@ class LinuxWindow(BaseWindow):
         :return: ``True`` if the window is maximized
         """
         state = self._win.getWmState(True)
-        return bool(state and Props.State.MAXIMIZED_HORZ.value in state and Props.State.MAXIMIZED_VERT.value in state)
+        return bool(state and Props.State.MAXIMIZED_HORZ in state and Props.State.MAXIMIZED_VERT in state)
 
     @property
     def isActive(self):
@@ -886,7 +887,7 @@ def getAllScreens():
 
             res = root.xrandr_get_screen_resources()
             modes = res.modes
-            wa = root.get_full_property(dsp.get_atom(Props.Root.WORKAREA.value, True), Xlib.X.AnyPropertyType).value
+            wa = root.get_full_property(dsp.get_atom(Props.Root.WORKAREA, True), Xlib.X.AnyPropertyType).value
             for output in res.outputs:
                 params = dsp.xrandr_get_output_info(output, res.config_timestamp)
                 try:
