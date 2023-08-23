@@ -24,7 +24,7 @@ import Xlib.Xutil
 import Xlib.ext
 from Xlib.xobject.drawable import Window as XWindow
 
-from ewmhlib import RootWindow, EwmhWindow, Props, defaultRootWindow, _xlibGetAllWindows
+from ewmhlib import getDisplaysNames, RootWindow, EwmhWindow, Props, defaultRootWindow, _xlibGetAllWindows
 from pywinbox import Box, Rect, Point, Size, pointInBox
 from pywinctl import BaseWindow, Re, _WatchDog
 
@@ -836,21 +836,9 @@ def getAllScreens():
     """
     # https://stackoverflow.com/questions/8705814/get-display-count-and-resolution-for-each-display-in-python-without-xrandr
     # https://www.x.org/releases/X11R7.7/doc/libX11/libX11/libX11.html#Obtaining_Information_about_the_Display_Image_Formats_or_Screens
-    displays = []
-    try:
-        files = os.listdir("/tmp/.X11-unix")
-    except:
-        files = []
-    for f in files:
-        if f.startswith("X"):
-            displays.append(":"+f[1:])
-    if not displays:
-        d = Xlib.display.Display()
-        displays = [d.get_display_name()]
-        d.close()
     result: dict[str, _ScreenValue] = {}
-    for display in displays:
-        dsp = Xlib.display.Display(display)
+    for name in getDisplaysNames():
+        dsp = Xlib.display.Display(name)
         for i in range(dsp.screen_count()):
             try:
                 screen = dsp.screen(i)
@@ -869,7 +857,6 @@ def getAllScreens():
                     crtc = None
 
                 if crtc and crtc.mode:  # displays with empty (0) mode seem not to be valid
-                    name = params.name
                     id = crtc.sequence_number
                     x, y, w, h = crtc.x, crtc.y, crtc.width, crtc.height
                     wx, wy, wr, wb = x + wa[0], y + wa[1], x + w - (screen.width_in_pixels - wa[2] - wa[0]), y + h - (screen.height_in_pixels - wa[3] - wa[1])
@@ -890,7 +877,7 @@ def getAllScreens():
                             break
                     depth = screen.root_depth
 
-                    result[name + "_" + str(i)] = {
+                    result[name] = {
                         'id': id,
                         'is_primary': (x, y) == (0, 0),
                         'pos': Point(x, y),

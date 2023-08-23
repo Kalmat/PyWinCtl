@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 assert sys.platform == "linux"
 
-from ._ewmhlib import (getAllDisplaysInfo, getDisplayFromRoot, getDisplayFromWindow,
+from ._ewmhlib import (displaysCount, getDisplaysNames, getDisplaysInfo, getDisplayFromRoot, getDisplayFromWindow,
                        getProperty, getPropertyValue, changeProperty, sendMessage, _xlibGetAllWindows,
                        defaultDisplay, defaultScreen, defaultRoot, RootWindow, defaultRootWindow, EwmhWindow
                        )
@@ -11,9 +11,10 @@ import ewmhlib.Props as Props
 import ewmhlib.Structs as Structs
 
 __all__ = [
-    "version", "getAllDisplaysInfo", "getDisplayFromRoot", "getDisplayFromWindow",
+    "version", "displaysCount", "getDisplaysNames", "getDisplaysInfo", "getDisplayFromRoot", "getDisplayFromWindow",
     "getProperty", "getPropertyValue", "changeProperty", "sendMessage",
-    "defaultDisplay", "defaultScreen", "defaultRoot", "defaultRootWindow", "RootWindow", "EwmhWindow"
+    "defaultDisplay", "defaultScreen", "defaultRoot", "defaultRootWindow", "RootWindow", "EwmhWindow",
+    "Props", "Structs"
 ]
 
 
