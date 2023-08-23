@@ -298,12 +298,9 @@ class RootWindow:
     def __init__(self, root: Optional[Union[XWindow, int]] = None):
 
         if root and isinstance(root, XWindow):
-            self.id: int = root.id
-        elif isinstance(root, int):
-            self.id = root
-        else:
-            raise ValueError
-        self.display, self.screen, self.root = getDisplayFromRoot(self.id)
+            root = root.id
+        self.display, self.screen, self.root = getDisplayFromRoot(cast(Optional[int], root))
+        self.id = self.root.id
         self.wmProtocols = self._WmProtocols(self.display, self.root)
 
     def getProperty(self, prop: Union[str, int], prop_type: int = Xlib.X.AnyPropertyType) -> Optional[Xlib.protocol.request.GetProperty]:
