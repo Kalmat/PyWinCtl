@@ -54,3 +54,7 @@ class NSWindow(NSObject):
 
 class NSBackingStoreBuffered(NSObject):
     def __getattr__(self, name: str) -> Any: ...
+
+
+class WindowDelegate(NSObject):
+    def _getattr(selfself, name:str) -> Any: ...
