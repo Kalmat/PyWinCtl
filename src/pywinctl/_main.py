@@ -863,10 +863,7 @@ class _WatchDogWorker(threading.Thread):
 
 def _findMonitorName(x: int, y: int):
     monitors = pmc.findMonitor(x, y)
-    if monitors:
-        return [monitor.name for monitor in monitors]
-    else:
-        return []
+    return [monitor.name for monitor in monitors]
 
 
 def getAllScreens():

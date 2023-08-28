@@ -135,5 +135,3 @@ class StackMode(IntEnum):
 class HintAction(IntEnum):
     KEEP = -1
     REMOVE = -2
-
-

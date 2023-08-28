@@ -19,6 +19,7 @@ with open("src/pywinctl/__init__.py", "r") as fileObj:
 with io.open("README.md", encoding="utf-8") as fileObj:
     long_description = fileObj.read()
 
+
 setup(
     name='PyWinCtl',
     version=version,
@@ -38,7 +39,8 @@ setup(
         "pywin32>=302; sys_platform == 'win32'",
         "python-xlib>=0.21; sys_platform == 'linux'",
         "pyobjc>=8.1; sys_platform == 'darwin'",
-        "pywinbox>=0.4"
+        "pywinbox>=0.4",
+        "pymonctl>=0.1"
     ],
     extras_require={
         'dev': [
@@ -62,12 +64,10 @@ setup(
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3 :: Only',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10'
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11'
     ],
 )

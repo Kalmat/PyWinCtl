@@ -2,7 +2,7 @@
                    WINDOWS: Simplified alwaysOnBottom(), found a smarter way to refresh window after bringing it back with sendBehind()
                    MACOS: Tested in multi-monitor setups (based on PyWinBox and PyMonCtl features)
                    MACOSNSWINDOW: Added experimental acceptInput() method (not possible in AppleScript version)
-0.0.44, 2023/08/21 -- ALL: Included PyWinBox module which hopefully better handles multi-monitor setups (macOS tests pending)
+0.0.45, 2023/08/21 -- ALL: Included PyWinBox module which hopefully better handles multi-monitor setups (macOS tests pending)
                       LINUX: Fixed geometry calculations (thanks to roym899), removed ewmh and pynput dependencies
                       WINDOWS: Fixed getAllWindows() not returning all relevant windows (thanks to Xenolphthalein)
                       MACOS: Fixed 'missing value' in window titles and app names (thanks to yjmd2222), fixed getClientFrame() to be invoked from non-main threads (thanks to super-iby)
