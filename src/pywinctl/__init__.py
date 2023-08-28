@@ -24,7 +24,7 @@ __all__ = [
 if sys.platform == "darwin":
     __all__ += ["NSWindow"]
 
-__version__ = "0.0.44"
+__version__ = "0.0.45"
 
 
 def version(numberOnly: bool = True):

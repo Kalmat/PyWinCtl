@@ -1,7 +1,11 @@
+0.1, 2023/02/03 -- ALL: Added PyMonCtl module to improve multi-monitor capabilities, added setParent() method. Reorganized to avoid IDEs showing external and / or private elements
+                   WINDOWS: Simplified alwaysOnBottom(), found a smarter way to refresh window after bringing it back with sendBehind()
+                   MACOS: Tested in multi-monitor setups (based on PyWinBox and PyMonCtl features)
+                   MACOSNSWINDOW: Added experimental acceptInput() method (not possible in AppleScript version)
 0.0.44, 2023/08/21 -- ALL: Included PyWinBox module which hopefully better handles multi-monitor setups (macOS tests pending)
-                      LINUX: Fixed geometry calculations (thanks to roym899 - https://github.com/roym899), removed ewmh and pynput dependencies
-                      WINDOWS: Fixed getAllWindows() not returning all relevant windows (thanks to Xenolphthalein - https://github.com/Xenolphthalein)
-                      MACOS: Fixed 'missing value' in window titles and app names (thanks to yjmd2222 - https://github.com/yjmd2222), fixed getClientFrame() to be invoked from non-main threads (thanks to super-iby)
+                      LINUX: Fixed geometry calculations (thanks to roym899), removed ewmh and pynput dependencies
+                      WINDOWS: Fixed getAllWindows() not returning all relevant windows (thanks to Xenolphthalein)
+                      MACOS: Fixed 'missing value' in window titles and app names (thanks to yjmd2222), fixed getClientFrame() to be invoked from non-main threads (thanks to super-iby)
 0.0.43, 2023/02/13 -- ALL: Added Window.bbox r/w property, a bounding box in the same (left, top, right, bottom) format used by PIL/Pillow, Included py.typed in wheel package
                       Linux: Added 'user' argument to restore() and activate() methods as required by some Linux WMs to comply with the request
 0.0.42, 2022/12/09 -- Really fixed typing_extensions dependency and setup.py dependencies

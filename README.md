@@ -39,17 +39,18 @@ These functions are available at the moment, in all three platforms (Windows, Li
 |         getAppsWithName         |       activate        |             isAlive             |
 |     getAllAppsWindowsTitles     |  resize / resizeRel   |                                 |
 |          getWindowsAt           |       resizeTo        |                                 |
-|          getAllScreens          |    move / moveRel     |                                 |
-|           getMousePos           |        moveTo         |                                 |
-|          getScreenSize          |      raiseWindow      |                                 |
-|           getWorkArea           |      lowerWindow      |                                 |
-|             version             |      alwaysOnTop      |                                 |
-|  checkPermissions (macOS only)  |    alwaysOnBottom     |                                 |
+|         getTopWindowAt          |    move / moveRel     |                                 |
+|    displayWindowsUnderMouse     |        moveTo         |                                 |
+|             version             |      raiseWindow      |                                 |
+|  checkPermissions (macOS only)  |      lowerWindow      |                                 |
+|                                 |      alwaysOnTop      |                                 |
+|                                 |    alwaysOnBottom     |                                 |
 |                                 |      sendBehind       |                                 |
 |                                 |      acceptInput      |                                 |
 |                                 |      getAppName       |                                 |
 |                                 |       getHandle       |                                 |
 |                                 |       getParent       |                                 |
+|                                 |       setParent       |                                 |
 |                                 |      getChildren      |                                 |
 |                                 |       isParent        |                                 |
 |                                 |        isChild        |                                 |
@@ -73,7 +74,7 @@ In case you find problems in other configs, please [open an issue](https://githu
 
 ## Window Change Notifications <a name="watchdog"></a>
 
-watchdog sub-class, running in a separate Thread, will allow you to define hooks and its callbacks to be notified when some window states change. Accessible through 'watchdog' submodule.
+Window watchdog sub-class, running in a separate Thread, will allow you to define hooks and its callbacks to be notified when some window states change. Accessible through 'watchdog' submodule.
 
 The watchdog will automatically stop when window doesn't exist anymore or main program quits.
 
