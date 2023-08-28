@@ -12,10 +12,11 @@ import threading
 import time
 from collections.abc import Sequence
 from ctypes import wintypes
-from typing import cast, Any, TYPE_CHECKING, Tuple, Optional, Union, List, Dict
+from typing import cast, Any, TYPE_CHECKING, Tuple, Optional, Union, List
 from typing_extensions import NotRequired, TypedDict
+
 if TYPE_CHECKING:
-    from win32.lib.win32gui_struct import _MENUITEMINFO, _MENUINFO, _MONITORINFO
+    from win32.lib.win32gui_struct import _MENUITEMINFO, _MENUINFO
 
 import win32gui_struct
 import win32process
@@ -24,8 +25,9 @@ import win32con
 import win32api
 import win32gui
 
-from pywinbox import Box, Rect, Point, Size, pointInBox
-from pywinctl import BaseWindow, Re, _WatchDog
+
+from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
+from pywinbox import Box, Size, Point, Rect, pointInBox
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -78,6 +80,7 @@ def getAllWindows() -> List[Win32Window]:
     :return: list of Window objects
     """
     # https://stackoverflow.com/questions/64586371/filtering-background-processes-pywin32
+    # return [Win32Window(hwnd[0]) for hwnd in _findMainWindowHandles()]
     return [win for win in __remove_bad_windows(_findWindowHandles())]
 
 
@@ -321,7 +324,7 @@ def _findMainWindowHandles() -> List[Tuple[int, int]]:
         title = win32gui.GetWindowText(hwnd)
 
         # Append HWND to list
-        if title != '' and isCloaked.value == 0:
+        if win32gui.IsWindowVisible(hwnd) and title != '' and isCloaked.value == 0:
             if not (title_info.rgstate[0] & win32con.STATE_SYSTEM_INVISIBLE):
                 handle_list.append((hwnd, win32process.GetWindowThreadProcessId(hwnd)[1]))
 
@@ -423,14 +426,14 @@ class Win32Window(BaseWindow):
     def __init__(self, hWnd: Union[int, str]):
         super().__init__(hWnd)
 
-        self._hWnd = int(hWnd, base=16) if isinstance(hWnd, str) else hWnd
+        self._hWnd = int(hWnd, base=16) if isinstance(hWnd, str) else int(hWnd)
         self._parent = win32gui.GetParent(self._hWnd)
         self._t: Optional[_SendBottom] = None
         self.menu = self._Menu(self)
         self.watchdog = _WatchDog(self)
 
-        self.hDpy: Optional[int] = None
-        self.display: str = ""
+        self._hDpy: Optional[int] = None
+        self._display: str = ""
 
     def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
         """
@@ -523,7 +526,7 @@ class Win32Window(BaseWindow):
 
     def restore(self, wait: bool = False, user: bool = True) -> bool:
         """
-        If maximized or minimized, restores the window to it's normal size
+        If maximized or minimized, restores the window to its normal size
 
         :param wait: set to ''True'' to confirm action requested (in a reasonable time)
         :param user: ignored on Windows platform
@@ -572,7 +575,10 @@ class Win32Window(BaseWindow):
         :param user: ignored on Windows platform
         :return: ''True'' if window activated
         """
-        win32gui.SetForegroundWindow(self._hWnd)
+        try:
+            win32gui.SetForegroundWindow(self._hWnd)
+        except:
+            pass
         return self.isActive
 
     def resize(self, widthOffset: int, heightOffset: int, wait: bool = False) -> bool:
@@ -654,9 +660,11 @@ class Win32Window(BaseWindow):
         # https://www.codeproject.com/articles/730/apihijack-a-library-for-easy-dll-function-hooking?fid=1267&df=90&mpp=25&sort=Position&view=Normal&spc=Relaxed&select=116946&fr=73&prof=True
         # https://guidedhacking.com/threads/d3d9-hooking.8481/
         # https://stackoverflow.com/questions/25601362/transparent-window-on-top-of-immersive-full-screen-mode
+        # https://stackoverflow.com/questions/17131857/python-windows-keep-program-on-top-of-another-full-screen-application
+        # This can be interesting to do all of the above with Python
+        # https://www.apriorit.com/dev-blog/727-win-guide-to-hooking-windows-apis-with-python
         if self._t and self._t.is_alive():
             self._t.kill()
-        # https://stackoverflow.com/questions/17131857/python-windows-keep-program-on-top-of-another-full-screen-application
         zorder = win32con.HWND_TOPMOST if aot else win32con.HWND_NOTOPMOST
         win32gui.SetWindowPos(self._hWnd, zorder, 0, 0, 0, 0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE |
                                                               win32con.SWP_NOACTIVATE)
@@ -832,25 +840,10 @@ class Win32Window(BaseWindow):
         """
         Get display name in which current window space is mostly visible
 
-        :return: display name as string
+        :return: display name as string or empty (couldn't retrieve it or window is offscreen)
         """
-        hDpy: Optional[int] = win32api.MonitorFromRect(self.rect)
-        # Previous function started to fail when repeatedly and quickly invoking it in Python 3.10 (it was ok in 3.9)
-        if hDpy is None:
-            for monitor in win32api.EnumDisplayMonitors():
-                mHandle = monitor[0].handle
-                mInfo = win32api.GetMonitorInfo(mHandle)
-                if mInfo:
-                    x, y, r, b = mInfo.get("Monitor", (0, 0, -1, -1))
-                    if x <= self.left <= r and y <= self.top <= b:
-                        hDpy = mHandle
-                        break
-        if hDpy and self.hDpy != hDpy and isinstance(hDpy, int):
-            self.hDpy = hDpy
-            wInfo: Optional[Dict[str, str]] = win32api.GetMonitorInfo(self.hDpy)
-            if wInfo:
-                self.display = wInfo.get("Device", "")
-        return self.display
+        x, y = self.center
+        return str(_findMonitorName(x, y))
 
     @property
     def isMinimized(self) -> bool:
@@ -1355,84 +1348,13 @@ def getAllScreens() -> dict[str, _ScreenValue]:
     return result
 
 
-def getMousePos() -> Point:
-    """
-    Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
+    def forceStop(self):
+        thread_id = self.getTid()
+        if thread_id is not None:
+            res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, ctypes.py_object(SystemExit))
+            if res > 1:
+                ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
 
-    :return: Point struct
-    """
-    dpiAware = ctypes.windll.user32.GetAwarenessFromDpiAwarenessContext(ctypes.windll.user32.GetThreadDpiAwarenessContext())
-    if dpiAware == 0:
-        # It seems that this can't be invoked twice. Setting it to 2 for apps having 0 (unaware) may have less impact
-        ctypes.windll.shcore.SetProcessDpiAwareness(2)
-    x, y = win32api.GetCursorPos()
-    return Point(x, y)
-cursor = getMousePos  # cursor is an alias for getMousePos
-
-
-def getScreenSize(name: str = "") -> Size:
-    """
-    Get the width and height, in pixels, of the given screen, or main screen if no screen name provided or not found
-
-    :param name: name of the screen as returned by getAllScreens() and getDisplay() methods.
-    :return: Size struct or None
-    """
-    size = Size(0, 0)
-    screens = getAllScreens()
-    for key in screens:
-        if (name and key == name) or (not name and screens[key]["is_primary"]):
-            size = screens[key]["size"]
-            break
-    return size
-resolution = getScreenSize  # resolution is an alias for getScreenSize
-
-
-def getWorkArea(name: str = "") -> Rect:
-    """
-    Get the Rect struct (left, top, right, bottom), in pixels, of the working (usable by windows) area
-    of the given screen,  or main screen if no screen name provided or not found
-
-    :param name: name of the screen as returned by getAllScreens() and getDisplay() methods.
-    :return: Rect struct or None
-    """
-    screens = getAllScreens()
-    workarea = Rect(0, 0, 0, 0)
-    for key in screens:
-        if (name and key == name) or (not name and screens[key]["is_primary"]):
-            workarea = screens[key]["workarea"]
-            break
-    return workarea
-
-
-def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0):
-    """
-    This function is meant to be run from the command line. It will
-    automatically display the position of mouse pointer and the titles
-    of the windows under it
-    """
-    print('Press Ctrl-C to quit.')
-    if xOffset != 0 or yOffset != 0:
-        print('xOffset: %s yOffset: %s' % (xOffset, yOffset))
-    try:
-        prevWindows = None
-        while True:
-            x, y = getMousePos()
-            positionStr = 'X: ' + str(x - xOffset).rjust(4) + ' Y: ' + str(y - yOffset).rjust(4) + '  (Press Ctrl-C to quit)'
-            windows = getWindowsAt(x, y)
-            if windows != prevWindows:
-                print('\n')
-                prevWindows = windows
-                for win in windows:
-                    name = win.title
-                    eraser = '' if len(name) >= len(positionStr) else ' ' * (len(positionStr) - len(name))
-                    sys.stdout.write((name or ("<No Name> ID: " + str(win._hWnd))) + eraser + '\n')
-            sys.stdout.write('\b' * len(positionStr))
-            sys.stdout.write(positionStr)
-            sys.stdout.flush()
-            time.sleep(0.3)
-    except KeyboardInterrupt:
-        sys.stdout.write('\n\n')
-        sys.stdout.flush()
 
 # Futile attempt to get the taskbar buttons handles without using pywinauto (but useful as "hard" pywin32 example!)
 # def _getSysTrayButtons(window_class: str = ""):
@@ -1607,14 +1529,18 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0):
 
 def main():
     """Run this script from command-line to get windows under mouse pointer"""
+
     print("PLATFORM:", sys.platform)
     print("MONITORS:", getAllScreens())
-    print("SCREEN SIZE:", resolution())
-    print("ALL WINDOWS", getAllTitles())
     npw = getActiveWindow()
     if npw is None:
         print("ACTIVE WINDOW:", None)
     else:
+        dpy = npw.getDisplay()
+        print("DISPLAY", dpy)
+        print("SCREEN SIZE:", getScreenSize(dpy))
+        print("WORKAREA:", getWorkArea(dpy))
+        print("ALL WINDOWS", getAllTitles())
         print("ACTIVE WINDOW:", npw.title, "/", npw.box)
     print()
     displayWindowsUnderMouse()
