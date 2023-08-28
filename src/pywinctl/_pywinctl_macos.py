@@ -4,7 +4,6 @@
 # mypy: disable_error_code = no-any-return
 from __future__ import annotations
 
-import ctypes
 import sys
 
 assert sys.platform == "darwin"
@@ -23,8 +22,8 @@ from typing_extensions import TypeAlias, TypedDict, Literal
 import AppKit
 import Quartz
 
-from pywinctl import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
-from pywinbox import Rect, pointInBox
+from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
+from pywinbox import Box, Size, Point, Rect, pointInBox
 
 
 Incomplete: TypeAlias = Any
@@ -181,8 +180,9 @@ def getAllTitles(app: Optional[AppKit.NSApplication] = None):
                                     end try
                                 end tell
                                 return winNames'"""
-        ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8")\
-            .replace("\n", "").replace("{", "[").replace("}", "]").replace('missing value', '"missing value"')
+        ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "") \
+            .replace('missing value', '"missing value"') \
+            .replace("{", "[").replace("}", "]")
         res = ast.literal_eval(ret)
         matches: List[str] = []
         if len(res) > 0:
@@ -273,8 +273,9 @@ def getAllAppsNames() -> List[str]:
                                     end try
                                 end tell
                                 return winNames'"""
-    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8")\
-        .replace("\n", "").replace("{", "[").replace("}", "]").replace('missing value', '"missing value"')
+    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "") \
+        .replace('missing value', '"missing value"') \
+        .replace("{", "[").replace("}", "]")
     res = ast.literal_eval(ret)
     return res or []
 
@@ -340,8 +341,9 @@ def getAllAppsWindowsTitles():
                                     end try
                                 end tell
                                 return winNames'"""
-    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8")\
-        .replace("\n", "").replace("{", "[").replace("}", "]").replace('missing value', '"missing value"')
+    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8") \
+        .replace('missing value', '"missing value"') \
+        .replace("\n", "").replace("{", "[").replace("}", "]")
     res: Tuple[List[str], List[List[str]]] = ast.literal_eval(ret)
     result: dict[str, List[str]] = {}
     if res and len(res) > 0:
@@ -446,7 +448,7 @@ def _getAppWindowsTitles(app: AppKit.NSRunningApplication):
     proc = subprocess.Popen(['osascript', '-s', 's', '-', pid],
                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
     ret, err = proc.communicate(cmd)
-    ret = ret.replace("\n", "").replace("{", "[").replace("}", "]").replace('missing value', '"missing value"')
+    ret = ret.replace("\n", "").replace('missing value', '"missing value"').replace("{", "[").replace("}", "]")
     res = ast.literal_eval(ret)
     return res or []
 
@@ -460,8 +462,9 @@ def _getWindowTitles() -> List[List[str]]:
                                     end try
                                 end tell
                                 return winNames'"""
-    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8")\
-        .replace("\n", "").replace("{", "[").replace("}", "]").replace('missing value', '"missing value"')
+    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "") \
+        .replace('missing value', '"missing value"') \
+        .replace("{", "[").replace("}", "]")
     res = ast.literal_eval(ret)
     result: List[List[str]] = []
     if len(res) > 0:
@@ -860,24 +863,9 @@ class MacOSWindow(BaseWindow):
         """
         if not self.title:
             return False
-
-        # https://apple.stackexchange.com/questions/350256/how-to-move-mac-os-application-to-specific-display-and-also-resize-automatically
-        cmd = """on run {arg1, arg2, arg3, arg4}
-                    set appName to arg1 as string
-                    set winName to arg2 as string
-                    set sizeW to arg3 as integer
-                    set sizeH to arg4 as integer
-                    try
-                        tell application "System Events" to tell application process appName
-                            set size of window winName to {sizeW, sizeH}
-                        end tell
-                    end try
-                end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self.title, str(newWidth), str(newHeight)], 
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
-        retries = 0
+        self.size = Size(newWidth, newHeight)
         box = self.box
+        retries = 0
         while wait and retries < WAIT_ATTEMPTS and box.width != newWidth and box.height != newHeight:
             retries += 1
             time.sleep(WAIT_DELAY * retries)
@@ -909,22 +897,7 @@ class MacOSWindow(BaseWindow):
         """
         if not self.title:
             return False
-
-        # https://apple.stackexchange.com/questions/350256/how-to-move-mac-os-application-to-specific-display-and-also-resize-automatically
-        cmd = """on run {arg1, arg2, arg3, arg4}
-                    set appName to arg1 as string
-                    set winName to arg2 as string
-                    set posX to arg3 as integer
-                    set posY to arg4 as integer
-                    try
-                        tell application "System Events" to tell application process appName
-                            set position of window winName to {posX, posY}
-                        end tell
-                    end try
-                end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self.title, str(newLeft), str(newTop)], 
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
+        self.topleft = Point(newLeft, newTop)
         box = self.box
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and box.left != newLeft and box.top != newTop:
@@ -1275,9 +1248,17 @@ class MacOSWindow(BaseWindow):
     @property
     def updatedTitle(self) -> str:
         """
-        WARNING: MacOSWindow ONLY. For MacOSNSWindow, this property returns actual title
+        Get and updated title by finding a similar window title within same application.
+        It uses a similarity check to find the best match in case title changes (no way to effectively detect it).
+        This can be useful since this class uses window title to identify the target window.
+        If watchdog is activated, it will stop in case title changes.
 
-        :return: title as a string
+        IMPORTANT:
+
+        - New title may not belong to the original target window, it is just similar within same application
+        - If original title or a similar one is not found, window may still exist
+
+        :return: possible new title, empty if no similar title found or same title if it didn't change, as a string
         """
         titles = _getAppWindowsTitles(self._app)
         if self._winTitle not in titles:
@@ -1910,22 +1891,6 @@ class _SendTop(threading.Thread):
         self._kill = threading.Event()
         self.run()
 
-    def getTid(self):
-        if self.is_alive():
-            if hasattr(self, '_thread_id'):
-                return self._thread_id
-            for id, thread in threading._active.items():
-                if thread is self:
-                    return id
-        return None
-
-    def forceStop(self):
-        thread_id = self.getTid()
-        if thread_id is not None:
-            res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, ctypes.py_object(SystemExit))
-            if res > 1:
-                ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
-
 
 class _SendBottom(threading.Thread):
 
@@ -1960,22 +1925,6 @@ class _SendBottom(threading.Thread):
         self.kill()
         self._kill = threading.Event()
         self.run()
-
-    def getTid(self):
-        if self.is_alive():
-            if hasattr(self, '_thread_id'):
-                return self._thread_id
-            for id, thread in threading._active.items():
-                if thread is self:
-                    return id
-        return None
-
-    def forceStop(self):
-        thread_id = self.getTid()
-        if thread_id is not None:
-            res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, ctypes.py_object(SystemExit))
-            if res > 1:
-                ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
 
 
 class MacOSNSWindow(BaseWindow):
@@ -2153,12 +2102,7 @@ class MacOSNSWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
-        box = self.bottomleft
-        self._hWnd.setFrame_display_animate_(
-            AppKit.NSMakeRect(box.x, box.y, newWidth, newHeight),
-            True,
-            True
-        )
+        self.size = Size(newWidth, newHeight)
         box = self.box
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and box.width != newWidth and box.height != newHeight:
@@ -2181,7 +2125,7 @@ class MacOSNSWindow(BaseWindow):
 
     moveRel = move  # moveRel is an alias for the move() method.
 
-    def moveTo(self, newLeft: int, newTop: int, wait: bool = False) -> bool:
+    def moveTo(self, newLeft:int, newTop: int, wait: bool = False) -> bool:
         """
         Moves the window to new coordinates on the screen
 
@@ -2190,8 +2134,7 @@ class MacOSNSWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
-        box = self.box
-        self._hWnd.setFrame_display_animate_(AppKit.NSMakeRect(newLeft, newTop, box.width, box.height), True, True)
+        self.topleft = Point(newLeft, newTop)
         box = self.box
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and box.left != newLeft and box.top != newTop:

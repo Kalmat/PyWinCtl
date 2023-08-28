@@ -11,7 +11,6 @@ import platform
 import re
 import subprocess
 import time
-import tkinter as tk
 from typing import cast, Optional, Union, List, Tuple
 
 import Xlib.display
@@ -23,9 +22,10 @@ import Xlib.Xutil
 import Xlib.ext
 from Xlib.xobject.drawable import Window as XWindow
 
-from pywinctl import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
-from pywinbox import Rect, pointInBox
-from ewmhlib import Props, RootWindow, EwmhWindow, defaultRootWindow, _xlibGetAllWindows
+from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
+from pywinbox import Box, Size, Point, Rect, pointInBox
+from ewmhlib import Props, RootWindow, EwmhWindow, defaultRootWindow
+from ewmhlib._ewmhlib import _xlibGetAllWindows
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -300,45 +300,6 @@ class LinuxWindow(BaseWindow):
         self._currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()
         self._motifHints: List[int] = []
 
-    def _getBorderSizes(self):
-
-        # # Didn't find a way to get title bar height using Xlib in GNOME
-        # ret, a = self.XlibAttributes()  # -> Should return client area, but it doesn't...
-        # if res:
-        #     res = Rect(a.x, a.y, a.x + a.width, a.y + a.height)
-        # else:
-        #     res = self.getWindowRect()
-        #
-        # # This works in Cinnamon, but not in GNOME
-        # titleHeight = 0
-        # extents = self._win.getFrameExtents()
-        # if extents and len(extents) >= 4:
-        #     titleHeight = extents[2]
-        # geom = self._xWin.get_geometry()
-        # borderWidth = geom.border_width
-        # return titleHeight, borderWidth
-
-        class App(tk.Tk):
-            def __init__(self):
-                super().__init__()
-                self.geometry('0x0+200+200')
-                self.update_idletasks()
-
-                pos = self.geometry().split('+')
-                self.bar_height = self.winfo_rooty() - int(pos[2])
-                self.border_width = self.winfo_rootx() - int(pos[1])
-                self.destroy()
-
-            def getTitlebarHeight(self):
-                return self.bar_height
-
-            def getBorderWidth(self):
-                return self.border_width
-
-        app = App()
-        # app.mainloop()
-        return app.getTitlebarHeight(), app.getBorderWidth()
-
     def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
         """
         Get the extra space, in pixels, around the window, including or not the border.
@@ -350,8 +311,8 @@ class LinuxWindow(BaseWindow):
         ret: List[int] = self._win.getFrameExtents() or [0, 0, 0, 0]
         borderWidth = 0
         if includeBorder:
-            if includeBorder:
-                titleHeight, borderWidth = self._getBorderSizes()
+            geom = self._xWin.get_geometry()
+            borderWidth = geom.border_width
         frame = (ret[0] + borderWidth, ret[2] + borderWidth, ret[1] + borderWidth, ret[3] + borderWidth)
         return frame
 
@@ -362,9 +323,23 @@ class LinuxWindow(BaseWindow):
 
         :return: Rect struct
         """
-        titleHeight, borderWidth = self._getBorderSizes()
-        geom = self._win.xWindow.get_geometry()
-        ret = Rect(int(geom.x + borderWidth), int(geom.y - titleHeight), int(geom.x + geom.width - borderWidth * 2), int(geom.y + geom.height - borderWidth))
+        box = self.box
+        x = box.left
+        y = box.top
+        w = box.width
+        h = box.height
+        # Thanks to roym899 (https://github.com/roym899) for his HELP!!!!
+        _net_extents = self._win._getNetFrameExtents()
+        if _net_extents and len(_net_extents) >= 4:
+            x = x + int(_net_extents[0])
+            y = y + int(_net_extents[2])
+            w = w - int(_net_extents[0]) + int(_net_extents[1])
+            h = h - int(_net_extents[2]) + int(_net_extents[3])
+            ret = Rect(x, y, x + w, y + h)
+        else:
+            # TODO: Find a way to find window title and borders sizes in GNOME
+            # Don't add / subtract anything to avoid missing window parts (for windows not following WM standards)
+            ret = Rect(x, y, x + w, y + h)
         return ret
 
     def __repr__(self):
@@ -509,7 +484,7 @@ class LinuxWindow(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
-        self._win.setMoveResize(width=newWidth, height=newHeight)
+        self.size = Size(newWidth, newHeight)
         box = self.box
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and (box.width != newWidth or box.height != newHeight):
@@ -545,7 +520,7 @@ class LinuxWindow(BaseWindow):
         """
         newLeft = max(0, newLeft)  # Xlib won't accept negative positions
         newTop = max(0, newTop)
-        self._win.setMoveResize(x=newLeft, y=newTop)
+        self.topleft = Point(newLeft, newTop)
         box = self.box
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and (box.left != newLeft or box.top != newTop):
@@ -564,7 +539,7 @@ class LinuxWindow(BaseWindow):
         action = Props.StateAction.ADD if aot else Props.StateAction.REMOVE
         self._win.changeWmState(action, Props.State.ABOVE)
         states = self._win.getWmState(True)
-        return bool(states and Props.State.ABOVE.value in states)
+        return bool(states and Props.State.ABOVE in states)
 
     def alwaysOnBottom(self, aob: bool = True) -> bool:
         """
@@ -576,7 +551,7 @@ class LinuxWindow(BaseWindow):
         action = Props.StateAction.ADD if aob else Props.StateAction.REMOVE
         self._win.changeWmState(action, Props.State.BELOW)
         states = self._win.getWmState(True)
-        return bool(states and Props.State.BELOW.value in states)
+        return bool(states and Props.State.BELOW in states)
 
     def lowerWindow(self) -> bool:
         """
@@ -626,17 +601,16 @@ class LinuxWindow(BaseWindow):
                 w.raise_window()
                 self._display.flush()
             types = self._win.getWmWindowType(True)
-            return bool(types and Props.WindowType.DESKTOP.value in types)
+            return bool(types and Props.WindowType.DESKTOP in types)
 
         else:
             self._win.setWmWindowType(Props.WindowType.NORMAL)
             types = self._win.getWmWindowType(True)
-            return bool(types and Props.WindowType.NORMAL.value in types and self.isActive)
+            return bool(types and Props.WindowType.NORMAL in types and self.isActive)
 
     def acceptInput(self, setTo: bool):
         """
         Toggles the window to accept input and focus
-        WARNING: In Linux systems, this effect is not permanent (will work while program is running)
 
         :param setTo: True/False to toggle window ignoring input and focus
         :return: None
@@ -650,9 +624,10 @@ class LinuxWindow(BaseWindow):
 
                 onebyte = int(0xFF)
                 fourbytes = onebyte | (onebyte << 8) | (onebyte << 16) | (onebyte << 24)
-                self._win.xWindow.change_property(self._display.get_atom('_NET_WM_WINDOW_OPACITY'), Xlib.Xatom.CARDINAL, 32, [fourbytes])
+                self._win.changeProperty("_NET_WM_WINDOW_OPACITY", [fourbytes], Xlib.Xatom.CARDINAL)
 
-                self._win.changeProperty(self._display.get_atom("_MOTIF_WM_HINTS"), self._motifHints)
+                if self._motifHints:
+                    self._win.changeProperty("_MOTIF_WM_HINTS", self._motifHints)
 
             self._win.setWmWindowType(Props.WindowType.NORMAL)
 
@@ -664,12 +639,12 @@ class LinuxWindow(BaseWindow):
 
                 onebyte = int(0xFA)  # Calculate as 0xff * target_opacity
                 fourbytes = onebyte | (onebyte << 8) | (onebyte << 16) | (onebyte << 24)
-                self._win.xWindow.change_property(self._display.get_atom('_NET_WM_WINDOW_OPACITY'), Xlib.Xatom.CARDINAL, 32, [fourbytes])
+                self._win.changeProperty("_NET_WM_WINDOW_OPACITY", [fourbytes], Xlib.Xatom.CARDINAL)
 
-                ret = self._win.getProperty(self._display.get_atom("_MOTIF_WM_HINTS"))
+                ret = self._win.getProperty("_MOTIF_WM_HINTS")
                 # Cinnamon uses this as default: [2, 1, 1, 0, 0]
                 self._motifHints = [a for a in ret.value] if ret and hasattr(ret, "value") else [2, 0, 0, 0, 0]
-                self._win.changeProperty(self._display.get_atom("_MOTIF_WM_HINTS"), [0, 0, 0, 0, 0])
+                self._win.changeProperty("_MOTIF_WM_HINTS", [0, 0, 0, 0, 0])
 
             self._win.setWmWindowType(Props.WindowType.DESKTOP)
 
@@ -759,7 +734,7 @@ class LinuxWindow(BaseWindow):
         :return: ``True`` if the window is minimized
         """
         state = self._win.getWmState(True)
-        return bool(state and Props.State.HIDDEN.value in state)
+        return bool(state and Props.State.HIDDEN in state)
 
     @property
     def isMaximized(self) -> bool:
@@ -769,7 +744,7 @@ class LinuxWindow(BaseWindow):
         :return: ``True`` if the window is maximized
         """
         state = self._win.getWmState(True)
-        return bool(state and Props.State.MAXIMIZED_HORZ.value in state and Props.State.MAXIMIZED_VERT.value in state)
+        return bool(state and Props.State.MAXIMIZED_HORZ in state and Props.State.MAXIMIZED_VERT in state)
 
     @property
     def isActive(self):

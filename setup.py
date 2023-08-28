@@ -19,6 +19,7 @@ with open("src/pywinctl/__init__.py", "r") as fileObj:
 with io.open("README.md", encoding="utf-8") as fileObj:
     long_description = fileObj.read()
 
+
 setup(
     name='PyWinCtl',
     version=version,
@@ -38,8 +39,8 @@ setup(
         "pywin32>=302; sys_platform == 'win32'",
         "python-xlib>=0.21; sys_platform == 'linux'",
         "pyobjc>=8.1; sys_platform == 'darwin'",
-        "pymonctl>=0.0.8",
-        "pywinbox>=0.0.5"
+        "pywinbox>=0.4",
+        "pymonctl>=0.1"
     ],
     extras_require={
         'dev': [
@@ -51,7 +52,7 @@ setup(
         ]
     },
     keywords="gui window control menu title name geometry size position move resize minimize maximize restore "
-             + "hide show activate raise lower close always-on-top always-at-bottom events",
+             + "hide show activate raise lower close screen-size mouse-position",
     classifiers=[
         'Development Status :: 4 - Beta',
         'Environment :: Win32 (MS Windows)',
@@ -66,6 +67,7 @@ setup(
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10'
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11'
     ],
 )

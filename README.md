@@ -4,7 +4,7 @@
 
 Cross-Platform module to get info on and control windows on screen.
 
-This module is a Python 3 evolution from [asweigart's PyGetWindow module](https://github.com/asweigart/PyGetWindow), which adds Linux and macOS support to the MS Windows-only original module, as well as experimental multi-monitor support, in the hope others can use it, test it or contribute.
+This module is a Python 3 evolution from [asweigart's PyGetWindow module](https://github.com/asweigart/PyGetWindow), which adds Linux and macOS support to the MS Windows-only original module, experimental multi-monitor support, and many additional features; in the hope others can use it, test it or contribute.
 
 With PyWinCtl you can retrieve info or control windows from other open applications, as well as use it as a cross-platform toolkit to manipulate your own application windows.
 
@@ -17,11 +17,10 @@ My most sincere thanks and acknowledgement to [MestreLion](https://github.com/Me
    1. [Important comments](#watchdog-comments)
    2. [Important macOS Apple Script version notice](#watchdog-macos-comments)
 3. [Menu Features](#menu-features)
-4. [Monitors Info and Change Notifications](#monitor-features)
-5. [Install](#install)
-6. [Support](#support)
-7. [Using this code](#using)
-8. [Test](#test)
+4. [Install](#install)
+5. [Support](#support)
+6. [Using this code](#using)
+7. [Test](#test)
 
 ## Window Features <a name="window-features"></a>
 

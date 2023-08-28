@@ -116,6 +116,7 @@ class MoveResize(IntEnum):
 
 
 class DataFormat(IntEnum):
+    # I guess 16 is not used in Python (no difference between short and long int)
     STR = 8
     INT = 32
 
@@ -134,5 +135,3 @@ class StackMode(IntEnum):
 class HintAction(IntEnum):
     KEEP = -1
     REMOVE = -2
-
-

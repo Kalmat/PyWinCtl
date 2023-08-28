@@ -398,11 +398,6 @@ if sys.platform == "darwin":
         wait = True
         timelap = 0.50
 
-        def movedChange(pos):
-            print("CHANGED!!!", pos, npw.box, npw.rect)
-
-        npw.watchdog.start(movedCB=movedChange)
-
         # Test maximize/minimize/restore.
         if npw.isMaximized:  # Make sure it starts un-maximized
             npw.restore(wait=wait)
@@ -436,7 +431,6 @@ if sys.platform == "darwin":
         assert npw.height == 420
 
         # Test moving
-        print("MOVE moveTo(50, 54", npw.box, npw.rect)
         npw.moveTo(50, 54, wait=wait)
         assert npw.topleft == (50, 54)
         assert npw.left == 50
@@ -447,7 +441,6 @@ if sys.platform == "darwin":
         assert npw.bottomleft == (50, 474)
         assert npw.topright == (660, 54)
 
-        print("MOVE moveTo(50, 54", npw.box, npw.rect)
         npw.moveRel(1, 2, wait=wait)
         assert npw.topleft == (51, 56)
         assert npw.left == 51
@@ -460,90 +453,72 @@ if sys.platform == "darwin":
 
         # Move via the properties
         npw.resizeTo(601, 401, wait=wait)
-        print("MOVE moveTo(50, 54)", npw.box, npw.rect)
         npw.moveTo(100, 250, wait=wait)
 
-        print("MOVE left = 200", npw.box, npw.rect)
         npw.left = 200
         time.sleep(timelap)
         assert npw.left == 200
 
-        print("MOVE right = 200", npw.box, npw.rect)
         npw.right = 200
         time.sleep(timelap)
         assert npw.right == 200
 
-        print("MOVE top = 200", npw.box, npw.rect)
         npw.top = 200
         time.sleep(timelap)
         assert npw.top == 200
 
-        print("MOVE bottom = 800", npw.box, npw.rect)
         npw.bottom = 800
         time.sleep(timelap)
         assert npw.bottom == 800
 
-        print("MOVE topleft = (300, 400)", npw.box, npw.rect)
         npw.topleft = (300, 400)
         time.sleep(timelap)
         assert npw.topleft == (300, 400)
 
-        print("MOVE topright = (300, 400)", npw.box, npw.rect)
         npw.topright = (300, 400)
         time.sleep(timelap)
         assert npw.topright == (300, 400)
 
-        print("MOVE bottomleft = (300, 700)", npw.box, npw.rect)
         npw.bottomleft = (300, 700)
         time.sleep(timelap)
         assert npw.bottomleft == (300, 700)
 
-        print("MOVE bottomright = (300, 900)", npw.box, npw.rect)
         npw.bottomright = (300, 900)
         time.sleep(timelap)
         assert npw.bottomright == (300, 900)
 
-        print("MOVE midleft = (300, 400)", npw.box, npw.rect)
         npw.midleft = (300, 400)
         time.sleep(timelap)
         assert npw.midleft == (300, 400)
 
-        print("MOVE midright = (300, 400)", npw.box, npw.rect)
         npw.midright = (300, 400)
         time.sleep(timelap)
         assert npw.midright == (300, 400)
 
-        print("MOVE midtop = (300, 400)", npw.box, npw.rect)
         npw.midtop = (300, 400)
         time.sleep(timelap)
         assert npw.midtop == (300, 400)
 
-        print("MOVE midbottom = (300, 700)", npw.box, npw.rect)
         npw.midbottom = (300, 700)
         time.sleep(timelap)
         assert npw.midbottom == (300, 700)
 
-        print("MOVE center = (300, 400)", npw.box, npw.rect)
         npw.center = (300, 400)
         time.sleep(timelap)
         assert npw.center == (300, 400)
 
-        print("MOVE centerx = 1000", npw.box, npw.rect)
         npw.centerx = 1000
         time.sleep(timelap)
         assert npw.centerx == 1000
 
-        print("MOVE centery = 300", npw.box, npw.rect)
         npw.centery = 300
         time.sleep(timelap)
         assert npw.centery == 300
 
-        print("MOVE width = 600", npw.box, npw.rect)
         npw.width = 600
         time.sleep(timelap)
         assert npw.width == 600
 
-        print("MOVE height = 400", npw.box, npw.rect)
         npw.height = 400
         time.sleep(timelap)
         assert npw.height == 400
@@ -583,7 +558,6 @@ if sys.platform == "darwin":
             time.sleep(5)
 
         # Test closing
-        npw.watchdog.stop()
         npw.close()
 
 

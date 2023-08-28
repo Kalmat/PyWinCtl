@@ -26,8 +26,8 @@ import win32api
 import win32gui
 
 
-from pywinctl import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
-from pywinbox import Rect, pointInBox
+from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
+from pywinbox import Box, Size, Point, Rect, pointInBox
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -81,17 +81,22 @@ def getAllWindows() -> List[Win32Window]:
     """
     # https://stackoverflow.com/questions/64586371/filtering-background-processes-pywin32
     # return [Win32Window(hwnd[0]) for hwnd in _findMainWindowHandles()]
-    return [Win32Window(hwnd) for hwnd in _findWindowHandles()]
+    return [win for win in __remove_bad_windows(_findWindowHandles())]
 
-def getAllWindows2() -> List[Win32Window]:
-    """
-    Get the list of Window objects for all visible windows
 
-    :return: list of Window objects
+def __remove_bad_windows(windows: Optional[List[int]]):
     """
-    # https://stackoverflow.com/questions/64586371/filtering-background-processes-pywin32
-    # return [Win32Window(hwnd[0]) for hwnd in _findMainWindowHandles()]
-    return [Win32Window(hwnd) for hwnd in _findWindowHandles2()]
+    :param windows: win32 Windows
+    :return: A generator of Win32Window that filters out BadWindows
+    """
+    if windows is not None:
+        for window in windows:
+            try:
+                yield Win32Window(window)
+            except:
+                pass
+    else:
+        return []
 
 
 def getAllTitles() -> List[str]:
@@ -272,30 +277,6 @@ def _findWindowHandles(parent: Optional[int] = None, window_class: Optional[str]
             return True
         if not onlyVisible or (onlyVisible and win32gui.IsWindowVisible(hwnd)):
             handle_list.append(hwnd)
-        return True
-
-    if not parent:
-        parent = win32gui.GetDesktopWindow()  # type: ignore[no-untyped-call]  # pyright: ignore[reportUnknownMemberType]
-    win32gui.EnumChildWindows(parent, findit, None)
-    return handle_list
-
-
-def _findWindowHandles2(parent: Optional[int] = None, window_class: Optional[str] = None, title: Optional[str] = None, onlyVisible: bool = True) -> List[int]:
-
-    handle_list: List[int] = []
-
-    def findit(hwnd: int, ctx: Any) -> bool:
-
-        if window_class and window_class != win32gui.GetClassName(hwnd):
-            return True
-        if title and title != win32gui.GetWindowText(hwnd):
-            return True
-        if not onlyVisible or (onlyVisible and win32gui.IsWindowVisible(hwnd)):
-            WS_EX_TOOLWINDOW = 0x00000080   # https://learn.microsoft.com/de-de/windows/win32/winmsg/extended-window-styles
-            GWL_EXSTYLE = -20   # https://learn.microsoft.com/de-de/windows/win32/api/winuser/nf-winuser-getwindowlonga
-            extended_style = win32gui.GetWindowLong(hwnd, GWL_EXSTYLE)
-            if (extended_style & WS_EX_TOOLWINDOW) != 0:
-                handle_list.append(hwnd)
         return True
 
     if not parent:
@@ -623,8 +604,7 @@ class Win32Window(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window resized to the given size
         """
-        box = self.box
-        win32gui.MoveWindow(self._hWnd, box.left, box.top, newWidth, newHeight, True)
+        self.size = Size(newWidth, newHeight)
         box = self.box
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and (box.width != newWidth or box.height != newHeight):
@@ -658,8 +638,7 @@ class Win32Window(BaseWindow):
         :param wait: set to ''True'' to wait until action is confirmed (in a reasonable time lap)
         :return: ''True'' if window moved to the given position
         """
-        box = self.box
-        win32gui.MoveWindow(self._hWnd, newLeft, newTop, box.width, box.height, True)
+        self.topleft = Point(newLeft, newTop)
         box = self.box
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and (box.left != newLeft or box.top != newTop):
@@ -1259,14 +1238,115 @@ class _SendBottom(threading.Thread):
         self._keep.set()
         self.run()
 
-    def getTid(self):
-        if self.is_alive():
-            if hasattr(self, '_thread_id'):
-                return self._thread_id
-            for id, thread in threading._active.items():
-                if thread is self:
-                    return id
-        return None
+
+class _ScreenValue(TypedDict):
+    id: int
+    is_primary: bool
+    pos: Point
+    size: Size
+    workarea: Rect
+    scale: Tuple[int, int]
+    dpi: Tuple[int, int]
+    orientation: int
+    frequency: float
+    colordepth: int
+
+
+def getAllScreens() -> dict[str, _ScreenValue]:
+    """
+    load all monitors plugged to the pc, as a dict
+
+    :return: Monitors info as python dictionary
+
+    Output Format:
+        Key:
+            Display name
+
+        Values:
+            "id":
+                display index as returned by EnumDisplayDevices()
+            "is_primary":
+                ''True'' if monitor is primary (shows clock and notification area, sign in, lock, CTRL+ALT+DELETE screens...)
+            "pos":
+                Point(x, y) struct containing the display position ((0, 0) for the primary screen)
+            "size":
+                Size(width, height) struct containing the display size, in pixels
+            "workarea":
+                Rect(left, top, right, bottom) struct with the screen workarea, in pixels
+            "scale":
+                Scale ratio, as a tuple of (x, y) scale percentage
+            "dpi":
+                Dots per inch, as a tuple of (x, y) dpi values
+            "orientation":
+                Display orientation: 0 - Landscape / 1 - Portrait / 2 - Landscape (reversed) / 3 - Portrait (reversed)
+            "frequency":
+                Refresh rate of the display, in Hz
+            "colordepth":
+                Bits per pixel referred to the display color depth
+    """
+    # https://stackoverflow.com/questions/35814309/winapi-changedisplaysettingsex-does-not-work
+    result: dict[str, _ScreenValue] = {}
+    dpiAware = ctypes.windll.user32.GetAwarenessFromDpiAwarenessContext(ctypes.windll.user32.GetThreadDpiAwarenessContext())
+    if dpiAware == 0:
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+    monitors = win32api.EnumDisplayMonitors()
+    i = 0
+    while True:
+        try:
+            dev = win32api.EnumDisplayDevices(None, i, 0)
+        except:
+            break
+
+        if dev and dev.StateFlags & win32con.DISPLAY_DEVICE_ATTACHED_TO_DESKTOP:
+            try:
+                # Device content: http://timgolden.me.uk/pywin32-docs/PyDISPLAY_DEVICE.html
+                # Settings content: http://timgolden.me.uk/pywin32-docs/PyDEVMODE.html
+                monitor_info = None
+                monitor = None
+                for mon in monitors:
+                    monitor = mon[0].handle
+                    monitor_info = win32api.GetMonitorInfo(monitor)
+                    if monitor_info["Device"] == dev.DeviceName:
+                        break
+
+                if monitor_info:
+                    name = dev.DeviceName
+                    x, y, r, b = monitor_info["Monitor"]
+                    wx, wy, wr, wb = monitor_info["Work"]
+                    settings = win32api.EnumDisplaySettings(dev.DeviceName, win32con.ENUM_CURRENT_SETTINGS)
+                    # values seem to be affected by the scale factor of the first display
+                    wr, wb = wx + settings.PelsWidth + (wr - r), wy + settings.PelsHeight + (wb - b)
+                    is_primary = ((x, y) == (0, 0))
+                    r, b = x + settings.PelsWidth, y + settings.PelsHeight
+                    pScale = ctypes.c_uint()
+                    ctypes.windll.shcore.GetScaleFactorForMonitor(monitor, ctypes.byref(pScale))
+                    scale = pScale.value
+                    dpiX = ctypes.c_uint()
+                    dpiY = ctypes.c_uint()
+                    ctypes.windll.shcore.GetDpiForMonitor(monitor, 0, ctypes.byref(dpiX), ctypes.byref(dpiY))
+                    rot = settings.DisplayOrientation
+                    freq = settings.DisplayFrequency
+                    depth = settings.BitsPerPel
+
+                    result[name + "_" + str(i)] = {
+                        "id": i,
+                        # "is_primary": monitor_info.get("Flags", 0) & win32con.MONITORINFOF_PRIMARY == 1,
+                        "is_primary": is_primary,
+                        "pos": Point(x, y),
+                        "size": Size(r - x, b - y),
+                        "workarea": Rect(wx, wy, wr, wb),
+                        "scale": (scale, scale),
+                        "dpi": (dpiX.value, dpiY.value),
+                        "orientation": rot,
+                        "frequency": freq,
+                        "colordepth": depth
+                    }
+            except:
+                # print(traceback.format_exc())
+                pass
+        i += 1
+    return result
+
 
     def forceStop(self):
         thread_id = self.getTid()
@@ -1468,11 +1548,4 @@ def main():
 
 
 if __name__ == "__main__":
-    print("=========================== ALL =======================================")
-    for win in getAllWindows():
-        print(win.title)
-    print()
-    print("=========================== FILTERED =======================================")
-    for win in getAllWindows2():
-        print(win.title)
-    # main()
+    main()
