@@ -816,7 +816,7 @@ class _WatchDogWorker(threading.Thread):
         resizedCB: Callable[[Tuple[int, int]], None] | None = None,
         movedCB: Callable[[Tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
-        changedDisplayCB: Callable[[str], None] | None = None
+        changedDisplayCB: Callable[[List[str]], None] | None = None
     ):
 
         self._isAliveCB = isAliveCB
@@ -851,7 +851,7 @@ class _WatchDogWorker(threading.Thread):
         resizedCB: Callable[[Tuple[int, int]], None] | None = None,
         movedCB: Callable[[Tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
-        changedDisplayCB: Callable[[str], None] | None = None,
+        changedDisplayCB: Callable[[List[str]], None] | None = None,
         interval: float = 0.3
     ):
         self._kill.set()

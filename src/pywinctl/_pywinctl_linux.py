@@ -289,7 +289,7 @@ def _WgetAllWindows() -> Tuple[List[dict[str, Union[str, bool]]], dict[str, Unio
     return windowsList, activeWindow
 
 
-def __remove_bad_windows(windows: Optional[List[int]]) -> List[LinuxWindow]:
+def __remove_bad_windows(windows: Optional[Union[List[str], List[int]]]) -> List[LinuxWindow]:
     outList = []
     if windows is not None:
         for window in windows:
