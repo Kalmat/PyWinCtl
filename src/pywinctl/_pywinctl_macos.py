@@ -2289,7 +2289,7 @@ class MacOSNSWindow(BaseWindow):
         return parent == self.getParent()
     isChildOf = isChild  # isChildOf is an alias of isParent method
 
-    def getDisplay(self) -> str:
+    def getDisplay(self) -> List[str]:
         """
         Get display name in which current window space is mostly visible
 

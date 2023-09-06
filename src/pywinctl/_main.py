@@ -520,7 +520,7 @@ class _WatchDog:
         resizedCB: Callable[[Tuple[int, int]], None] | None = None,
         movedCB: Callable[[Tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
-        changedDisplayCB: Callable[[str], None] | None = None,
+        changedDisplayCB: Callable[List[str], None] | None = None,
         interval: float = 0.3
     ):
         """
@@ -575,7 +575,7 @@ class _WatchDog:
         resizedCB: Callable[[Tuple[int, int]], None] | None = None,
         movedCB: Callable[[Tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
-        changedDisplayCB: Callable[[str], None] | None = None
+        changedDisplayCB: Callable[List[str], None] | None = None
     ):
         """
         Change the states this watchdog is hooked to
@@ -861,7 +861,7 @@ class _WatchDogWorker(threading.Thread):
         self.run()
 
 
-def _findMonitorName(x: int, y: int):
+def _findMonitorName(x: int, y: int) -> List[str]:
     return [monitor.name for monitor in pmc.findMonitor(x, y)]
 
 
