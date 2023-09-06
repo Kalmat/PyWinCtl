@@ -23,7 +23,7 @@ import Xlib.Xutil
 import Xlib.ext
 from Xlib.xobject.drawable import Window as XWindow
 
-from pywinctl._main import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
+from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
 from pywinbox import Box, Size, Point, Rect, pointInBox
 from ewmhlib import Props, RootWindow, EwmhWindow, defaultRootWindow
 from ewmhlib._ewmhlib import _xlibGetAllWindows
@@ -50,12 +50,14 @@ def getActiveWindow() -> Optional[LinuxWindow]:
     """
     Get the currently active (focused) Window in default root
 
+    WAYLAND
     This will not work on Wayland unless you activate unsafe_mode:
        - Press alt + f2
        - write "lg" (without the quotation marks) and press Enter
        - In the command entry box (at the bottom of the window), write "global.context.unsafe_mode = true" (without the quotation marks) and press Enter
        - To exit the "lg" program, click on any of the options in the upper right corner, then press Escape (it seems a lg bug!)
        - You can set unsafe_mode off again by following the same steps, but in this case, using "global.context.unsafe_mode = false"
+    Anyway, it will not work with all windows (especially built-in/"official" apps do not populate xid nor X-Window object)
 
     :return: Window object or None
     """
@@ -94,12 +96,14 @@ def getAllWindows():
     """
     Get the list of Window objects for all visible windows in default root
 
+    WAYLAND
     This will not work on Wayland unless you activate unsafe_mode:
        - Press alt + f2
        - write "lg" (without the quotation marks) and press Enter
        - In the command entry box (at the bottom of the window), write "global.context.unsafe_mode = true" (without the quotation marks) and press Enter
-       - To exit the "lg" program, click on any of the options in the upper right corner, and press Escape (it seems a lg bug!)
+       - To exit the "lg" program, click on any of the options in the upper right corner, then press Escape (it seems a lg bug!)
        - You can set unsafe_mode off again by following the same steps, but in this case, using "global.context.unsafe_mode = false"
+    Anyway, it will not work with all windows (especially built-in/"official" apps do not populate xid nor X-Window object)
 
     :return: list of Window objects
     """
