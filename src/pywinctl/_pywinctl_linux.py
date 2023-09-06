@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import json
 import sys
 
 assert sys.platform == "linux"
@@ -22,7 +23,7 @@ import Xlib.Xutil
 import Xlib.ext
 from Xlib.xobject.drawable import Window as XWindow
 
-from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
+from pywinctl._main import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
 from pywinbox import Box, Size, Point, Rect, pointInBox
 from ewmhlib import Props, RootWindow, EwmhWindow, defaultRootWindow
 from ewmhlib._ewmhlib import _xlibGetAllWindows
@@ -49,41 +50,31 @@ def getActiveWindow() -> Optional[LinuxWindow]:
     """
     Get the currently active (focused) Window in default root
 
+    This will not work on Wayland unless you activate unsafe_mode:
+       - Press alt + f2
+       - write "lg" (without the quotation marks) and press Enter
+       - In the command entry box (at the bottom of the window), write "global.context.unsafe_mode = true" (without the quotation marks) and press Enter
+       - To exit the "lg" program, click on any of the options in the upper right corner, then press Escape (it seems a lg bug!)
+       - You can set unsafe_mode off again by following the same steps, but in this case, using "global.context.unsafe_mode = false"
+
     :return: Window object or None
     """
-    win_id = defaultRootWindow.getActiveWindow()
-    if win_id:
-        return LinuxWindow(win_id)
+    # Wayland doesn't seem to have a way to get the active window or the list of open windows
+    # This alternative works, but will require to enable unsafe_mode (on newer versions, this is also not possible from command-line nor using any gnome-shell extension)
+    # https://unix.stackexchange.com/questions/399753/how-to-get-a-list-of-active-windows-when-using-wayland
+    # https://stackoverflow.com/questions/45465016/how-do-i-get-the-active-window-on-gnome-wayland
+    # https://askubuntu.com/questions/1412130/dbus-calls-to-gnome-shell-dont-work-under-ubuntu-22-04
+    # https://stackoverflow.com/questions/48797323/retrieving-active-window-from-mutter-on-gnome-wayland-session
+    # https://discourse.gnome.org/t/get-window-id-of-a-window-object-window-get-xwindow-doesnt-exist/10956/3
+    if os.environ['XDG_SESSION_TYPE'].lower() == "wayland":
+        _, activeWindow = _WgetAllWindows()
+        if activeWindow and "id" in activeWindow.keys() and activeWindow["id"].startswith("0x"):
+            return LinuxWindow(activeWindow["id"])
+    else:
+        win_id = defaultRootWindow.getActiveWindow()
+        if win_id:
+            return LinuxWindow(win_id)
     return None
-
-# The code above doesn't work in Wayland (new GNOME X server since Ubuntu 22.04)
-# Looking for an alternative to get active window and window titles
-# Even this stopped working in new GNOME...
-# https://unix.stackexchange.com/questions/399753/how-to-get-a-list-of-active-windows-when-using-wayland
-# https://stackoverflow.com/questions/45465016/how-do-i-get-the-active-window-on-gnome-wayland
-# https://askubuntu.com/questions/1412130/dbus-calls-to-gnome-shell-dont-work-under-ubuntu-22-04
-# def DBUS_getWindows():
-#     import pydbus
-#     bus = pydbus.SessionBus()
-#
-#     shell = bus.get('org.gnome.Shell')
-#     windows = shell.Eval("global.get_window_actors()")
-#     print(windows)
-#
-#     # gdbus call \
-#     #   --session \
-#     #   --dest org.gnome.Shell \
-#     #   --object-path /org/gnome/Shell \
-#     #   --method org.gnome.Shell.Eval "
-#     #     global
-#     #       .get_window_actors()
-#     #       .map(a=>a.meta_window)
-#     #       .map(w=>({class: w.get_wm_class(), title: w.get_title()}))" \
-#     #   | sed -E -e "s/^\(\S+, '//" -e "s/'\)$//" \
-#     #   | jq .
-#
-#     # This needs WindowsExt to be installed. Not suitable.
-#     # gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell/Extensions/WindowsExt --method org.gnome.Shell.Extensions.WindowsExt.FocusPID | sed -E "s/\\('(.*)',\\)/\\1/g"
 
 
 def getActiveWindowTitle():
@@ -99,27 +90,25 @@ def getActiveWindowTitle():
         return ""
 
 
-def __remove_bad_windows(windows: Optional[List[int]]):
-    """
-    :param windows: Xlib Windows
-    :return: A generator of LinuxWindow that filters out BadWindows
-    """
-    if windows is not None:
-        for window in windows:
-            try:
-                yield LinuxWindow(window)
-            except Xlib.error.XResourceError:
-                pass
-    else:
-        return []
-
-
 def getAllWindows():
     """
     Get the list of Window objects for all visible windows in default root
+
+    This will not work on Wayland unless you activate unsafe_mode:
+       - Press alt + f2
+       - write "lg" (without the quotation marks) and press Enter
+       - In the command entry box (at the bottom of the window), write "global.context.unsafe_mode = true" (without the quotation marks) and press Enter
+       - To exit the "lg" program, click on any of the options in the upper right corner, and press Escape (it seems a lg bug!)
+       - You can set unsafe_mode off again by following the same steps, but in this case, using "global.context.unsafe_mode = false"
+
     :return: list of Window objects
     """
-    return [window for window in __remove_bad_windows(defaultRootWindow.getClientListStacking())]
+    if os.environ['XDG_SESSION_TYPE'].lower() == "wayland":
+        windowsList, _ = _WgetAllWindows()
+        windows = [win["id"] for win in windowsList if "id" in win.keys() and win["id"].startswith("0x")]
+    else:
+        windows = defaultRootWindow.getClientListStacking()
+    return [window for window in __remove_bad_windows(windows)]
 
 
 def getAllTitles() -> List[str]:
@@ -280,6 +269,37 @@ def getTopWindowAt(x: int, y: int):
         return None
 
 
+def _WgetAllWindows() -> Tuple[List[dict[str, Union[str, bool]]], dict[str, Union[str, bool]]]:
+    # POSSIBLE REFERENCE: https://www.roojs.org/seed/gir-1.2-gtk-3.0/seed/Meta.Window.html
+    # Built-in / official apps (e.g. Terminal or gedit) do not fulfill proper get_description()
+    windowsList: List[dict[str, Union[str, bool]]] = [{}]
+    activeWindow: dict[str, Union[str, bool]] = {}
+    cmd = ('gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell '
+           '--method org.gnome.Shell.Eval "global.get_window_actors()'
+           '.map(a=>a.meta_window)'
+           '.map(w=>({class: w.get_wm_class(), title: w.get_title(), active: w.has_focus(), id: w.get_description(), id2: w.get_id(), id3: w.get_pid()}))"')
+    ret = subprocess.check_output(cmd, shell=True, timeout=1).decode("utf-8").replace("\n", "")
+    if ret and ret.startswith("(true, "):
+        windows: List[str] = (str(ret[8:-2]).replace("[", "").replace("]", "").replace("},{", "}|&|{").split("|&|"))
+        for window in windows:
+            output: dict[str, Union[str, bool]] = json.loads(window)
+            windowsList.append(output)
+            if output["active"]:
+                activeWindow = output
+        return windowsList, activeWindow
+
+
+def __remove_bad_windows(windows: Optional[List[int]]) -> List[LinuxWindow]:
+    if windows is not None:
+        for window in windows:
+            try:
+                yield LinuxWindow(window)
+            except Xlib.error.XResourceError:
+                pass
+    else:
+        return []
+
+
 class LinuxWindow(BaseWindow):
 
     def __init__(self, hWnd: Union[XWindow, int, str]):
@@ -298,6 +318,7 @@ class LinuxWindow(BaseWindow):
         self.watchdog = _WatchDog(self)
 
         self._currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()
+        self._currSessionType = os.environ['XDG_SESSION_TYPE'].lower()
         self._motifHints: List[int] = []
 
     def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
@@ -711,20 +732,23 @@ class LinuxWindow(BaseWindow):
         """
         Check if current window is child of given window/app (handle)
 
+        On Windows, the list will contain up to one display (displays can not overlap), whilst in Linux and macOS, the
+        list may contain several displays.
+
         :param parent: handle of the window/app you want to check if the current window is child of
         :return: ''True'' if current window is child of the given window
         """
         return bool(parent == self.getParent())
     isChildOf = isChild  # isChildOf is an alias of isParent method
 
-    def getDisplay(self) -> str:
+    def getDisplay(self) -> List[str]:
         """
-        Get display name in which current window space is mostly visible
+        Get display names in which current window space is mostly visible
 
-        :return: display name as string or empty (couldn't retrieve it or window is offscreen)
+        :return: display name as list of strings or empty (couldn't retrieve it or window is off-screen)
         """
         x, y = self.center
-        return str(_findMonitorName(x, y))
+        return _findMonitorName(x, y)
 
     @property
     def isMinimized(self) -> bool:
@@ -821,8 +845,8 @@ def main():
         print("ACTIVE WINDOW:", npw.title, "/", npw.box)
         dpy = npw.getDisplay()
         print("DISPLAY", dpy)
-        print("SCREEN SIZE:", getScreenSize(dpy))
-        print("WORKAREA:", getWorkArea(dpy))
+        print("SCREEN SIZE:", getScreenSize(dpy[0]))
+        print("WORKAREA:", getWorkArea(dpy[0]))
     print()
     displayWindowsUnderMouse()
 
