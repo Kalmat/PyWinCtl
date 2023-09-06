@@ -289,15 +289,15 @@ def _WgetAllWindows() -> Tuple[List[dict[str, Union[str, bool]]], dict[str, Unio
     return windowsList, activeWindow
 
 
-def __remove_bad_windows(windows: Optional[List[int, str]]) -> Iterable[LinuxWindow]:
+def __remove_bad_windows(windows: Optional[List[Union[int, str]]]) -> List[LinuxWindow]:
+    outList = []
     if windows is not None:
         for window in windows:
             try:
-                yield LinuxWindow(window)
+                outList.append(LinuxWindow(window))
             except Xlib.error.XResourceError:
                 pass
-    else:
-        return []
+    return outList
 
 
 class LinuxWindow(BaseWindow):
