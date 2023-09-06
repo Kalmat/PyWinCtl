@@ -16,7 +16,7 @@ import sys
 if sys.platform == "darwin":
     __all__ += ["NSWindow"]
 
-__version__ = "0.0.50"
+__version__ = "0.1"
 
 
 def version(numberOnly: bool = True) -> str:

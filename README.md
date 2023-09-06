@@ -6,11 +6,9 @@ Cross-Platform module to get info on and control windows on screen.
 
 With PyWinCtl you can retrieve info or control windows from other open applications, as well as use it as a cross-platform toolkit to manipulate your own application windows.
 
-This module is a Python 3 evolution from [asweigart's PyGetWindow module](https://github.com/asweigart/PyGetWindow), which adds Linux and macOS support to the MS Windows-only original module, experimental multi-monitor support (*), and many additional features; in the hope others can use it, test it or contribute.
+This module is a Python 3 evolution from [asweigart's PyGetWindow module](https://github.com/asweigart/PyGetWindow), which adds Linux/X11 and macOS support to the MS Windows-only original module, experimental multi-monitor support, and many additional features; in the hope others can use it, test it or contribute.
 
 My most sincere thanks and acknowledgement to [MestreLion](https://github.com/MestreLion), [super-ibby](https://github.com/super-ibby), [Avasam](https://github.com/Avasam), [macdeport](https://github.com/macdeport) and [holychowders](https://github.com/holychowders) for their help and moral boost.
-
-(*) _Multi-monitor is still experimental, especially in macOS in which intensive tests are still pending_
 
 1. [Window Features](#window-features)
    1. [Important macOS notice](#macos-notice)
@@ -70,7 +68,12 @@ macOS doesn't "like" controlling windows from other apps, so there are two separ
 
 The enormous variety of Linux distributions, Desktop Environments, Window Managers, and their combinations, make it impossible to test in all scenarios.
 
-This module has been tested OK in Ubuntu/Gnome, Ubuntu/KDE, Ubuntu/Unity, Mint/Cinnamon and Raspbian/LXDE. Except for Mint/Cinnamon and Ubuntu 22.04+, `sendBehind()` method doesn't properly work!
+This module has been tested OK in some X11 setups: Ubuntu/Gnome, Ubuntu/KDE, Ubuntu/Unity, Mint/Cinnamon and Raspbian/LXDE. Except for Mint/Cinnamon and Ubuntu 22.04+, `sendBehind()` method doesn't properly work!
+
+In Wayland (the new GNOME compositor for Ubuntu 22.04+), it is not possible to retrieve the active window nor the list 
+of open windows, so `getActiveWindow()` and `getAllWindows()` will not work even though unsafe-mode is  
+enabled (built-in and "official" applications do not populate their XID nor their X-Window object, so it may work for
+other applications like Chrome or your own application windows)
 
 In case you find problems in other configs, please [open an issue](https://github.com/Kalmat/PyWinCtl/issues). Furthermore, if you have knowledge in these other configs, do not hesitate to contribute!
 

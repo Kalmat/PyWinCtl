@@ -1144,11 +1144,14 @@ class MacOSWindow(BaseWindow):
         return currParent == parent
     isChildOf = isChild  # isParentOf is an alias of isParent method
 
-    def getDisplay(self) -> str:
+    def getDisplay(self) -> List[str]:
         """
-        Get display name in which current window space is mostly visible
+        Get display names in which current window space is mostly visible
 
-        :return: display name as string or empty (couldn't retrieve it)
+        On Windows, the list will contain up to one display (displays can not overlap), whilst in Linux and macOS, the
+        list may contain several displays.
+
+        :return: display name as list of strings or empty (couldn't retrieve it or window is off-screen)
         """
         x, y = self.center
         return _findMonitorName(x, y)
@@ -2388,8 +2391,8 @@ def main():
         else:
             dpy = npw.getDisplay()
             print("DISPLAY", dpy)
-            print("SCREEN SIZE:", getScreenSize(dpy))
-            print("WORKAREA:", getWorkArea(dpy))
+            print("SCREEN SIZE:", getScreenSize(dpy[0]))
+            print("WORKAREA:", getWorkArea(dpy[0]))
             print("ALL WINDOWS", getAllTitles())
             print("ACTIVE WINDOW:", npw.title, "/", npw.box)
         print()

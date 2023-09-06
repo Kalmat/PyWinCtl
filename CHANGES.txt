@@ -1,3 +1,6 @@
+0.1, 2023/02/03 -- LINUX: Added experimental Wayland support (only if unsafe mode enabled and only for some apps).
+                   MACOS: Tested OK in multi-monitor setups (based on PyWinBox and PyMonCtl features).
+                   ALL: getDisplay() method returns a list of monitors.
 0.0.50, 2023/02/03 -- ALL: Added PyMonCtl module to improve multi-monitor capabilities, added setParent() method. Reorganized to avoid IDEs showing external and / or private elements
                       WINDOWS: Simplified alwaysOnBottom(), found a smarter way to refresh window after bringing it back with sendBehind()
                       MACOS: Tested in multi-monitor setups (based on PyWinBox and PyMonCtl features)

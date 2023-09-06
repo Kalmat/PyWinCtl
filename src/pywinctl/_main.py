@@ -270,8 +270,8 @@ class BaseWindow(ABC):
     isChildOf = isChild  # isParentOf is an alias of isParent method
 
     @abstractmethod
-    def getDisplay(self) -> str:
-        """Returns the name of the current window display (monitor)"""
+    def getDisplay(self) -> List[str]:
+        """Returns the list of names of the current window displays (monitor)"""
         raise NotImplementedError
 
     @property
@@ -665,7 +665,7 @@ class _WatchDogWorker(threading.Thread):
         resizedCB: Callable[[Tuple[int, int]], None] | None = None,
         movedCB: Callable[[Tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
-        changedDisplayCB: Callable[[str], None] | None = None,
+        changedDisplayCB: Callable[[List[str]], None] | None = None,
         interval: float = 0.3
     ):
         threading.Thread.__init__(self)
@@ -688,10 +688,10 @@ class _WatchDogWorker(threading.Thread):
         self._isVisible = False
         self._isMinimized = False
         self._isMaximized = False
-        self._size = False
-        self._pos = False
-        self._title = False
-        self._display = False
+        self._size = None
+        self._pos = None
+        self._title = None
+        self._display = None
 
     def _getInitialValues(self):
 
@@ -862,11 +862,7 @@ class _WatchDogWorker(threading.Thread):
 
 
 def _findMonitorName(x: int, y: int):
-    monitors = pmc.findMonitor(x, y)
-    if monitors:
-        return [monitor.name for monitor in monitors]
-    else:
-        return []
+    return [monitor.name for monitor in pmc.findMonitor(x, y)]
 
 
 def getAllScreens():
@@ -908,7 +904,6 @@ def getAllScreens():
                 Refresh rate of the display, in Hz
             "colordepth":
                 Bits per pixel referred to the display color depth
-    import warnings
     """
     import warnings
     warnings.warn('getAllScreens() is deprecated. Use getAllMonitorsDict() from PyMonCtl module instead',

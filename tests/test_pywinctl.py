@@ -222,7 +222,7 @@ if sys.platform == "win32":
 
         option: dict[str, Any] | None = None
         for i, key in enumerate(submenu):
-            if i == 3:
+            if i == 2:  # About notepad
                 option = submenu[key]
         if option:
             npw.menu.clickMenuItem(wID=option["wID"])
