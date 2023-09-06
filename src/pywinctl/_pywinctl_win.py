@@ -84,7 +84,7 @@ def getAllWindows() -> List[Win32Window]:
     return [window for window in __remove_bad_windows(_findWindowHandles())]
 
 
-def __remove_bad_windows(windows: Optional[List[Union[int, str]]]):
+def __remove_bad_windows(windows: Optional[List[int]]):
     """
     :param windows: win32 Windows
     :return: A generator of Win32Window that filters out BadWindows

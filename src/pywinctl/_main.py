@@ -520,7 +520,7 @@ class _WatchDog:
         resizedCB: Callable[[Tuple[int, int]], None] | None = None,
         movedCB: Callable[[Tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
-        changedDisplayCB: Callable[list, None] | None = None,
+        changedDisplayCB: Callable[[List[str]], None] | None = None,
         interval: float = 0.3
     ):
         """
@@ -575,7 +575,7 @@ class _WatchDog:
         resizedCB: Callable[[Tuple[int, int]], None] | None = None,
         movedCB: Callable[[Tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
-        changedDisplayCB: Callable[list, None] | None = None
+        changedDisplayCB: Callable[[List[str]], None] | None = None
     ):
         """
         Change the states this watchdog is hooked to
