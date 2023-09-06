@@ -1064,7 +1064,11 @@ class EwmhWindow:
 
         :return: name of the window as str or None (nothing obtained)
         """
-        return self.xWindow.get_wm_name()
+        ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Window.NAME)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
+        if res:
+            return str(res[0])
+        return None
 
     def setName(self, name: str):
         """
