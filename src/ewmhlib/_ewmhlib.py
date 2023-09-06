@@ -1049,7 +1049,7 @@ class EwmhWindow:
         :param prop: Property/atom of the event in int or str format
         :param data: Data related to the event. It can be a string or a list of up to 5 integers
         :param prop_type: Property type (e.g. X.AnyPropertyType or Xatom.STRING)
-        :param propMode: whether to Replace/Append/Prepend (Mode.*) the property in relation to the rest of
+        :param propMode: whether to Replace/Append/Prepend (Mode.*) the property in respect to the rest of
                     existing properties
         """
         changeProperty(self.xWindow, prop, data, prop_type, propMode, self.display)
@@ -1076,7 +1076,7 @@ class EwmhWindow:
 
         :param name: new name as string
         """
-        self.xWindow.set_wm_name(name)
+        self.changeProperty(Window.NAME, name)
 
     def getVisibleName(self) -> Optional[str]:
         """
@@ -2617,6 +2617,7 @@ def _xlibGetAllWindows(parent: Optional[XWindow] = None, title: str = "", klass:
             children = []
         for child in children:
             try:
+                # This returns empty name in some cases... must use getProperty!!!!
                 ret: Optional[str] = child.get_wm_name()
             except:
                 ret = None
