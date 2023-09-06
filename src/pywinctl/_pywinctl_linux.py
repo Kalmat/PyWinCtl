@@ -12,7 +12,7 @@ import platform
 import re
 import subprocess
 import time
-from typing import cast, Optional, Union, List, Tuple, Iterable
+from typing import cast, Optional, Union, List, Tuple
 
 import Xlib.display
 import Xlib.error
@@ -837,6 +837,7 @@ def main():
     """Run this script from command-line to get windows under mouse pointer"""
     print("PLATFORM:", sys.platform)
     print("ALL WINDOWS", getAllTitles())
+    print("ALL APPS & WINDOWS", getAllAppsWindowsTitles())
     print("MONITORS:", getAllScreens())
     npw = getActiveWindow()
     if npw is None:
