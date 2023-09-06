@@ -12,7 +12,7 @@ import platform
 import re
 import subprocess
 import time
-from typing import cast, Optional, Union, List, Tuple
+from typing import cast, Optional, Union, List, Tuple, Iterable
 
 import Xlib.display
 import Xlib.error
@@ -68,8 +68,8 @@ def getActiveWindow() -> Optional[LinuxWindow]:
     # https://discourse.gnome.org/t/get-window-id-of-a-window-object-window-get-xwindow-doesnt-exist/10956/3
     if os.environ['XDG_SESSION_TYPE'].lower() == "wayland":
         _, activeWindow = _WgetAllWindows()
-        if activeWindow and "id" in activeWindow.keys() and activeWindow["id"].startswith("0x"):
-            return LinuxWindow(activeWindow["id"])
+        if activeWindow and "id" in activeWindow.keys() and str(activeWindow["id"]).startswith("0x"):
+            return LinuxWindow(str(activeWindow["id"]))
     else:
         win_id = defaultRootWindow.getActiveWindow()
         if win_id:
@@ -105,7 +105,7 @@ def getAllWindows():
     """
     if os.environ['XDG_SESSION_TYPE'].lower() == "wayland":
         windowsList, _ = _WgetAllWindows()
-        windows = [win["id"] for win in windowsList if "id" in win.keys() and win["id"].startswith("0x")]
+        windows = [str(win["id"]) for win in windowsList if "id" in win.keys() and str(win["id"]).startswith("0x")]
     else:
         windows = defaultRootWindow.getClientListStacking()
     return [window for window in __remove_bad_windows(windows)]
@@ -286,10 +286,10 @@ def _WgetAllWindows() -> Tuple[List[dict[str, Union[str, bool]]], dict[str, Unio
             windowsList.append(output)
             if output["active"]:
                 activeWindow = output
-        return windowsList, activeWindow
+    return windowsList, activeWindow
 
 
-def __remove_bad_windows(windows: Optional[List[int]]) -> List[LinuxWindow]:
+def __remove_bad_windows(windows: Optional[List[int, str]]) -> Iterable[LinuxWindow]:
     if windows is not None:
         for window in windows:
             try:
