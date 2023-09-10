@@ -1104,6 +1104,10 @@ class EwmhWindow:
         res = getPropertyValue(ret, display=self.display)
         if res:
             return str(res[0])
+        ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Window.LEGACY_NAME)
+        res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
+        if res:
+            return str(res[0])
         return None
 
     def setName(self, name: str):
