@@ -40,6 +40,7 @@ class DesktopLayout(IntEnum):
 
 class Window:
     NAME = "_NET_WM_NAME"
+    LEGACY_NAME = "WM_NAME"
     VISIBLE_NAME = "_NET_WM_VISIBLE_NAME"
     ICON_NAME = "_NET_WM_ICON_NAME"
     VISIBLE_ICON_NAME = "_NET_WM_VISIBLE_ICON_NAME"
