@@ -6,9 +6,9 @@ Cross-Platform module to get info on and control windows on screen.
 
 With PyWinCtl you can retrieve info or control windows from other open applications, as well as use it as a cross-platform toolkit to manipulate your own application windows.
 
-This module is a Python 3 evolution from [asweigart's PyGetWindow module](https://github.com/asweigart/PyGetWindow), which adds Linux/X11 and macOS support to the MS Windows-only original module, experimental multi-monitor support, and many additional features; in the hope others can use it, test it or contribute.
+This module is a Python 3 evolution from [asweigart's PyGetWindow module](https://github.com/asweigart/PyGetWindow), which adds Linux/X11 and macOS support to the MS Windows-only original module, multi-monitor support, and many additional features; in the hope others can use it, test it or contribute.
 
-My most sincere thanks and acknowledgement to [MestreLion](https://github.com/MestreLion), [super-ibby](https://github.com/super-ibby), [Avasam](https://github.com/Avasam), [macdeport](https://github.com/macdeport) and [holychowders](https://github.com/holychowders) for their help and moral boost.
+My most sincere thanks and acknowledgement. amongst many others (see AUTHORS.txt), to [MestreLion](https://github.com/MestreLion), [super-ibby](https://github.com/super-ibby), [Avasam](https://github.com/Avasam), [macdeport](https://github.com/macdeport) and [holychowders](https://github.com/holychowders) for their help and moral boost.
 
 1. [Window Features](#window-features)
    1. [Important macOS notice](#macos-notice)
@@ -61,7 +61,7 @@ These functions are available at the moment, in all three platforms (Windows, Li
 ***Important macOS notice <a name="macos-notice"></a>***
 
 macOS doesn't "like" controlling windows from other apps, so there are two separate classes you can use:
-- To control your own application's windows: MacOSNSWindow() is based on NSWindow Objects (you have to pass the NSApp() Object reference).
+- To control your own application's windows: MacOSNSWindow() is based on NSWindow Objects (you have to pass the NSApp() and the NSWindow() objects reference).
 - To control other applications' windows: MacOSWindow() is based on Apple Script, so it is non-standard, slower and, in some cases, tricky (uses window name as reference, which may change or be duplicate), but it's working fine in most cases. You will likely need to grant permissions on Settings -> Security&Privacy -> Accessibility. ***Notice some applications will have limited Apple Script support or no support at all, so some or even all methods may fail!***
 
 ***Important Linux notice <a name="linux-notice"></a>***
@@ -70,7 +70,7 @@ The enormous variety of Linux distributions, Desktop Environments, Window Manage
 
 This module has been tested OK in some X11 setups: Ubuntu/Gnome, Ubuntu/KDE, Ubuntu/Unity, Mint/Cinnamon and Raspbian/LXDE. Except for Mint/Cinnamon and Ubuntu 22.04+, `sendBehind()` method doesn't properly work!
 
-In Wayland (the new GNOME compositor for Ubuntu 22.04+), it is not possible to retrieve the active window nor the list 
+In Wayland (the new GNOME protocol for Ubuntu 22.04+), it is not possible to retrieve the active window nor the list 
 of open windows, so `getActiveWindow()` and `getAllWindows()` will not work even though unsafe-mode is  
 enabled (built-in and "official" applications do not populate their XID nor their X-Window object, so it may work for
 other applications like Chrome or your own application windows)
@@ -79,7 +79,7 @@ In case you find problems in other configs, please [open an issue](https://githu
 
 ## Window Change Notifications <a name="watchdog"></a>
 
-Window watchdog sub-class, running in a separate Thread, will allow you to define hooks and its callbacks to be notified when some window states change. Accessible through 'watchdog' submodule.
+Window watchdog sub-class, running in a separate Thread, will allow to define hooks and its callbacks to be notified when some window states change. Accessible through 'watchdog' submodule.
 
 The watchdog will automatically stop when window doesn't exist anymore or main program quits.
 
@@ -217,7 +217,7 @@ Note not all windows/applications will have a menu accessible by these methods.
 
 To install this module on your system, you can use pip: 
 
-    pip install pywinctl
+    pip3 install pywinctl
 
 or
 
@@ -244,17 +244,13 @@ If you want to use this code or contribute, you can either:
 * Create a fork of the [repository](https://github.com/Kalmat/PyWinCtl), or 
 * [Download the repository](https://github.com/Kalmat/PyWinCtl/archive/refs/heads/master.zip), uncompress, and open it on your IDE of choice (e.g. PyCharm)
 
-Be sure you install all dependencies described on "docs/requirements.txt" by using pip
+Be sure you install all dependencies described on "requirements.txt" by using pip
 
 ## TEST <a name="test"></a>
 
 To test this module on your own system, cd to "tests" folder and run:
 
-    pytest -vv test_pywinctl.py
-
-or, in case you get an import error, try this:
-
-    python3 -m pytest -vv test_pywinctl.py
+    python3 test_pywinctl.py
 
 MacOSNSWindow class and methods can be tested by running this, also on "tests" folder:
 

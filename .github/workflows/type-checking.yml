@@ -24,6 +24,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
-          cache-dependency-path: "docs/requirements.txt"
-      - run: pip install -r "docs/requirements.txt"
+          cache-dependency-path: "requirements.txt"
+      - run: pip install -r "requirements.txt"
       - run: mypy . --python-version=${{ matrix.python-version }}

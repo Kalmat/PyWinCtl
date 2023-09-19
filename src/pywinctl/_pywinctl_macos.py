@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import sys
-
 assert sys.platform == "darwin"
 
 import ast
@@ -61,7 +60,7 @@ def checkPermissions(activate: bool = False) -> bool:
                     set UI_enabled to UI elements enabled
                 end tell
                 return UI_enabled"""
-    proc = subprocess.Popen(['osascript'],  stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
+    proc = subprocess.Popen(['osascript'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
     ret, err = proc.communicate(cmd)
     ret = ret.replace("\n", "")
     return ret == "true"
@@ -95,7 +94,7 @@ def getActiveWindow(app: Optional[AppKit.NSApplication] = None):
                     end try
                     return {appID, winName}
                 end run"""
-        proc = subprocess.Popen(['osascript'],  stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
+        proc = subprocess.Popen(['osascript'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
         ret, err = proc.communicate(cmd)
         entries = ret.replace("\n", "").split(", ")
         try:
@@ -1951,7 +1950,7 @@ class MacOSNSWindow(BaseWindow):
         if includeBorder:
             ret = self._hWnd.contentRectForFrameRect_(self._hWnd.frame())
             frame = self._hWnd.screen().convertRectToBacking_(ret)
-            borderWidth = frame.origina.x - self.left
+            borderWidth = frame.origin.x - self.left
         frame = (borderWidth, borderWidth, borderWidth, borderWidth)
         return frame
 

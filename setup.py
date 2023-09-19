@@ -39,14 +39,14 @@ setup(
         "pywin32>=302; sys_platform == 'win32'",
         "python-xlib>=0.21; sys_platform == 'linux'",
         "pyobjc>=8.1; sys_platform == 'darwin'",
-        "pywinbox>=0.5",
-        "pymonctl>=0.5"
+        "typing_extensions>=4.4.0",
+        "pywinbox>=0.6",
+        "pymonctl>=0.6"
     ],
     extras_require={
         'dev': [
             "types-setuptools>=65.5",
             "mypy>=0.990",
-            "typing_extensions>=4.4.0",
             "types-pywin32>=305.0.0.3",
             "types-python-xlib>=0.32"
         ]

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sys
-
 assert sys.platform == "win32"
 
 import ctypes
@@ -24,7 +23,6 @@ from win32com.client import GetObject
 import win32con
 import win32api
 import win32gui
-
 
 from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
 from pywinbox import Box, Size, Point, Rect, pointInBox
