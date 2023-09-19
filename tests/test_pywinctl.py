@@ -13,6 +13,20 @@ import pywinctl
 
 def test_basic():
 
+    print("PLATFORM:", sys.platform)
+    print()
+    print("MONITORS:")
+    monitors = pywinctl.getAllScreens()
+    for monitor in monitors.keys():
+        print(monitor, monitors[monitor])
+        print()
+    print("ALL WINDOWS")
+    print(pywinctl.getAllTitles())
+    print()
+    print("ALL APPS & WINDOWS")
+    print(pywinctl.getAllAppsWindowsTitles())
+    print()
+
     if sys.platform == "win32":
         subprocess.Popen('notepad')
         time.sleep(0.5)
@@ -66,6 +80,40 @@ if sys.platform == "win32":
 
         wait = True
         timelap = 0.5
+
+        print("ACTIVE WINDOW:", npw.title, "/", npw.box)
+        print()
+        print("CLIENT FRAME:", npw.getClientFrame(), "EXTRA FRAME:", npw.getExtraFrameSize())
+        print()
+        print("MINIMIZED:", npw.isMinimized, "MAXIMIZED:", npw.isMaximized, "ACTIVE:", npw.isActive, "ALIVE:",
+              npw.isAlive, "VISIBLE:", npw.isVisible)
+        print()
+        print("APP NAME:", npw.getAppName())
+        print()
+        dpys = npw.getDisplay()
+        for dpy in dpys:
+            print("WINDOW DISPLAY:", dpy)
+            print()
+        parent = npw.getParent()
+        if parent:
+            parentName = "''"
+            try:
+                parentWin = pywinctl.Window(parent)
+                parentName = parentWin.title
+            except:
+                pass
+            print("WINDOW PARENT:", parent, "/", parentName)
+            print()
+        children = npw.getChildren()
+        for child in children:
+            childName = "''"
+            try:
+                childWin = pywinctl.Window(child)
+                childName = childWin.title
+            except:
+                pass
+            print("WINDOW CHILD:", child, "/", childName)
+            print()
 
         # Test maximize/minimize/restore.
         if npw.isMaximized:  # Make sure it starts un-maximized
@@ -241,6 +289,40 @@ if sys.platform == "linux":
         wait = True
         timelap = 0.5
 
+        print("ACTIVE WINDOW:", npw.title, "/", npw.box)
+        print()
+        print("CLIENT FRAME:", npw.getClientFrame(), "EXTRA FRAME:", npw.getExtraFrameSize())
+        print()
+        print("MINIMIZED:", npw.isMinimized, "MAXIMIZED:", npw.isMaximized, "ACTIVE:", npw.isActive, "ALIVE:",
+              npw.isAlive, "VISIBLE:", npw.isVisible)
+        print()
+        print("APP NAME:", npw.getAppName())
+        print()
+        dpys = npw.getDisplay()
+        for dpy in dpys:
+            print("WINDOW DISPLAY:", dpy)
+            print()
+        parent = npw.getParent()
+        if parent:
+            parentName = "''"
+            try:
+                parentWin = pywinctl.Window(parent)
+                parentName = parentWin.title
+            except:
+                pass
+            print("WINDOW PARENT:", parent, "/", parentName)
+            print()
+        children = npw.getChildren()
+        for child in children:
+            childName = "''"
+            try:
+                childWin = pywinctl.Window(child)
+                childName = childWin.title
+            except:
+                pass
+            print("WINDOW CHILD:", child, "/", childName)
+            print()
+
         # Test maximize/minimize/restore.
         if npw.isMaximized:  # Make sure it starts un-maximized
             npw.restore(wait=wait)
@@ -397,6 +479,40 @@ if sys.platform == "darwin":
 
         wait = True
         timelap = 0.50
+
+        print("ACTIVE WINDOW:", npw.title, "/", npw.box)
+        print()
+        print("CLIENT FRAME:", npw.getClientFrame(), "EXTRA FRAME:", npw.getExtraFrameSize())
+        print()
+        print("MINIMIZED:", npw.isMinimized, "MAXIMIZED:", npw.isMaximized, "ACTIVE:", npw.isActive, "ALIVE:",
+              npw.isAlive, "VISIBLE:", npw.isVisible)
+        print()
+        print("APP NAME:", npw.getAppName())
+        print()
+        dpys = npw.getDisplay()
+        for dpy in dpys:
+            print("WINDOW DISPLAY:", dpy)
+            print()
+        parent = npw.getParent()
+        if parent:
+            parentName = "''"
+            try:
+                parentWin = pywinctl.Window(parent)
+                parentName = parentWin.title
+            except:
+                pass
+            print("WINDOW PARENT:", parent, "/", parentName)
+            print()
+        children = npw.getChildren()
+        for child in children:
+            childName = "''"
+            try:
+                childWin = pywinctl.Window(child)
+                childName = childWin.title
+            except:
+                pass
+            print("WINDOW CHILD:", child, "/", childName)
+            print()
 
         # Test maximize/minimize/restore.
         if npw.isMaximized:  # Make sure it starts un-maximized

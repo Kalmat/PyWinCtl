@@ -2,11 +2,10 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import json
 import sys
-
 assert sys.platform == "linux"
 
+import json
 import os
 import platform
 import re
@@ -23,9 +22,11 @@ import Xlib.Xutil
 import Xlib.ext
 from Xlib.xobject.drawable import Window as XWindow
 
-from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
 from pywinbox import Box, Size, Point, Rect, pointInBox
-from ewmhlib import Props, RootWindow, EwmhWindow, defaultRootWindow
+
+from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
+
+from ewmhlib import EwmhWindow, EwmhRoot, defaultEwmhRoot, Props
 from ewmhlib._ewmhlib import _xlibGetAllWindows
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
@@ -62,18 +63,22 @@ def getActiveWindow() -> Optional[LinuxWindow]:
     :return: Window object or None
     """
     # Wayland doesn't seem to have a way to get the active window or the list of open windows
-    # This alternative works, but will require to enable unsafe_mode (on newer versions, this is also not possible from command-line nor using any gnome-shell extension)
+    # This alternative partially works, but will require to enable unsafe_mode (on newer versions,
+    # this is not possible from command-line nor using any gnome-shell extension, so it has to be done manually)
     # https://unix.stackexchange.com/questions/399753/how-to-get-a-list-of-active-windows-when-using-wayland
     # https://stackoverflow.com/questions/45465016/how-do-i-get-the-active-window-on-gnome-wayland
     # https://askubuntu.com/questions/1412130/dbus-calls-to-gnome-shell-dont-work-under-ubuntu-22-04
     # https://stackoverflow.com/questions/48797323/retrieving-active-window-from-mutter-on-gnome-wayland-session
     # https://discourse.gnome.org/t/get-window-id-of-a-window-object-window-get-xwindow-doesnt-exist/10956/3
+    # https://www.reddit.com/r/gnome/comments/d8x27b/is_there_a_program_that_can_show_keypresses_on/
     if os.environ['XDG_SESSION_TYPE'].lower() == "wayland":
+        # swaymsg -t get_tree | jq '.. | select(.type?) | select(.focused==true).pid'  -> Not working (socket issue)
+        # pynput / mouse --> Not working (no global events allowed, only application events)
         _, activeWindow = _WgetAllWindows()
         if activeWindow and "id" in activeWindow.keys() and str(activeWindow["id"]).startswith("0x"):
             return LinuxWindow(str(activeWindow["id"]))
     else:
-        win_id = defaultRootWindow.getActiveWindow()
+        win_id = defaultEwmhRoot.getActiveWindow()
         if win_id:
             return LinuxWindow(win_id)
     return None
@@ -111,7 +116,7 @@ def getAllWindows():
         windowsList, _ = _WgetAllWindows()
         windows = [str(win["id"]) for win in windowsList if "id" in win.keys() and str(win["id"]).startswith("0x")]
     else:
-        windows = defaultRootWindow.getClientListStacking()
+        windows = defaultEwmhRoot.getClientListStacking()
     return [window for window in __remove_bad_windows(windows)]
 
 
@@ -290,6 +295,12 @@ def _WgetAllWindows() -> Tuple[List[dict[str, Union[str, bool]]], dict[str, Unio
             windowsList.append(output)
             if output["active"]:
                 activeWindow = output
+    else:
+        raise NotImplementedError("PyWinCtl won't likely work in Wayland, since it doesn't allow retrieving active window nor list or open windows.\n"
+                                  "Possible workarounds:\n"
+                                  "\t1. enable global.context.unsafe_mode (although this will only work with some apps/windows, not all)"
+                                  "\t2. Instantiate Window() class with a valid xid, obtained somewhere else (perhaps your own application window?)"
+                                  )
     return windowsList, activeWindow
 
 
@@ -317,7 +328,7 @@ class LinuxWindow(BaseWindow):
             self._hWnd = int(hWnd)
         self._win = EwmhWindow(self._hWnd)
         self._display: Xlib.display.Display = self._win.display
-        self._rootWin: RootWindow = self._win.rootWindow
+        self._rootWin: EwmhRoot = self._win.ewmhRoot
         self._xWin: XWindow = self._win.xWindow
         self.watchdog = _WatchDog(self)
 
@@ -681,8 +692,8 @@ class LinuxWindow(BaseWindow):
         """
         pid = self._win.getPid()
         if pid != 0:
-            with subprocess.Popen(f"ps -q {pid} -o comm=", shell=True, stdout=subprocess.PIPE) as p:
-                stdout, stderr = p.communicate()
+            proc = subprocess.Popen(f"ps -q {pid} -o comm=", shell=True, stdout=subprocess.PIPE)
+            stdout, stderr = proc.communicate()
             name = stdout.decode(encoding="utf8").replace("\n", "")
         else:
             name = ""
@@ -699,7 +710,7 @@ class LinuxWindow(BaseWindow):
     def setParent(self, parent: int) -> bool:
         """
         Current window will become child of given parent
-        WARNIG: Not implemented in AppleScript (not possible in macOS for foreign (other apps') windows)
+        WARNING: Not implemented in AppleScript (not possible in macOS for foreign - other apps' - windows)
 
         :param parent: window to set as current window parent
         :return: ''True'' if current window is now child of given parent

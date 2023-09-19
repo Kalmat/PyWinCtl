@@ -1,9 +1,12 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from ._ewmhlib import (displaysCount, getDisplaysNames, getDisplaysInfo, getDisplayFromRoot, getDisplayFromWindow,
+from ._ewmhlib import (displaysCount, getDisplays, getDisplaysInfo, getRoots, getRootsInfo,
+                       defaultDisplay, defaultScreen, defaultRoot, defaultEwmhRoot,
+                       getDisplayFromRoot, getScreenFromRoot,
+                       getDisplayFromWindow, getScreenFromWindow, getRootFromWindow,
                        getProperty, getPropertyValue, changeProperty, sendMessage,
-                       defaultDisplay, defaultScreen, defaultRoot, RootWindow, defaultRootWindow, EwmhWindow
+                       EwmhRoot, EwmhWindow
                        )
-import ewmhlib.Props as Props
-import ewmhlib.Structs as Structs
+from . import Props
+from . import Structs

@@ -11,9 +11,6 @@ import threading
 import time
 from typing import Optional, cast, Callable, Union, List, Tuple, Iterable
 
-from ctypes import cdll, byref, CDLL
-from ctypes.util import find_library
-
 import Xlib.display
 import Xlib.protocol
 from Xlib.protocol.rq import Struct
@@ -21,64 +18,59 @@ import Xlib.X
 import Xlib.Xatom
 import Xlib.Xutil
 import Xlib.ext
+from Xlib.ext import randr
 import Xlib.xobject
 from Xlib.xobject.drawable import Window as XWindow
 
-from ewmhlib.Props import Root, DesktopLayout, Window, WindowType, State, StateAction, MoveResize, DataFormat, Mode, HintAction
-from ewmhlib.Structs import DisplaysInfo, ScreensInfo, WmHints, Aspect, WmNormalHints, _XWindowAttributes
+from ewmhlib.Props import (Root, DesktopLayout, Window, WindowType, State, StateAction,
+                           MoveResize, DataFormat, Mode, HintAction)
+from ewmhlib.Structs import DisplaysInfo, ScreensInfo, WmHints, Aspect, WmNormalHints
 
 
-defaultDisplay = Xlib.display.Display()
-defaultScreen = defaultDisplay.screen()
-defaultRoot = defaultScreen.root
+defaultDisplay: Xlib.display.Display = Xlib.display.Display()
+defaultScreen: Struct = defaultDisplay.screen()
+defaultRoot: XWindow = defaultScreen.root
 
 
-def _getDisplaysCount() -> int:
-    count = 0
-    files: List[str] = os.listdir("/tmp/.X11-unix")
-    for d in files:
-        if d.startswith("X"):
-            name: str = ":" + d[1:]
-            try:
-                display: Xlib.display.Display = Xlib.display.Display(name)
-                display.close()
-                count += 1
-            except:
-                pass
-    return count
+def getDisplays(forceUpdate: bool = False) -> List[Xlib.display.Display]:
+    """
+    Get a list of connections to all existing Displays.
 
-
-displaysCount = _getDisplaysCount()
-
-
-def getDisplaysNames() -> List[str]:
-    displays: List[str] = []
-    if displaysCount > 1:
+    :param forceUpdate: display connections are set at the time of importing the module, and remains static. Set this to ''True'' to force updating it.
+    :return: list of display connections
+    """
+    global _displays
+    if forceUpdate:
+        _displays = []
+    if not _displays and os.environ['XDG_SESSION_TYPE'].lower() != "wayland":
+        # Wayland adds a "fake" display (typically ":1") that freezes when trying to get a connection. Using default
+        # Thanks to SamuMazzi - https://github.com/SamuMazzi for pointing out this issue
         files: List[str] = os.listdir("/tmp/.X11-unix")
         for d in files:
             if d.startswith("X"):
-                name: str = ":" + d[1:]
+                name: str = d.replace("X", ":", 1)
                 try:
-                    display: Xlib.display.Display = Xlib.display.Display(name)
-                    display.close()
-                    displays.append(name)
+                    _displays.append(Xlib.display.Display(name))
                 except:
                     pass
-    else:
-        displays.append(defaultDisplay.get_display_name())
-    return displays
+    if not _displays:
+        _displays = [defaultDisplay]
+    return _displays
+_displays: List[Xlib.display.Display] = []
+displaysCount: int = len(getDisplays())
 
 
 def getDisplaysInfo() -> dict[str, DisplaysInfo]:
     """
-    Gets relevant information on all present displays, including its screens and roots
+    Get relevant information on all present displays, including its screens and roots
 
     Returned dictionary has the following structure:
 
-    "name": display name (use Xlib.display.Display(name) to get a connection)
+        "display": display connection to access all display features and protocols
+        "name": display name
         "is_default": ''True'' if it's the default display, ''False'' otherwise
         "screens": List of sub-dict containing all screens owned by the display
-            "scrSeq": number of the screen (as per display.screen(M))
+            "scrSeq": number of the screen (as per display.screen(scrSeq))
             "screen": Struct containing all screen info
             "root": root window (Xlib Window) which belongs to the screen
             "is_default": ''True'' if it's the default screen/root, ''False'' otherwise
@@ -86,8 +78,8 @@ def getDisplaysInfo() -> dict[str, DisplaysInfo]:
     :return: dict with all displays, screens and roots info
     """
     dspInfo: dict[str, DisplaysInfo] = {}
-    for name in getDisplaysNames():
-        display = Xlib.display.Display(name)
+    for display in getDisplays():
+        name = display.get_display_name()
         screens: List[ScreensInfo] = []
         for s in range(display.screen_count()):
             try:
@@ -102,64 +94,100 @@ def getDisplaysInfo() -> dict[str, DisplaysInfo]:
             except:
                 pass
         displayInfo: DisplaysInfo = {
+            "display": display,
             "name": name,
-            "is_default": (display.get_display_name() == defaultDisplay.get_display_name()),
+            "is_default": (name == defaultDisplay.get_display_name()),
             "screens": screens
         }
-        display.close()
         dspInfo[name] = displayInfo
     return dspInfo
 
 
 def getDisplayFromWindow(winId: int) -> Tuple[Xlib.display.Display, Struct, XWindow]:
     """
-    Gets display connection, screen and root window from a given window id to which it belongs
+    Get display connection, screen and root window from a given window id to which it belongs
 
     :param winId: id of the window
     :return: tuple containing display connection, screen struct and root window
     """
-    # res, attr = _XGetAttributes(winId)
-    # if res and hasattr(attr, "root"):
-    #     return getDisplayFromRoot(attr.root)
-    # else:
     if displaysCount > 1 or defaultDisplay.screen_count() > 1:
-        for name in getDisplaysNames():
-            display = Xlib.display.Display(name)
+        global _rootsInfo
+        for rootData in _rootsInfo:
+            display, screen, root, res = rootData
             atom: int = display.get_atom(Root.CLIENT_LIST)
-            for s in range(display.screen_count()):
-                try:
-                    scr: Struct = display.screen(s)
-                    r: XWindow = scr.root
-                    ret: Optional[Xlib.protocol.request.GetProperty] = r.get_full_property(atom, Xlib.X.AnyPropertyType)
-                    if ret and hasattr(ret, "value") and winId in ret.value:
-                        return display, scr, r
-                except:
-                    pass
-            display.close()
+            ret: Optional[Xlib.protocol.request.GetProperty] = root.get_full_property(atom, Xlib.X.AnyPropertyType)
+            if ret and hasattr(ret, "value") and winId in ret.value:
+                return display, screen, root
     return defaultDisplay, defaultScreen, defaultRoot
+getScreenFromWindow = getDisplayFromWindow
+getRootFromWindow = getDisplayFromWindow
 
 
 def getDisplayFromRoot(rootId: Optional[int]) -> Tuple[Xlib.display.Display, Struct, XWindow]:
     """
-    Gets display connection, screen and root window from a given root id to which it belongs.
+    Get display connection, screen and root window from a given root id to which it belongs.
     For default root, this is not needed. Use defaultDisplay, defaultScreen and defaultRoot instead.
 
     :param rootId: id of the target root
     :return: tuple containing display connection, screen struct and root window
     """
     if rootId and rootId != defaultRoot.id and (displaysCount > 1 or defaultDisplay.screen_count() > 1):
-        for name in getDisplaysNames():
-            display = Xlib.display.Display(name)
-            for s in range(display.screen_count()):
+        global _rootsInfo
+        for rootData in _rootsInfo:
+            display, screen, root, res = rootData
+            if rootId == root.id:
+                return display, screen, root
+    return defaultDisplay, defaultScreen, defaultRoot
+getScreenFromRoot = getDisplayFromRoot
+
+
+def _getRootsInfo() -> Tuple[List[Tuple[Xlib.display.Display, Struct, XWindow, Xlib.ext.randr.GetScreenResources]], List[XWindow]]:
+    res: Xlib.ext.randr.GetScreenResources = randr.get_screen_resources(defaultRoot)
+    rootsInfo: List[Tuple[Xlib.display.Display, Struct, XWindow, Xlib.ext.randr.GetScreenResources]] = [(defaultDisplay, defaultScreen, defaultRoot, res)]
+    roots: List[XWindow] = [defaultRoot]
+    displays: List[Xlib.display.Display] = getDisplays()
+    if len(displays) > 1 or defaultDisplay.screen_count() > 1:
+        for display in displays:
+            for i in range(display.screen_count()):
                 try:
-                    scr: Struct = display.screen(s)
-                    r: XWindow = scr.root
-                    if rootId == r.id:
-                        return display, scr, r
+                    screen: Struct = display.screen(i)
+                    root: XWindow = screen.root
+                    if root.id != defaultRoot.id:
+                        res = randr.get_screen_resources(root)
+                        rootsInfo.append((display, screen, root, res))
+                        roots.append(root)
                 except:
                     pass
-            display.close()
-    return defaultDisplay, defaultScreen, defaultRoot
+    return rootsInfo, roots
+_rootsInfo, _roots = _getRootsInfo()
+
+
+def getRootsInfo(forceUpdate: bool = False) -> List[Tuple[Xlib.display.Display, Struct, XWindow, Xlib.ext.randr.GetScreenResources]]:
+    """
+    Get all roots windows objects and related information.
+
+    :param forceUpdate: roots info is retrieved at the time of importing the module, and remains static. Set this to ''True'' to force updating it.
+    :return: list of tuples, each of them containing: display connection, screen struct, root window and screen resources
+    """
+    global _rootsInfo
+    if forceUpdate:
+        global _roots
+        _rootsInfo, _roots = _getRootsInfo()
+    return _rootsInfo
+
+
+def getRoots(forceUpdate: bool = False) -> List[XWindow]:
+    """
+    Get root windows objects.
+
+    :param forceUpdate: roots info is retrieved at the time of importing the module, and remains static. Set this to ''True'' to force updating it.
+    :return: list of X-Window objects
+    """
+    global _roots
+    if forceUpdate:
+        global _rootsInfo
+        _rootsInfo, _roots = _getRootsInfo()
+    return _roots
 
 
 def getProperty(window: XWindow, prop: Union[str, int],
@@ -266,11 +294,11 @@ def getPropertyValue(prop: Optional[Xlib.protocol.request.GetProperty], text: bo
     return None
 
 
-class RootWindow:
+class EwmhRoot:
     """
     Base class to access root features.
 
-    To get a RootWindow object it's necessary to pass the target root id. This can be achieved in several ways:
+    To get a EwmhRoot object it's necessary to pass the target root id. This can be achieved in several ways:
 
     - You already have a root, so pass root.id param
 
@@ -292,7 +320,7 @@ class RootWindow:
 
     - id: root window id
 
-    WM_PROTOCOLS messages (PING/SYNC) are accessible using wmProtocols subclass (RootWindow.wmProtocols.Ping/Sync)
+    WM_PROTOCOLS messages (PING/SYNC) are accessible using wmProtocols subclass (EwmhRoot.wmProtocols.Ping/Sync)
     """
 
     def __init__(self, root: Optional[Union[XWindow, int]] = None):
@@ -601,7 +629,7 @@ class RootWindow:
 
     def setDesktopLayout(self, orientation: Union[int, DesktopLayout], columns: int, rows: int, starting_corner: Union[int, DesktopLayout]):
         """
-        Values (as per RootWindow.DesktopLayout):
+        Values (as per EwmhRoot.DesktopLayout):
           _NET_WM_ORIENTATION_HORZ 0
           _NET_WM_ORIENTATION_VERT 1
 
@@ -887,7 +915,7 @@ class RootWindow:
 
     class _WmProtocols:
         # Is all this necessary/interesting?
-        # Besides, should they be included within RootWindow class or outside?
+        # Besides, should they be included within EwmhRoot class or outside?
 
         def __init__(self, display: Xlib.display.Display, root: XWindow):
             self._display = display
@@ -968,7 +996,7 @@ class RootWindow:
                         self._display, self._root)
 
 
-defaultRootWindow = RootWindow()
+defaultEwmhRoot = EwmhRoot()
 
 
 class EwmhWindow:
@@ -991,7 +1019,7 @@ class EwmhWindow:
 
     - root: root X Window object
 
-    - rootWindow: object to access RootWindow methods
+    - EwmhRoot: object to access EwmhRoot methods
 
     - xWindow: X Window object associated to current window
 
@@ -1013,7 +1041,7 @@ class EwmhWindow:
             self.xWindow = self.display.create_resource_object('window', self.id)
         else:
             raise ValueError
-        self.rootWindow: RootWindow = defaultRootWindow if self.root.id == defaultRoot.id else RootWindow(self.root)
+        self.ewmhRoot: EwmhRoot = defaultEwmhRoot if self.root.id == defaultRoot.id else EwmhRoot(self.root)
         self.extensions = _Extensions(self.id, self.display, self.root)
 
         self._currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()
@@ -1064,8 +1092,16 @@ class EwmhWindow:
 
         :return: name of the window as str or None (nothing obtained)
         """
+        # Xlib's get_wm_name() returns empty strings in some cases
+        # Thanks to cedricscheepers - https://github.com/cedricscheepers for pointing out this issue
         ret: Optional[Xlib.protocol.request.GetProperty] = self.getProperty(Window.NAME)
         res: Optional[Union[List[int], List[str]]] = getPropertyValue(ret, display=self.display)
+        # Some (older) apps do not set _NET_WM_NAME property, but WM_NAME. Using it as fallback
+        # Thans to ReaperMantis - https://github.com/ReaperMantis for finding a solution!
+        if res:
+            return str(res[0])
+        ret = self.getProperty(Window.LEGACY_NAME)
+        res = getPropertyValue(ret, display=self.display)
         if res:
             return str(res[0])
         return None
@@ -1182,8 +1218,8 @@ class EwmhWindow:
         :param newDesktop: target desktop index (as per getNumberOfDesktops())
         :param userAction: source indication (user or pager/manager action). Defaults to True
         """
-        numDesktops: Optional[int] = self.rootWindow.getNumberOfDesktops()
-        currDesktop: Optional[int] = self.rootWindow.getCurrentDesktop()
+        numDesktops: Optional[int] = self.ewmhRoot.getNumberOfDesktops()
+        currDesktop: Optional[int] = self.ewmhRoot.getCurrentDesktop()
         if numDesktops is not None and 0 <= newDesktop <= numDesktops and currDesktop is not None and newDesktop != currDesktop:
             self.sendMessage(Window.DESKTOP, [newDesktop, Xlib.X.CurrentTime, 2 if userAction else 1])
 
@@ -2640,174 +2676,176 @@ def _xlibGetAllWindows(parent: Optional[XWindow] = None, title: str = "", klass:
     return allWindows
 
 
-def _createSimpleWindow(parent: XWindow, x: int, y: int, width: int, height: int, override: bool = False,
-                        inputOnly: bool = False, display: Xlib.display.Display = defaultDisplay) -> EwmhWindow:
-    if inputOnly:
-        mask = Xlib.X.ButtonPressMask | Xlib.X.ButtonReleaseMask | Xlib.X.KeyPressMask | Xlib.X.KeyReleaseMask
-    else:
-        mask = Xlib.X.NoEventMask
-    win: XWindow = parent.create_window(x=x, y=y, width=width, height=height,
-                                        border_width=0, depth=Xlib.X.CopyFromParent,
-                                        window_class=Xlib.X.InputOutput,
-                                        # window_class=Xlib.X.InputOnly,  # -> This fails!
-                                        visual=Xlib.X.CopyFromParent,
-                                        background_pixel=Xlib.X.CopyFromParent,
-                                        event_mask=mask,
-                                        colormap=Xlib.X.CopyFromParent,
-                                        override_redirect=override,
-                                        )
-    win.map()
-    display.flush()
-    window: EwmhWindow = EwmhWindow(win.id)
-    return window
+# def _createSimpleWindow(parent: XWindow, x: int, y: int, width: int, height: int, override: bool = False,
+#                         inputOnly: bool = False, display: Xlib.display.Display = defaultDisplay) -> EwmhWindow:
+#     if inputOnly:
+#         mask = Xlib.X.ButtonPressMask | Xlib.X.ButtonReleaseMask | Xlib.X.KeyPressMask | Xlib.X.KeyReleaseMask
+#     else:
+#         mask = Xlib.X.NoEventMask
+#     win: XWindow = parent.create_window(x=x, y=y, width=width, height=height,
+#                                         border_width=0, depth=Xlib.X.CopyFromParent,
+#                                         window_class=Xlib.X.InputOutput,
+#                                         # window_class=Xlib.X.InputOnly,  # -> This fails!
+#                                         visual=Xlib.X.CopyFromParent,
+#                                         background_pixel=Xlib.X.CopyFromParent,
+#                                         event_mask=mask,
+#                                         colormap=Xlib.X.CopyFromParent,
+#                                         override_redirect=override,
+#                                         )
+#     win.map()
+#     display.flush()
+#     window: EwmhWindow = EwmhWindow(win.id)
+#     return window
+#
+#
+# def _createTransient(display: Xlib.display.Display, parent: XWindow, transient_for: XWindow,
+#                      callback: Callable[[Xlib.protocol.rq.Event], None], x: int, y: int, width: int, height: int,
+#                      override: bool = False, inputOnly: bool = False) -> Tuple[EwmhWindow, List[int]]:
+#     # https://shallowsky.com/blog/programming/click-thru-translucent-update.html
+#     # https://github.com/python-xlib/python-xlib/issues/200
+#
+#     transientWindow: EwmhWindow = _createSimpleWindow(parent, x, y, width, height, override, inputOnly, display)
+#     xWin: XWindow = transientWindow.xWindow
+#
+#     onebyte: int = int(0xAA)  # Calculate as 0xff * target_opacity
+#     fourbytes: int = onebyte | (onebyte << 8) | (onebyte << 16) | (onebyte << 24)
+#     xWin.change_property(display.get_atom('_NET_WM_WINDOW_OPACITY'), Xlib.Xatom.CARDINAL, 32, [fourbytes])
+#
+#     input_pm: Xlib.xobject.drawable.Pixmap = xWin.create_pixmap(width, height, 1)
+#     gc: Xlib.xobject.fontable.GC = input_pm.create_gc(foreground=0, background=0)
+#     input_pm.fill_rectangle(gc.id, 0, 0, width, height)
+#     xWin.shape_mask(Xlib.ext.shape.SO.Set, Xlib.ext.shape.SK.Input, 0, 0, input_pm)  # type: ignore[attr-defined]  # pyright: ignore[reportGeneralTypeIssues, reportUnknownMemberType]
+#     # xWin.shape_select_input(0)
+#
+#     xWin.map()
+#     display.flush()
+#
+#     xWin.set_wm_transient_for(transient_for)
+#     display.flush()
+#
+#     currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()
+#     # otherDesktop = os.environ.get("DESKTOP_SESSION").lower()  # -> Returns None
+#     if "gnome" in currDesktop:
+#         gaps = [24, 24, -40, -80]
+#     elif "cinnamon" in currDesktop:
+#         gaps = [-2, -32, +46, +112]
+#     elif "kde" in currDesktop:
+#         # KDE has a totally different behavior. Must investigate/test
+#         gaps = [0, 0, 0, 0]
+#     else:
+#         gaps = [0, 0, 0, 0]
+#
+#     pgeom: Xlib.protocol.request.GetGeometry = transient_for.get_geometry()
+#     xWin.configure(x=max(0, x + gaps[0]), y=max(0, y + gaps[1]), width=pgeom.width + gaps[2], height=pgeom.height + gaps[3])
+#     display.flush()
+#
+#     transientWindow.extensions.checkEvents.start(
+#         [Xlib.X.ConfigureNotify],
+#         Xlib.X.StructureNotifyMask | Xlib.X.SubstructureNotifyMask,
+#         callback
+#     )
+#
+#     # Removing actions but not decoration, since it causes not to capture Keyboard and mouse,
+#     transientWindow.changeProperty(display.get_atom("_MOTIF_WM_HINTS"), [1, 0, 1, 0, 0])
+#     # Same happens with DESKTOP (???), SPLASH, DOCK or override_redirect
+#     # transientWindow.setWmWindowType(WindowType.DESKTOP)
+#     # MODAL doesn't behave as expected (it doesn't block main window)
+#     transientWindow.changeWmState(StateAction.ADD, State.MODAL, State.BELOW)
+#     # x, y, w, h = _getWindowGeom(transientWindow.xWindow, defaultRoot)
+#     # normal_hints = transient_for.get_wm_normal_hints()
+#     # normal_hints.flags = 808
+#     # normal_hints.min_width = normal_hints.max_width = w + gaps[2]
+#     # normal_hints.min_height = normal_hints.max_height = h + gaps[3]
+#     # transientWindow.xWindow.set_wm_normal_hints(normal_hints)
+#     # hints = transient_for.get_wm_hints()
+#     # transientWindow.xWindow.set_wm_hints(hints)
+#
+#     return transientWindow, gaps
+#
+#
+# def _closeTransient(transientWindow: EwmhWindow):
+#     transientWindow.extensions.checkEvents.stop()
+#     transientWindow.xWindow.set_wm_transient_for(transientWindow.root)
+#     transientWindow.display.flush()
+#     transientWindow.xWindow.unmap()  # It seems not to properly close if not unmapped first
+#     transientWindow.display.flush()
+#     transientWindow.setClosed()
+#
+# from ctypes import cdll, CDLL
+# from ctypes.util import find_library
+#
+# _xlib: Optional[Union[CDLL, int]] = -1
+# _xcomp: Optional[Union[CDLL, int]] = -1
+#
+#
+# def _loadX11Library() -> Optional[CDLL]:
+#     global _xlib
+#     if isinstance(_xlib, int):
+#         lib: Optional[CDLL] = None
+#         try:
+#             libPath: Optional[str] = find_library('X11')
+#             if libPath:
+#                 lib = cdll.LoadLibrary(libPath)
+#         except:
+#             pass
+#         _xlib = lib
+#     return _xlib
+#
+#
+# def _loadXcompLibrary() -> Optional[CDLL]:
+#     global _xcomp
+#     if isinstance(_xcomp, int):
+#         lib: Optional[CDLL] = None
+#         try:
+#             libPath: Optional[str] = find_library('Xcomposite')
+#             if libPath:
+#                 lib = cdll.LoadLibrary(libPath)
+#         except:
+#             pass
+#         _xcomp = lib
+#     return _xcomp
 
-
-def _createTransient(display: Xlib.display.Display, parent: XWindow, transient_for: XWindow,
-                     callback: Callable[[Xlib.protocol.rq.Event], None], x: int, y: int, width: int, height: int,
-                     override: bool = False, inputOnly: bool = False) -> Tuple[EwmhWindow, List[int]]:
-    # https://shallowsky.com/blog/programming/click-thru-translucent-update.html
-    # https://github.com/python-xlib/python-xlib/issues/200
-
-    transientWindow: EwmhWindow = _createSimpleWindow(parent, x, y, width, height, override, inputOnly, display)
-    xWin: XWindow = transientWindow.xWindow
-
-    onebyte: int = int(0xAA)  # Calculate as 0xff * target_opacity
-    fourbytes: int = onebyte | (onebyte << 8) | (onebyte << 16) | (onebyte << 24)
-    xWin.change_property(display.get_atom('_NET_WM_WINDOW_OPACITY'), Xlib.Xatom.CARDINAL, 32, [fourbytes])
-
-    input_pm: Xlib.xobject.drawable.Pixmap = xWin.create_pixmap(width, height, 1)
-    gc: Xlib.xobject.fontable.GC = input_pm.create_gc(foreground=0, background=0)
-    input_pm.fill_rectangle(gc.id, 0, 0, width, height)
-    xWin.shape_mask(Xlib.ext.shape.SO.Set, Xlib.ext.shape.SK.Input, 0, 0, input_pm)  # type: ignore[attr-defined]  # pyright: ignore[reportGeneralTypeIssues, reportUnknownMemberType]
-    # xWin.shape_select_input(0)
-
-    xWin.map()
-    display.flush()
-
-    xWin.set_wm_transient_for(transient_for)
-    display.flush()
-
-    currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()
-    # otherDesktop = os.environ.get("DESKTOP_SESSION").lower()  # -> Returns None
-    if "gnome" in currDesktop:
-        gaps = [24, 24, -40, -80]
-    elif "cinnamon" in currDesktop:
-        gaps = [-2, -32, +46, +112]
-    elif "kde" in currDesktop:
-        # KDE has a totally different behavior. Must investigate/test
-        gaps = [0, 0, 0, 0]
-    else:
-        gaps = [0, 0, 0, 0]
-
-    pgeom: Xlib.protocol.request.GetGeometry = transient_for.get_geometry()
-    xWin.configure(x=max(0, x + gaps[0]), y=max(0, y + gaps[1]), width=pgeom.width + gaps[2], height=pgeom.height + gaps[3])
-    display.flush()
-
-    transientWindow.extensions.checkEvents.start(
-        [Xlib.X.ConfigureNotify],
-        Xlib.X.StructureNotifyMask | Xlib.X.SubstructureNotifyMask,
-        callback
-    )
-
-    # Removing actions but not decoration, since it causes not to capture Keyboard and mouse,
-    transientWindow.changeProperty(display.get_atom("_MOTIF_WM_HINTS"), [1, 0, 1, 0, 0])
-    # Same happens with DESKTOP (???), SPLASH, DOCK or override_redirect
-    # transientWindow.setWmWindowType(WindowType.DESKTOP)
-    # MODAL doesn't behave as expected (it doesn't block main window)
-    transientWindow.changeWmState(StateAction.ADD, State.MODAL, State.BELOW)
-    # x, y, w, h = _getWindowGeom(transientWindow.xWindow, defaultRoot)
-    # normal_hints = transient_for.get_wm_normal_hints()
-    # normal_hints.flags = 808
-    # normal_hints.min_width = normal_hints.max_width = w + gaps[2]
-    # normal_hints.min_height = normal_hints.max_height = h + gaps[3]
-    # transientWindow.xWindow.set_wm_normal_hints(normal_hints)
-    # hints = transient_for.get_wm_hints()
-    # transientWindow.xWindow.set_wm_hints(hints)
-
-    return transientWindow, gaps
-
-
-def _closeTransient(transientWindow: EwmhWindow):
-    transientWindow.extensions.checkEvents.stop()
-    transientWindow.xWindow.set_wm_transient_for(transientWindow.root)
-    transientWindow.display.flush()
-    transientWindow.xWindow.unmap()  # It seems not to properly close if not unmapped first
-    transientWindow.display.flush()
-    transientWindow.setClosed()
-
-
-_xlib: Optional[Union[CDLL, int]] = -1
-_xcomp: Optional[Union[CDLL, int]] = -1
-
-
-def _loadX11Library() -> Optional[CDLL]:
-    global _xlib
-    if isinstance(_xlib, int):
-        lib: Optional[CDLL] = None
-        try:
-            libPath: Optional[str] = find_library('X11')
-            if libPath:
-                lib = cdll.LoadLibrary(libPath)
-        except:
-            pass
-        _xlib = lib
-    return _xlib
-
-
-def _loadXcompLibrary() -> Optional[CDLL]:
-    global _xcomp
-    if isinstance(_xcomp, int):
-        lib: Optional[CDLL] = None
-        try:
-            libPath: Optional[str] = find_library('Xcomposite')
-            if libPath:
-                lib = cdll.LoadLibrary(libPath)
-        except:
-            pass
-        _xcomp = lib
-    return _xcomp
-
-
-def _XGetAttributes(winId: int, dpyName: str = "") -> Tuple[bool, _XWindowAttributes]:
-    """
-        int x, y;                     /* location of window */
-        int width, height;            /* width and height of window */
-        int border_width;             /* border width of window */
-        int depth;                    /* depth of window */
-        Visual *visual;               /* the associated visual structure */
-        Window root;                  /* root of screen containing window */
-        int class;                    /* InputOutput, InputOnly*/
-        int bit_gravity;              /* one of the bit gravity values */
-        int win_gravity;              /* one of the window gravity values */
-        int backing_store;            /* NotUseful, WhenMapped, Always */
-        unsigned long backing_planes; /* planes to be preserved if possible */
-        unsigned long backing_pixel;  /* value to be used when restoring planes */
-        Bool save_under;              /* boolean, should bits under be saved? */
-        Colormap colormap;            /* color map to be associated with window */
-        Bool map_installed;           /* boolean, is color map currently installed*/
-        int map_state;                /* IsUnmapped, IsUnviewable, IsViewable */
-        long all_event_masks;         /* set of events all people have interest in*/
-        long your_event_mask;         /* my event mask */
-        long do_not_propagate_mask;   /* set of events that should not propagate */
-        Bool override_redirect;       /* boolean value for override-redirect */
-        Screen *screen;               /* back pointer to correct screen */
-    """
-    res: bool = False
-    attr: _XWindowAttributes = _XWindowAttributes()
-
-    xlib: Optional[CDLL] = _loadX11Library()
-
-    if xlib:
-        try:
-            if not dpyName:
-                dpyName = defaultDisplay.get_display_name()
-            dpy: int = xlib.XOpenDisplay(dpyName.encode())
-            xlib.XGetWindowAttributes(dpy, winId, byref(attr))
-            xlib.XCloseDisplay(dpy)
-            res = True
-        except:
-            pass
-    return res, attr
+# from ewmhlib.Structs._structs import _XWindowAttributes
+# def _XGetAttributes(winId: int, dpyName: str = "") -> Tuple[bool, _XWindowAttributes]:
+#     """
+#         int x, y;                     /* location of window */
+#         int width, height;            /* width and height of window */
+#         int border_width;             /* border width of window */
+#         int depth;                    /* depth of window */
+#         Visual *visual;               /* the associated visual structure */
+#         Window root;                  /* root of screen containing window */
+#         int class;                    /* InputOutput, InputOnly*/
+#         int bit_gravity;              /* one of the bit gravity values */
+#         int win_gravity;              /* one of the window gravity values */
+#         int backing_store;            /* NotUseful, WhenMapped, Always */
+#         unsigned long backing_planes; /* planes to be preserved if possible */
+#         unsigned long backing_pixel;  /* value to be used when restoring planes */
+#         Bool save_under;              /* boolean, should bits under be saved? */
+#         Colormap colormap;            /* color map to be associated with window */
+#         Bool map_installed;           /* boolean, is color map currently installed*/
+#         int map_state;                /* IsUnmapped, IsUnviewable, IsViewable */
+#         long all_event_masks;         /* set of events all people have interest in*/
+#         long your_event_mask;         /* my event mask */
+#         long do_not_propagate_mask;   /* set of events that should not propagate */
+#         Bool override_redirect;       /* boolean value for override-redirect */
+#         Screen *screen;               /* back pointer to correct screen */
+#     """
+#     res: bool = False
+#     attr: _XWindowAttributes = _XWindowAttributes()
+#
+#     xlib: Optional[CDLL] = _loadX11Library()
+#
+#     if xlib:
+#         try:
+#             if not dpyName:
+#                 dpyName = defaultDisplay.get_display_name()
+#             dpy: int = xlib.XOpenDisplay(dpyName.encode())
+#             xlib.XGetWindowAttributes(dpy, winId, byref(attr))
+#             xlib.XCloseDisplay(dpy)
+#             res = True
+#         except:
+#             pass
+#     return res, attr
 
     # Leaving this as reference of using X11 library
     # https://github.com/evocount/display-management/blob/c4f58f6653f3457396e44b8c6dc97636b18e8d8a/displaymanagement/rotation.py

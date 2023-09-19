@@ -1,9 +1,10 @@
-0.1, 2023/02/03 -- LINUX: Added experimental Wayland support (only if unsafe mode enabled and only for some apps).
+0.2, 2023/09/09 -- LINUX: Added experimental Wayland support (only if unsafe mode enabled and only for some apps).
+                          Fixed ewmhlib freezing in Wayland when connecting to display ":1", and added some performance improvements
+0.1, 2023/09/06 -- LINUX: Fixed all title-related methods (title, getAllTitles, getAllAppsWindowTitles, etc.) returning empty values when using Xlib's get_wm_name()
                    MACOS: Tested OK in multi-monitor setups (based on PyWinBox and PyMonCtl features).
                    ALL: getDisplay() method returns a list of monitors.
 0.0.50, 2023/02/03 -- ALL: Added PyMonCtl module to improve multi-monitor capabilities, added setParent() method. Reorganized to avoid IDEs showing external and / or private elements
                       WINDOWS: Simplified alwaysOnBottom(), found a smarter way to refresh window after bringing it back with sendBehind()
-                      MACOS: Tested in multi-monitor setups (based on PyWinBox and PyMonCtl features)
                       MACOSNSWINDOW: Added experimental acceptInput() method (not possible in AppleScript version)
 0.0.45, 2023/08/21 -- ALL: Included PyWinBox module which hopefully better handles multi-monitor setups (macOS tests pending)
                       LINUX: Fixed geometry calculations (thanks to roym899), removed ewmh and pynput dependencies

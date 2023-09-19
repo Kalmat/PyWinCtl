@@ -1,6 +1,8 @@
-from typing import List
+#!/usr/bin/python
+# -*- coding: utf-8 -*-#from typing import List
 
 from typing_extensions import TypedDict
+from typing import List
 
 from ctypes import Structure, c_int32, c_ulong, c_uint32
 import Xlib.xobject
@@ -31,6 +33,7 @@ class DisplaysInfo(TypedDict):
         - is_default: ''True'' if the display is the default display
         - screens: list of ScreensInfo structs belonging to display
     """
+    display: Xlib.display.Display
     name: str
     is_default: bool
     screens: List[ScreensInfo]
