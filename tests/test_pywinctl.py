@@ -495,25 +495,13 @@ if sys.platform == "darwin":
             print()
         parent = npw.getParent()
         if parent:
-            parentHandle = 0
-            parentName = "''"
-            try:
-                parentApp, parentName = parent
-                parentWin = pywinctl.Window(parentApp, parentName)
-                parentHandle = parentWin.getHandle()
-            except:
-                pass
-            print("WINDOW PARENT:", parentHandle, "/", parentName)
+            parentApp, parentName = parent
+            print("WINDOW PARENT:", parentApp, "/", parentName)
             print()
         children = npw.getChildren()
         for child in children:
-            childName = "''"
-            try:
-                childWin = pywinctl.Window(child)
-                childName = childWin.title
-            except:
-                pass
-            print("WINDOW CHILD:", child, "/", childName)
+            appName, childName = child
+            print("WINDOW CHILD:", appName, "/", childName)
             print()
 
         # Test maximize/minimize/restore.
