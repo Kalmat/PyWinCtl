@@ -1,3 +1,4 @@
+0.3, 2023/09/20 -- LINUX: Improved Wayland support for some apps which (surprisingly) work using X11/XOrg (thanks to SamuMazzi for his help!).
 0.2, 2023/09/09 -- LINUX: Added experimental Wayland support (only if unsafe mode enabled and only for some apps).
                           Fixed ewmhlib freezing in Wayland when connecting to display ":1", and added some performance improvements
 0.1, 2023/09/06 -- LINUX: Fixed all title-related methods (title, getAllTitles, getAllAppsWindowTitles, etc.) returning empty values when using Xlib's get_wm_name()

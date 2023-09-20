@@ -71,16 +71,17 @@ def getActiveWindow() -> Optional[LinuxWindow]:
     # https://stackoverflow.com/questions/48797323/retrieving-active-window-from-mutter-on-gnome-wayland-session
     # https://discourse.gnome.org/t/get-window-id-of-a-window-object-window-get-xwindow-doesnt-exist/10956/3
     # https://www.reddit.com/r/gnome/comments/d8x27b/is_there_a_program_that_can_show_keypresses_on/
+    win_id: Union[str, int] = 0
     if os.environ['XDG_SESSION_TYPE'].lower() == "wayland":
         # swaymsg -t get_tree | jq '.. | select(.type?) | select(.focused==true).pid'  -> Not working (socket issue)
         # pynput / mouse --> Not working (no global events allowed, only application events)
         _, activeWindow = _WgetAllWindows()
-        if activeWindow and "id" in activeWindow.keys() and str(activeWindow["id"]).startswith("0x"):
-            return LinuxWindow(str(activeWindow["id"]))
-    else:
+        if activeWindow:
+            win_id = str(activeWindow["id"])
+    if not win_id:
         win_id = defaultEwmhRoot.getActiveWindow()
-        if win_id:
-            return LinuxWindow(win_id)
+    if win_id:
+        return LinuxWindow(win_id)
     return None
 
 
@@ -114,7 +115,7 @@ def getAllWindows():
     """
     if os.environ['XDG_SESSION_TYPE'].lower() == "wayland":
         windowsList, _ = _WgetAllWindows()
-        windows = [str(win["id"]) for win in windowsList if "id" in win.keys() and str(win["id"]).startswith("0x")]
+        windows = [str(win["id"]) for win in windowsList]
     else:
         windows = defaultEwmhRoot.getClientListStacking()
     return [window for window in __remove_bad_windows(windows)]
@@ -280,7 +281,7 @@ def getTopWindowAt(x: int, y: int):
 
 def _WgetAllWindows() -> Tuple[List[dict[str, Union[str, bool]]], dict[str, Union[str, bool]]]:
     # POSSIBLE REFERENCE: https://www.roojs.org/seed/gir-1.2-gtk-3.0/seed/Meta.Window.html
-    # Built-in / official apps (e.g. Terminal or gedit) do not fulfill proper get_description()
+    # Built-in / official apps (e.g. Terminal or gedit) do not fulfill proper get_description() to get the Xid
     windowsList: List[dict[str, Union[str, bool]]] = [{}]
     activeWindow: dict[str, Union[str, bool]] = {}
     cmd = ('gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell '
@@ -292,15 +293,10 @@ def _WgetAllWindows() -> Tuple[List[dict[str, Union[str, bool]]], dict[str, Unio
         windows: List[str] = (str(ret[8:-2]).replace("[", "").replace("]", "").replace("},{", "}|&|{").split("|&|"))
         for window in windows:
             output: dict[str, Union[str, bool]] = json.loads(window)
-            windowsList.append(output)
-            if output["active"]:
-                activeWindow = output
-    else:
-        raise NotImplementedError("PyWinCtl won't likely work in Wayland, since it doesn't allow retrieving active window nor list or open windows.\n"
-                                  "Possible workarounds:\n"
-                                  "\t1. enable global.context.unsafe_mode (although this will only work with some apps/windows, not all)"
-                                  "\t2. Instantiate Window() class with a valid xid, obtained somewhere else (perhaps your own application window?)"
-                                  )
+            if str(output.get("id", "")).startswith("0x"):
+                windowsList.append(output)
+                if output.get("active", False):
+                    activeWindow = output
     return windowsList, activeWindow
 
 
@@ -310,7 +306,7 @@ def __remove_bad_windows(windows: Optional[Union[List[str], List[int]]]) -> List
         for window in windows:
             try:
                 outList.append(LinuxWindow(window))
-            except Xlib.error.XResourceError:
+            except:
                 pass
     return outList
 
