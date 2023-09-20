@@ -115,7 +115,7 @@ def getAllWindows():
     """
     if os.environ['XDG_SESSION_TYPE'].lower() == "wayland":
         windowsList, _ = _WgetAllWindows()
-        windows = [str(win["id"]) for win in windowsList]
+        windows = [str(win["id"]) for win in windowsList if win and win.get("id", None)]
     else:
         windows = defaultEwmhRoot.getClientListStacking()
     return [window for window in __remove_bad_windows(windows)]
