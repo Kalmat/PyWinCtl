@@ -495,13 +495,15 @@ if sys.platform == "darwin":
             print()
         parent = npw.getParent()
         if parent:
+            parentHandle = 0
             parentName = "''"
             try:
-                parentWin = pywinctl.Window(parent)
-                parentName = parentWin.title
+                parentApp, parentName = parent
+                parentWin = pywinctl.Window(parentApp, parentName)
+                parentHandle = parentWin.getHandle()
             except:
                 pass
-            print("WINDOW PARENT:", parent, "/", parentName)
+            print("WINDOW PARENT:", parentHandle, "/", parentName)
             print()
         children = npw.getChildren()
         for child in children:
