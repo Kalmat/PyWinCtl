@@ -76,7 +76,7 @@ def getActiveWindow() -> Optional[LinuxWindow]:
         # swaymsg -t get_tree | jq '.. | select(.type?) | select(.focused==true).pid'  -> Not working (socket issue)
         # pynput / mouse --> Not working (no global events allowed, only application events)
         _, activeWindow = _WgetAllWindows()
-        if activeWindow and activeWindow.get("id", None):
+        if activeWindow and activeWindow.get("id", False):
             win_id = str(activeWindow["id"])
     if not win_id:
         win_id = defaultEwmhRoot.getActiveWindow()
@@ -115,7 +115,7 @@ def getAllWindows():
     """
     if os.environ['XDG_SESSION_TYPE'].lower() == "wayland":
         windowsList, _ = _WgetAllWindows()
-        windows = [str(win["id"]) for win in windowsList if win and win.get("id", None)]
+        windows = [str(win["id"]) for win in windowsList if win and win.get("id", False)]
     else:
         windows = defaultEwmhRoot.getClientListStacking()
     return [window for window in __remove_bad_windows(windows)]
