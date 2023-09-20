@@ -76,7 +76,7 @@ def getActiveWindow() -> Optional[LinuxWindow]:
         # swaymsg -t get_tree | jq '.. | select(.type?) | select(.focused==true).pid'  -> Not working (socket issue)
         # pynput / mouse --> Not working (no global events allowed, only application events)
         _, activeWindow = _WgetAllWindows()
-        if activeWindow:
+        if activeWindow and activeWindow.get("id", None):
             win_id = str(activeWindow["id"])
     if not win_id:
         win_id = defaultEwmhRoot.getActiveWindow()
