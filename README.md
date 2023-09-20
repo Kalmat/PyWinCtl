@@ -71,8 +71,8 @@ The enormous variety of Linux distributions, Desktop Environments, Window Manage
 This module has been tested OK in some X11 setups: Ubuntu/Gnome, Ubuntu/KDE, Ubuntu/Unity, Mint/Cinnamon and Raspbian/LXDE. Except for Mint/Cinnamon and Ubuntu 22.04+, `sendBehind()` method doesn't properly work!
 
 In Wayland (the new GNOME protocol for Ubuntu 22.04+), it is not possible to retrieve the active window nor the list 
-of open windows, so `getActiveWindow()` and `getAllWindows()` will not work even though unsafe-mode is  
-enabled (built-in and "official" applications do not populate their XID nor their X-Window object, so it may work for
+of open windows, so `getActiveWindow()` and `getAllWindows()` will not likely work even though unsafe-mode is  
+enabled (built-in and "official" applications do not populate their Xid nor their X-Window object, so it may work for
 other applications like Chrome or your own application windows)
 
 In case you find problems in other configs, please [open an issue](https://github.com/Kalmat/PyWinCtl/issues). Furthermore, if you have knowledge in these other configs, do not hesitate to contribute!
