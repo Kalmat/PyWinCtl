@@ -72,7 +72,7 @@ def getActiveWindow() -> Optional[LinuxWindow]:
     # https://discourse.gnome.org/t/get-window-id-of-a-window-object-window-get-xwindow-doesnt-exist/10956/3
     # https://www.reddit.com/r/gnome/comments/d8x27b/is_there_a_program_that_can_show_keypresses_on/
     win_id: Union[str, int] = 0
-    if os.environ['XDG_SESSION_TYPE'].lower() == "wayland":
+    if os.environ.get('XDG_SESSION_TYPE', '').lower() == "wayland":
         # swaymsg -t get_tree | jq '.. | select(.type?) | select(.focused==true).pid'  -> Not working (socket issue)
         # pynput / mouse --> Not working (no global events allowed, only application events)
         _, activeWindow = _WgetAllWindows()
@@ -113,7 +113,7 @@ def getAllWindows():
 
     :return: list of Window objects
     """
-    if os.environ['XDG_SESSION_TYPE'].lower() == "wayland":
+    if os.environ.get('XDG_SESSION_TYPE', '').lower() == "wayland":
         windowsList, _ = _WgetAllWindows()
         windows = [str(win["id"]) for win in windowsList if win and win.get("id", False)]
     else:
@@ -328,8 +328,8 @@ class LinuxWindow(BaseWindow):
         self._xWin: XWindow = self._win.xWindow
         self.watchdog = _WatchDog(self)
 
-        self._currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()
-        self._currSessionType = os.environ['XDG_SESSION_TYPE'].lower()
+        self._currDesktop = os.environ.get('XDG_CURRENT_DESKTOP', '').lower()
+        self._currSessionType = os.environ.get('XDG_SESSION_TYPE', '').lower()
         self._motifHints: List[int] = []
 
     def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:

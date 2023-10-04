@@ -42,7 +42,7 @@ def getDisplays(forceUpdate: bool = False) -> List[Xlib.display.Display]:
     global _displays
     if forceUpdate:
         _displays = []
-    if not _displays and os.environ['XDG_SESSION_TYPE'].lower() != "wayland":
+    if not _displays and os.environ.get('XDG_SESSION_TYPE', '').lower() != "wayland":
         # Wayland adds a "fake" display (typically ":1") that freezes when trying to get a connection. Using default
         # Thanks to SamuMazzi - https://github.com/SamuMazzi for pointing out this issue
         files: List[str] = os.listdir("/tmp/.X11-unix")
@@ -1044,7 +1044,7 @@ class EwmhWindow:
         self.ewmhRoot: EwmhRoot = defaultEwmhRoot if self.root.id == defaultRoot.id else EwmhRoot(self.root)
         self.extensions = _Extensions(self.id, self.display, self.root)
 
-        self._currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()
+        self._currDesktop = os.environ.get('XDG_CURRENT_DESKTOP', '').lower()
 
     def getProperty(self, prop: Union[str, int], prop_type: int = Xlib.X.AnyPropertyType) \
             -> Optional[Xlib.protocol.request.GetProperty]:
