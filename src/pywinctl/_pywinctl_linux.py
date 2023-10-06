@@ -365,8 +365,8 @@ class LinuxWindow(BaseWindow):
         if _net_extents and len(_net_extents) >= 4:
             x = x + int(_net_extents[0])
             y = y + int(_net_extents[2])
-            w = w - int(_net_extents[0]) + int(_net_extents[1])
-            h = h - int(_net_extents[2]) + int(_net_extents[3])
+            w = w - int(_net_extents[0]) - int(_net_extents[1])
+            h = h - int(_net_extents[2]) - int(_net_extents[3])
             ret = Rect(x, y, x + w, y + h)
         else:
             # TODO: Find a way to find window title and borders sizes in GNOME
