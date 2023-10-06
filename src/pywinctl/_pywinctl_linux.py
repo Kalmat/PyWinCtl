@@ -26,7 +26,6 @@ from pywinbox import Box, Size, Point, Rect, pointInBox
 
 from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
 
-sys.path.insert(0, '../')
 from ewmhlib import EwmhWindow, EwmhRoot, defaultEwmhRoot, Props
 from ewmhlib._ewmhlib import _xlibGetAllWindows
 
@@ -77,7 +76,7 @@ def getActiveWindow() -> Optional[LinuxWindow]:
         # swaymsg -t get_tree | jq '.. | select(.type?) | select(.focused==true).pid'  -> Not working (socket issue)
         # pynput / mouse --> Not working (no global events allowed, only application events)
         _, activeWindow = _WgetAllWindows()
-        if activeWindow:
+        if activeWindow and activeWindow.get("id", False):
             win_id = str(activeWindow["id"])
     if not win_id:
         win_id = defaultEwmhRoot.getActiveWindow()
@@ -116,10 +115,10 @@ def getAllWindows():
     """
     if os.environ.get('XDG_SESSION_TYPE', '').lower() == "wayland":
         windowsList, _ = _WgetAllWindows()
-        windows = [str(win["id"]) for win in windowsList]
+        windows = [str(win["id"]) for win in windowsList if win and win.get("id", False)]
     else:
         windows = defaultEwmhRoot.getClientListStacking()
-    return __remove_bad_windows(windows)
+    return [window for window in __remove_bad_windows(windows)]
 
 
 def getAllTitles() -> List[str]:
@@ -329,8 +328,8 @@ class LinuxWindow(BaseWindow):
         self._xWin: XWindow = self._win.xWindow
         self.watchdog = _WatchDog(self)
 
-        self._currDesktop = os.environ.get('XDG_CURRENT_DESKTOP', "").lower()
-        self._currSessionType = os.environ.get('XDG_SESSION_TYPE', "").lower()
+        self._currDesktop = os.environ.get('XDG_CURRENT_DESKTOP', '').lower()
+        self._currSessionType = os.environ.get('XDG_SESSION_TYPE', '').lower()
         self._motifHints: List[int] = []
 
     def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
@@ -339,22 +338,15 @@ class LinuxWindow(BaseWindow):
         Notice not all applications/windows will use this property values
 
         :param includeBorder: set to ''False'' to avoid including borders
-        :return: additional frame size in pixels, as a tuple of int (left, top, right, bottom)
+        :return: (left, top, right, bottom) additional frame size in pixels, as a tuple of int
         """
-        ret: Tuple[int, int, int, int] = (0, 0, 0, 0)
+        ret: List[int] = self._win.getFrameExtents() or [0, 0, 0, 0]
         borderWidth = 0
         if includeBorder:
             geom = self._xWin.get_geometry()
             borderWidth = geom.border_width
-        if "gnome" in self._currDesktop:
-            _gtk_extents: List[int] = self._win._getGtkFrameExtents()
-            if _gtk_extents and len(_gtk_extents) >= 4:
-                ret = (_gtk_extents[0] + borderWidth, _gtk_extents[2] + borderWidth,
-                       _gtk_extents[1] + borderWidth, _gtk_extents[3] + borderWidth)
-        else:
-            # TODO: Check if this makes sense in other environments, then find a way to get these values
-            pass
-        return ret
+        frame = (ret[0] + borderWidth, ret[2] + borderWidth, ret[1] + borderWidth, ret[3] + borderWidth)
+        return frame
 
     def getClientFrame(self) -> Rect:
         """
@@ -363,19 +355,22 @@ class LinuxWindow(BaseWindow):
 
         :return: Rect struct
         """
-        x, y, w, h = self.box
+        box = self.box
+        x = box.left
+        y = box.top
+        w = box.width
+        h = box.height
         # Thanks to roym899 (https://github.com/roym899) for his HELP!!!!
         _net_extents = self._win._getNetFrameExtents()
         if _net_extents and len(_net_extents) >= 4:
-            x += int(_net_extents[0])
-            y += int(_net_extents[2])
-            w -= (int(_net_extents[0]) + int(_net_extents[1]))
-            h -= (int(_net_extents[2]) + int(_net_extents[3]))
+            x = x + int(_net_extents[0])
+            y = y + int(_net_extents[2])
+            w = w - int(_net_extents[0]) - int(_net_extents[1])
+            h = h - int(_net_extents[2]) - int(_net_extents[3])
             ret = Rect(x, y, x + w, y + h)
         else:
-            # TODO: Find a way to get window title and borders sizes in GNOME
-            #       (not setting _NET_EXTENTS, but _GTK_EXTENTS, containing space AROUND window)
-            # Don't add / subtract anything to avoid missing window parts, since it's adjusted in PyWinBox
+            # TODO: Find a way to find window title and borders sizes in GNOME
+            # Don't add / subtract anything to avoid missing window parts (for windows not following WM standards)
             ret = Rect(x, y, x + w, y + h)
         return ret
 
@@ -765,7 +760,6 @@ class LinuxWindow(BaseWindow):
         """
         x, y = self.center
         return _findMonitorName(x, y)
-    getMonitor = getDisplay  # getMonitor is an alias of getDisplay method
 
     @property
     def isMinimized(self) -> bool:
