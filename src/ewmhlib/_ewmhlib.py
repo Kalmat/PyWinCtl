@@ -40,23 +40,26 @@ def getDisplays(forceUpdate: bool = False) -> List[Xlib.display.Display]:
     :return: list of display connections
     """
     global _displays
-    if forceUpdate:
-        _displays = []
-    if not _displays and os.environ.get('XDG_SESSION_TYPE', '').lower() != "wayland":
-        # Wayland adds a "fake" display (typically ":1") that freezes when trying to get a connection. Using default
-        # Thanks to SamuMazzi - https://github.com/SamuMazzi for pointing out this issue
-        files: List[str] = os.listdir("/tmp/.X11-unix")
-        for d in files:
-            if d.startswith("X"):
-                name: str = d.replace("X", ":", 1)
-                try:
-                    _displays.append(Xlib.display.Display(name))
-                except:
-                    pass
-    if not _displays:
-        _displays = [defaultDisplay]
+    if not _displays or forceUpdate:
+        displays = []
+        if os.environ.get('XDG_SESSION_TYPE', "").lower() != "wayland":
+            # Wayland adds a "fake" display (typically ":1") that freezes when trying to get a connection. Using default
+            # Thanks to SamuMazzi - https://github.com/SamuMazzi for pointing out this issue
+            files: List[str] = os.listdir("/tmp/.X11-unix")
+            for d in files:
+                if d.startswith("X"):
+                    name: str = d.replace("X", ":", 1)
+                    try:
+                        displays.append(Xlib.display.Display(name))
+                    except:
+                        pass
+        if not displays:
+            displays = [defaultDisplay]
+        with _lockDisplays:
+            _displays = displays
     return _displays
 _displays: List[Xlib.display.Display] = []
+_lockDisplays = threading.RLock()
 displaysCount: int = len(getDisplays())
 
 
@@ -112,12 +115,14 @@ def getDisplayFromWindow(winId: int) -> Tuple[Xlib.display.Display, Struct, XWin
     """
     if displaysCount > 1 or defaultDisplay.screen_count() > 1:
         global _rootsInfo
-        for rootData in _rootsInfo:
-            display, screen, root, res = rootData
-            atom: int = display.get_atom(Root.CLIENT_LIST)
-            ret: Optional[Xlib.protocol.request.GetProperty] = root.get_full_property(atom, Xlib.X.AnyPropertyType)
-            if ret and hasattr(ret, "value") and winId in ret.value:
-                return display, screen, root
+        global _lockRootsInfo
+        with _lockRootsInfo:
+            for rootData in _rootsInfo:
+                display, screen, root, res = rootData
+                atom: int = display.get_atom(Root.CLIENT_LIST)
+                ret: Optional[Xlib.protocol.request.GetProperty] = root.get_full_property(atom, Xlib.X.AnyPropertyType)
+                if ret and hasattr(ret, "value") and winId in ret.value:
+                    return display, screen, root
     return defaultDisplay, defaultScreen, defaultRoot
 getScreenFromWindow = getDisplayFromWindow
 getRootFromWindow = getDisplayFromWindow
@@ -276,9 +281,11 @@ def getPropertyValue(prop: Optional[Xlib.protocol.request.GetProperty], text: bo
     :return: extracted property data (as a list of integers or strings) or None
     """
     if prop and hasattr(prop, "value"):
-        # Value is either bytes (separated by '\x00' when multiple values) or array.array of integers.
+        # Value is either str, bytes (separated by '\x00' when multiple values) or array.array of integers.
         # The type of array values is stored in array.typecode ('I' in this case).
         valueData: Union[array.array[int], bytes] = prop.value
+        if isinstance(valueData, str) or isinstance(valueData, int):
+            return [valueData]
         if isinstance(valueData, bytes):
             resultStr: List[str] = [a for a in valueData.decode().split("\x00") if a]
             return resultStr

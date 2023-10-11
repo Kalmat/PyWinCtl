@@ -1150,10 +1150,13 @@ class MacOSWindow(BaseWindow):
         On Windows, the list will contain up to one display (displays can not overlap), whilst in Linux and macOS, the
         list may contain several displays.
 
+        If you need to get info or control the monitor, use these names as input to PyMonCtl's findMonitorWithName().
+
         :return: display name as list of strings or empty (couldn't retrieve it or window is off-screen)
         """
         x, y = self.center
         return _findMonitorName(x, y)
+    getMonitor = getDisplay  # getMonitor is an alias of getDisplay method
 
     @property
     def isMinimized(self) -> bool:

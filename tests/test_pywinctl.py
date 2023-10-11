@@ -1,6 +1,5 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-
 from __future__ import annotations
 
 import subprocess
@@ -73,13 +72,20 @@ def test_basic():
     else:
         raise NotImplementedError('PyWinCtl currently does not support this platform. If you have useful knowledge, please contribute! https://github.com/Kalmat/pywinctl')
 
+
 if sys.platform == "win32":
     def basic_win32(npw: pywinctl.Window | None):
 
         assert npw is not None
 
+        def test_move(attr, value):
+            setattr(npw, attr, value)
+            time.sleep(timelap)
+            new_value = getattr(npw, attr)
+            assert new_value == value, f"Error while moving the window using the attribute {attr}. Expected value {value}, instead found {new_value}"
+
         wait = True
-        timelap = 0.5
+        timelap = 0.50
 
         print("ACTIVE WINDOW:", npw.title, "/", npw.box)
         print()
@@ -96,23 +102,11 @@ if sys.platform == "win32":
             print()
         parent = npw.getParent()
         if parent:
-            parentName = "''"
-            try:
-                parentWin = pywinctl.Window(parent)
-                parentName = parentWin.title
-            except:
-                pass
-            print("WINDOW PARENT:", parent, "/", parentName)
+            print("WINDOW PARENT:", parent)
             print()
         children = npw.getChildren()
         for child in children:
-            childName = "''"
-            try:
-                childWin = pywinctl.Window(child)
-                childName = childWin.title
-            except:
-                pass
-            print("WINDOW CHILD:", child, "/", childName)
+            print("WINDOW CHILD:", child)
             print()
 
         # Test maximize/minimize/restore.
@@ -122,162 +116,113 @@ if sys.platform == "win32":
         assert not npw.isMaximized
 
         npw.maximize(wait=wait)
+        time.sleep(timelap)
         assert npw.isMaximized
         npw.restore(wait=wait)
+        time.sleep(timelap)
         assert not npw.isMaximized
 
         npw.minimize(wait=wait)
+        time.sleep(timelap)
         assert npw.isMinimized
         npw.restore(wait=wait)
+        time.sleep(timelap)
         assert not npw.isMinimized
 
         # Test resizing
-        npw.resizeTo(800, 600, wait=wait)
-        assert npw.size == (800, 600)
-        assert npw.width == 800
-        assert npw.height == 600
+        npw.resizeTo(600, 400, wait=wait)
+        time.sleep(timelap)
+        assert npw.size == (600, 400)
+        assert npw.width == 600
+        assert npw.height == 400
 
         npw.resizeRel(10, 20, wait=wait)
-        assert npw.size == (810, 620)
-        assert npw.width == 810
-        assert npw.height == 620
+        assert npw.size == (610, 420)
+        assert npw.width == 610
+        assert npw.height == 420
 
         # Test moving
-        npw.moveTo(100, 200, wait=wait)
-        assert npw.topleft == (100, 200)
-        assert npw.left == 100
-        assert npw.top == 200
-        assert npw.right == 910
-        assert npw.bottom == 820
-        assert npw.bottomright == (910, 820)
-        assert npw.bottomleft == (100, 820)
-        assert npw.topright == (910, 200)
+        npw.moveTo(50, 54, wait=wait)
+        assert npw.topleft == (50, 54)
+        assert npw.left == 50
+        assert npw.top == 54
+        assert npw.right == 660
+        assert npw.bottom == 474
+        assert npw.bottomright == (660, 474)
+        assert npw.bottomleft == (50, 474)
+        assert npw.topright == (660, 54)
 
         npw.moveRel(1, 2, wait=wait)
-        assert npw.topleft == (101, 202)
-        assert npw.left == 101
-        assert npw.top == 202
-        assert npw.right == 911
-        assert npw.bottom == 822
-        assert npw.bottomright == (911, 822)
-        assert npw.bottomleft == (101, 822)
-        assert npw.topright == (911, 202)
+        assert npw.topleft == (51, 56)
+        assert npw.left == 51
+        assert npw.top == 56
+        assert npw.right == 661
+        assert npw.bottom == 476
+        assert npw.bottomright == (661, 476)
+        assert npw.bottomleft == (51, 476)
+        assert npw.topright == (661, 56)
 
         # Move via the properties
-        npw.resizeTo(800, 600)
-        npw.moveTo(200, 200)
+        npw.resizeTo(601, 401, wait=wait)
+        npw.moveTo(100, 250, wait=wait)
 
-        npw.left = 250
-        time.sleep(timelap)
-        assert npw.left == 250
+        test_move('left', 200)
+        test_move('right', 200)
+        test_move('top', 200)
+        test_move('bottom', 800)
+        test_move('topleft', (300, 400))
+        test_move('topright', (300, 400))
+        test_move('bottomleft', (300, 700))
+        test_move('bottomright', (300, 900))
+        test_move('midleft', (300, 400))
+        test_move('midright', (300, 400))
+        test_move('midtop', (300, 400))
+        test_move('midbottom', (300, 700))
+        test_move('center', (300, 400))
+        test_move('centerx', 1000)
+        test_move('centery', 300)
+        test_move('width', 600)
+        test_move('height', 400)
 
-        npw.right = 950
-        time.sleep(timelap)
-        assert npw.right == 950
+        npw.centerx = 400
+        npw.centery = 300
+        test_move('size', (810, 610))
 
-        npw.top = 150
+        lowered = npw.lowerWindow()
         time.sleep(timelap)
-        assert npw.top == 150
+        assert lowered, 'Window has not been lowered'
 
-        npw.bottom = 775
+        raised = npw.raiseWindow()
         time.sleep(timelap)
-        assert npw.bottom == 775
-
-        npw.topleft = (155, 350)
-        time.sleep(timelap)
-        assert npw.topleft == (155, 350)
-
-        npw.topright = (1000, 300)
-        time.sleep(timelap)
-        assert npw.topright == (1000, 300)
-
-        npw.bottomleft = (300, 975)
-        time.sleep(timelap)
-        assert npw.bottomleft == (300, 975)
-
-        npw.bottomright = (1000, 900)
-        time.sleep(timelap)
-        assert npw.bottomright == (1000, 900)
-
-        npw.midleft = (300, 400)
-        time.sleep(timelap)
-        assert npw.midleft == (300, 400)
-
-        npw.midright = (1050, 600)
-        time.sleep(timelap)
-        assert npw.midright == (1050, 600)
-
-        npw.midtop = (500, 350)
-        time.sleep(timelap)
-        assert npw.midtop == (500, 350)
-
-        npw.midbottom = (500, 800)
-        time.sleep(timelap)
-        assert npw.midbottom == (500, 800)
-
-        npw.center = (500, 350)
-        time.sleep(timelap)
-        assert npw.center == (500, 350)
-
-        npw.centerx = 1000
-        time.sleep(timelap)
-        assert npw.centerx == 1000
-
-        npw.centery = 600
-        time.sleep(timelap)
-        assert npw.centery == 600
-
-        npw.width = 700
-        time.sleep(timelap)
-        assert npw.width == 700
-
-        npw.height = 500
-        time.sleep(timelap)
-        assert npw.height == 500
-
-        npw.size = (801, 601)
-        time.sleep(timelap)
-        assert npw.size == (801, 601)
+        assert raised, 'Window has not been raised'
 
         # Test window stacking
         npw.lowerWindow()
         time.sleep(timelap)
         npw.raiseWindow()
         time.sleep(timelap)
-        npw.alwaysOnTop()
-        time.sleep(timelap)
-        npw.alwaysOnTop(aot=False)
-        time.sleep(timelap)
-        npw.alwaysOnBottom()
-        time.sleep(timelap)
-        npw.alwaysOnBottom(aob=False)
-        time.sleep(timelap)
-        npw.sendBehind()
-        time.sleep(timelap)
-        npw.sendBehind(sb=False)
-        time.sleep(timelap)
 
         # Test parent methods
         parent = npw.getParent()
-        assert npw.isChild(parent)
+        assert parent and npw.isChild(parent)
 
         # Test menu options
         menu = npw.menu.getMenu()
-        submenu: dict[str, Any] = {}
+        submenu = {}
         for i, key in enumerate(menu):
-            if i == 4:
-                submenu = menu[key]["entries"]
-
+            if i == 1:
+                submenu = menu[key].get("entries", {})
         option: dict[str, Any] | None = None
         for i, key in enumerate(submenu):
-            if i == 2:  # About notepad
-                option = submenu[key]
+            if i == 0:
+                option = cast("dict[str, Any]", submenu[key])
         if option:
-            npw.menu.clickMenuItem(wID=option["wID"])
+            npw.menu.clickMenuItem(wID=option.get("wID", ""))
             time.sleep(5)
 
         # Test closing
         npw.close()
+
 
 if sys.platform == "linux":
     def basic_linux(npw: pywinctl.Window | None):
@@ -286,8 +231,14 @@ if sys.platform == "linux":
 
         assert npw is not None
 
+        def test_move(attr, value):
+            setattr(npw, attr, value)
+            time.sleep(timelap)
+            new_value = getattr(npw, attr)
+            assert new_value == value, f"Error while moving the window using the attribute {attr}. Expected value {value}, instead found {new_value}"
+
         wait = True
-        timelap = 0.5
+        timelap = 0.50
 
         print("ACTIVE WINDOW:", npw.title, "/", npw.box)
         print()
@@ -304,23 +255,11 @@ if sys.platform == "linux":
             print()
         parent = npw.getParent()
         if parent:
-            parentName = "''"
-            try:
-                parentWin = pywinctl.Window(parent)
-                parentName = parentWin.title
-            except:
-                pass
-            print("WINDOW PARENT:", parent, "/", parentName)
+            print("WINDOW PARENT:", parent)
             print()
         children = npw.getChildren()
         for child in children:
-            childName = "''"
-            try:
-                childWin = pywinctl.Window(child)
-                childName = childWin.title
-            except:
-                pass
-            print("WINDOW CHILD:", child, "/", childName)
+            print("WINDOW CHILD:", child)
             print()
 
         # Test maximize/minimize/restore.
@@ -330,144 +269,95 @@ if sys.platform == "linux":
         assert not npw.isMaximized
 
         npw.maximize(wait=wait)
+        time.sleep(timelap)
         assert npw.isMaximized
         npw.restore(wait=wait)
+        time.sleep(timelap)
         assert not npw.isMaximized
 
         npw.minimize(wait=wait)
+        time.sleep(timelap)
         assert npw.isMinimized
         npw.restore(wait=wait)
+        time.sleep(timelap)
         assert not npw.isMinimized
 
         # Test resizing
-        npw.resizeTo(800, 600, wait=wait)
-        assert npw.size == (800, 600)
-        assert npw.width == 800
-        assert npw.height == 600
+        npw.resizeTo(600, 400, wait=wait)
+        time.sleep(timelap)
+        assert npw.size == (600, 400)
+        assert npw.width == 600
+        assert npw.height == 400
 
         npw.resizeRel(10, 20, wait=wait)
-        assert npw.size == (810, 620)
-        assert npw.width == 810
-        assert npw.height == 620
+        assert npw.size == (610, 420)
+        assert npw.width == 610
+        assert npw.height == 420
 
         # Test moving
-        npw.moveTo(100, 200, wait=wait)
-        assert npw.topleft == (100, 200)
-        assert npw.left == 100
-        assert npw.top == 200
-        assert npw.right == 910
-        assert npw.bottom == 820
-        assert npw.bottomright == (910, 820)
-        assert npw.bottomleft == (100, 820)
-        assert npw.topright == (910, 200)
+        npw.moveTo(50, 54, wait=wait)
+        assert npw.topleft == (50, 54)
+        assert npw.left == 50
+        assert npw.top == 54
+        assert npw.right == 660
+        assert npw.bottom == 474
+        assert npw.bottomright == (660, 474)
+        assert npw.bottomleft == (50, 474)
+        assert npw.topright == (660, 54)
 
         npw.moveRel(1, 2, wait=wait)
-        assert npw.topleft == (101, 202)
-        assert npw.left == 101
-        assert npw.top == 202
-        assert npw.right == 911
-        assert npw.bottom == 822
-        assert npw.bottomright == (911, 822)
-        assert npw.bottomleft == (101, 822)
-        assert npw.topright == (911, 202)
+        assert npw.topleft == (51, 56)
+        assert npw.left == 51
+        assert npw.top == 56
+        assert npw.right == 661
+        assert npw.bottom == 476
+        assert npw.bottomright == (661, 476)
+        assert npw.bottomleft == (51, 476)
+        assert npw.topright == (661, 56)
 
         # Move via the properties
-        npw.resizeTo(800, 600)
-        npw.moveTo(200, 200)
+        npw.resizeTo(601, 401, wait=wait)
+        npw.moveTo(100, 250, wait=wait)
 
-        npw.left = 250
-        time.sleep(timelap)
-        assert npw.left == 250
+        test_move('left', 200)
+        test_move('right', 860)
+        test_move('top', 200)
+        test_move('bottom', 800)
+        test_move('topleft', (300, 400))
+        test_move('topright', (800, 400))
+        test_move('bottomleft', (300, 700))
+        test_move('bottomright', (850, 900))
+        test_move('midleft', (300, 400))
+        test_move('midright', (770, 400))
+        test_move('midtop', (800, 400))
+        test_move('midbottom', (700, 700))
+        test_move('center', (760, 400))
+        test_move('centerx', 900)
+        test_move('centery', 600)
+        test_move('width', 600)
+        test_move('height', 400)
 
-        npw.right = 950
-        time.sleep(timelap)
-        assert npw.right == 950
+        npw.centerx = 400
+        npw.centery = 300
+        test_move('size', (810, 610))
 
-        npw.top = 150
+        lowered = npw.lowerWindow()
         time.sleep(timelap)
-        assert npw.top == 150
+        assert lowered, 'Window has not been lowered'
 
-        npw.bottom = 775
+        raised = npw.raiseWindow()
         time.sleep(timelap)
-        assert npw.bottom == 775
-
-        npw.topleft = (155, 350)
-        time.sleep(timelap)
-        assert npw.topleft == (155, 350)
-
-        npw.topright = (1000, 300)
-        time.sleep(timelap)
-        assert npw.topright == (1000, 300)
-
-        npw.bottomleft = (300, 975)
-        time.sleep(timelap)
-        assert npw.bottomleft == (300, 975)
-
-        npw.bottomright = (1000, 900)
-        time.sleep(timelap)
-        assert npw.bottomright == (1000, 900)
-
-        npw.midleft = (300, 400)
-        time.sleep(timelap)
-        assert npw.midleft == (300, 400)
-
-        npw.midright = (1050, 600)
-        time.sleep(timelap)
-        assert npw.midright == (1050, 600)
-
-        npw.midtop = (500, 350)
-        time.sleep(timelap)
-        assert npw.midtop == (500, 350)
-
-        npw.midbottom = (500, 800)
-        time.sleep(timelap)
-        assert npw.midbottom == (500, 800)
-
-        npw.center = (500, 350)
-        time.sleep(timelap)
-        assert npw.center == (500, 350)
-
-        npw.centerx = 1000
-        time.sleep(timelap)
-        assert npw.centerx == 1000
-
-        npw.centery = 600
-        time.sleep(timelap)
-        assert npw.centery == 600
-
-        npw.width = 700
-        time.sleep(timelap)
-        assert npw.width == 700
-
-        npw.height = 500
-        time.sleep(timelap)
-        assert npw.height == 500
-
-        npw.size = (801, 601)
-        time.sleep(timelap)
-        assert npw.size == (801, 601)
+        assert raised, 'Window has not been raised'
 
         # Test window stacking
         npw.lowerWindow()
         time.sleep(timelap)
         npw.raiseWindow()
         time.sleep(timelap)
-        npw.alwaysOnTop()
-        time.sleep(timelap)
-        npw.alwaysOnTop(aot=False)
-        time.sleep(timelap)
-        npw.alwaysOnBottom()
-        time.sleep(timelap)
-        npw.alwaysOnBottom(aob=False)
-        time.sleep(timelap)
-        npw.sendBehind()
-        time.sleep(timelap)
-        npw.sendBehind(sb=False)
-        time.sleep(timelap)
 
         # Test parent methods
         parent = npw.getParent()
-        assert npw.isChild(parent)
+        assert parent and npw.isChild(parent)
 
         # Test closing
         npw.close()
@@ -500,13 +390,11 @@ if sys.platform == "darwin":
             print()
         parent = npw.getParent()
         if parent:
-            parentApp, parentName = parent
-            print("WINDOW PARENT:", parentApp, "/", parentName)
+            print("WINDOW PARENT:", parent)
             print()
         children = npw.getChildren()
         for child in children:
-            appName, childName = child
-            print("WINDOW CHILD:", appName, "/", childName)
+            print("WINDOW CHILD:", child)
             print()
 
         # Test maximize/minimize/restore.

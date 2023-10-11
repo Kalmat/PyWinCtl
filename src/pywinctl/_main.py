@@ -210,6 +210,7 @@ class BaseWindow(ABC):
     def getDisplay(self) -> List[str]:
         """Returns the list of names of the monitors the window is in"""
         raise NotImplementedError
+    getMonitor = getDisplay  # getMonitor is an alias of getDisplay method
 
     @property
     @abstractmethod
