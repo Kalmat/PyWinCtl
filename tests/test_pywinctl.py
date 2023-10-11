@@ -474,12 +474,17 @@ if sys.platform == "linux":
 
 if sys.platform == "darwin":
     def basic_macOS(npw: pywinctl.Window):
-
         assert npw is not None
+        
+        def test_move(attr, value):
+            setattr(npw, attr, value)
+            time.sleep(timelap)
+            new_value = getattr(npw, attr)
+            assert new_value == value, f"Error while moving the window using the attribute {attr}. Expected value {value}, instead found {new_value}"
 
         wait = True
         timelap = 0.50
-
+        
         print("ACTIVE WINDOW:", npw.title, "/", npw.box)
         print()
         print("CLIENT FRAME:", npw.getClientFrame(), "EXTRA FRAME:", npw.getExtraFrameSize())
@@ -516,7 +521,7 @@ if sys.platform == "darwin":
         npw.restore(wait=wait)
         time.sleep(timelap)
         assert not npw.isMaximized
-
+        
         npw.minimize(wait=wait)
         time.sleep(timelap)
         assert npw.isMinimized
@@ -560,91 +565,43 @@ if sys.platform == "darwin":
         # Move via the properties
         npw.resizeTo(601, 401, wait=wait)
         npw.moveTo(100, 250, wait=wait)
+        
+        test_move('left', 200)
+        test_move('right', 200)
+        test_move('top', 200)
+        test_move('bottom', 800)
+        test_move('topleft', (300, 400))
+        test_move('topright', (300, 400))
+        test_move('bottomleft', (300, 700))
+        test_move('bottomright', (300, 900))
+        test_move('midleft', (300, 400))
+        test_move('midright', (300, 400))
+        test_move('midtop', (300, 400))
+        test_move('midbottom', (300, 700))
+        test_move('center', (300, 400))
+        test_move('centerx', 1000)
+        test_move('centery', 300)
+        test_move('width', 600)
+        test_move('height', 400)
 
-        npw.left = 200
-        time.sleep(timelap)
-        assert npw.left == 200
-
-        npw.right = 200
-        time.sleep(timelap)
-        assert npw.right == 200
-
-        npw.top = 200
-        time.sleep(timelap)
-        assert npw.top == 200
-
-        npw.bottom = 800
-        time.sleep(timelap)
-        assert npw.bottom == 800
-
-        npw.topleft = (300, 400)
-        time.sleep(timelap)
-        assert npw.topleft == (300, 400)
-
-        npw.topright = (300, 400)
-        time.sleep(timelap)
-        assert npw.topright == (300, 400)
-
-        npw.bottomleft = (300, 700)
-        time.sleep(timelap)
-        assert npw.bottomleft == (300, 700)
-
-        npw.bottomright = (300, 900)
-        time.sleep(timelap)
-        assert npw.bottomright == (300, 900)
-
-        npw.midleft = (300, 400)
-        time.sleep(timelap)
-        assert npw.midleft == (300, 400)
-
-        npw.midright = (300, 400)
-        time.sleep(timelap)
-        assert npw.midright == (300, 400)
-
-        npw.midtop = (300, 400)
-        time.sleep(timelap)
-        assert npw.midtop == (300, 400)
-
-        npw.midbottom = (300, 700)
-        time.sleep(timelap)
-        assert npw.midbottom == (300, 700)
-
-        npw.center = (300, 400)
-        time.sleep(timelap)
-        assert npw.center == (300, 400)
-
-        npw.centerx = 1000
-        time.sleep(timelap)
-        assert npw.centerx == 1000
-
+        npw.centerx = 400
         npw.centery = 300
+        test_move('size', (810, 610))
+        
+        lowered = npw.lowerWindow()
         time.sleep(timelap)
-        assert npw.centery == 300
+        assert lowered, 'Window has not been lowered'
 
-        npw.width = 600
+        raised = npw.raiseWindow()
         time.sleep(timelap)
-        assert npw.width == 600
-
-        npw.height = 400
-        time.sleep(timelap)
-        assert npw.height == 400
-
-        npw.size = (810, 610)
-        time.sleep(timelap)
-        assert npw.size == (810, 610)
-
-        npw.lowerWindow()
-        time.sleep(timelap)
-
-        npw.raiseWindow()
-        time.sleep(timelap)
+        assert raised, 'Window has not been raised'
 
         # Test window stacking
         npw.lowerWindow()
         time.sleep(timelap)
         npw.raiseWindow()
         time.sleep(timelap)
-
+        
         # Test parent methods
         parent = npw.getParent()
         assert parent and npw.isChild(parent)
