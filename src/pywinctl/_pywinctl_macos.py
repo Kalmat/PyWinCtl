@@ -1302,7 +1302,8 @@ class MacOSWindow(BaseWindow):
                         set isDone to false
                         try
                             tell application "System Events" to tell application "%s"
-                                tell window winName to set prevIndex to index
+                                tell window winName
+                                end tell
                                 set isDone to true
                             end tell
                         end try
