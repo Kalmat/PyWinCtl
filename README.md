@@ -4,13 +4,13 @@
 
 Cross-Platform module to get info on and control windows on screen.
 
-This module is a Python 3 evolution from [asweigart's PyGetWindow module](https://github.com/asweigart/PyGetWindow), which adds Linux and macOS support to the MS Windows-only original module, experimental multi-monitor support, and many additional features; in the hope others can use it, test it or contribute.
-
 With PyWinCtl you can retrieve info or control windows from other open applications, as well as use it as a cross-platform toolkit to manipulate your own application windows.
 
-My most sincere thanks and acknowledgement to [MestreLion](https://github.com/MestreLion), [super-ibby](https://github.com/super-ibby), [Avasam](https://github.com/Avasam), [macdeport](https://github.com/macdeport) and [holychowders](https://github.com/holychowders) for their help and moral boost.
+This module is a Python 3 evolution from [asweigart's PyGetWindow module](https://github.com/asweigart/PyGetWindow), which adds Linux/X11 and macOS support to the MS Windows-only original module, multi-monitor support, and many additional features; in the hope others can use it, test it or contribute.
 
-1. [Window Features](#window-features)
+My most sincere thanks and acknowledgement. amongst many others (see AUTHORS.txt), to [MestreLion](https://github.com/MestreLion), [super-ibby](https://github.com/super-ibby), [Avasam](https://github.com/Avasam), [macdeport](https://github.com/macdeport) and [holychowders](https://github.com/holychowders) for their help and moral boost.
+
+2. [Window Features](#window-features)
    1. [Important macOS notice](#macos-notice)
    2. [Important Linux notice](#linux-notice)
 2. [Window Change Notifications](#watchdog])
@@ -22,59 +22,92 @@ My most sincere thanks and acknowledgement to [MestreLion](https://github.com/Me
 6. [Using this code](#using)
 7. [Test](#test)
 
+
 ## Window Features <a name="window-features"></a>
 
-You need a Window object to manipulate/control the target window on screen. It's possible to get a Window object by using any of the general methods (e.g. getActiveWidow() or getWindowsWithTitle()). You can also use windows id, as returned by PyQt's self.winId() or tkinter's root.frame(), which is very handy to get the Window object for your own application.
+There are three kind of function to be used within PyWinCtl:
+- General, independent functions: These functions can be directly invoked at module level, without the need of referencing a Window object
+- Window class:
+  - Methods: You need a Window object to control or get info on the target window on screen. It's possible to get a Window object by using any of the general methods (e.g. getActiveWidow() or getWindowsWithTitle()). You can also use windows id, as returned by PyQt's self.winId() or tkinter's root.frame(), which is very handy to get the Window object for your own application.
+  - Properties: Window attributes, getters and setters, that also require to use a Window object
 
-These functions are available at the moment, in all three platforms (Windows, Linux and macOS):
+A very simple example:
 
-| General, independent functions: | Window class methods: |    Window class properties:     |
-|:-------------------------------:|:---------------------:|:-------------------------------:|
-|         getActiveWindow         |         close         |              title              |
-|      getActiveWindowTitle       |       minimize        | updatedTitle (MacOSWindow only) |
-|          getAllWindows          |       maximize        |           isMaximized           |
-|          getAllTitles           |        restore        |           isMinimized           |
-|       getWindowsWithTitle       |         hide          |            isActive             |
-|         getAllAppsNames         |         show          |            isVisible            |
-|         getAppsWithName         |       activate        |             isAlive             |
-|     getAllAppsWindowsTitles     |  resize / resizeRel   |                                 |
-|          getWindowsAt           |       resizeTo        |                                 |
-|         getTopWindowAt          |    move / moveRel     |                                 |
-|    displayWindowsUnderMouse     |        moveTo         |                                 |
-|             version             |      raiseWindow      |                                 |
-|  checkPermissions (macOS only)  |      lowerWindow      |                                 |
-|                                 |      alwaysOnTop      |                                 |
-|                                 |    alwaysOnBottom     |                                 |
-|                                 |      sendBehind       |                                 |
-|                                 |      acceptInput      |                                 |
-|                                 |      getAppName       |                                 |
-|                                 |       getHandle       |                                 |
-|                                 |       getParent       |                                 |
-|                                 |       setParent       |                                 |
-|                                 |      getChildren      |                                 |
-|                                 |       isParent        |                                 |
-|                                 |        isChild        |                                 |
-|                                 |      getDisplay       |                                 |
-|                                 |     getExtraFrame     |                                 |
-|                                 |    getClientFrame     |                                 |
+```
+   import pywinctl as pwc
+   
+   win = pwc.getActiveWindow()                      # General function. Directly invoked using the module (not a Window object)
+   
+   if win is not None:
+       print("ACTIVE WINDOW", win.title)            # Window property, invoked using a Window object
+       position = win.position                      # Window property, invoked using a Window object
+       print("INITIAL POSITION", position)
+       x, y = position
+       win.moveTo(x + 10, y + 10)                   # Window method, invoked using a Window object
+       print("INTERMEDIATE POSITION", win.position)
+       win.topleft = (win.left + 20, win.top + 20)  # Window property which can also be set
+       print("FINAL POSITION", win.position)
+       
+   else:
+       print("NOT FOUND)
+```
+
+These functions are available at the moment, in all three platforms (Windows, Linux and macOS)
+
+|                  General, independent functions:                   |                Window class methods:                 |                      Window class properties:                       |
+|:------------------------------------------------------------------:|:----------------------------------------------------:|:-------------------------------------------------------------------:|
+|          [getActiveWindow](docstrings.md#getactivewindow)          |             [close](docstrings.md#close)             |                 (GET) [title](docstrings.md#title)                  |
+|     [getActiveWindowTitle](docstrings.md#getactivewindowtitle)     |          [minimize](docstrings.md#minimize)          | (GET) [updatedTitle](docstrings.md#updatedtitle) (MacOSWindow only) |
+|            [getAllWindows](docstrings.md#getallwindows)            |          [maximize](docstrings.md#maximize)          |           (GET) [isMaximized](docstrings.md#ismaximized)            |
+|             [getAllTitles](docstrings.md#getalltitles)             |           [restore](docstrings.md#restore)           |           (GET) [isMinimized](docstrings.md#isminimized)            |
+|      [getWindowsWithTitle](docstrings.md#getwindowswithtitle)      |              [hide](docstrings.md#hide)              |              (GET) [isActive](docstrings.md#isactive)               |
+|          [getAllAppsNames](docstrings.md#getallappsnames)          |              [show](docstrings.md#show)              |             (GET) [isVisible](docstrings.md#isvisible)              |
+|          [getAppsWithName](docstrings.md#getappswithname)          |          [activate](docstrings.md#activate)          |              (GET) [isAlive](docstrings.md#isvisible)               |
+|  [getAllAppsWindowsTitles](docstrings.md#getallappswindowstitles)  |      [resize / resizeRel](docstrings.md#resize)      |                      (GET/SET) position (x, y)                      |
+|             [getWindowsAt](docstrings.md#getwindowsat)             |          [resizeTo](docstrings.md#resizeto)          |                         (GET/SET) left (x)                          |
+|           [getTopWindowAt](docstrings.md#gettopwindowat)           |         [move / moveRel](docstrings.md#move)         |                          (GET/SET) top (y)                          |
+| [displayWindowsUnderMouse](docstrings.md#displaywindowsundermouse) |            [moveTo](docstrings.md#moveto)            |                         (GET/SET) right (x)                         |
+|                  [version](docstrings.md#version)                  |       [raiseWindow](docstrings.md#raisewindow)       |                        (GET/SET) bottom (y)                         |
+|  [checkPermissions](docstrings.md#checkpermissions) (macOS only)   |       [lowerWindow](docstrings.md#lowerwindow)       |                      (GET/SET) topleft (x, y)                       |
+|                                                                    |       [alwaysOnTop](docstrings.md#alwaysontop)       |                      (GET/SET) topright (x, y)                      |
+|                                                                    |    [alwaysOnBottom](docstrings.md#alwaysonbottom)    |                     (GET/SET) bottomleft (x, y)                     |
+|                                                                    |        [sendBehind](docstrings.md#sendbehind)        |                    (GET/SET) bottomright (x, y)                     |
+|                                                                    |       [acceptInput](docstrings.md#acceptinput)       |                       (GET/SET) midtop (x, y)                       |
+|                                                                    |        [getAppName](docstrings.md#getappname)        |                      (GET/SET) midleft (x, y)                       |
+|                                                                    |         [getHandle](docstrings.md#gethandle)         |                     (GET/SET) midbotton (x, y)                      |
+|                                                                    |         [getParent](docstrings.md#getparent)         |                      (GET/SET) midright (x, y)                      |
+|                                                                    |         [setParent](docstrings.md#setparent)         |                       (GET/SET) center (x, y)                       |
+|                                                                    |       [getChildren](docstrings.md#getchildren)       |                      (GET/SET) centerx (x, y)                       |
+|                                                                    |          [isParent](docstrings.md#isparent)          |                      (GET/SET) centery (x, y)                       |
+|                                                                    |           [isChild](docstrings.md#ischild)           |                   (GET/SET) size (width, height)                    |
+|                                                                    |        [getDisplay](docstrings.md#getdisplay)        |                           (GET/SET) width                           |
+|                                                                    | [getExtraFrameSize](docstrings.md#getextraframesize) |                          (GET/SET) height                           |
+|                                                                    |    [getClientFrame](docstrings.md#getclientframe)    |                 (GET/SET) box (x, y, width, height)                 |
+|                                                                    |                                                      |                (GET/SET) rect (x, y, right, bottom)                 |
+
 
 ***Important macOS notice <a name="macos-notice"></a>***
 
 macOS doesn't "like" controlling windows from other apps, so there are two separate classes you can use:
-- To control your own application's windows: MacOSNSWindow() is based on NSWindow Objects (you have to pass the NSApp() Object reference).
+- To control your own application's windows: MacOSNSWindow() is based on NSWindow Objects (you have to pass the NSApp() and the NSWindow() objects reference).
 - To control other applications' windows: MacOSWindow() is based on Apple Script, so it is non-standard, slower and, in some cases, tricky (uses window name as reference, which may change or be duplicate), but it's working fine in most cases. You will likely need to grant permissions on Settings -> Security&Privacy -> Accessibility. ***Notice some applications will have limited Apple Script support or no support at all, so some or even all methods may fail!***
 
 ***Important Linux notice <a name="linux-notice"></a>***
 
 The enormous variety of Linux distributions, Desktop Environments, Window Managers, and their combinations, make it impossible to test in all scenarios.
 
-This module has been tested OK in Ubuntu/Gnome, Ubuntu/KDE, Ubuntu/Unity, Mint/Cinnamon and Raspbian/LXDE. Except for Mint/Cinnamon and Ubuntu 22.04+, `sendBehind()` method doesn't properly work!
+This module has been tested OK in some X11 setups: Ubuntu/Gnome, Ubuntu/KDE, Ubuntu/Unity, Mint/Cinnamon and Raspbian/LXDE. Except for Mint/Cinnamon and Ubuntu 22.04+, `sendBehind()` method doesn't properly work!
+
+In Wayland (the new GNOME protocol for Ubuntu 22.04+), it is not possible to retrieve the active window nor the list 
+of open windows, so `getActiveWindow()` and `getAllWindows()` will not likely work even though unsafe-mode is  
+enabled (built-in and "official" applications do not populate their Xid nor their X-Window object, so it may work for
+other applications like Chrome or your own application windows)
 
 In case you find problems in other configs, please [open an issue](https://github.com/Kalmat/PyWinCtl/issues). Furthermore, if you have knowledge in these other configs, do not hesitate to contribute!
 
 ## Window Change Notifications <a name="watchdog"></a>
 
-Window watchdog sub-class, running in a separate Thread, will allow you to define hooks and its callbacks to be notified when some window states change. Accessible through 'watchdog' submodule.
+Window watchdog sub-class, running in a separate Thread, will allow to define hooks and its callbacks to be notified when some window states change. Accessible through 'watchdog' submodule.
 
 The watchdog will automatically stop when window doesn't exist anymore or main program quits.
 
@@ -106,14 +139,14 @@ The watchdog will automatically stop when window doesn't exist anymore or main p
     changedDisplayCB: callback to invoke if window changes display. Set to None to not to watch this
                       Passes the new display name (as string)
 
-| watchdog sub-module methods: |
-|:----------------------------:|
-|            start             |
-|       updateCallbacks        |
-|        updateInterval        |
-|         setTryToFind         |
-|           isAlive            |
-|             stop             |
+|              watchdog sub-module methods:               |
+|:-------------------------------------------------------:|
+|              [start](docstrings.md#start)               |
+|    [updateCallbacks](docstrings.md#updatecallbacks)     |
+|     [updateInterval](docstrings.md#updateinterval)      |
+| [setTryToFind](docstrings.md#settrytofind) (macOS only) |
+|       [isAlive](docstrings.md#-watchdog-isalive)        |
+|               [stop](docstrings.md#stop)                |
 
 Example:
 
@@ -166,14 +199,14 @@ Example:
 
 menu sub-class for Menu info and control methods, accessible through 'menu' submodule.
 
-| menu sub-module methods: |
-|:------------------------:|
-|         getMenu          |
-|       getMenuInfo        |
-|     getMenuItemCount     |
-|     getMenuItemInfo      |
-|     getMenuItemRect      |
-|      clickMenuItem       |
+|              menu sub-module methods:              |
+|:--------------------------------------------------:|
+|          [getMenu](docstrings.md#getmenu)          |
+|      [getMenuInfo](docstrings.md#getmenuinfo)      |
+| [getMenuItemCount](docstrings.md#getmenuitemcount) |
+|  [getMenuItemInfo](docstrings.md#getmenuiteminfo)  |
+|  [getMenuItemRect](docstrings.md#getmenuitemrect)  |
+|    [clickMenuItem](docstrings.md#clickmenuitem)    |
 
 MS-Windows example (notice it is language-dependent):
 
@@ -212,7 +245,7 @@ Note not all windows/applications will have a menu accessible by these methods.
 
 To install this module on your system, you can use pip: 
 
-    pip install pywinctl
+    pip3 install pywinctl
 
 or
 
@@ -239,18 +272,15 @@ If you want to use this code or contribute, you can either:
 * Create a fork of the [repository](https://github.com/Kalmat/PyWinCtl), or 
 * [Download the repository](https://github.com/Kalmat/PyWinCtl/archive/refs/heads/master.zip), uncompress, and open it on your IDE of choice (e.g. PyCharm)
 
-Be sure you install all dependencies described on "docs/requirements.txt" by using pip
+Be sure you install all dependencies described on "requirements.txt" by using pip
 
 ## TEST <a name="test"></a>
 
 To test this module on your own system, cd to "tests" folder and run:
 
-    pytest -vv test_pywinctl.py
-
-or, in case you get an import error, try this:
-
-    python3 -m pytest -vv test_pywinctl.py
+    python3 test_pywinctl.py
 
 MacOSNSWindow class and methods can be tested by running this, also on "tests" folder:
 
     python3 test_MacNSWindow.py
+

@@ -1,4 +1,4 @@
-PyWinCtl authors, contributors and maintainers:
+PyWinCtl authors, contributors and bugs/issues raisers:
 
 Kalmat https://github.com/Kalmat
 Rodrigo Silva (MestreLion) https://github.com/MestreLion
@@ -11,21 +11,10 @@ holychowders https://github.com/holychowders
 Anthony Molinaro (djnym) https://github.com/djnym
 Kyle King https://github.com/KyleKing
 Leonard Bruns https://github.com/roym899
-In general, all those who so generously share their work and knowledge on Internet (stackoverflow, github, ...) so I could find a solution or a string to pull!
+ReaperMantis https://github.com/ReaperMantis
+Xenolphthalein - https://github.com/Xenolphthalein
+odknt - https://github.com/odkntSamuMazzi - https://github.com/SamuMazzi
+SamuMazzi - https://github.com/SamuMazzi
 
-PyGetWindow (original module): Here is an inevitably incomplete list of MUCH-APPRECIATED CONTRIBUTORS --
-people who have submitted patches, reported bugs, added translations, helped
-answer newbie questions, and generally made PyGetWindow that much better:
-
-Al Sweigart https://github.com/asweigart/
-arkulinskis https://github.com/arkulinskis
-aweffr https://github.com/aweffr
-Demonthos https://github.com/Demonthos
-Duxxi https://github.com/sjhhh3
-EMOholcicka https://github.com/EMOholcicka
-Kudria https://github.com/Kudria
-lexxish https://github.com/lexxish
-李宏杰 https://github.com/lihongjie0209
-Randall White
-Ronald Oussoren
-Steve Newell https://github.com/newellista
+In general, all those who so generously share their work and knowledge on Internet (stackoverflow, github, ...)
+so I could find a solution or a string to pull!

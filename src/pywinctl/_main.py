@@ -11,71 +11,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any, cast, List, Tuple, Union
 
-import pymonctl as pmc
+from pymonctl import findMonitorsAtPoint, getAllMonitors, getAllMonitorsDict, getMousePos as getMouse
 from pywinbox import PyWinBox, Box, Rect, Point, Size
-
-
-class Re:
-    # Thanks to macdeport for this nice piece of code
-    IS = 1
-    CONTAINS = 2
-    STARTSWITH = 3
-    ENDSWITH = 4
-    NOTIS = -1
-    NOTCONTAINS = -2
-    NOTSTARTSWITH = -3
-    NOTENDSWITH = -4
-    MATCH = 10
-    NOTMATCH = -10
-    EDITDISTANCE = 20
-    DIFFRATIO = 30
-
-    IGNORECASE = re.IGNORECASE
-
-    # Does not play well with static typing and current implementation of TypedDict
-    _cond_dic: dict[int, Callable[[str | re.Pattern[str], str, float], bool]] = {
-        IS: lambda s1, s2, fl: s1 == s2,
-        CONTAINS: lambda s1, s2, fl: s1 in s2,  # type: ignore  # pyright: ignore
-        STARTSWITH: lambda s1, s2, fl: s2.startswith(s1),  # type: ignore  # pyright: ignore
-        ENDSWITH: lambda s1, s2, fl: s2.endswith(s1),  # type: ignore  # pyright: ignore
-        NOTIS: lambda s1, s2, fl: s1 != s2,
-        NOTCONTAINS: lambda s1, s2, fl: s1 not in s2,  # type: ignore  # pyright: ignore
-        NOTSTARTSWITH: lambda s1, s2, fl: not s2.startswith(s1),  # type: ignore  # pyright: ignore
-        NOTENDSWITH: lambda s1, s2, fl: not s2.endswith(s1),  # type: ignore  # pyright: ignore
-        MATCH: lambda s1, s2, fl: bool(s1.search(s2)),  # type: ignore  # pyright: ignore
-        NOTMATCH: lambda s1, s2, fl: not (bool(s1.search(s2))),  # type: ignore  # pyright: ignore
-        EDITDISTANCE: lambda s1, s2, fl: _levenshtein(s1, s2) >= fl,  # type: ignore  # pyright: ignore
-        DIFFRATIO: lambda s1, s2, fl: difflib.SequenceMatcher(None, s1, s2).ratio() * 100 >= fl  # type: ignore  # pyright: ignore
-    }
-
-
-def _levenshtein(seq1: str, seq2: str) -> float:
-    # https://stackabuse.com/levenshtein-distance-and-text-similarity-in-python/
-    # Adapted to return a similarity percentage, which is easier to define
-    # Removed numpy to reduce dependencies. This is likely slower, but titles are not too long
-    size_x = len(seq1) + 1
-    size_y = len(seq2) + 1
-    matrix = [[0 for _y in range(size_y)] for _x in range(size_x)]
-    for x in range(size_x):
-        matrix[x][0] = x
-    matrix[0] = list(range(0, size_y))
-
-    for x in range(1, size_x):
-        for y in range(1, size_y):
-            if seq1[x - 1] == seq2[y - 1]:
-                matrix[x][y] = min(
-                    matrix[x - 1][y] + 1,
-                    matrix[x - 1][y - 1],
-                    matrix[x][y - 1] + 1
-                )
-            else:
-                matrix[x][y] = min(
-                    matrix[x - 1][y] + 1,
-                    matrix[x - 1][y - 1] + 1,
-                    matrix[x][y - 1] + 1
-                )
-    dist = matrix[size_x - 1][size_y - 1]
-    return (1 - dist / max(len(seq1), len(seq2))) * 100
 
 
 class BaseWindow(ABC):
@@ -93,27 +30,6 @@ class BaseWindow(ABC):
             box.height,
             self.title
         )
-
-    @abstractmethod
-    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
-        """
-        Get the extra space, in pixels, around the window, including or not the border.
-        Notice not all applications/windows will use this property values
-
-        :param includeBorder: set to ''False'' to avoid including borders
-        :return: (left, top, right, bottom) frame size as a tuple of int
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def getClientFrame(self) -> Tuple[int, int, int, int]:
-        """
-        Get the client area of window, as a Rect (x, y, right, bottom)
-        Notice that scroll and status bars might be included, or not, depending on the application
-
-        :return: Rect struct
-        """
-        raise NotImplementedError
 
     @abstractmethod
     def close(self) -> bool:
@@ -173,6 +89,27 @@ class BaseWindow(ABC):
     @abstractmethod
     def moveTo(self, newLeft: int, newTop: int, wait: bool = False) -> bool:
         """Moves the window to new coordinates on the screen."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
+        """
+        Get the extra space, in pixels, around the window, including or not the border.
+        Notice not all applications/windows will use this property values
+
+        :param includeBorder: set to ''False'' to avoid including borders
+        :return: (left, top, right, bottom) frame size as a tuple of int
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def getClientFrame(self) -> Tuple[int, int, int, int]:
+        """
+        Get the client area of window, as a Rect (x, y, right, bottom)
+        Notice that scroll and status bars might be included, or not, depending on the application
+
+        :return: Rect struct
+        """
         raise NotImplementedError
 
     @abstractmethod
@@ -270,9 +207,10 @@ class BaseWindow(ABC):
     isChildOf = isChild  # isParentOf is an alias of isParent method
 
     @abstractmethod
-    def getDisplay(self) -> str:
-        """Returns the name of the current window display (monitor)"""
+    def getDisplay(self) -> List[str]:
+        """Returns the list of names of the monitors the window is in"""
         raise NotImplementedError
+    getMonitor = getDisplay  # getMonitor is an alias of getDisplay method
 
     @property
     @abstractmethod
@@ -520,7 +458,7 @@ class _WatchDog:
         resizedCB: Callable[[Tuple[int, int]], None] | None = None,
         movedCB: Callable[[Tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
-        changedDisplayCB: Callable[[str], None] | None = None,
+        changedDisplayCB: Callable[[List[str]], None] | None = None,
         interval: float = 0.3
     ):
         """
@@ -575,7 +513,7 @@ class _WatchDog:
         resizedCB: Callable[[Tuple[int, int]], None] | None = None,
         movedCB: Callable[[Tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
-        changedDisplayCB: Callable[[str], None] | None = None
+        changedDisplayCB: Callable[[List[str]], None] | None = None
     ):
         """
         Change the states this watchdog is hooked to
@@ -607,7 +545,7 @@ class _WatchDog:
         """
         if self._watchdog:
             self._watchdog.updateCallbacks(isAliveCB, isActiveCB, isVisibleCB, isMinimizedCB, isMaximizedCB,
-                                          resizedCB, movedCB, changedTitleCB, changedDisplayCB)
+                                           resizedCB, movedCB, changedTitleCB, changedDisplayCB)
 
     def updateInterval(self, interval: float = 0.3):
         """
@@ -665,7 +603,7 @@ class _WatchDogWorker(threading.Thread):
         resizedCB: Callable[[Tuple[int, int]], None] | None = None,
         movedCB: Callable[[Tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
-        changedDisplayCB: Callable[[str], None] | None = None,
+        changedDisplayCB: Callable[[List[str]], None] | None = None,
         interval: float = 0.3
     ):
         threading.Thread.__init__(self)
@@ -688,10 +626,10 @@ class _WatchDogWorker(threading.Thread):
         self._isVisible = False
         self._isMinimized = False
         self._isMaximized = False
-        self._size = False
-        self._pos = False
-        self._title = False
-        self._display = False
+        self._size = None
+        self._pos = None
+        self._title = None
+        self._display = None
 
     def _getInitialValues(self):
 
@@ -816,7 +754,7 @@ class _WatchDogWorker(threading.Thread):
         resizedCB: Callable[[Tuple[int, int]], None] | None = None,
         movedCB: Callable[[Tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
-        changedDisplayCB: Callable[[str], None] | None = None
+        changedDisplayCB: Callable[[List[str]], None] | None = None
     ):
 
         self._isAliveCB = isAliveCB
@@ -851,7 +789,7 @@ class _WatchDogWorker(threading.Thread):
         resizedCB: Callable[[Tuple[int, int]], None] | None = None,
         movedCB: Callable[[Tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
-        changedDisplayCB: Callable[[str], None] | None = None,
+        changedDisplayCB: Callable[[List[str]], None] | None = None,
         interval: float = 0.3
     ):
         self._kill.set()
@@ -861,12 +799,71 @@ class _WatchDogWorker(threading.Thread):
         self.run()
 
 
-def _findMonitorName(x: int, y: int):
-    monitors = pmc.findMonitor(x, y)
-    if monitors:
-        return [monitor.name for monitor in monitors]
-    else:
-        return []
+def _findMonitorName(x: int, y: int) -> List[str]:
+    return [monitor.name for monitor in findMonitorsAtPoint(x, y)]
+
+
+class Re:
+    # Thanks to macdeport for this nice piece of code
+    IS = 1
+    CONTAINS = 2
+    STARTSWITH = 3
+    ENDSWITH = 4
+    NOTIS = -1
+    NOTCONTAINS = -2
+    NOTSTARTSWITH = -3
+    NOTENDSWITH = -4
+    MATCH = 10
+    NOTMATCH = -10
+    EDITDISTANCE = 20
+    DIFFRATIO = 30
+
+    IGNORECASE = re.IGNORECASE
+
+    # Does not play well with static typing and current implementation of TypedDict
+    _cond_dic: dict[int, Callable[[str | re.Pattern[str], str, float], bool]] = {
+        IS: lambda s1, s2, fl: s1 == s2,
+        CONTAINS: lambda s1, s2, fl: s1 in s2,  # type: ignore  # pyright: ignore
+        STARTSWITH: lambda s1, s2, fl: s2.startswith(s1),  # type: ignore  # pyright: ignore
+        ENDSWITH: lambda s1, s2, fl: s2.endswith(s1),  # type: ignore  # pyright: ignore
+        NOTIS: lambda s1, s2, fl: s1 != s2,
+        NOTCONTAINS: lambda s1, s2, fl: s1 not in s2,  # type: ignore  # pyright: ignore
+        NOTSTARTSWITH: lambda s1, s2, fl: not s2.startswith(s1),  # type: ignore  # pyright: ignore
+        NOTENDSWITH: lambda s1, s2, fl: not s2.endswith(s1),  # type: ignore  # pyright: ignore
+        MATCH: lambda s1, s2, fl: bool(s1.search(s2)),  # type: ignore  # pyright: ignore
+        NOTMATCH: lambda s1, s2, fl: not (bool(s1.search(s2))),  # type: ignore  # pyright: ignore
+        EDITDISTANCE: lambda s1, s2, fl: _levenshtein(s1, s2) >= fl,  # type: ignore  # pyright: ignore
+        DIFFRATIO: lambda s1, s2, fl: difflib.SequenceMatcher(None, s1, s2).ratio() * 100 >= fl  # type: ignore  # pyright: ignore
+    }
+
+
+def _levenshtein(seq1: str, seq2: str) -> float:
+    # https://stackabuse.com/levenshtein-distance-and-text-similarity-in-python/
+    # Adapted to return a similarity percentage, which is easier to define
+    # Removed numpy to reduce dependencies. This is likely slower, but titles are not too long
+    size_x = len(seq1) + 1
+    size_y = len(seq2) + 1
+    matrix = [[0 for _y in range(size_y)] for _x in range(size_x)]
+    for x in range(size_x):
+        matrix[x][0] = x
+    matrix[0] = list(range(0, size_y))
+
+    for x in range(1, size_x):
+        for y in range(1, size_y):
+            if seq1[x - 1] == seq2[y - 1]:
+                matrix[x][y] = min(
+                    matrix[x - 1][y] + 1,
+                    matrix[x - 1][y - 1],
+                    matrix[x][y - 1] + 1
+                )
+            else:
+                matrix[x][y] = min(
+                    matrix[x - 1][y] + 1,
+                    matrix[x - 1][y - 1] + 1,
+                    matrix[x][y - 1] + 1
+                )
+    dist = matrix[size_x - 1][size_y - 1]
+    return (1 - dist / max(len(seq1), len(seq2))) * 100
 
 
 def getAllScreens():
@@ -908,12 +905,11 @@ def getAllScreens():
                 Refresh rate of the display, in Hz
             "colordepth":
                 Bits per pixel referred to the display color depth
-    import warnings
     """
     import warnings
     warnings.warn('getAllScreens() is deprecated. Use getAllMonitorsDict() from PyMonCtl module instead',
                   DeprecationWarning, stacklevel=2)
-    return pmc.getAllMonitorsDict()
+    return getAllMonitorsDict()
 
 
 def getScreenSize(name: str = ""):
@@ -926,7 +922,7 @@ def getScreenSize(name: str = ""):
     import warnings
     warnings.warn('getScreenSize() is deprecated. Use getSize() from PyMonCtl module instead',
                   DeprecationWarning, stacklevel=2)
-    for monitor in pmc.getAllMonitors():
+    for monitor in getAllMonitors():
         if (name and name == monitor.name) or (not name and monitor.isPrimary):
             return monitor.size
     return None
@@ -943,7 +939,7 @@ def getWorkArea(name: str = ""):
     import warnings
     warnings.warn('getWorkArea() is deprecated. Use getWorkArea() from PyMonCtl module instead',
                   DeprecationWarning, stacklevel=2)
-    for monitor in pmc.getAllMonitors():
+    for monitor in getAllMonitors():
         if (name and name == monitor.name) or (not name and monitor.isPrimary):
             return monitor.workarea
     return None
@@ -958,7 +954,7 @@ def getMousePos():
     import warnings
     warnings.warn('getMousePos() is deprecated. Use getMousePos() from PyMonCtl module instead',
                   DeprecationWarning, stacklevel=2)
-    return pmc.getMousePos()
+    return getMouse()
 
 
 def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
@@ -972,7 +968,7 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
     try:
         prevWindows = None
         while True:
-            x, y = pmc.getMousePos()
+            x, y = getMouse()
             positionStr = 'X: ' + str(x - xOffset).rjust(4) + ' Y: ' + str(y - yOffset).rjust(4) + '  (Press Ctrl-C to quit)'
             windows = getWindowsAt(x, y)
             if windows != prevWindows:

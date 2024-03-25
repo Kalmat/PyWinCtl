@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import sys
-
 assert sys.platform == "linux"
 
+import json
 import os
 import platform
 import re
@@ -22,10 +22,11 @@ import Xlib.Xutil
 import Xlib.ext
 from Xlib.xobject.drawable import Window as XWindow
 
-from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
-from pywinbox import Box, Size, Point, Rect, pointInBox
-from ewmhlib import Props, RootWindow, EwmhWindow, defaultRootWindow
-from ewmhlib._ewmhlib import _xlibGetAllWindows
+from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, displayWindowsUnderMouse
+from .ewmhlib import EwmhWindow, EwmhRoot, defaultEwmhRoot, Props
+from .ewmhlib._ewmhlib import _xlibGetAllWindows
+
+from pywinbox import Size, Point, Rect, pointInBox
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -49,41 +50,38 @@ def getActiveWindow() -> Optional[LinuxWindow]:
     """
     Get the currently active (focused) Window in default root
 
+    WAYLAND
+    This will not work on Wayland unless you activate unsafe_mode:
+       - Press alt + f2
+       - write "lg" (without the quotation marks) and press Enter
+       - In the command entry box (at the bottom of the window), write "global.context.unsafe_mode = true" (without the quotation marks) and press Enter
+       - To exit the "lg" program, click on any of the options in the upper right corner, then press Escape (it seems a lg bug!)
+       - You can set unsafe_mode off again by following the same steps, but in this case, using "global.context.unsafe_mode = false"
+    Anyway, it will not work with all windows (especially built-in/"official" apps do not populate xid nor X-Window object)
+
     :return: Window object or None
     """
-    win_id = defaultRootWindow.getActiveWindow()
+    # Wayland doesn't seem to have a way to get the active window or the list of open windows
+    # This alternative partially works, but will require to enable unsafe_mode (on newer versions,
+    # this is not possible from command-line nor using any gnome-shell extension, so it has to be done manually)
+    # https://unix.stackexchange.com/questions/399753/how-to-get-a-list-of-active-windows-when-using-wayland
+    # https://stackoverflow.com/questions/45465016/how-do-i-get-the-active-window-on-gnome-wayland
+    # https://askubuntu.com/questions/1412130/dbus-calls-to-gnome-shell-dont-work-under-ubuntu-22-04
+    # https://stackoverflow.com/questions/48797323/retrieving-active-window-from-mutter-on-gnome-wayland-session
+    # https://discourse.gnome.org/t/get-window-id-of-a-window-object-window-get-xwindow-doesnt-exist/10956/3
+    # https://www.reddit.com/r/gnome/comments/d8x27b/is_there_a_program_that_can_show_keypresses_on/
+    win_id: Union[str, int] = 0
+    if os.environ.get('XDG_SESSION_TYPE', '').lower() == "wayland":
+        # swaymsg -t get_tree | jq '.. | select(.type?) | select(.focused==true).pid'  -> Not working (socket issue)
+        # pynput / mouse --> Not working (no global events allowed, only application events)
+        _, activeWindow = _WgetAllWindows()
+        if activeWindow:
+            win_id = str(activeWindow["id"])
+    if not win_id:
+        win_id = defaultEwmhRoot.getActiveWindow()
     if win_id:
         return LinuxWindow(win_id)
     return None
-
-# The code above doesn't work in Wayland (new GNOME X server since Ubuntu 22.04)
-# Looking for an alternative to get active window and window titles
-# Even this stopped working in new GNOME...
-# https://unix.stackexchange.com/questions/399753/how-to-get-a-list-of-active-windows-when-using-wayland
-# https://stackoverflow.com/questions/45465016/how-do-i-get-the-active-window-on-gnome-wayland
-# https://askubuntu.com/questions/1412130/dbus-calls-to-gnome-shell-dont-work-under-ubuntu-22-04
-# def DBUS_getWindows():
-#     import pydbus
-#     bus = pydbus.SessionBus()
-#
-#     shell = bus.get('org.gnome.Shell')
-#     windows = shell.Eval("global.get_window_actors()")
-#     print(windows)
-#
-#     # gdbus call \
-#     #   --session \
-#     #   --dest org.gnome.Shell \
-#     #   --object-path /org/gnome/Shell \
-#     #   --method org.gnome.Shell.Eval "
-#     #     global
-#     #       .get_window_actors()
-#     #       .map(a=>a.meta_window)
-#     #       .map(w=>({class: w.get_wm_class(), title: w.get_title()}))" \
-#     #   | sed -E -e "s/^\(\S+, '//" -e "s/'\)$//" \
-#     #   | jq .
-#
-#     # This needs WindowsExt to be installed. Not suitable.
-#     # gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell/Extensions/WindowsExt --method org.gnome.Shell.Extensions.WindowsExt.FocusPID | sed -E "s/\\('(.*)',\\)/\\1/g"
 
 
 def getActiveWindowTitle():
@@ -99,27 +97,27 @@ def getActiveWindowTitle():
         return ""
 
 
-def __remove_bad_windows(windows: Optional[List[int]]):
-    """
-    :param windows: Xlib Windows
-    :return: A generator of LinuxWindow that filters out BadWindows
-    """
-    if windows is not None:
-        for window in windows:
-            try:
-                yield LinuxWindow(window)
-            except Xlib.error.XResourceError:
-                pass
-    else:
-        return []
-
-
 def getAllWindows():
     """
     Get the list of Window objects for all visible windows in default root
+
+    WAYLAND
+    This will not work on Wayland unless you activate unsafe_mode:
+       - Press alt + f2
+       - write "lg" (without the quotation marks) and press Enter
+       - In the command entry box (at the bottom of the window), write "global.context.unsafe_mode = true" (without the quotation marks) and press Enter
+       - To exit the "lg" program, click on any of the options in the upper right corner, then press Escape (it seems a lg bug!)
+       - You can set unsafe_mode off again by following the same steps, but in this case, using "global.context.unsafe_mode = false"
+    Anyway, it will not work with all windows (especially built-in/"official" apps do not populate xid nor X-Window object)
+
     :return: list of Window objects
     """
-    return [window for window in __remove_bad_windows(defaultRootWindow.getClientListStacking())]
+    if os.environ.get('XDG_SESSION_TYPE', '').lower() == "wayland":
+        windowsList, _ = _WgetAllWindows()
+        windows = [str(win["id"]) for win in windowsList]
+    else:
+        windows = defaultEwmhRoot.getClientListStacking()
+    return __remove_bad_windows(windows)
 
 
 def getAllTitles() -> List[str]:
@@ -280,6 +278,38 @@ def getTopWindowAt(x: int, y: int):
         return None
 
 
+def _WgetAllWindows() -> Tuple[List[dict[str, Union[str, bool]]], dict[str, Union[str, bool]]]:
+    # POSSIBLE REFERENCE: https://www.roojs.org/seed/gir-1.2-gtk-3.0/seed/Meta.Window.html
+    # Built-in / official apps (e.g. Terminal or gedit) do not fulfill proper get_description() to get the Xid
+    windowsList: List[dict[str, Union[str, bool]]] = [{}]
+    activeWindow: dict[str, Union[str, bool]] = {}
+    cmd = ('gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell '
+           '--method org.gnome.Shell.Eval "global.get_window_actors()'
+           '.map(a=>a.meta_window)'
+           '.map(w=>({class: w.get_wm_class(), title: w.get_title(), active: w.has_focus(), id: w.get_description(), id2: w.get_id(), id3: w.get_pid()}))"')
+    ret = subprocess.check_output(cmd, shell=True, timeout=1).decode("utf-8").replace("\n", "")
+    if ret and ret.startswith("(true, "):
+        windows: List[str] = (str(ret[8:-2]).replace("[", "").replace("]", "").replace("},{", "}|&|{").split("|&|"))
+        for window in windows:
+            output: dict[str, Union[str, bool]] = json.loads(window)
+            if str(output.get("id", "")).startswith("0x"):
+                windowsList.append(output)
+                if output.get("active", False):
+                    activeWindow = output
+    return windowsList, activeWindow
+
+
+def __remove_bad_windows(windows: Optional[Union[List[str], List[int]]]) -> List[LinuxWindow]:
+    outList = []
+    if windows is not None:
+        for window in windows:
+            try:
+                outList.append(LinuxWindow(window))
+            except:
+                pass
+    return outList
+
+
 class LinuxWindow(BaseWindow):
 
     def __init__(self, hWnd: Union[XWindow, int, str]):
@@ -293,11 +323,12 @@ class LinuxWindow(BaseWindow):
             self._hWnd = int(hWnd)
         self._win = EwmhWindow(self._hWnd)
         self._display: Xlib.display.Display = self._win.display
-        self._rootWin: RootWindow = self._win.rootWindow
+        self._rootWin: EwmhRoot = self._win.ewmhRoot
         self._xWin: XWindow = self._win.xWindow
         self.watchdog = _WatchDog(self)
 
-        self._currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()
+        self._currDesktop = os.environ.get('XDG_CURRENT_DESKTOP', "").lower()
+        self._currSessionType = os.environ.get('XDG_SESSION_TYPE', "").lower()
         self._motifHints: List[int] = []
 
     def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
@@ -306,15 +337,22 @@ class LinuxWindow(BaseWindow):
         Notice not all applications/windows will use this property values
 
         :param includeBorder: set to ''False'' to avoid including borders
-        :return: (left, top, right, bottom) additional frame size in pixels, as a tuple of int
+        :return: additional frame size in pixels, as a tuple of int (left, top, right, bottom)
         """
-        ret: List[int] = self._win.getFrameExtents() or [0, 0, 0, 0]
+        ret: Tuple[int, int, int, int] = (0, 0, 0, 0)
         borderWidth = 0
         if includeBorder:
             geom = self._xWin.get_geometry()
             borderWidth = geom.border_width
-        frame = (ret[0] + borderWidth, ret[2] + borderWidth, ret[1] + borderWidth, ret[3] + borderWidth)
-        return frame
+        if "gnome" in self._currDesktop:
+            _gtk_extents: List[int] = self._win._getGtkFrameExtents()
+            if _gtk_extents and len(_gtk_extents) >= 4:
+                ret = (_gtk_extents[0] + borderWidth, _gtk_extents[2] + borderWidth,
+                       _gtk_extents[1] + borderWidth, _gtk_extents[3] + borderWidth)
+        else:
+            # TODO: Check if this makes sense in other environments, then find a way to get these values
+            pass
+        return ret
 
     def getClientFrame(self) -> Rect:
         """
@@ -323,23 +361,20 @@ class LinuxWindow(BaseWindow):
 
         :return: Rect struct
         """
-        box = self.box
-        x = box.left
-        y = box.top
-        w = box.width
-        h = box.height
+        x, y, w, h = self.box
         # Thanks to roym899 (https://github.com/roym899) for his HELP!!!!
         _net_extents = self._win._getNetFrameExtents()
         if _net_extents and len(_net_extents) >= 4:
-            x = x + int(_net_extents[0])
-            y = y + int(_net_extents[2])
-            w = w - int(_net_extents[0]) + int(_net_extents[1])
-            h = h - int(_net_extents[2]) + int(_net_extents[3])
-            ret = Rect(x, y, x + w, y + h)
+            x += int(_net_extents[0])
+            y += int(_net_extents[2])
+            w -= (int(_net_extents[0]) + int(_net_extents[1]))
+            h -= (int(_net_extents[2]) + int(_net_extents[3]))
         else:
-            # TODO: Find a way to find window title and borders sizes in GNOME
-            # Don't add / subtract anything to avoid missing window parts (for windows not following WM standards)
-            ret = Rect(x, y, x + w, y + h)
+            # TODO: Find a way to get window title and borders sizes in GNOME
+            #       (not setting _NET_EXTENTS, but _GTK_EXTENTS, containing space AROUND window)
+            # Don't add / subtract anything to avoid missing window parts, since it's adjusted in PyWinBox
+            pass
+        ret = Rect(x, y, x + w, y + h)
         return ret
 
     def __repr__(self):
@@ -656,8 +691,8 @@ class LinuxWindow(BaseWindow):
         """
         pid = self._win.getPid()
         if pid != 0:
-            with subprocess.Popen(f"ps -q {pid} -o comm=", shell=True, stdout=subprocess.PIPE) as p:
-                stdout, stderr = p.communicate()
+            proc = subprocess.Popen(f"ps -q {pid} -o comm=", shell=True, stdout=subprocess.PIPE)
+            stdout, stderr = proc.communicate()
             name = stdout.decode(encoding="utf8").replace("\n", "")
         else:
             name = ""
@@ -674,7 +709,7 @@ class LinuxWindow(BaseWindow):
     def setParent(self, parent: int) -> bool:
         """
         Current window will become child of given parent
-        WARNIG: Not implemented in AppleScript (not possible in macOS for foreign (other apps') windows)
+        WARNING: Not implemented in AppleScript (not possible in macOS for foreign - other apps' - windows)
 
         :param parent: window to set as current window parent
         :return: ''True'' if current window is now child of given parent
@@ -711,20 +746,24 @@ class LinuxWindow(BaseWindow):
         """
         Check if current window is child of given window/app (handle)
 
+        On Windows, the list will contain up to one display (displays can not overlap), whilst in Linux and macOS, the
+        list may contain several displays.
+
         :param parent: handle of the window/app you want to check if the current window is child of
         :return: ''True'' if current window is child of the given window
         """
         return bool(parent == self.getParent())
     isChildOf = isChild  # isChildOf is an alias of isParent method
 
-    def getDisplay(self) -> str:
+    def getDisplay(self) -> List[str]:
         """
-        Get display name in which current window space is mostly visible
+        Get display names in which current window space is mostly visible
 
-        :return: display name as string or empty (couldn't retrieve it or window is offscreen)
+        :return: display name as list of strings or empty (couldn't retrieve it or window is off-screen)
         """
         x, y = self.center
-        return str(_findMonitorName(x, y))
+        return _findMonitorName(x, y)
+    getMonitor = getDisplay  # getMonitor is an alias of getDisplay method
 
     @property
     def isMinimized(self) -> bool:
@@ -811,9 +850,11 @@ class LinuxWindow(BaseWindow):
 
 def main():
     """Run this script from command-line to get windows under mouse pointer"""
+    from pymonctl import getAllMonitorsDict, Monitor, findMonitorWithName
     print("PLATFORM:", sys.platform)
     print("ALL WINDOWS", getAllTitles())
-    print("MONITORS:", getAllScreens())
+    print("ALL APPS & WINDOWS", getAllAppsWindowsTitles())
+    print("MONITORS:", getAllMonitorsDict())
     npw = getActiveWindow()
     if npw is None:
         print("ACTIVE WINDOW:", None)
@@ -821,8 +862,11 @@ def main():
         print("ACTIVE WINDOW:", npw.title, "/", npw.box)
         dpy = npw.getDisplay()
         print("DISPLAY", dpy)
-        print("SCREEN SIZE:", getScreenSize(dpy))
-        print("WORKAREA:", getWorkArea(dpy))
+        if dpy:
+            monitor: Monitor = findMonitorWithName(dpy[0])
+            if monitor:
+                print("SCREEN SIZE:", monitor.size)
+                print("WORKAREA:", monitor.workarea)
     print()
     displayWindowsUnderMouse()
 

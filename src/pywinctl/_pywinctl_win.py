@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sys
-
 assert sys.platform == "win32"
 
 import ctypes
@@ -25,9 +24,8 @@ import win32con
 import win32api
 import win32gui
 
-
-from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
-from pywinbox import Box, Size, Point, Rect, pointInBox
+from ._main import BaseWindow, Re, _WatchDog, _findMonitorName,displayWindowsUnderMouse
+from pywinbox import Size, Point, Rect, pointInBox
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -81,7 +79,7 @@ def getAllWindows() -> List[Win32Window]:
     """
     # https://stackoverflow.com/questions/64586371/filtering-background-processes-pywin32
     # return [Win32Window(hwnd[0]) for hwnd in _findMainWindowHandles()]
-    return [win for win in __remove_bad_windows(_findWindowHandles())]
+    return [window for window in __remove_bad_windows(_findWindowHandles())]
 
 
 def __remove_bad_windows(windows: Optional[List[int]]):
@@ -89,14 +87,14 @@ def __remove_bad_windows(windows: Optional[List[int]]):
     :param windows: win32 Windows
     :return: A generator of Win32Window that filters out BadWindows
     """
+    outList = []
     if windows is not None:
         for window in windows:
             try:
-                yield Win32Window(window)
+                outList.append(Win32Window(window))
             except:
                 pass
-    else:
-        return []
+    return outList
 
 
 def getAllTitles() -> List[str]:
@@ -160,7 +158,7 @@ def getAllAppsNames() -> List[str]:
 
     :return: list of names as strings
     """
-    return list(getAllAppsWindowsTitles())
+    return list(getAllAppsWindowsTitles().keys())
 
 
 def getAppsWithName(name: Union[str, re.Pattern[str]], condition: int = Re.IS, flags: int = 0) -> List[str]:
@@ -429,6 +427,7 @@ class Win32Window(BaseWindow):
         self._hWnd = int(hWnd, base=16) if isinstance(hWnd, str) else int(hWnd)
         self._parent = win32gui.GetParent(self._hWnd)
         self._t: Optional[_SendBottom] = None
+        self._kill_t = threading.Event()
         self.menu = self._Menu(self)
         self.watchdog = _WatchDog(self)
 
@@ -686,14 +685,15 @@ class Win32Window(BaseWindow):
             # TODO: Try to find other smarter methods to keep window at the bottom
             ret = True
             if self._t is None:
-                self._t = _SendBottom(self._hWnd)
+                self._kill_t.clear()
+                self._t = _SendBottom(self._hWnd, self._kill_t)
                 self._t.daemon = True
                 self._t.start()
-            else:
-                self._t.restart()
         else:
             if self._t:
-                self._t.kill()
+                self._kill_t.set()
+                self._t.join()
+                self._t = None
             ret = self.sendBehind(sb=False)
         return ret
 
@@ -823,7 +823,7 @@ class Win32Window(BaseWindow):
         :param child: handle of the window you want to check if the current window is parent of
         :return: ''True'' if current window is parent of the given window
         """
-        return bool(win32gui.GetParent(child) == self._hWnd)
+        return child and win32gui.GetParent(child) == self._hWnd
     isParentOf = isParent  # isParentOf is an alias of isParent method
 
     def isChild(self, parent: int) -> bool:
@@ -836,14 +836,20 @@ class Win32Window(BaseWindow):
         return parent == self.getParent()
     isChildOf = isChild  # isChildOf is an alias of isParent method
 
-    def getDisplay(self) -> str:
+    def getDisplay(self) -> List[str]:
         """
-        Get display name in which current window space is mostly visible
+        Get display names in which current window space is mostly visible
 
-        :return: display name as string or empty (couldn't retrieve it or window is offscreen)
+        On Windows, the list will contain up to one display (displays can not overlap), whilst in Linux and macOS, the
+        list may contain several displays.
+
+        If you need to get info or control the monitor, use these names as input to PyMonCtl's findMonitorWithName().
+
+        :return: display name as list of strings or empty (couldn't retrieve it or window is off-screen)
         """
         x, y = self.center
-        return str(_findMonitorName(x, y))
+        return _findMonitorName(x, y)
+    getMonitor = getDisplay  # getMonitor is an alias of getDisplay method
 
     @property
     def isMinimized(self) -> bool:
@@ -1212,44 +1218,24 @@ class Win32Window(BaseWindow):
 
 class _SendBottom(threading.Thread):
 
-    def __init__(self, hWnd: int, interval: float = 0.5):
+    def __init__(self, hWnd: int, kill: threading.Event, interval: float = 0.5):
         threading.Thread.__init__(self)
         self._hWnd = hWnd
+        self._kill = kill
         self._interval = interval
-        self._keep = threading.Event()
-        self._keep.set()
 
     def _isLast(self) -> bool:
-        handles = _findMainWindowHandles()
-        last = None if not handles else handles[-1][0]
+        # handles = _findMainWindowHandles()
+        handles = _findWindowHandles()
+        last = None if not handles else handles[-1]
         return self._hWnd == last
 
     def run(self):
-        while self._keep.is_set() and win32gui.IsWindow(self._hWnd):
+        while not self._kill.is_set() and win32gui.IsWindow(self._hWnd):
             if not self._isLast():
                 win32gui.SetWindowPos(self._hWnd, win32con.HWND_BOTTOM, 0, 0, 0, 0,
                                       win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE)
-            self._keep.wait(self._interval)
-
-    def kill(self):
-        self._keep.clear()
-
-    def restart(self):
-        self._keep.set()
-        self.run()
-
-
-class _ScreenValue(TypedDict):
-    id: int
-    is_primary: bool
-    pos: Point
-    size: Size
-    workarea: Rect
-    scale: Tuple[int, int]
-    dpi: Tuple[int, int]
-    orientation: int
-    frequency: float
-    colordepth: int
+            self._kill.wait(self._interval)
 
 
 # Futile attempt to get the taskbar buttons handles without using pywinauto (but useful as "hard" pywin32 example!)
@@ -1425,19 +1411,23 @@ class _ScreenValue(TypedDict):
 
 def main():
     """Run this script from command-line to get windows under mouse pointer"""
-
+    from pymonctl import getAllMonitorsDict, Monitor, findMonitorWithName
     print("PLATFORM:", sys.platform)
-    print("MONITORS:", getAllScreens())
+    print("ALL WINDOWS", getAllTitles())
+    print("ALL APPS & WINDOWS", getAllAppsWindowsTitles())
+    print("MONITORS:", getAllMonitorsDict())
     npw = getActiveWindow()
     if npw is None:
         print("ACTIVE WINDOW:", None)
     else:
+        print("ACTIVE WINDOW:", npw.title, "/", npw.box)
         dpy = npw.getDisplay()
         print("DISPLAY", dpy)
-        print("SCREEN SIZE:", getScreenSize(dpy))
-        print("WORKAREA:", getWorkArea(dpy))
-        print("ALL WINDOWS", getAllTitles())
-        print("ACTIVE WINDOW:", npw.title, "/", npw.box)
+        if dpy:
+            monitor: Monitor = findMonitorWithName(dpy[0])
+            if monitor:
+                print("SCREEN SIZE:", monitor.size)
+                print("WORKAREA:", monitor.workarea)
     print()
     displayWindowsUnderMouse()
     # print(npw.menu.getMenu())  # Not working in windows 11?!?!?!?!
