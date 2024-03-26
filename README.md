@@ -251,9 +251,9 @@ or
 
     python3 -m pip install pywinctl
 
-Alternatively, you can download the wheel file (.whl) available in the [Download page](https://pypi.org/project/PyWinCtl/#files) and the [dist folder](https://github.com/Kalmat/PyWinCtl/tree/master/dist), and run this (don't forget to replace 'x.x.xx' with proper version number):
+Alternatively, you can download the wheel file (.whl) available in the [Download page](https://pypi.org/project/PyWinCtl/#files) and run this (don't forget to replace 'x.xx' with proper version number):
 
-    pip install PyWinCtl-x.x.xx-py3-none-any.whl
+    pip install PyWinCtl-x.xx-py3-none-any.whl
 
 You may want to add `--force-reinstall` option to be sure you are installing the right dependencies version.
 

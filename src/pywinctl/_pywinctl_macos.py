@@ -507,7 +507,7 @@ class MacOSWindow(BaseWindow):
         self._appName: str = self.getProcName(self._appPID)
         if not self._appName:
             # localizedName() is not recognized in AppleScript for non-English languages
-            self._appName: str = app.localizedName()
+            self._appName = app.localizedName()
         self._initTitle: str = title
         self._winTitle: str = title
         # self._parent = self.getParent()  # It is slow and not required by now
@@ -1301,8 +1301,7 @@ class MacOSWindow(BaseWindow):
 
         :return: ``True`` if the window is currently visible
         """
-        return self._winTitle and self._winTitle in _getAppWindowsTitles(self._app)
-
+        return bool(self._winTitle and self._winTitle in _getAppWindowsTitles(self._app))
     isVisible: bool = cast(bool, visible)  # isVisible is an alias for the visible property.
 
     @property

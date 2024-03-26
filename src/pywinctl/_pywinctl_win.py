@@ -823,7 +823,7 @@ class Win32Window(BaseWindow):
         :param child: handle of the window you want to check if the current window is parent of
         :return: ''True'' if current window is parent of the given window
         """
-        return child and win32gui.GetParent(child) == self._hWnd
+        return bool(child and win32gui.GetParent(child) == self._hWnd)
     isParentOf = isParent  # isParentOf is an alias of isParent method
 
     def isChild(self, parent: int) -> bool:
