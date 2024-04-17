@@ -10,12 +10,6 @@ __all__ = [
     "getAllScreens", "getScreenSize", "getWorkArea", "getMousePos"
 ]
 
-import sys
-
-# Mac only
-if sys.platform == "darwin":
-    __all__ += ["NSWindow"]
-
 __version__ = "0.4"
 
 
@@ -30,6 +24,3 @@ from ._main import (Re, Window, checkPermissions, getActiveWindow,
                     getTopWindowAt, getWindowsAt, displayWindowsUnderMouse,
                     getAllScreens, getScreenSize, getWorkArea, getMousePos
                     )
-
-if sys.platform == "darwin":
-    from ._main import NSWindow

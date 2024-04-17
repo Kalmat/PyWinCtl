@@ -564,7 +564,7 @@ class _WatchDog:
 
         IMPORTANT:
 
-        - It will have no effect in other platforms (Windows and Linux) and classes (MacOSNSWindow)
+        - It will have no effect in other platforms (Windows and Linux)
         - This behavior is deactivated by default, so you need to explicitly activate it
 
         :param tryToFind: set to ''True'' to try to find a similar title. Set to ''False'' to deactivate this behavior
@@ -920,7 +920,7 @@ def getScreenSize(name: str = ""):
     :return: Size struct or None
     """
     import warnings
-    warnings.warn('getScreenSize() is deprecated. Use getSize() from PyMonCtl module instead',
+    warnings.warn('getScreenSize() is deprecated. Use monitor.getSize() from PyMonCtl module instead',
                   DeprecationWarning, stacklevel=2)
     for monitor in getAllMonitors():
         if (name and name == monitor.name) or (not name and monitor.isPrimary):
@@ -937,7 +937,7 @@ def getWorkArea(name: str = ""):
     :return: Rect struct or None
     """
     import warnings
-    warnings.warn('getWorkArea() is deprecated. Use getWorkArea() from PyMonCtl module instead',
+    warnings.warn('getWorkArea() is deprecated. Use monitor.getWorkArea() from PyMonCtl module instead',
                   DeprecationWarning, stacklevel=2)
     for monitor in getAllMonitors():
         if (name and name == monitor.name) or (not name and monitor.isPrimary):
@@ -988,7 +988,7 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
 
 
 if sys.platform == "darwin":
-    from ._pywinctl_macos import (MacOSNSWindow as NSWindow, MacOSWindow as Window, checkPermissions, getActiveWindow,
+    from ._pywinctl_macos import (MacOSWindow as Window, checkPermissions, getActiveWindow,
                                   getActiveWindowTitle, getAllAppsNames, getAllAppsWindowsTitles,
                                   getAllTitles, getAllWindows, getAppsWithName, getWindowsWithTitle,
                                   getTopWindowAt, getWindowsAt

@@ -22,9 +22,9 @@ import Xlib.Xutil
 import Xlib.ext
 from Xlib.xobject.drawable import Window as XWindow
 
-from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, displayWindowsUnderMouse
-from .ewmhlib import EwmhWindow, EwmhRoot, defaultEwmhRoot, Props
-from .ewmhlib._ewmhlib import _xlibGetAllWindows
+from ._main import BaseWindow, Re, _WatchDog, _findMonitorName
+from ewmhlib import EwmhWindow, EwmhRoot, defaultEwmhRoot, Props
+from ewmhlib._ewmhlib import _xlibGetAllWindows
 
 from pywinbox import Size, Point, Rect, pointInBox
 
@@ -72,7 +72,7 @@ def getActiveWindow() -> Optional[LinuxWindow]:
     # https://www.reddit.com/r/gnome/comments/d8x27b/is_there_a_program_that_can_show_keypresses_on/
     win_id: Union[str, int] = 0
     if os.environ.get('XDG_SESSION_TYPE', '').lower() == "wayland":
-        # swaymsg -t get_tree | jq '.. | select(.type?) | select(.focused==true).pid'  -> Not working (socket issue)
+        # IN SWAY: swaymsg -t get_tree | jq '.. | select(.type?) | select(.focused==true).pid'
         # pynput / mouse --> Not working (no global events allowed, only application events)
         _, activeWindow = _WgetAllWindows()
         if activeWindow:
@@ -166,7 +166,8 @@ def getWindowsWithTitle(title: Union[str, re.Pattern[str]], app: Optional[Tuple[
             lower = True
             if isinstance(title, re.Pattern):
                 title = title.pattern
-            title = title.lower()
+            else:
+                title = title.lower()
         for win in getAllWindows():
             if win.title and Re._cond_dic[condition](title, win.title.lower() if lower else win.title, flags)  \
                     and (not app or (app and win.getAppName() in app)):
@@ -219,7 +220,8 @@ def getAppsWithName(name: Union[str, re.Pattern[str]], condition: int = Re.IS, f
             lower = True
             if isinstance(name, re.Pattern):
                 name = name.pattern
-            name = name.lower()
+            else:
+                name = name.lower()
         for title in getAllAppsNames():
             if title and Re._cond_dic[condition](name, title.lower() if lower else title, flags):
                 matches.append(title)
@@ -759,6 +761,11 @@ class LinuxWindow(BaseWindow):
         """
         Get display names in which current window space is mostly visible
 
+        On Windows, the list will contain up to one display (displays can not overlap), whilst in Linux and macOS, the
+        list may contain several displays.
+
+        If you need to get info or control the monitor, use these names as input to PyMonCtl's findMonitorWithName().
+
         :return: display name as list of strings or empty (couldn't retrieve it or window is off-screen)
         """
         x, y = self.center
@@ -846,30 +853,3 @@ class LinuxWindow(BaseWindow):
         # Returns ``True`` if the window is currently mapped
         state: int = self._xWin.get_attributes().map_state
         return bool(state != Xlib.X.IsUnmapped)
-
-
-def main():
-    """Run this script from command-line to get windows under mouse pointer"""
-    from pymonctl import getAllMonitorsDict, Monitor, findMonitorWithName
-    print("PLATFORM:", sys.platform)
-    print("ALL WINDOWS", getAllTitles())
-    print("ALL APPS & WINDOWS", getAllAppsWindowsTitles())
-    print("MONITORS:", getAllMonitorsDict())
-    npw = getActiveWindow()
-    if npw is None:
-        print("ACTIVE WINDOW:", None)
-    else:
-        print("ACTIVE WINDOW:", npw.title, "/", npw.box)
-        dpy = npw.getDisplay()
-        print("DISPLAY", dpy)
-        if dpy:
-            monitor: Monitor = findMonitorWithName(dpy[0])
-            if monitor:
-                print("SCREEN SIZE:", monitor.size)
-                print("WORKAREA:", monitor.workarea)
-    print()
-    displayWindowsUnderMouse()
-
-
-if __name__ == "__main__":
-    main()

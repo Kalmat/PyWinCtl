@@ -24,7 +24,7 @@ import win32con
 import win32api
 import win32gui
 
-from ._main import BaseWindow, Re, _WatchDog, _findMonitorName,displayWindowsUnderMouse
+from ._main import BaseWindow, Re, _WatchDog, _findMonitorName
 from pywinbox import Size, Point, Rect, pointInBox
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
@@ -662,8 +662,10 @@ class Win32Window(BaseWindow):
         # https://stackoverflow.com/questions/17131857/python-windows-keep-program-on-top-of-another-full-screen-application
         # This can be interesting to do all of the above with Python
         # https://www.apriorit.com/dev-blog/727-win-guide-to-hooking-windows-apis-with-python
-        if self._t and self._t.is_alive():
-            self._t.kill()
+        if self._t:
+            self._kill_t.set()
+            self._t.join()
+            self._t = None
         zorder = win32con.HWND_TOPMOST if aot else win32con.HWND_NOTOPMOST
         win32gui.SetWindowPos(self._hWnd, zorder, 0, 0, 0, 0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE |
                                                               win32con.SWP_NOACTIVATE)
@@ -1407,31 +1409,3 @@ class _SendBottom(threading.Thread):
 #         buttons.append((tbButton.idCommand, idx_rect, butPid))
 #
 #     return hWnd, buttons
-
-
-def main():
-    """Run this script from command-line to get windows under mouse pointer"""
-    from pymonctl import getAllMonitorsDict, Monitor, findMonitorWithName
-    print("PLATFORM:", sys.platform)
-    print("ALL WINDOWS", getAllTitles())
-    print("ALL APPS & WINDOWS", getAllAppsWindowsTitles())
-    print("MONITORS:", getAllMonitorsDict())
-    npw = getActiveWindow()
-    if npw is None:
-        print("ACTIVE WINDOW:", None)
-    else:
-        print("ACTIVE WINDOW:", npw.title, "/", npw.box)
-        dpy = npw.getDisplay()
-        print("DISPLAY", dpy)
-        if dpy:
-            monitor: Monitor = findMonitorWithName(dpy[0])
-            if monitor:
-                print("SCREEN SIZE:", monitor.size)
-                print("WORKAREA:", monitor.workarea)
-    print()
-    displayWindowsUnderMouse()
-    # print(npw.menu.getMenu())  # Not working in windows 11?!?!?!?!
-
-
-if __name__ == "__main__":
-    main()

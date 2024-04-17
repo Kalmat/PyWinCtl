@@ -25,10 +25,10 @@ My most sincere thanks and acknowledgement. amongst many others (see AUTHORS.txt
 
 ## Window Features <a name="window-features"></a>
 
-There are three kind of function to be used within PyWinCtl:
+There are three kinds of functions to be used within PyWinCtl:
 - General, independent functions: These functions can be directly invoked at module level, without the need of referencing a Window object
 - Window class:
-  - Methods: You need a Window object to control or get info on the target window on screen. It's possible to get a Window object by using any of the general methods (e.g. getActiveWidow() or getWindowsWithTitle()). You can also use windows id, as returned by PyQt's self.winId() or tkinter's root.frame(), which is very handy to get the Window object for your own application.
+  - Methods: You need a Window object to control or get info on the target window on screen. It is possible to get a Window object by using any of the general methods (e.g. getActiveWidow() or getWindowsWithTitle()). You can also use the window id, as returned by PyQt's self.winId() or tkinter's root.frame(), which is very handy to get the Window object for your own application.
   - Properties: Window attributes, getters and setters, that also require to use a Window object
 
 A very simple example:
@@ -54,43 +54,41 @@ A very simple example:
 
 These functions are available at the moment, in all three platforms (Windows, Linux and macOS)
 
-|                  General, independent functions:                   |                Window class methods:                 |                      Window class properties:                       |
-|:------------------------------------------------------------------:|:----------------------------------------------------:|:-------------------------------------------------------------------:|
-|          [getActiveWindow](docstrings.md#getactivewindow)          |             [close](docstrings.md#close)             |                 (GET) [title](docstrings.md#title)                  |
-|     [getActiveWindowTitle](docstrings.md#getactivewindowtitle)     |          [minimize](docstrings.md#minimize)          | (GET) [updatedTitle](docstrings.md#updatedtitle) (MacOSWindow only) |
-|            [getAllWindows](docstrings.md#getallwindows)            |          [maximize](docstrings.md#maximize)          |           (GET) [isMaximized](docstrings.md#ismaximized)            |
-|             [getAllTitles](docstrings.md#getalltitles)             |           [restore](docstrings.md#restore)           |           (GET) [isMinimized](docstrings.md#isminimized)            |
-|      [getWindowsWithTitle](docstrings.md#getwindowswithtitle)      |              [hide](docstrings.md#hide)              |              (GET) [isActive](docstrings.md#isactive)               |
-|          [getAllAppsNames](docstrings.md#getallappsnames)          |              [show](docstrings.md#show)              |             (GET) [isVisible](docstrings.md#isvisible)              |
-|          [getAppsWithName](docstrings.md#getappswithname)          |          [activate](docstrings.md#activate)          |              (GET) [isAlive](docstrings.md#isvisible)               |
-|  [getAllAppsWindowsTitles](docstrings.md#getallappswindowstitles)  |      [resize / resizeRel](docstrings.md#resize)      |                      (GET/SET) position (x, y)                      |
-|             [getWindowsAt](docstrings.md#getwindowsat)             |          [resizeTo](docstrings.md#resizeto)          |                         (GET/SET) left (x)                          |
-|           [getTopWindowAt](docstrings.md#gettopwindowat)           |         [move / moveRel](docstrings.md#move)         |                          (GET/SET) top (y)                          |
-| [displayWindowsUnderMouse](docstrings.md#displaywindowsundermouse) |            [moveTo](docstrings.md#moveto)            |                         (GET/SET) right (x)                         |
-|                  [version](docstrings.md#version)                  |       [raiseWindow](docstrings.md#raisewindow)       |                        (GET/SET) bottom (y)                         |
-|  [checkPermissions](docstrings.md#checkpermissions) (macOS only)   |       [lowerWindow](docstrings.md#lowerwindow)       |                      (GET/SET) topleft (x, y)                       |
-|                                                                    |       [alwaysOnTop](docstrings.md#alwaysontop)       |                      (GET/SET) topright (x, y)                      |
-|                                                                    |    [alwaysOnBottom](docstrings.md#alwaysonbottom)    |                     (GET/SET) bottomleft (x, y)                     |
-|                                                                    |        [sendBehind](docstrings.md#sendbehind)        |                    (GET/SET) bottomright (x, y)                     |
-|                                                                    |       [acceptInput](docstrings.md#acceptinput)       |                       (GET/SET) midtop (x, y)                       |
-|                                                                    |        [getAppName](docstrings.md#getappname)        |                      (GET/SET) midleft (x, y)                       |
-|                                                                    |         [getHandle](docstrings.md#gethandle)         |                     (GET/SET) midbotton (x, y)                      |
-|                                                                    |         [getParent](docstrings.md#getparent)         |                      (GET/SET) midright (x, y)                      |
-|                                                                    |         [setParent](docstrings.md#setparent)         |                       (GET/SET) center (x, y)                       |
-|                                                                    |       [getChildren](docstrings.md#getchildren)       |                      (GET/SET) centerx (x, y)                       |
-|                                                                    |          [isParent](docstrings.md#isparent)          |                      (GET/SET) centery (x, y)                       |
-|                                                                    |           [isChild](docstrings.md#ischild)           |                   (GET/SET) size (width, height)                    |
-|                                                                    |        [getDisplay](docstrings.md#getdisplay)        |                           (GET/SET) width                           |
-|                                                                    | [getExtraFrameSize](docstrings.md#getextraframesize) |                          (GET/SET) height                           |
-|                                                                    |    [getClientFrame](docstrings.md#getclientframe)    |                 (GET/SET) box (x, y, width, height)                 |
-|                                                                    |                                                      |                (GET/SET) rect (x, y, right, bottom)                 |
-
+|                  General, independent functions:                   |                Window class methods:                 |                                  Window class properties:                                  |
+|:------------------------------------------------------------------:|:----------------------------------------------------:|:------------------------------------------------------------------------------------------:|
+|          [getActiveWindow](docstrings.md#getactivewindow)          |             [close](docstrings.md#close)             |                             (GET) [title](docstrings.md#title)                             |
+|     [getActiveWindowTitle](docstrings.md#getactivewindowtitle)     |          [minimize](docstrings.md#minimize)          |            (GET) [updatedTitle](docstrings.md#updatedtitle) (MacOSWindow only)             |
+|            [getAllWindows](docstrings.md#getallwindows)            |          [maximize](docstrings.md#maximize)          |                       (GET) [isMaximized](docstrings.md#ismaximized)                       |
+|             [getAllTitles](docstrings.md#getalltitles)             |           [restore](docstrings.md#restore)           |                       (GET) [isMinimized](docstrings.md#isminimized)                       |
+|      [getWindowsWithTitle](docstrings.md#getwindowswithtitle)      |              [hide](docstrings.md#hide)              |                          (GET) [isActive](docstrings.md#isactive)                          |
+|          [getAllAppsNames](docstrings.md#getallappsnames)          |              [show](docstrings.md#show)              |                         (GET) [isVisible](docstrings.md#isvisible)                         |
+|          [getAppsWithName](docstrings.md#getappswithname)          |          [activate](docstrings.md#activate)          |                          (GET) [isAlive](docstrings.md#isvisible)                          |
+|  [getAllAppsWindowsTitles](docstrings.md#getallappswindowstitles)  |      [resize / resizeRel](docstrings.md#resize)      | **Position / Size** (inherited from [PyWinBox module](https://github.com/Kalmat/PyWinBox)) |
+|             [getWindowsAt](docstrings.md#getwindowsat)             |          [resizeTo](docstrings.md#resizeto)          |                                 (GET/SET) position (x, y)                                  |
+|           [getTopWindowAt](docstrings.md#gettopwindowat)           |         [move / moveRel](docstrings.md#move)         |                                     (GET/SET) left (x)                                     |
+| [displayWindowsUnderMouse](docstrings.md#displaywindowsundermouse) |            [moveTo](docstrings.md#moveto)            |                                     (GET/SET) top (y)                                      |
+|                  [version](docstrings.md#version)                  |       [raiseWindow](docstrings.md#raisewindow)       |                                    (GET/SET) right (x)                                     |
+|  [checkPermissions](docstrings.md#checkpermissions) (macOS only)   |       [lowerWindow](docstrings.md#lowerwindow)       |                                    (GET/SET) bottom (y)                                    |
+|                                                                    |       [alwaysOnTop](docstrings.md#alwaysontop)       |                                  (GET/SET) topleft (x, y)                                  |
+|                                                                    |    [alwaysOnBottom](docstrings.md#alwaysonbottom)    |                                 (GET/SET) topright (x, y)                                  |
+|                                                                    |        [sendBehind](docstrings.md#sendbehind)        |                                (GET/SET) bottomleft (x, y)                                 |
+|                                                                    |       [acceptInput](docstrings.md#acceptinput)       |                                (GET/SET) bottomright (x, y)                                |
+|                                                                    |        [getAppName](docstrings.md#getappname)        |                                  (GET/SET) midtop (x, y)                                   |
+|                                                                    |         [getHandle](docstrings.md#gethandle)         |                                  (GET/SET) midleft (x, y)                                  |
+|                                                                    |         [getParent](docstrings.md#getparent)         |                                 (GET/SET) midbotton (x, y)                                 |
+|                                                                    |         [setParent](docstrings.md#setparent)         |                                 (GET/SET) midright (x, y)                                  |
+|                                                                    |       [getChildren](docstrings.md#getchildren)       |                                  (GET/SET) center (x, y)                                   |
+|                                                                    |          [isParent](docstrings.md#isparent)          |                                   (GET/SET) centerx (x)                                    |
+|                                                                    |           [isChild](docstrings.md#ischild)           |                                   (GET/SET) centery (y)                                    |
+|                                                                    |        [getDisplay](docstrings.md#getdisplay)        |                               (GET/SET) size (width, height)                               |
+|                                                                    | [getExtraFrameSize](docstrings.md#getextraframesize) |                                      (GET/SET) width                                       |
+|                                                                    |    [getClientFrame](docstrings.md#getclientframe)    |                                      (GET/SET) height                                      |
+|                                                                    |                                                      |                             (GET/SET) box (x, y, width, height                             |
+|                                                                    |                                                      |                            (GET/SET) rect (x, y, right, bottom)                            |
 
 ***Important macOS notice <a name="macos-notice"></a>***
 
-macOS doesn't "like" controlling windows from other apps, so there are two separate classes you can use:
-- To control your own application's windows: MacOSNSWindow() is based on NSWindow Objects (you have to pass the NSApp() and the NSWindow() objects reference).
-- To control other applications' windows: MacOSWindow() is based on Apple Script, so it is non-standard, slower and, in some cases, tricky (uses window name as reference, which may change or be duplicate), but it's working fine in most cases. You will likely need to grant permissions on Settings -> Security&Privacy -> Accessibility. ***Notice some applications will have limited Apple Script support or no support at all, so some or even all methods may fail!***
+macOS doesn't "like" controlling windows from other apps. MacOSWindow() class is based on Apple Script, so it is non-standard, slower and, in some cases, tricky (uses window name as reference, which may change or be duplicate), but it's working fine in most cases. You will likely need to grant permissions on Settings -> Security&Privacy -> Accessibility. ***Notice some applications will have limited Apple Script support or no support at all, so some or even all methods may fail!***
 
 ***Important Linux notice <a name="linux-notice"></a>***
 
@@ -279,8 +277,4 @@ Be sure you install all dependencies described on "requirements.txt" by using pi
 To test this module on your own system, cd to "tests" folder and run:
 
     python3 test_pywinctl.py
-
-MacOSNSWindow class and methods can be tested by running this, also on "tests" folder:
-
-    python3 test_MacNSWindow.py
 

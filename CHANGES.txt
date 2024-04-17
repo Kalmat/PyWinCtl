@@ -1,7 +1,7 @@
 0.4, 2023/10/11 -- ALL: Added getMonitor() as alias for getDisplay()
-                   LINUX: Fixed getAllMonitors() returns empty list if XDG_CURRENT_DESKTOP is not set, improved getClientFrame() and getExtraFrameSize() by properly using _NET_EXTENTS and GTK_EXTENTS, Added a new Window.LEGACY_NAME="WM_NAME" property (for apps not setting _NET_WM_NAME)
-                          (ewmhlib): Fixed Mint returning str  (not bytes) in some properties. Fixed Mint not having get_monitors() method in xrandr extension.
-                   MACOS: Fixed lowerWindow(), raiseWindow() and isAlive. Fixed test_pywinctl.py to avoid crashing in small screens
+                   LINUX: Added ewmhlib as separate module. Fixed getAllMonitors() returns empty list if XDG_CURRENT_DESKTOP is not set. Improved getClientFrame() and getExtraFrameSize() by properly using _NET_EXTENTS and GTK_EXTENTS, Added a new Window.LEGACY_NAME="WM_NAME" property (for apps not setting _NET_WM_NAME)
+                          (ewmhlib): Fixed Mint returning str (not bytes) in some properties. Fixed Mint not having get_monitors() method in xrandr extension.
+                   MACOS: Removed MacOSNSWindow. Fixed lowerWindow(), raiseWindow() and isAlive. Fixed test_pywinctl.py to avoid crashing in small screens
 0.3, 2023/09/20 -- LINUX: Improved Wayland support for some apps which (surprisingly) work using X11/XOrg (thanks to SamuMazzi for his help!).
 0.2, 2023/09/09 -- LINUX: Added experimental Wayland support (only if unsafe mode enabled and only for some apps).
                           Fixed ewmhlib freezing in Wayland when connecting to display ":1", and added some performance improvements

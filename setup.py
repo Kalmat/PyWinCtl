@@ -33,15 +33,16 @@ setup(
     license='BSD 3',
     packages=find_packages(where='src'),
     package_dir={'': 'src'},
-    package_data={"pywinctl": ["py.typed"], "ewmhlib": ["py.typed"]},
+    package_data={"pywinctl": ["py.typed"]},
     test_suite='tests',
     install_requires=[
         "pywin32>=302; sys_platform == 'win32'",
         "python-xlib>=0.21; sys_platform == 'linux'",
+        "ewmhlib>=0.1; sys_platform == 'linux'",
         "pyobjc>=8.1; sys_platform == 'darwin'",
         "typing_extensions>=4.4.0",
-        "pywinbox>=0.6",
-        "pymonctl>=0.6"
+        "pywinbox>=0.7",
+        "pymonctl>=0.8"
     ],
     extras_require={
         'dev': [
