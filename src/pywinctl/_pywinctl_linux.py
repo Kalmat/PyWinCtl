@@ -22,12 +22,11 @@ import Xlib.Xutil
 import Xlib.ext
 from Xlib.xobject.drawable import Window as XWindow
 
-from pywinbox import Box, Size, Point, Rect, pointInBox
-
-from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
-
+from ._main import BaseWindow, Re, _WatchDog, _findMonitorName
 from ewmhlib import EwmhWindow, EwmhRoot, defaultEwmhRoot, Props
 from ewmhlib._ewmhlib import _xlibGetAllWindows
+
+from pywinbox import Size, Point, Rect, pointInBox
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -73,10 +72,10 @@ def getActiveWindow() -> Optional[LinuxWindow]:
     # https://www.reddit.com/r/gnome/comments/d8x27b/is_there_a_program_that_can_show_keypresses_on/
     win_id: Union[str, int] = 0
     if os.environ.get('XDG_SESSION_TYPE', '').lower() == "wayland":
-        # swaymsg -t get_tree | jq '.. | select(.type?) | select(.focused==true).pid'  -> Not working (socket issue)
+        # IN SWAY: swaymsg -t get_tree | jq '.. | select(.type?) | select(.focused==true).pid'
         # pynput / mouse --> Not working (no global events allowed, only application events)
         _, activeWindow = _WgetAllWindows()
-        if activeWindow and activeWindow.get("id", False):
+        if activeWindow:
             win_id = str(activeWindow["id"])
     if not win_id:
         win_id = defaultEwmhRoot.getActiveWindow()
@@ -115,10 +114,10 @@ def getAllWindows():
     """
     if os.environ.get('XDG_SESSION_TYPE', '').lower() == "wayland":
         windowsList, _ = _WgetAllWindows()
-        windows = [str(win["id"]) for win in windowsList if win and win.get("id", False)]
+        windows = [str(win["id"]) for win in windowsList]
     else:
         windows = defaultEwmhRoot.getClientListStacking()
-    return [window for window in __remove_bad_windows(windows)]
+    return __remove_bad_windows(windows)
 
 
 def getAllTitles() -> List[str]:
@@ -167,7 +166,8 @@ def getWindowsWithTitle(title: Union[str, re.Pattern[str]], app: Optional[Tuple[
             lower = True
             if isinstance(title, re.Pattern):
                 title = title.pattern
-            title = title.lower()
+            else:
+                title = title.lower()
         for win in getAllWindows():
             if win.title and Re._cond_dic[condition](title, win.title.lower() if lower else win.title, flags)  \
                     and (not app or (app and win.getAppName() in app)):
@@ -220,7 +220,8 @@ def getAppsWithName(name: Union[str, re.Pattern[str]], condition: int = Re.IS, f
             lower = True
             if isinstance(name, re.Pattern):
                 name = name.pattern
-            name = name.lower()
+            else:
+                name = name.lower()
         for title in getAllAppsNames():
             if title and Re._cond_dic[condition](name, title.lower() if lower else title, flags):
                 matches.append(title)
@@ -328,8 +329,8 @@ class LinuxWindow(BaseWindow):
         self._xWin: XWindow = self._win.xWindow
         self.watchdog = _WatchDog(self)
 
-        self._currDesktop = os.environ.get('XDG_CURRENT_DESKTOP', '').lower()
-        self._currSessionType = os.environ.get('XDG_SESSION_TYPE', '').lower()
+        self._currDesktop = os.environ.get('XDG_CURRENT_DESKTOP', "").lower()
+        self._currSessionType = os.environ.get('XDG_SESSION_TYPE', "").lower()
         self._motifHints: List[int] = []
 
     def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
@@ -338,15 +339,22 @@ class LinuxWindow(BaseWindow):
         Notice not all applications/windows will use this property values
 
         :param includeBorder: set to ''False'' to avoid including borders
-        :return: (left, top, right, bottom) additional frame size in pixels, as a tuple of int
+        :return: additional frame size in pixels, as a tuple of int (left, top, right, bottom)
         """
-        ret: List[int] = self._win.getFrameExtents() or [0, 0, 0, 0]
+        ret: Tuple[int, int, int, int] = (0, 0, 0, 0)
         borderWidth = 0
         if includeBorder:
             geom = self._xWin.get_geometry()
             borderWidth = geom.border_width
-        frame = (ret[0] + borderWidth, ret[2] + borderWidth, ret[1] + borderWidth, ret[3] + borderWidth)
-        return frame
+        if "gnome" in self._currDesktop:
+            _gtk_extents: List[int] = self._win._getGtkFrameExtents()
+            if _gtk_extents and len(_gtk_extents) >= 4:
+                ret = (_gtk_extents[0] + borderWidth, _gtk_extents[2] + borderWidth,
+                       _gtk_extents[1] + borderWidth, _gtk_extents[3] + borderWidth)
+        else:
+            # TODO: Check if this makes sense in other environments, then find a way to get these values
+            pass
+        return ret
 
     def getClientFrame(self) -> Rect:
         """
@@ -355,23 +363,20 @@ class LinuxWindow(BaseWindow):
 
         :return: Rect struct
         """
-        box = self.box
-        x = box.left
-        y = box.top
-        w = box.width
-        h = box.height
+        x, y, w, h = self.box
         # Thanks to roym899 (https://github.com/roym899) for his HELP!!!!
         _net_extents = self._win._getNetFrameExtents()
         if _net_extents and len(_net_extents) >= 4:
-            x = x + int(_net_extents[0])
-            y = y + int(_net_extents[2])
-            w = w - int(_net_extents[0]) - int(_net_extents[1])
-            h = h - int(_net_extents[2]) - int(_net_extents[3])
-            ret = Rect(x, y, x + w, y + h)
+            x += int(_net_extents[0])
+            y += int(_net_extents[2])
+            w -= (int(_net_extents[0]) + int(_net_extents[1]))
+            h -= (int(_net_extents[2]) + int(_net_extents[3]))
         else:
-            # TODO: Find a way to find window title and borders sizes in GNOME
-            # Don't add / subtract anything to avoid missing window parts (for windows not following WM standards)
-            ret = Rect(x, y, x + w, y + h)
+            # TODO: Find a way to get window title and borders sizes in GNOME
+            #       (not setting _NET_EXTENTS, but _GTK_EXTENTS, containing space AROUND window)
+            # Don't add / subtract anything to avoid missing window parts, since it's adjusted in PyWinBox
+            pass
+        ret = Rect(x, y, x + w, y + h)
         return ret
 
     def __repr__(self):
@@ -756,10 +761,16 @@ class LinuxWindow(BaseWindow):
         """
         Get display names in which current window space is mostly visible
 
+        On Windows, the list will contain up to one display (displays can not overlap), whilst in Linux and macOS, the
+        list may contain several displays.
+
+        If you need to get info or control the monitor, use these names as input to PyMonCtl's findMonitorWithName().
+
         :return: display name as list of strings or empty (couldn't retrieve it or window is off-screen)
         """
         x, y = self.center
         return _findMonitorName(x, y)
+    getMonitor = getDisplay  # getMonitor is an alias of getDisplay method
 
     @property
     def isMinimized(self) -> bool:
@@ -842,26 +853,3 @@ class LinuxWindow(BaseWindow):
         # Returns ``True`` if the window is currently mapped
         state: int = self._xWin.get_attributes().map_state
         return bool(state != Xlib.X.IsUnmapped)
-
-
-def main():
-    """Run this script from command-line to get windows under mouse pointer"""
-    print("PLATFORM:", sys.platform)
-    print("ALL WINDOWS", getAllTitles())
-    print("ALL APPS & WINDOWS", getAllAppsWindowsTitles())
-    print("MONITORS:", getAllScreens())
-    npw = getActiveWindow()
-    if npw is None:
-        print("ACTIVE WINDOW:", None)
-    else:
-        print("ACTIVE WINDOW:", npw.title, "/", npw.box)
-        dpy = npw.getDisplay()
-        print("DISPLAY", dpy)
-        print("SCREEN SIZE:", getScreenSize(dpy[0]))
-        print("WORKAREA:", getWorkArea(dpy[0]))
-    print()
-    displayWindowsUnderMouse()
-
-
-if __name__ == "__main__":
-    main()

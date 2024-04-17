@@ -24,8 +24,8 @@ import win32con
 import win32api
 import win32gui
 
-from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, getAllScreens, getScreenSize, getWorkArea, displayWindowsUnderMouse
-from pywinbox import Box, Size, Point, Rect, pointInBox
+from ._main import BaseWindow, Re, _WatchDog, _findMonitorName
+from pywinbox import Size, Point, Rect, pointInBox
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -427,6 +427,7 @@ class Win32Window(BaseWindow):
         self._hWnd = int(hWnd, base=16) if isinstance(hWnd, str) else int(hWnd)
         self._parent = win32gui.GetParent(self._hWnd)
         self._t: Optional[_SendBottom] = None
+        self._kill_t = threading.Event()
         self.menu = self._Menu(self)
         self.watchdog = _WatchDog(self)
 
@@ -661,8 +662,10 @@ class Win32Window(BaseWindow):
         # https://stackoverflow.com/questions/17131857/python-windows-keep-program-on-top-of-another-full-screen-application
         # This can be interesting to do all of the above with Python
         # https://www.apriorit.com/dev-blog/727-win-guide-to-hooking-windows-apis-with-python
-        if self._t and self._t.is_alive():
-            self._t.kill()
+        if self._t:
+            self._kill_t.set()
+            self._t.join()
+            self._t = None
         zorder = win32con.HWND_TOPMOST if aot else win32con.HWND_NOTOPMOST
         win32gui.SetWindowPos(self._hWnd, zorder, 0, 0, 0, 0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE |
                                                               win32con.SWP_NOACTIVATE)
@@ -684,14 +687,15 @@ class Win32Window(BaseWindow):
             # TODO: Try to find other smarter methods to keep window at the bottom
             ret = True
             if self._t is None:
-                self._t = _SendBottom(self._hWnd)
+                self._kill_t.clear()
+                self._t = _SendBottom(self._hWnd, self._kill_t)
                 self._t.daemon = True
                 self._t.start()
-            else:
-                self._t.restart()
         else:
             if self._t:
-                self._t.kill()
+                self._kill_t.set()
+                self._t.join()
+                self._t = None
             ret = self.sendBehind(sb=False)
         return ret
 
@@ -821,7 +825,7 @@ class Win32Window(BaseWindow):
         :param child: handle of the window you want to check if the current window is parent of
         :return: ''True'' if current window is parent of the given window
         """
-        return bool(win32gui.GetParent(child) == self._hWnd)
+        return bool(child and win32gui.GetParent(child) == self._hWnd)
     isParentOf = isParent  # isParentOf is an alias of isParent method
 
     def isChild(self, parent: int) -> bool:
@@ -1216,44 +1220,24 @@ class Win32Window(BaseWindow):
 
 class _SendBottom(threading.Thread):
 
-    def __init__(self, hWnd: int, interval: float = 0.5):
+    def __init__(self, hWnd: int, kill: threading.Event, interval: float = 0.5):
         threading.Thread.__init__(self)
         self._hWnd = hWnd
+        self._kill = kill
         self._interval = interval
-        self._keep = threading.Event()
-        self._keep.set()
 
     def _isLast(self) -> bool:
-        handles = _findMainWindowHandles()
-        last = None if not handles else handles[-1][0]
+        # handles = _findMainWindowHandles()
+        handles = _findWindowHandles()
+        last = None if not handles else handles[-1]
         return self._hWnd == last
 
     def run(self):
-        while self._keep.is_set() and win32gui.IsWindow(self._hWnd):
+        while not self._kill.is_set() and win32gui.IsWindow(self._hWnd):
             if not self._isLast():
                 win32gui.SetWindowPos(self._hWnd, win32con.HWND_BOTTOM, 0, 0, 0, 0,
                                       win32con.SWP_NOSIZE | win32con.SWP_NOMOVE | win32con.SWP_NOACTIVATE)
-            self._keep.wait(self._interval)
-
-    def kill(self):
-        self._keep.clear()
-
-    def restart(self):
-        self._keep.set()
-        self.run()
-
-
-class _ScreenValue(TypedDict):
-    id: int
-    is_primary: bool
-    pos: Point
-    size: Size
-    workarea: Rect
-    scale: Tuple[int, int]
-    dpi: Tuple[int, int]
-    orientation: int
-    frequency: float
-    colordepth: int
+            self._kill.wait(self._interval)
 
 
 # Futile attempt to get the taskbar buttons handles without using pywinauto (but useful as "hard" pywin32 example!)
@@ -1425,27 +1409,3 @@ class _ScreenValue(TypedDict):
 #         buttons.append((tbButton.idCommand, idx_rect, butPid))
 #
 #     return hWnd, buttons
-
-
-def main():
-    """Run this script from command-line to get windows under mouse pointer"""
-
-    print("PLATFORM:", sys.platform)
-    print("MONITORS:", getAllScreens())
-    npw = getActiveWindow()
-    if npw is None:
-        print("ACTIVE WINDOW:", None)
-    else:
-        dpy = npw.getDisplay()
-        print("DISPLAY", dpy)
-        print("SCREEN SIZE:", getScreenSize(dpy[0]))
-        print("WORKAREA:", getWorkArea(dpy[0]))
-        print("ALL WINDOWS", getAllTitles())
-        print("ACTIVE WINDOW:", npw.title, "/", npw.box)
-    print()
-    displayWindowsUnderMouse()
-    # print(npw.menu.getMenu())  # Not working in windows 11?!?!?!?!
-
-
-if __name__ == "__main__":
-    main()

@@ -10,8 +10,8 @@ instance/
 .coverage
 htmlcov/
 
-dist/
 build/
 *.egg-info/
 .vscode/
-/make_dev_wheel.bat
+dist/
+*.whl
