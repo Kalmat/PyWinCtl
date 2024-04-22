@@ -909,11 +909,15 @@ class MacOSWindow(BaseWindow):
                     try
                         tell application "System Events"
                             set procList to name of every application process whose background only is false
+                            set frontAppName to name of first application process whose frontmost is true
                         end tell
                         repeat with procName in procList
                             if procName is not equal to appName then
                                 try
                                     activate application procName
+                                    if frontAppName is not equal to appName then
+                                        activate application frontAppName
+                                    end if
                                 end try
                             end if
                         end repeat
@@ -1856,11 +1860,6 @@ class _SendBottom(threading.Thread):
         while not self._kill.is_set():
             if self._hWnd.isActive:
                 self._hWnd.lowerWindow()
-                for app in self._apps:
-                    try:
-                        app.activateWithOptions_(Quartz.NSApplicationActivateIgnoringOtherApps)
-                    except:
-                        continue
             self._kill.wait(self._interval)
 
     def kill(self):

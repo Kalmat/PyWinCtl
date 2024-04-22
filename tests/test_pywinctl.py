@@ -5,7 +5,6 @@ from __future__ import annotations
 import subprocess
 import sys
 import time
-from typing import Any, cast
 
 import pywinctl
 
@@ -204,12 +203,12 @@ def basic_test(npw: pywinctl.Window | None, wait: bool, timelap: float):
     test_moveresize('centerx', 900)
     print("MOVE CENTERY", 600)
     test_moveresize('centery', 600)
-    print("RESIZE WIDTH", 500)
-    test_moveresize('width', 500)
-    print("RESIZE HEIGHT", 400)
-    test_moveresize('height', 400)
-    print("RESIZE", 540, 410)
-    test_moveresize('size', (540, 410))
+    print("RESIZE WIDTH", 620)
+    test_moveresize('width', 620)
+    print("RESIZE HEIGHT", 410)
+    test_moveresize('height', 410)
+    print("RESIZE", 640, 420)
+    test_moveresize('size', (640, 420))
 
     # Test window stacking
     print("LOWER WINDOW")
@@ -254,26 +253,30 @@ def basic_test(npw: pywinctl.Window | None, wait: bool, timelap: float):
         assert npw.isChild(parent)
     children = npw.getChildren()
     for child in children:
-        if child:
-            if isinstance(child, int):
-                print("WINDOW CHILD:", child, npw.isParent(child))
-            else:
-                print("WINDOW CHILD:", child.id, npw.isParent(child))
+        if child and isinstance(child, int):
+            print("WINDOW CHILD:", child, npw.isParent(child))
 
     # Test menu options
     print("MENU INFO (WORKING IN WINDOWS 10 AND MACOS, BUT NOT IN WINDOWS 11 NOR LINUX)")
     if sys.platform in ("win32", "darwin"):
+        # Show "About" dialog. Using numbers instead of menu/option names since they are language-dependent
+        if sys.platform == "darwin":
+            targetSubmenu = 1
+            targetOption = 0
+        else:
+            targetSubmenu = 4
+            targetOption = 2
         menu = npw.menu.getMenu()
         submenu = {}
         for i, key in enumerate(menu):
-            if i == 1:
+            if i == targetSubmenu:
                 submenu = menu[key].get("entries", {})
                 break
-        option: dict[str, Any] | None = None
+        option = {}
         for i, key in enumerate(submenu):
-            if i == 0:
-                option = cast("dict[str, Any]", submenu[key])
-
+            if i == targetOption:
+                option = submenu[key]
+                break
         if option:
             print("CLICK OPTION")
             npw.menu.clickMenuItem(wID=option.get("wID", ""))

@@ -38,11 +38,11 @@ setup(
     install_requires=[
         "pywin32>=302; sys_platform == 'win32'",
         "python-xlib>=0.21; sys_platform == 'linux'",
-        "ewmhlib>=0.1; sys_platform == 'linux'",
+        "ewmhlib>=0.2; sys_platform == 'linux'",
         "pyobjc>=8.1; sys_platform == 'darwin'",
         "typing_extensions>=4.4.0",
         "pywinbox>=0.7",
-        "pymonctl>=0.8"
+        "pymonctl>=0.92"
     ],
     extras_require={
         'dev': [
