@@ -9,10 +9,8 @@ Welcome to PyWinCtl's documentation!
 .. toctree::
    :maxdepth: 3
 
-      readme <README.md>
+      Readme <README.md>
 
    :hidden:
 
       docstrings <docstrings.md>
-
-

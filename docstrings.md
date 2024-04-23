@@ -369,180 +369,6 @@ Defaults to ''False''
 
 returns ''True'' if permissions are already granted or platform is not macOS
 
-## WatchDog Methods
-
-```python
-class _WatchDog()
-```
-
-Set a watchdog, in a separate Thread, to be notified when some window states change
-
-Notice that changes will be notified according to the window status at the very moment of instantiating this class
-
-IMPORTANT: This can be extremely slow in macOS Apple Script version
-
- Available methods:
-:meth start: Initialize and start watchdog and selected callbacks
-:meth updateCallbacks: Change the states this watchdog is hooked to
-:meth updateInterval: Change the interval to check changes
-:meth kill: Stop the entire watchdog and all its hooks
-:meth isAlive: Check if watchdog is running
-
-<a id="..pywinctl._main._WatchDog.start"></a>
-
-#### start
-
-```python
-def start(isAliveCB: Callable[[bool], None] | None = None,
-          isActiveCB: Callable[[bool], None] | None = None,
-          isVisibleCB: Callable[[bool], None] | None = None,
-          isMinimizedCB: Callable[[bool], None] | None = None,
-          isMaximizedCB: Callable[[bool], None] | None = None,
-          resizedCB: Callable[[Tuple[int, int]], None] | None = None,
-          movedCB: Callable[[Tuple[int, int]], None] | None = None,
-          changedTitleCB: Callable[[str], None] | None = None,
-          changedDisplayCB: Callable[[List[str]], None] | None = None,
-          interval: float = 0.3)
-```
-
-Initialize and start watchdog and hooks (callbacks to be invoked when desired window states change)
-
-Notice that changes will be notified according to the window status at the very moment of execute start()
-
-The watchdog is asynchronous, so notifications will not be immediate (adjust interval value to your needs)
-
-The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
-
-IMPORTANT: This can be extremely slow in macOS Apple Script version
-
-**Arguments**:
-
-- `isAliveCB`: callback to call if window is not alive. Set to None to not watch this
-Returns the new alive status value (False)
-- `isActiveCB`: callback to invoke if window changes its active status. Set to None to not watch this
-Returns the new active status value (True/False)
-- `isVisibleCB`: callback to invoke if window changes its visible status. Set to None to not watch this
-Returns the new visible status value (True/False)
-- `isMinimizedCB`: callback to invoke if window changes its minimized status. Set to None to not watch this
-Returns the new minimized status value (True/False)
-- `isMaximizedCB`: callback to invoke if window changes its maximized status. Set to None to not watch this
-Returns the new maximized status value (True/False)
-- `resizedCB`: callback to invoke if window changes its size. Set to None to not watch this
-Returns the new size (width, height)
-- `movedCB`: callback to invoke if window changes its position. Set to None to not watch this
-Returns the new position (x, y)
-- `changedTitleCB`: callback to invoke if window changes its title. Set to None to not watch this
-Returns the new title (as string)
-- `changedDisplayCB`: callback to invoke if window changes display. Set to None to not watch this
-Returns the new display name (as string)
-- `interval`: set the interval to watch window changes. Default is 0.3 seconds
-
-<a id="..pywinctl._main._WatchDog.updateCallbacks"></a>
-
-#### updateCallbacks
-
-```python
-def updateCallbacks(isAliveCB: Callable[[bool], None] | None = None,
-                    isActiveCB: Callable[[bool], None] | None = None,
-                    isVisibleCB: Callable[[bool], None] | None = None,
-                    isMinimizedCB: Callable[[bool], None] | None = None,
-                    isMaximizedCB: Callable[[bool], None] | None = None,
-                    resizedCB: Callable[[Tuple[int, int]], None] | None = None,
-                    movedCB: Callable[[Tuple[int, int]], None] | None = None,
-                    changedTitleCB: Callable[[str], None] | None = None,
-                    changedDisplayCB: Callable[[List[str]], None]
-                    | None = None)
-```
-
-Change the states this watchdog is hooked to
-
-The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
-
-IMPORTANT: When updating callbacks, remember to set ALL desired callbacks or they will be deactivated
-
-IMPORTANT: Remember to set ALL desired callbacks every time, or they will be defaulted to None (and unhooked)
-
-**Arguments**:
-
-- `isAliveCB`: callback to call if window is not alive. Set to None to not watch this
-Returns the new alive status value (False)
-- `isActiveCB`: callback to invoke if window changes its active status. Set to None to not watch this
-Returns the new active status value (True/False)
-- `isVisibleCB`: callback to invoke if window changes its visible status. Set to None to not watch this
-Returns the new visible status value (True/False)
-- `isMinimizedCB`: callback to invoke if window changes its minimized status. Set to None to not watch this
-Returns the new minimized status value (True/False)
-- `isMaximizedCB`: callback to invoke if window changes its maximized status. Set to None to not watch this
-Returns the new maximized status value (True/False)
-- `resizedCB`: callback to invoke if window changes its size. Set to None to not watch this
-Returns the new size (width, height)
-- `movedCB`: callback to invoke if window changes its position. Set to None to not watch this
-Returns the new position (x, y)
-- `changedTitleCB`: callback to invoke if window changes its title. Set to None to not watch this
-Returns the new title (as string)
-- `changedDisplayCB`: callback to invoke if window changes display. Set to None to not watch this
-Returns the new display name (as string)
-
-<a id="..pywinctl._main._WatchDog.updateInterval"></a>
-
-#### updateInterval
-
-```python
-def updateInterval(interval: float = 0.3)
-```
-
-Change the interval to check changes
-
-**Arguments**:
-
-- `interval`: set the interval to watch window changes. Default is 0.3 seconds
-
-<a id="..pywinctl._main._WatchDog.setTryToFind"></a>
-
-#### setTryToFind
-
-```python
-def setTryToFind(tryToFind: bool)
-```
-
-In macOS Apple Script version, if set to ''True'' and in case title changes, watchdog will try to find
-
-a similar title within same application to continue monitoring it. It will stop if set to ''False'' or
-similar title not found.
-
-IMPORTANT:
-
-- It will have no effect in other platforms (Windows and Linux) and classes (MacOSNSWindow)
-- This behavior is deactivated by default, so you need to explicitly activate it
-
-**Arguments**:
-
-- `tryToFind`: set to ''True'' to try to find a similar title. Set to ''False'' to deactivate this behavior
-
-<a id="..pywinctl._main._WatchDog.stop"></a>
-
-#### stop
-
-```python
-def stop()
-```
-
-Stop the entire WatchDog and all its hooks
-
-<a id="..pywinctl._main._WatchDog.isAlive"></a>
-
-#### -[watchdog-]()isAlive
-
-```python
-def isAlive()
-```
-
-Check if watchdog is running
-
-**Returns**:
-
-''True'' if watchdog is alive
-
 ## Window Methods
 
 ```python
@@ -1174,6 +1000,180 @@ IMPORTANT:
 possible new title, empty if no similar title found or same title if it didn't change, as a string
 
 <a id="..pywinctl._pywinctl_macos.MacOSWindow._Menu"></a>
+
+## WatchDog Methods
+
+```python
+class _WatchDog()
+```
+
+Set a watchdog, in a separate Thread, to be notified when some window states change
+
+Notice that changes will be notified according to the window status at the very moment of instantiating this class
+
+IMPORTANT: This can be extremely slow in macOS Apple Script version
+
+ Available methods:
+:meth start: Initialize and start watchdog and selected callbacks
+:meth updateCallbacks: Change the states this watchdog is hooked to
+:meth updateInterval: Change the interval to check changes
+:meth kill: Stop the entire watchdog and all its hooks
+:meth isAlive: Check if watchdog is running
+
+<a id="..pywinctl._main._WatchDog.start"></a>
+
+#### start
+
+```python
+def start(isAliveCB: Callable[[bool], None] | None = None,
+          isActiveCB: Callable[[bool], None] | None = None,
+          isVisibleCB: Callable[[bool], None] | None = None,
+          isMinimizedCB: Callable[[bool], None] | None = None,
+          isMaximizedCB: Callable[[bool], None] | None = None,
+          resizedCB: Callable[[Tuple[int, int]], None] | None = None,
+          movedCB: Callable[[Tuple[int, int]], None] | None = None,
+          changedTitleCB: Callable[[str], None] | None = None,
+          changedDisplayCB: Callable[[List[str]], None] | None = None,
+          interval: float = 0.3)
+```
+
+Initialize and start watchdog and hooks (callbacks to be invoked when desired window states change)
+
+Notice that changes will be notified according to the window status at the very moment of execute start()
+
+The watchdog is asynchronous, so notifications will not be immediate (adjust interval value to your needs)
+
+The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
+
+IMPORTANT: This can be extremely slow in macOS Apple Script version
+
+**Arguments**:
+
+- `isAliveCB`: callback to call if window is not alive. Set to None to not watch this
+Returns the new alive status value (False)
+- `isActiveCB`: callback to invoke if window changes its active status. Set to None to not watch this
+Returns the new active status value (True/False)
+- `isVisibleCB`: callback to invoke if window changes its visible status. Set to None to not watch this
+Returns the new visible status value (True/False)
+- `isMinimizedCB`: callback to invoke if window changes its minimized status. Set to None to not watch this
+Returns the new minimized status value (True/False)
+- `isMaximizedCB`: callback to invoke if window changes its maximized status. Set to None to not watch this
+Returns the new maximized status value (True/False)
+- `resizedCB`: callback to invoke if window changes its size. Set to None to not watch this
+Returns the new size (width, height)
+- `movedCB`: callback to invoke if window changes its position. Set to None to not watch this
+Returns the new position (x, y)
+- `changedTitleCB`: callback to invoke if window changes its title. Set to None to not watch this
+Returns the new title (as string)
+- `changedDisplayCB`: callback to invoke if window changes display. Set to None to not watch this
+Returns the new display name (as string)
+- `interval`: set the interval to watch window changes. Default is 0.3 seconds
+
+<a id="..pywinctl._main._WatchDog.updateCallbacks"></a>
+
+#### updateCallbacks
+
+```python
+def updateCallbacks(isAliveCB: Callable[[bool], None] | None = None,
+                    isActiveCB: Callable[[bool], None] | None = None,
+                    isVisibleCB: Callable[[bool], None] | None = None,
+                    isMinimizedCB: Callable[[bool], None] | None = None,
+                    isMaximizedCB: Callable[[bool], None] | None = None,
+                    resizedCB: Callable[[Tuple[int, int]], None] | None = None,
+                    movedCB: Callable[[Tuple[int, int]], None] | None = None,
+                    changedTitleCB: Callable[[str], None] | None = None,
+                    changedDisplayCB: Callable[[List[str]], None]
+                    | None = None)
+```
+
+Change the states this watchdog is hooked to
+
+The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
+
+IMPORTANT: When updating callbacks, remember to set ALL desired callbacks or they will be deactivated
+
+IMPORTANT: Remember to set ALL desired callbacks every time, or they will be defaulted to None (and unhooked)
+
+**Arguments**:
+
+- `isAliveCB`: callback to call if window is not alive. Set to None to not watch this
+Returns the new alive status value (False)
+- `isActiveCB`: callback to invoke if window changes its active status. Set to None to not watch this
+Returns the new active status value (True/False)
+- `isVisibleCB`: callback to invoke if window changes its visible status. Set to None to not watch this
+Returns the new visible status value (True/False)
+- `isMinimizedCB`: callback to invoke if window changes its minimized status. Set to None to not watch this
+Returns the new minimized status value (True/False)
+- `isMaximizedCB`: callback to invoke if window changes its maximized status. Set to None to not watch this
+Returns the new maximized status value (True/False)
+- `resizedCB`: callback to invoke if window changes its size. Set to None to not watch this
+Returns the new size (width, height)
+- `movedCB`: callback to invoke if window changes its position. Set to None to not watch this
+Returns the new position (x, y)
+- `changedTitleCB`: callback to invoke if window changes its title. Set to None to not watch this
+Returns the new title (as string)
+- `changedDisplayCB`: callback to invoke if window changes display. Set to None to not watch this
+Returns the new display name (as string)
+
+<a id="..pywinctl._main._WatchDog.updateInterval"></a>
+
+#### updateInterval
+
+```python
+def updateInterval(interval: float = 0.3)
+```
+
+Change the interval to check changes
+
+**Arguments**:
+
+- `interval`: set the interval to watch window changes. Default is 0.3 seconds
+
+<a id="..pywinctl._main._WatchDog.setTryToFind"></a>
+
+#### setTryToFind
+
+```python
+def setTryToFind(tryToFind: bool)
+```
+
+In macOS Apple Script version, if set to ''True'' and in case title changes, watchdog will try to find
+
+a similar title within same application to continue monitoring it. It will stop if set to ''False'' or
+similar title not found.
+
+IMPORTANT:
+
+- It will have no effect in other platforms (Windows and Linux) and classes (MacOSNSWindow)
+- This behavior is deactivated by default, so you need to explicitly activate it
+
+**Arguments**:
+
+- `tryToFind`: set to ''True'' to try to find a similar title. Set to ''False'' to deactivate this behavior
+
+<a id="..pywinctl._main._WatchDog.stop"></a>
+
+#### stop
+
+```python
+def stop()
+```
+
+Stop the entire WatchDog and all its hooks
+
+<a id="..pywinctl._main._WatchDog.isAlive"></a>
+
+#### -[watchdog-]()isAlive
+
+```python
+def isAlive()
+```
+
+Check if watchdog is running
+
+**Returns**:
+
+''True'' if watchdog is alive
 
 ## Menu Methods
 
