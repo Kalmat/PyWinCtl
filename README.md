@@ -1,6 +1,8 @@
 # PyWinCtl <a name="pywinctl"></a>
 [![Type Checking](https://github.com/Kalmat/PyWinCtl/actions/workflows/type-checking.yml/badge.svg?branch=dev)](https://github.com/Kalmat/PyWinCtl/actions/workflows/type-checking.yml)
 [![PyPI version](https://badge.fury.io/py/PyWinCtl.svg)](https://badge.fury.io/py/PyWinCtl)
+[![Documentation Status](https://readthedocs.org/projects/pywinctl/badge/?version=latest)](https://pywinctl.readthedocs.io/en/latest/?badge=latest)
+
 
 Cross-Platform module to get info on and control windows on screen.
 
