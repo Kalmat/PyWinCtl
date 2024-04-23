@@ -49,7 +49,8 @@ setup(
             "types-setuptools>=65.5",
             "mypy>=0.990",
             "types-pywin32>=305.0.0.3",
-            "types-python-xlib>=0.32"
+            "types-python-xlib>=0.32",
+            "myst-parser"
         ]
     },
     keywords="gui window control menu title name geometry size position move resize minimize maximize restore "
