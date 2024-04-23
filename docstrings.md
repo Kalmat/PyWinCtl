@@ -1,326 +1,11 @@
-<a id="..pywinctl.version"></a>
-
-#### version
-
-```python
-def version(numberOnly: bool = True) -> str
-```
-
-Returns the current version of PyWinCtl module, in the form ''x.x.xx'' as string
-<a id="..pywinctl._main._WatchDog"></a>
-
-## \_WatchDog Objects
-
-```python
-class _WatchDog()
-```
-
-Set a watchdog, in a separate Thread, to be notified when some window states change
-
-Notice that changes will be notified according to the window status at the very moment of instantiating this class
-
-IMPORTANT: This can be extremely slow in macOS Apple Script version
-
- Available methods:
-:meth start: Initialize and start watchdog and selected callbacks
-:meth updateCallbacks: Change the states this watchdog is hooked to
-:meth updateInterval: Change the interval to check changes
-:meth kill: Stop the entire watchdog and all its hooks
-:meth isAlive: Check if watchdog is running
-
-<a id="..pywinctl._main._WatchDog.start"></a>
-
-#### start
-
-```python
-def start(isAliveCB: Callable[[bool], None] | None = None,
-          isActiveCB: Callable[[bool], None] | None = None,
-          isVisibleCB: Callable[[bool], None] | None = None,
-          isMinimizedCB: Callable[[bool], None] | None = None,
-          isMaximizedCB: Callable[[bool], None] | None = None,
-          resizedCB: Callable[[Tuple[int, int]], None] | None = None,
-          movedCB: Callable[[Tuple[int, int]], None] | None = None,
-          changedTitleCB: Callable[[str], None] | None = None,
-          changedDisplayCB: Callable[[List[str]], None] | None = None,
-          interval: float = 0.3)
-```
-
-Initialize and start watchdog and hooks (callbacks to be invoked when desired window states change)
-
-Notice that changes will be notified according to the window status at the very moment of execute start()
-
-The watchdog is asynchronous, so notifications will not be immediate (adjust interval value to your needs)
-
-The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
-
-IMPORTANT: This can be extremely slow in macOS Apple Script version
-
-**Arguments**:
-
-- `isAliveCB`: callback to call if window is not alive. Set to None to not watch this
-Returns the new alive status value (False)
-- `isActiveCB`: callback to invoke if window changes its active status. Set to None to not watch this
-Returns the new active status value (True/False)
-- `isVisibleCB`: callback to invoke if window changes its visible status. Set to None to not watch this
-Returns the new visible status value (True/False)
-- `isMinimizedCB`: callback to invoke if window changes its minimized status. Set to None to not watch this
-Returns the new minimized status value (True/False)
-- `isMaximizedCB`: callback to invoke if window changes its maximized status. Set to None to not watch this
-Returns the new maximized status value (True/False)
-- `resizedCB`: callback to invoke if window changes its size. Set to None to not watch this
-Returns the new size (width, height)
-- `movedCB`: callback to invoke if window changes its position. Set to None to not watch this
-Returns the new position (x, y)
-- `changedTitleCB`: callback to invoke if window changes its title. Set to None to not watch this
-Returns the new title (as string)
-- `changedDisplayCB`: callback to invoke if window changes display. Set to None to not watch this
-Returns the new display name (as string)
-- `interval`: set the interval to watch window changes. Default is 0.3 seconds
-
-<a id="..pywinctl._main._WatchDog.updateCallbacks"></a>
-
-#### updateCallbacks
-
-```python
-def updateCallbacks(isAliveCB: Callable[[bool], None] | None = None,
-                    isActiveCB: Callable[[bool], None] | None = None,
-                    isVisibleCB: Callable[[bool], None] | None = None,
-                    isMinimizedCB: Callable[[bool], None] | None = None,
-                    isMaximizedCB: Callable[[bool], None] | None = None,
-                    resizedCB: Callable[[Tuple[int, int]], None] | None = None,
-                    movedCB: Callable[[Tuple[int, int]], None] | None = None,
-                    changedTitleCB: Callable[[str], None] | None = None,
-                    changedDisplayCB: Callable[[List[str]], None]
-                    | None = None)
-```
-
-Change the states this watchdog is hooked to
-
-The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
-
-IMPORTANT: When updating callbacks, remember to set ALL desired callbacks or they will be deactivated
-
-IMPORTANT: Remember to set ALL desired callbacks every time, or they will be defaulted to None (and unhooked)
-
-**Arguments**:
-
-- `isAliveCB`: callback to call if window is not alive. Set to None to not watch this
-Returns the new alive status value (False)
-- `isActiveCB`: callback to invoke if window changes its active status. Set to None to not watch this
-Returns the new active status value (True/False)
-- `isVisibleCB`: callback to invoke if window changes its visible status. Set to None to not watch this
-Returns the new visible status value (True/False)
-- `isMinimizedCB`: callback to invoke if window changes its minimized status. Set to None to not watch this
-Returns the new minimized status value (True/False)
-- `isMaximizedCB`: callback to invoke if window changes its maximized status. Set to None to not watch this
-Returns the new maximized status value (True/False)
-- `resizedCB`: callback to invoke if window changes its size. Set to None to not watch this
-Returns the new size (width, height)
-- `movedCB`: callback to invoke if window changes its position. Set to None to not watch this
-Returns the new position (x, y)
-- `changedTitleCB`: callback to invoke if window changes its title. Set to None to not watch this
-Returns the new title (as string)
-- `changedDisplayCB`: callback to invoke if window changes display. Set to None to not watch this
-Returns the new display name (as string)
-
-<a id="..pywinctl._main._WatchDog.updateInterval"></a>
-
-#### updateInterval
-
-```python
-def updateInterval(interval: float = 0.3)
-```
-
-Change the interval to check changes
-
-**Arguments**:
-
-- `interval`: set the interval to watch window changes. Default is 0.3 seconds
-
-<a id="..pywinctl._main._WatchDog.setTryToFind"></a>
-
-#### setTryToFind
-
-```python
-def setTryToFind(tryToFind: bool)
-```
-
-In macOS Apple Script version, if set to ''True'' and in case title changes, watchdog will try to find
-
-a similar title within same application to continue monitoring it. It will stop if set to ''False'' or
-similar title not found.
-
-IMPORTANT:
-
-- It will have no effect in other platforms (Windows and Linux) and classes (MacOSNSWindow)
-- This behavior is deactivated by default, so you need to explicitly activate it
-
-**Arguments**:
-
-- `tryToFind`: set to ''True'' to try to find a similar title. Set to ''False'' to deactivate this behavior
-
-<a id="..pywinctl._main._WatchDog.stop"></a>
-
-#### stop
-
-```python
-def stop()
-```
-
-Stop the entire WatchDog and all its hooks
-
-<a id="..pywinctl._main._WatchDog.isAlive"></a>
-
-#### -watchdog-isAlive
-
-```python
-def isAlive()
-```
-
-Check if watchdog is running
-
-**Returns**:
-
-''True'' if watchdog is alive
-
-<a id="..pywinctl._main.getAllScreens"></a>
-
-#### getAllScreens
-
-```python
-def getAllScreens()
-```
-
-Get all monitors info plugged to the system, as a dict.
-
-If watchdog thread is enabled or the 'forceUpdate' param is set to ''True'', it will return updated information.
-Otherwise, it will return the monitors info as it was when the PyMonCtl module was initially loaded (static).
-
-Use 'forceUpdate' carefully since it can be CPU-consuming and slow in scenarios in which this function is
-repeatedly and quickly invoked, so if it is directly called or indirectly by other functions.
-
-**Returns**:
-
-Monitors info as python dictionary
-Output Format:
-    Key:
-        Display name (in macOS it is necessary to add handle to avoid duplicates)
-
-    Values:
-        "system_name":
-            name of display as returned by system (in macOS this name can be duplicated!)
-        "handle":
-            display index as returned by EnumDisplayDevices()
-        "is_primary":
-            ''True'' if monitor is primary (shows clock and notification area, sign in, lock, CTRL+ALT+DELETE screens...)
-        "position":
-            Point(x, y) struct containing the display position ((0, 0) for the primary screen)
-        "size":
-            Size(width, height) struct containing the display size, in pixels
-        "workarea":
-            Rect(left, top, right, bottom) struct with the screen workarea, in pixels
-        "scale":
-            Scale ratio, as a tuple of (x, y) scale percentage
-        "dpi":
-            Dots per inch, as a tuple of (x, y) dpi values
-        "orientation":
-            Display orientation: 0 - Landscape / 1 - Portrait / 2 - Landscape (reversed) / 3 - Portrait (reversed)
-        "frequency":
-            Refresh rate of the display, in Hz
-        "colordepth":
-            Bits per pixel referred to the display color depth
-
-<a id="..pywinctl._main.getScreenSize"></a>
-
-#### getScreenSize
-
-```python
-def getScreenSize(name: str = "")
-```
-
-Get the width and height, in pixels, of the given monitor, or main monitor if no monitor name provided
-
-**Arguments**:
-
-- `name`: name of the monitor as returned by getMonitors() and getDisplay() methods.
-
-**Returns**:
-
-Size struct or None
-
-<a id="..pywinctl._main.getWorkArea"></a>
-
-#### getWorkArea
-
-```python
-def getWorkArea(name: str = "")
-```
-
-Get coordinates (left, top, right, bottom), in pixels, of the working (usable by windows) area
-
-of the given screen, or main screen if no screen name provided
-
-**Arguments**:
-
-- `name`: name of the monitor as returned by getMonitors() and getDisplay() methods.
-
-**Returns**:
-
-Rect struct or None
-
-<a id="..pywinctl._main.getMousePos"></a>
-
-#### getMousePos
-
-```python
-def getMousePos()
-```
-
-Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
-
-**Returns**:
-
-Point struct
-
-<a id="..pywinctl._main.displayWindowsUnderMouse"></a>
-
-#### displayWindowsUnderMouse
-
-```python
-def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None
-```
-
-This function is meant to be run from the command line. It will
-automatically display the position of mouse pointer and the titles
-of the windows under it
-
-<a id="..pywinctl._pywinctl_linux.checkPermissions"></a>
-
-#### checkPermissions
-
-```python
-def checkPermissions(activate: bool = False) -> bool
-```
-
-macOS ONLY: Check Apple Script permissions for current script/app and, optionally, shows a
-
-warning dialog and opens security preferences
-
-**Arguments**:
-
-- `activate`: If ''True'' and if permissions are not granted, shows a dialog and opens security preferences.
-Defaults to ''False''
-
-**Returns**:
-
-returns ''True'' if permissions are already granted or platform is not macOS
+## General Functions
 
 <a id="..pywinctl._pywinctl_linux.getActiveWindow"></a>
 
 #### getActiveWindow
 
 ```python
-def getActiveWindow() -> Optional[LinuxWindow]
+def getActiveWindow() -> Optional[Window]
 ```
 
 Get the currently active (focused) Window in default root
@@ -538,15 +223,333 @@ Get the Window object at the top of the stack at the point ``(x, y)`` on screen
 
 Window object or None
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow"></a>
+<a id="..pywinctl._pywinctl_linux.Window"></a>
 
-## LinuxWindow Objects
+<a id="..pywinctl._main._WatchDog"></a>
+
+<a id="..pywinctl.version"></a>
+
+#### version
 
 ```python
-class LinuxWindow(BaseWindow)
+def version(numberOnly: bool = True) -> str
 ```
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.getExtraFrameSize"></a>
+Returns the current version of PyWinCtl module, in the form ''x.x.xx'' as string
+
+#### getAllScreens
+
+<a id="..pywinctl._main.getAllScreens"></a>
+
+```python
+def getAllScreens() -> dict
+```
+
+Get all monitors info plugged to the system, as a dict.
+
+If watchdog thread is enabled or the 'forceUpdate' param is set to ''True'', it will return updated information.
+Otherwise, it will return the monitors info as it was when the PyMonCtl module was initially loaded (static).
+
+Use 'forceUpdate' carefully since it can be CPU-consuming and slow in scenarios in which this function is
+repeatedly and quickly invoked, so if it is directly called or indirectly by other functions.
+
+**Returns**:
+
+Monitors info as python dictionary
+Output Format:
+    Key:
+        Display name (in macOS it is necessary to add handle to avoid duplicates)
+
+    Values:
+        "system_name":
+            name of display as returned by system (in macOS this name can be duplicated!)
+        "handle":
+            display index as returned by EnumDisplayDevices()
+        "is_primary":
+            ''True'' if monitor is primary (shows clock and notification area, sign in, lock, CTRL+ALT+DELETE screens...)
+        "position":
+            Point(x, y) struct containing the display position ((0, 0) for the primary screen)
+        "size":
+            Size(width, height) struct containing the display size, in pixels
+        "workarea":
+            Rect(left, top, right, bottom) struct with the screen workarea, in pixels
+        "scale":
+            Scale ratio, as a tuple of (x, y) scale percentage
+        "dpi":
+            Dots per inch, as a tuple of (x, y) dpi values
+        "orientation":
+            Display orientation: 0 - Landscape / 1 - Portrait / 2 - Landscape (reversed) / 3 - Portrait (reversed)
+        "frequency":
+            Refresh rate of the display, in Hz
+        "colordepth":
+            Bits per pixel referred to the display color depth
+
+<a id="..pywinctl._main.getScreenSize"></a>
+
+#### getScreenSize
+
+```python
+def getScreenSize(name: str = "") -> Tuple[int, int]
+```
+
+Get the width and height, in pixels, of the given monitor, or main monitor if no monitor name provided
+
+**Arguments**:
+
+- `name`: name of the monitor as returned by getMonitors() and getDisplay() methods.
+
+**Returns**:
+
+Size struct or None
+
+<a id="..pywinctl._main.getWorkArea"></a>
+
+#### getWorkArea
+
+```python
+def getWorkArea(name: str = "") -> Tuple[int, int, int, int]
+```
+
+Get coordinates (left, top, right, bottom), in pixels, of the working (usable by windows) area
+
+of the given screen, or main screen if no screen name provided
+
+**Arguments**:
+
+- `name`: name of the monitor as returned by getMonitors() and getDisplay() methods.
+
+**Returns**:
+
+Rect struct or None
+
+<a id="..pywinctl._main.getMousePos"></a>
+
+#### getMousePos
+
+```python
+def getMousePos() -> Tuple[int, int]
+```
+
+Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
+
+**Returns**:
+
+Point struct
+
+<a id="..pywinctl._main.displayWindowsUnderMouse"></a>
+
+#### displayWindowsUnderMouse
+
+```python
+def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None
+```
+
+This function is meant to be run from the command line. It will
+automatically display the position of mouse pointer and the titles
+of the windows under it
+
+<a id="..pywinctl._pywinctl_linux.checkPermissions"></a>
+
+#### checkPermissions
+
+```python
+def checkPermissions(activate: bool = False) -> bool
+```
+
+macOS ONLY: Check Apple Script permissions for current script/app and, optionally, shows a
+
+warning dialog and opens security preferences
+
+**Arguments**:
+
+- `activate`: If ''True'' and if permissions are not granted, shows a dialog and opens security preferences.
+Defaults to ''False''
+
+**Returns**:
+
+returns ''True'' if permissions are already granted or platform is not macOS
+
+## WatchDog Methods
+
+```python
+class _WatchDog()
+```
+
+Set a watchdog, in a separate Thread, to be notified when some window states change
+
+Notice that changes will be notified according to the window status at the very moment of instantiating this class
+
+IMPORTANT: This can be extremely slow in macOS Apple Script version
+
+ Available methods:
+:meth start: Initialize and start watchdog and selected callbacks
+:meth updateCallbacks: Change the states this watchdog is hooked to
+:meth updateInterval: Change the interval to check changes
+:meth kill: Stop the entire watchdog and all its hooks
+:meth isAlive: Check if watchdog is running
+
+<a id="..pywinctl._main._WatchDog.start"></a>
+
+#### start
+
+```python
+def start(isAliveCB: Callable[[bool], None] | None = None,
+          isActiveCB: Callable[[bool], None] | None = None,
+          isVisibleCB: Callable[[bool], None] | None = None,
+          isMinimizedCB: Callable[[bool], None] | None = None,
+          isMaximizedCB: Callable[[bool], None] | None = None,
+          resizedCB: Callable[[Tuple[int, int]], None] | None = None,
+          movedCB: Callable[[Tuple[int, int]], None] | None = None,
+          changedTitleCB: Callable[[str], None] | None = None,
+          changedDisplayCB: Callable[[List[str]], None] | None = None,
+          interval: float = 0.3)
+```
+
+Initialize and start watchdog and hooks (callbacks to be invoked when desired window states change)
+
+Notice that changes will be notified according to the window status at the very moment of execute start()
+
+The watchdog is asynchronous, so notifications will not be immediate (adjust interval value to your needs)
+
+The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
+
+IMPORTANT: This can be extremely slow in macOS Apple Script version
+
+**Arguments**:
+
+- `isAliveCB`: callback to call if window is not alive. Set to None to not watch this
+Returns the new alive status value (False)
+- `isActiveCB`: callback to invoke if window changes its active status. Set to None to not watch this
+Returns the new active status value (True/False)
+- `isVisibleCB`: callback to invoke if window changes its visible status. Set to None to not watch this
+Returns the new visible status value (True/False)
+- `isMinimizedCB`: callback to invoke if window changes its minimized status. Set to None to not watch this
+Returns the new minimized status value (True/False)
+- `isMaximizedCB`: callback to invoke if window changes its maximized status. Set to None to not watch this
+Returns the new maximized status value (True/False)
+- `resizedCB`: callback to invoke if window changes its size. Set to None to not watch this
+Returns the new size (width, height)
+- `movedCB`: callback to invoke if window changes its position. Set to None to not watch this
+Returns the new position (x, y)
+- `changedTitleCB`: callback to invoke if window changes its title. Set to None to not watch this
+Returns the new title (as string)
+- `changedDisplayCB`: callback to invoke if window changes display. Set to None to not watch this
+Returns the new display name (as string)
+- `interval`: set the interval to watch window changes. Default is 0.3 seconds
+
+<a id="..pywinctl._main._WatchDog.updateCallbacks"></a>
+
+#### updateCallbacks
+
+```python
+def updateCallbacks(isAliveCB: Callable[[bool], None] | None = None,
+                    isActiveCB: Callable[[bool], None] | None = None,
+                    isVisibleCB: Callable[[bool], None] | None = None,
+                    isMinimizedCB: Callable[[bool], None] | None = None,
+                    isMaximizedCB: Callable[[bool], None] | None = None,
+                    resizedCB: Callable[[Tuple[int, int]], None] | None = None,
+                    movedCB: Callable[[Tuple[int, int]], None] | None = None,
+                    changedTitleCB: Callable[[str], None] | None = None,
+                    changedDisplayCB: Callable[[List[str]], None]
+                    | None = None)
+```
+
+Change the states this watchdog is hooked to
+
+The callbacks definition MUST MATCH their return value (boolean, string or (int, int))
+
+IMPORTANT: When updating callbacks, remember to set ALL desired callbacks or they will be deactivated
+
+IMPORTANT: Remember to set ALL desired callbacks every time, or they will be defaulted to None (and unhooked)
+
+**Arguments**:
+
+- `isAliveCB`: callback to call if window is not alive. Set to None to not watch this
+Returns the new alive status value (False)
+- `isActiveCB`: callback to invoke if window changes its active status. Set to None to not watch this
+Returns the new active status value (True/False)
+- `isVisibleCB`: callback to invoke if window changes its visible status. Set to None to not watch this
+Returns the new visible status value (True/False)
+- `isMinimizedCB`: callback to invoke if window changes its minimized status. Set to None to not watch this
+Returns the new minimized status value (True/False)
+- `isMaximizedCB`: callback to invoke if window changes its maximized status. Set to None to not watch this
+Returns the new maximized status value (True/False)
+- `resizedCB`: callback to invoke if window changes its size. Set to None to not watch this
+Returns the new size (width, height)
+- `movedCB`: callback to invoke if window changes its position. Set to None to not watch this
+Returns the new position (x, y)
+- `changedTitleCB`: callback to invoke if window changes its title. Set to None to not watch this
+Returns the new title (as string)
+- `changedDisplayCB`: callback to invoke if window changes display. Set to None to not watch this
+Returns the new display name (as string)
+
+<a id="..pywinctl._main._WatchDog.updateInterval"></a>
+
+#### updateInterval
+
+```python
+def updateInterval(interval: float = 0.3)
+```
+
+Change the interval to check changes
+
+**Arguments**:
+
+- `interval`: set the interval to watch window changes. Default is 0.3 seconds
+
+<a id="..pywinctl._main._WatchDog.setTryToFind"></a>
+
+#### setTryToFind
+
+```python
+def setTryToFind(tryToFind: bool)
+```
+
+In macOS Apple Script version, if set to ''True'' and in case title changes, watchdog will try to find
+
+a similar title within same application to continue monitoring it. It will stop if set to ''False'' or
+similar title not found.
+
+IMPORTANT:
+
+- It will have no effect in other platforms (Windows and Linux) and classes (MacOSNSWindow)
+- This behavior is deactivated by default, so you need to explicitly activate it
+
+**Arguments**:
+
+- `tryToFind`: set to ''True'' to try to find a similar title. Set to ''False'' to deactivate this behavior
+
+<a id="..pywinctl._main._WatchDog.stop"></a>
+
+#### stop
+
+```python
+def stop()
+```
+
+Stop the entire WatchDog and all its hooks
+
+<a id="..pywinctl._main._WatchDog.isAlive"></a>
+
+#### -[watchdog-]()isAlive
+
+```python
+def isAlive()
+```
+
+Check if watchdog is running
+
+**Returns**:
+
+''True'' if watchdog is alive
+
+## Window Methods
+
+```python
+class Window(BaseWindow)
+```
+
+<a id="..pywinctl._pywinctl_linux.Window.getExtraFrameSize"></a>
 
 #### getExtraFrameSize
 
@@ -566,7 +569,7 @@ Notice not all applications/windows will use this property values
 
 additional frame size in pixels, as a tuple of int (left, top, right, bottom)
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.getClientFrame"></a>
+<a id="..pywinctl._pywinctl_linux.Window.getClientFrame"></a>
 
 #### getClientFrame
 
@@ -582,7 +585,7 @@ Notice that this method won't match non-standard window decoration sizes
 
 Rect struct
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.close"></a>
+<a id="..pywinctl._pywinctl_linux.Window.close"></a>
 
 #### close
 
@@ -600,7 +603,7 @@ window.
 
 ''True'' if window is closed
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.minimize"></a>
+<a id="..pywinctl._pywinctl_linux.Window.minimize"></a>
 
 #### minimize
 
@@ -618,7 +621,7 @@ Minimizes this window
 
 ''True'' if window minimized
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.maximize"></a>
+<a id="..pywinctl._pywinctl_linux.Window.maximize"></a>
 
 #### maximize
 
@@ -636,7 +639,7 @@ Maximizes this window
 
 ''True'' if window maximized
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.restore"></a>
+<a id="..pywinctl._pywinctl_linux.Window.restore"></a>
 
 #### restore
 
@@ -655,7 +658,7 @@ If maximized or minimized, restores the window to its normal size
 
 ''True'' if window restored
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.show"></a>
+<a id="..pywinctl._pywinctl_linux.Window.show"></a>
 
 #### show
 
@@ -673,7 +676,7 @@ If hidden or showing, shows the window on screen and in title bar
 
 ''True'' if window showed
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.hide"></a>
+<a id="..pywinctl._pywinctl_linux.Window.hide"></a>
 
 #### hide
 
@@ -691,7 +694,7 @@ If hidden or showing, hides the window from screen and title bar
 
 ''True'' if window hidden
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.activate"></a>
+<a id="..pywinctl._pywinctl_linux.Window.activate"></a>
 
 #### activate
 
@@ -710,7 +713,7 @@ Activate this window and make it the foreground (focused) window
 
 ''True'' if window activated
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.resize"></a>
+<a id="..pywinctl._pywinctl_linux.Window.resize"></a>
 
 #### resize
 
@@ -730,13 +733,13 @@ Resizes the window relative to its current size
 
 ''True'' if window resized to the given size
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.resizeRel"></a>
+<a id="..pywinctl._pywinctl_linux.Window.resizeRel"></a>
 
 #### resizeRel
 
 resizeRel is an alias for the resize() method.
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.resizeTo"></a>
+<a id="..pywinctl._pywinctl_linux.Window.resizeTo"></a>
 
 #### resizeTo
 
@@ -756,7 +759,7 @@ Resizes the window to a new width and height
 
 ''True'' if window resized to the given size
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.move"></a>
+<a id="..pywinctl._pywinctl_linux.Window.move"></a>
 
 #### move
 
@@ -776,13 +779,13 @@ Moves the window relative to its current position
 
 ''True'' if window moved to the given position
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.moveRel"></a>
+<a id="..pywinctl._pywinctl_linux.Window.moveRel"></a>
 
 #### moveRel
 
 moveRel is an alias for the move() method.
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.moveTo"></a>
+<a id="..pywinctl._pywinctl_linux.Window.moveTo"></a>
 
 #### moveTo
 
@@ -802,7 +805,7 @@ Moves the window to new coordinates on the screen
 
 ''True'' if window moved to the given position
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.alwaysOnTop"></a>
+<a id="..pywinctl._pywinctl_linux.Window.alwaysOnTop"></a>
 
 #### alwaysOnTop
 
@@ -820,7 +823,7 @@ Keeps window on top of all others.
 
 ''True'' if command succeeded
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.alwaysOnBottom"></a>
+<a id="..pywinctl._pywinctl_linux.Window.alwaysOnBottom"></a>
 
 #### alwaysOnBottom
 
@@ -838,7 +841,7 @@ Keeps window below of all others, but on top of desktop icons and keeping all wi
 
 ''True'' if command succeeded
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.lowerWindow"></a>
+<a id="..pywinctl._pywinctl_linux.Window.lowerWindow"></a>
 
 #### lowerWindow
 
@@ -852,7 +855,7 @@ Lowers the window to the bottom so that it does not obscure any sibling windows
 
 ''True'' if window lowered
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.raiseWindow"></a>
+<a id="..pywinctl._pywinctl_linux.Window.raiseWindow"></a>
 
 #### raiseWindow
 
@@ -866,7 +869,7 @@ Raises the window to top so that it is not obscured by any sibling windows.
 
 ''True'' if window raised
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.sendBehind"></a>
+<a id="..pywinctl._pywinctl_linux.Window.sendBehind"></a>
 
 #### sendBehind
 
@@ -889,7 +892,7 @@ make the window disappear from taskbar and/or pager.
 Notes:
     - On GNOME it will obscure desktop icons... by the moment
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.acceptInput"></a>
+<a id="..pywinctl._pywinctl_linux.Window.acceptInput"></a>
 
 #### acceptInput
 
@@ -907,7 +910,7 @@ Toggles the window to accept input and focus
 
 None
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.getAppName"></a>
+<a id="..pywinctl._pywinctl_linux.Window.getAppName"></a>
 
 #### getAppName
 
@@ -921,7 +924,7 @@ Get the name of the app current window belongs to
 
 name of the app as string
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.getParent"></a>
+<a id="..pywinctl._pywinctl_linux.Window.getParent"></a>
 
 #### getParent
 
@@ -935,7 +938,7 @@ Get the handle of the current window parent. It can be another window or an appl
 
 handle of the window parent
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.setParent"></a>
+<a id="..pywinctl._pywinctl_linux.Window.setParent"></a>
 
 #### setParent
 
@@ -955,7 +958,7 @@ WARNING: Not implemented in AppleScript (not possible in macOS for foreign - oth
 
 ''True'' if current window is now child of given parent
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.getChildren"></a>
+<a id="..pywinctl._pywinctl_linux.Window.getChildren"></a>
 
 #### getChildren
 
@@ -969,7 +972,7 @@ Get the children handles of current window
 
 list of handles
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.getHandle"></a>
+<a id="..pywinctl._pywinctl_linux.Window.getHandle"></a>
 
 #### getHandle
 
@@ -983,7 +986,7 @@ Get the current window handle
 
 window handle
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.isParent"></a>
+<a id="..pywinctl._pywinctl_linux.Window.isParent"></a>
 
 #### isParent
 
@@ -997,13 +1000,13 @@ Returns ''True'' if the window is parent of the given window as input argument
 
 - `child`: handle of the window you want to check if the current window is parent of
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.isParentOf"></a>
+<a id="..pywinctl._pywinctl_linux.Window.isParentOf"></a>
 
 #### isParentOf
 
 isParentOf is an alias of isParent method
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.isChild"></a>
+<a id="..pywinctl._pywinctl_linux.Window.isChild"></a>
 
 #### isChild
 
@@ -1024,13 +1027,13 @@ list may contain several displays.
 
 ''True'' if current window is child of the given window
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.isChildOf"></a>
+<a id="..pywinctl._pywinctl_linux.Window.isChildOf"></a>
 
 #### isChildOf
 
 isChildOf is an alias of isParent method
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.getDisplay"></a>
+<a id="..pywinctl._pywinctl_linux.Window.getDisplay"></a>
 
 #### getDisplay
 
@@ -1044,13 +1047,13 @@ Get display names in which current window space is mostly visible
 
 display name as list of strings or empty (couldn't retrieve it or window is off-screen)
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.getMonitor"></a>
+<a id="..pywinctl._pywinctl_linux.Window.getMonitor"></a>
 
 #### getMonitor
 
 getMonitor is an alias of getDisplay method
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.isMinimized"></a>
+<a id="..pywinctl._pywinctl_linux.Window.isMinimized"></a>
 
 #### isMinimized
 
@@ -1065,7 +1068,7 @@ Check if current window is currently minimized
 
 ``True`` if the window is minimized
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.isMaximized"></a>
+<a id="..pywinctl._pywinctl_linux.Window.isMaximized"></a>
 
 #### isMaximized
 
@@ -1080,7 +1083,7 @@ Check if current window is currently maximized
 
 ``True`` if the window is maximized
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.isActive"></a>
+<a id="..pywinctl._pywinctl_linux.Window.isActive"></a>
 
 #### isActive
 
@@ -1095,7 +1098,7 @@ Check if current window is currently the active, foreground window
 
 ``True`` if the window is the active, foreground window
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.title"></a>
+<a id="..pywinctl._pywinctl_linux.Window.title"></a>
 
 #### title
 
@@ -1110,7 +1113,7 @@ Get the current window title, as string
 
 title as a string
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.visible"></a>
+<a id="..pywinctl._pywinctl_linux.Window.visible"></a>
 
 #### visible
 
@@ -1125,13 +1128,13 @@ Check if current window is visible (minimized windows are also visible)
 
 ``True`` if the window is currently visible
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.isVisible"></a>
+<a id="..pywinctl._pywinctl_linux.Window.isVisible"></a>
 
 #### isVisible
 
 isVisible is an alias for the visible property.
 
-<a id="..pywinctl._pywinctl_linux.LinuxWindow.isAlive"></a>
+<a id="..pywinctl._pywinctl_linux.Window.isAlive"></a>
 
 #### isAlive
 
@@ -1172,7 +1175,7 @@ possible new title, empty if no similar title found or same title if it didn't c
 
 <a id="..pywinctl._pywinctl_macos.MacOSWindow._Menu"></a>
 
-## \_Menu Objects
+## Menu Methods
 
 ```python
 class _Menu()

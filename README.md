@@ -195,7 +195,7 @@ Example:
 
 ## Menu Features <a name="menu-features"></a>
 
-#### Available in: MS-Windows and macOS Apple Script version (Win32Window() and MacOSWindow() classes)
+***Available in: MS-Windows and macOS Apple Script version (Win32Window() and MacOSWindow() classes)***
 
 menu sub-class for Menu info and control methods, accessible through 'menu' submodule.
 
@@ -241,7 +241,7 @@ Menu dictionary (returned by getMenu() method) will likely contain all you may n
 
 Note not all windows/applications will have a menu accessible by these methods.
 
-## INSTALL <a name="install"></a>
+## Install <a name="install"></a>
 
 To install this module on your system, you can use pip: 
 
@@ -261,11 +261,11 @@ Then, you can use it on your own projects just importing it:
 
     import pywinctl as pwc
 
-## SUPPORT <a name="support"></a>
+## Support <a name="support"></a>
 
 In case you have a problem, comments or suggestions, do not hesitate to [open issues](https://github.com/Kalmat/PyWinCtl/issues) on the [project homepage](https://github.com/Kalmat/PyWinCtl)
 
-## USING THIS CODE <a name="using"></a>
+## Using this code <a name="using"></a>
 
 If you want to use this code or contribute, you can either:
 
@@ -274,7 +274,7 @@ If you want to use this code or contribute, you can either:
 
 Be sure you install all dependencies described on "requirements.txt" by using pip
 
-## TEST <a name="test"></a>
+## Test <a name="test"></a>
 
 To test this module on your own system, cd to "tests" folder and run:
 

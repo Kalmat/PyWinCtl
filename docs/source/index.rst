@@ -1,0 +1,18 @@
+.. PyWinCtl documentation master file, created by
+   sphinx-quickstart on Tue Apr 23 14:42:19 2024.
+   You can adapt this file completely to your liking, but it should at least
+   contain the root `toctree` directive.
+
+Welcome to PyWinCtl's documentation!
+====================================
+
+.. toctree::
+   :maxdepth: 3
+
+      readme <README.md>
+
+   :hidden:
+
+      docstrings <docstrings.md>
+
+
