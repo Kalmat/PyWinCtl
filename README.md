@@ -2,6 +2,7 @@
 [![Type Checking](https://github.com/Kalmat/PyWinCtl/actions/workflows/type-checking.yml/badge.svg?branch=dev)](https://github.com/Kalmat/PyWinCtl/actions/workflows/type-checking.yml)
 [![PyPI version](https://badge.fury.io/py/PyWinCtl.svg)](https://badge.fury.io/py/PyWinCtl)
 [![Documentation Status](https://readthedocs.org/projects/pywinctl/badge/?version=latest)](https://pywinctl.readthedocs.io/en/latest/?badge=latest)
+[![Downloads](https://static.pepy.tech/badge/pywinctl/month)](https://pepy.tech/project/pywinctl)
 
 
 Cross-Platform module to get info on and control windows on screen.
@@ -12,7 +13,7 @@ This module is a Python 3 evolution from [asweigart's PyGetWindow module](https:
 
 My most sincere thanks and acknowledgement. amongst many others (see AUTHORS.txt), to [MestreLion](https://github.com/MestreLion), [super-ibby](https://github.com/super-ibby), [Avasam](https://github.com/Avasam), [macdeport](https://github.com/macdeport) and [holychowders](https://github.com/holychowders) for their help and moral boost.
 
-2. [Window Features](#window-features)
+1. [Window Features](#window-features)
    1. [Important macOS notice](#macos-notice)
    2. [Important Linux notice](#linux-notice)
 2. [Window Change Notifications](#watchdog])
