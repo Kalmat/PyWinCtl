@@ -28,7 +28,7 @@ Window object or None
 #### getActiveWindowTitle
 
 ```python
-def getActiveWindowTitle()
+def getActiveWindowTitle() -> str
 ```
 
 Get the title of the currently active (focused) Window
@@ -42,7 +42,7 @@ window title as string or empty
 #### getAllWindows
 
 ```python
-def getAllWindows()
+def getAllWindows() -> List[Window]
 ```
 
 Get the list of Window objects for all visible windows in default root
@@ -135,7 +135,7 @@ list of names as strings
 ```python
 def getAppsWithName(name: Union[str, re.Pattern[str]],
                     condition: int = Re.IS,
-                    flags: int = 0)
+                    flags: int = 0) -> List[str]
 ```
 
 Get the list of app names which match the given string using the given condition and flags.
@@ -171,14 +171,14 @@ list of app names
 #### getAllAppsWindowsTitles
 
 ```python
-def getAllAppsWindowsTitles()
+def getAllAppsWindowsTitles() -> dict
 ```
 
 Get all visible apps names and their open windows titles
 
 Format:
-    Key: app name
-
+    
+    Key: app name 
     Values: list of window titles as strings
 
 **Returns**:
@@ -190,7 +190,7 @@ python dictionary
 #### getWindowsAt
 
 ```python
-def getWindowsAt(x: int, y: int)
+def getWindowsAt(x: int, y: int) -> Optional[List[Window]]
 ```
 
 Get the list of Window objects whose windows contain the point ``(x, y)`` on screen
@@ -209,7 +209,7 @@ list of Window objects
 #### getTopWindowAt
 
 ```python
-def getTopWindowAt(x: int, y: int)
+def getTopWindowAt(x: int, y: int) -> Optional[Window]
 ```
 
 Get the Window object at the top of the stack at the point ``(x, y)`` on screen
