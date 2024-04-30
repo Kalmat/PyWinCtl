@@ -29,33 +29,12 @@ My most sincere thanks and acknowledgement. amongst many others (see AUTHORS.txt
 ## Window Features <a name="window-features"></a>
 
 There are three kinds of functions to be used within PyWinCtl:
-- General, independent functions: These functions can be directly invoked at module level, without the need of referencing a Window object
-- Window class:
-  - Methods: You need a Window object to control or get info on the target window on screen. It is possible to get a Window object by using any of the general methods (e.g. getActiveWidow() or getWindowsWithTitle()). You can also use the window id, as returned by PyQt's self.winId() or tkinter's root.frame(), which is very handy to get the Window object for your own application.
-  - Properties: Window attributes, getters and setters, that also require to use a Window object
+- General, independent functions: These functions can be directly invoked at module level, without the need of referencing a Window object (e.g. `pywinctl.getActiveWindow()` or `pywinctl.getAllTitles()`)
+- Window class: You need a Window object to control or get info on the target window on screen. It is possible to get a Window object by using any of the general methods (e.g. getActiveWidow() or getWindowsWithTitle()). You can also use the window id, as returned by PyQt's self.winId() or tkinter's root.frame(), which is very handy to get the Window object for your own application.
+  - Methods: functions within Window class to get info or perform actions and changes on target window (e.g. `window.resizeTo(800, 600)` or `window.close()`)
+  - Properties: Window attributes, getters and setters, that also require to use a Window object (e.g. `window.title` or `window.center = (500, 300)`)
 
-A very simple example:
-
-```
-   import pywinctl as pwc
-   
-   win = pwc.getActiveWindow()                      # General function. Directly invoked using the module (not a Window object)
-   
-   if win is not None:
-       print("ACTIVE WINDOW", win.title)            # Window property, invoked using a Window object
-       position = win.position                      # Window property, invoked using a Window object
-       print("INITIAL POSITION", position)
-       x, y = position
-       win.moveTo(x + 10, y + 10)                   # Window method, invoked using a Window object
-       print("INTERMEDIATE POSITION", win.position)
-       win.topleft = (win.left + 20, win.top + 20)  # Window property which can also be set
-       print("FINAL POSITION", win.position)
-       
-   else:
-       print("NOT FOUND)
-```
-
-These functions are available at the moment, in all three platforms (Windows, Linux and macOS)
+These features are available at the moment, in all three platforms (Windows, Linux and macOS)
 
 |                  General, independent functions:                   |                Window class methods:                 |                                  Window class properties:                                  |
 |:------------------------------------------------------------------:|:----------------------------------------------------:|:------------------------------------------------------------------------------------------:|
