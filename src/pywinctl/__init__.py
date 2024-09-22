@@ -6,11 +6,11 @@ __all__ = [
     # OS Specifics
     "Window", "checkPermissions", "getActiveWindow", "getActiveWindowTitle", "getWindowsWithTitle",
     "getAllWindows", "getAllTitles", "getAppsWithName", "getAllAppsNames", "getAllAppsWindowsTitles",
-    "getTopWindowAt", "getWindowsAt", "displayWindowsUnderMouse",
+    "getAllWindowsDict", "getTopWindowAt", "getWindowsAt", "displayWindowsUnderMouse",
     "getAllScreens", "getScreenSize", "getWorkArea", "getMousePos"
 ]
 
-__version__ = "0.4"
+__version__ = "0.4.01"
 
 
 def version(numberOnly: bool = True) -> str:
@@ -21,6 +21,6 @@ def version(numberOnly: bool = True) -> str:
 from ._main import (Re, Window, checkPermissions, getActiveWindow,
                     getActiveWindowTitle, getAllAppsNames, getAllAppsWindowsTitles,
                     getAllTitles, getAllWindows, getAppsWithName, getWindowsWithTitle,
-                    getTopWindowAt, getWindowsAt, displayWindowsUnderMouse,
+                    getAllWindowsDict, getTopWindowAt, getWindowsAt, displayWindowsUnderMouse,
                     getAllScreens, getScreenSize, getWorkArea, getMousePos
                     )

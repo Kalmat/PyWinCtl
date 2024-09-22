@@ -311,6 +311,74 @@ def getAllAppsWindowsTitles():
     return result
 
 
+def getAllWindowsDict(tryToFilter: bool = False) -> dict[str, int | dict[str, int | dict[str, str | dict[str, int | Point | Size | str]]]]:
+    """
+    Get all visible apps and windows info
+
+    Format:
+        Key: app name
+
+        Values:
+            "pid": app PID
+            "windows": subdictionary of all app windows
+                "title": subdictionary of window info
+                    "id": window handle
+                    "display": display in which window is mostly visible
+                    "position": window position (x, y) within display
+                    "size": window size (width, height)
+                    "status": 0 - normal, 1 - minimized, 2 - maximized
+
+    :param tryToFilter: Windows ONLY. Set to ''True'' to try to get User (non-system) apps only (may skip real user apps)
+    :return: python dictionary
+    """
+    windows = getAllWindows()
+    cmd = """osascript -s 's' -e 'tell application "System Events"
+                                    set winNames to {}
+                                    try
+                                        set winNames to {unix id, name, ({name, position, size} of every window)} of (every process whose background only is false)
+                                    end try
+                                end tell
+                                return winNames'"""
+    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "") \
+        .replace('missing value', '"missing value"') \
+        .replace("{", "[").replace("}", "]")
+    res = ast.literal_eval(ret)
+    result: dict[str, int | dict[str, int | dict[str, str | dict[str, int | Point | Size | str]]]] = {}
+    if len(res) > 0:
+        pids = res[0]
+        apps = res[1]
+        winsData = res[2]
+        for i, pID in enumerate(pids):
+            appName = apps[i]
+            titles = winsData[0][i]
+            pos = winsData[1][i]
+            sizes = winsData[2][i]
+            for j, title in enumerate(titles):
+                for win in windows:
+                    if title == win.title:
+                        winId = win.getHandle()
+                        status = 0
+                        if win.isMinimized:
+                            status = 1
+                        elif win.isMaximized:
+                            status = 2
+                        display = win.getDisplay()
+                        if appName not in result.keys():
+                            result[appName] = {}
+                        result[appName]["pid"] = pID
+                        if "windows" not in result[appName].keys():
+                            result[appName]["windows"] = {}
+                        result[appName]["windows"][title] = {
+                            "id": winId,
+                            "display": display,
+                            "position": pos[j],
+                            "size": sizes[j],
+                            "status": status
+                        }
+                        break
+    return result
+
+
 def getWindowsAt(x: int, y: int, allWindows: Optional[List[MacOSWindow]] = None) -> List[MacOSWindow]:
     """
     Get the list of Window objects whose windows contain the point ``(x, y)`` on screen
@@ -1072,6 +1140,25 @@ class MacOSWindow(BaseWindow):
         if not title:
             return "", ""
         return self._appName, title
+
+    def getPID(self) -> Optional[int]:
+        """
+        Get the current application PID
+
+        :return: application PID
+        """
+        cmd = """osascript -s 's' -e 'tell application "System Events"
+                                        set appPID to "0"
+                                        try
+                                            set appPID to unix id of first application process whose name is "%s"
+                                        end try
+                                    end tell
+                                    return appPID'""" % self._appName
+        ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "") \
+            .replace('missing value', "0")
+        if ret and ret != "0":
+            return int(ret)
+        return None
 
     def isParent(self, child: Tuple[str, str]) -> bool:
         """

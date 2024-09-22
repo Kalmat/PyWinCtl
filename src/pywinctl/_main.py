@@ -195,6 +195,11 @@ class BaseWindow(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def getPID(self) -> int | None:
+        """Returns the PID of the application the window belongs to"""
+        raise NotImplementedError
+
+    @abstractmethod
     def isParent(self, child: Any) -> bool:
         """Returns ''True'' if the window is parent of the given window as input argument"""
         raise NotImplementedError
@@ -991,21 +996,21 @@ if sys.platform == "darwin":
     from ._pywinctl_macos import (MacOSWindow as Window, checkPermissions, getActiveWindow,
                                   getActiveWindowTitle, getAllAppsNames, getAllAppsWindowsTitles,
                                   getAllTitles, getAllWindows, getAppsWithName, getWindowsWithTitle,
-                                  getTopWindowAt, getWindowsAt
+                                  getAllWindowsDict, getTopWindowAt, getWindowsAt
                                   )
 
 elif sys.platform == "win32":
     from ._pywinctl_win import (Win32Window as Window, checkPermissions, getActiveWindow,
                                 getActiveWindowTitle, getAllAppsNames, getAllAppsWindowsTitles,
                                 getAllTitles, getAllWindows, getAppsWithName, getWindowsWithTitle,
-                                getTopWindowAt, getWindowsAt
+                                getAllWindowsDict, getTopWindowAt, getWindowsAt
                                 )
 
 elif sys.platform == "linux":
     from ._pywinctl_linux import (LinuxWindow as Window, checkPermissions, getActiveWindow,
                                   getActiveWindowTitle, getAllAppsNames, getAllAppsWindowsTitles,
                                   getAllTitles, getAllWindows, getAppsWithName, getWindowsWithTitle,
-                                  getTopWindowAt, getWindowsAt
+                                  getAllWindowsDict, getTopWindowAt, getWindowsAt
                                   )
 
 else:

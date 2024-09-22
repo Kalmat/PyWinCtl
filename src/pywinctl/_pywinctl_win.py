@@ -231,6 +231,57 @@ def getAllAppsWindowsTitles() -> dict[str, List[str]]:
     return result
 
 
+def getAllWindowsDict(tryToFilter: bool = False) -> dict[str, int | dict[str, int | dict[str, str | dict[str, int | Point | Size | str]]]]:
+    """
+    Get all visible apps and windows info
+
+    Format:
+        Key: app name
+
+        Values:
+            "pid": app PID
+            "windows": subdictionary of all app windows
+                "title": subdictionary of window info
+                    "id": window handle
+                    "display": display in which window is mostly visible
+                    "position": window position (x, y) within display
+                    "size": window size (width, height)
+                    "status": 0 - normal, 1 - minimized, 2 - maximized
+
+    :param tryToFilter: Windows ONLY. Set to ''True'' to try to get User (non-system) apps only (may skip real user apps)
+    :return: python dictionary
+    """
+    process_list = _getAllApps(tryToFilter)
+    result: dict[str, int | dict[str, int | dict[str, str | dict[str, int | Point | Size | str]]]] = {}
+    for win in getAllWindows():
+        id = win.getHandle()
+        pID = win32process.GetWindowThreadProcessId(id)
+        for item in process_list:
+            appPID = item[0]
+            appName = str(item[1])
+            if appPID == pID[1]:
+                status = 0
+                if win.isMinimized:
+                    status = 1
+                elif win.isMaximized:
+                    status = 2
+                winDict = {
+                    "id": id,
+                    "display": win.getDisplay(),
+                    "position": win.position,
+                    "size": win.size,
+                    "status": status
+                }
+                if appName not in result.keys():
+                    result[appName] = {}
+                result[appName]["pìd"] = appPID
+                if "windows" not in result[appName].keys():
+                    result[appName]["windows"] = {}
+                result[appName]["windows"][win.title] = winDict
+                break
+    return result
+
+
 def getWindowsAt(x: int, y: int) -> List[Win32Window]:
     """
     Get the list of Window objects whose windows contain the point ``(x, y)`` on screen
@@ -340,6 +391,21 @@ def _getAllApps(tryToFilter: bool = False) -> Union[List[Tuple[int, Optional[str
                 if p.Properties_("ProcessID").Value in mainWindows]
     else:
         return [(p.Properties_("ProcessID").Value, p.Properties_("Name").Value) for p in WMI.InstancesOf('Win32_Process')]
+
+
+def _getAllAppsDict(tryToFilter: bool = False) -> dict[str, Union[int, str]]:
+    # https://stackoverflow.com/questions/550653/cross-platform-way-to-get-pids-by-process-name-in-python
+    WMI = GetObject('winmgmts:')
+    result: dict[str, Union[int, str]] = {}
+    if tryToFilter:
+        mainWindows = [w[1] for w in _findMainWindowHandles()]
+        for p in WMI.InstancesOf('Win32_Process'):
+            if p.Properties_("ProcessID").Value in mainWindows:
+               result[p.Properties_("ProcessID").Value] = p.Properties_("Name").Value
+    else:
+        for p in WMI.InstancesOf('Win32_Process'):
+            result[p.Properties_("ProcessID").Value] = p.Properties_("Name").Value
+    return result
 
 
 class tagWINDOWINFO(ctypes.Structure):
@@ -817,6 +883,17 @@ class Win32Window(BaseWindow):
         :return: window handle
         """
         return self._hWnd
+
+    def getPID(self) -> Optional[int]:
+        """
+        Get the current application PID
+
+        :return: application PID
+        """
+        ret = win32process.GetWindowThreadProcessId(self._hWnd)
+        if ret and len(ret) > 1:
+            return ret[1]
+        return None
 
     def isParent(self, child: int) -> bool:
         """

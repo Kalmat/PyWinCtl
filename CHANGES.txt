@@ -1,3 +1,5 @@
+0.4.01, 2024/09/22 -- ALL: Added getAllWindowsDict() general function. Added getPID() method.
+                      LINUX: Added bad window filter to check for window.id == 0
 0.4, 2023/10/11 -- ALL: Added getMonitor() as alias for getDisplay()
                    LINUX: Added ewmhlib as separate module. Fixed getAllMonitors() returns empty list if XDG_CURRENT_DESKTOP is not set. Improved getClientFrame() and getExtraFrameSize() by properly using _NET_EXTENTS and GTK_EXTENTS, Added a new Window.LEGACY_NAME="WM_NAME" property (for apps not setting _NET_WM_NAME)
                           (ewmhlib): Fixed Mint returning str (not bytes) in some properties. Fixed Mint not having get_monitors() method in xrandr extension.

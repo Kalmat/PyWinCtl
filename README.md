@@ -46,12 +46,12 @@ These features are available at the moment, in all three platforms (Windows, Lin
 |          [getAllAppsNames](docstrings.md#getallappsnames)          |              [show](docstrings.md#show)              |                         (GET) [isVisible](docstrings.md#isvisible)                         |
 |          [getAppsWithName](docstrings.md#getappswithname)          |          [activate](docstrings.md#activate)          |                          (GET) [isAlive](docstrings.md#isvisible)                          |
 |  [getAllAppsWindowsTitles](docstrings.md#getallappswindowstitles)  |      [resize / resizeRel](docstrings.md#resize)      | **Position / Size** (inherited from [PyWinBox module](https://github.com/Kalmat/PyWinBox)) |
-|             [getWindowsAt](docstrings.md#getwindowsat)             |          [resizeTo](docstrings.md#resizeto)          |                                 (GET/SET) position (x, y)                                  |
-|           [getTopWindowAt](docstrings.md#gettopwindowat)           |         [move / moveRel](docstrings.md#move)         |                                     (GET/SET) left (x)                                     |
-| [displayWindowsUnderMouse](docstrings.md#displaywindowsundermouse) |            [moveTo](docstrings.md#moveto)            |                                     (GET/SET) top (y)                                      |
-|                  [version](docstrings.md#version)                  |       [raiseWindow](docstrings.md#raisewindow)       |                                    (GET/SET) right (x)                                     |
-|  [checkPermissions](docstrings.md#checkpermissions) (macOS only)   |       [lowerWindow](docstrings.md#lowerwindow)       |                                    (GET/SET) bottom (y)                                    |
-|                                                                    |       [alwaysOnTop](docstrings.md#alwaysontop)       |                                  (GET/SET) topleft (x, y)                                  |
+|                         geetAllWindowsDict                         |          [resizeTo](docstrings.md#resizeto)          |                                 (GET/SET) position (x, y)                                  |
+|           [getWindowsAt](docstrings.md#getwindowsat)           |         [move / moveRel](docstrings.md#move)         |                                     (GET/SET) left (x)                                     |
+| [getTopWindowAt](docstrings.md#gettopwindowat) |            [moveTo](docstrings.md#moveto)            |                                     (GET/SET) top (y)                                      |
+|                  [displayWindowsUnderMouse](docstrings.md#displaywindowsundermouse)                  |       [raiseWindow](docstrings.md#raisewindow)       |                                    (GET/SET) right (x)                                     |
+|  [version](docstrings.md#version)   |       [lowerWindow](docstrings.md#lowerwindow)       |                                    (GET/SET) bottom (y)                                    |
+|         [checkPermissions](docstrings.md#checkpermissions) (macOS only)                                                           |       [alwaysOnTop](docstrings.md#alwaysontop)       |                                  (GET/SET) topleft (x, y)                                  |
 |                                                                    |    [alwaysOnBottom](docstrings.md#alwaysonbottom)    |                                 (GET/SET) topright (x, y)                                  |
 |                                                                    |        [sendBehind](docstrings.md#sendbehind)        |                                (GET/SET) bottomleft (x, y)                                 |
 |                                                                    |       [acceptInput](docstrings.md#acceptinput)       |                                (GET/SET) bottomright (x, y)                                |
@@ -65,7 +65,7 @@ These features are available at the moment, in all three platforms (Windows, Lin
 |                                                                    |        [getDisplay](docstrings.md#getdisplay)        |                               (GET/SET) size (width, height)                               |
 |                                                                    | [getExtraFrameSize](docstrings.md#getextraframesize) |                                      (GET/SET) width                                       |
 |                                                                    |    [getClientFrame](docstrings.md#getclientframe)    |                                      (GET/SET) height                                      |
-|                                                                    |                                                      |                             (GET/SET) box (x, y, width, height                             |
+|                                                                    |                        getPID                        |                             (GET/SET) box (x, y, width, height                             |
 |                                                                    |                                                      |                            (GET/SET) rect (x, y, right, bottom)                            |
 
 ***Important macOS notice <a name="macos-notice"></a>***

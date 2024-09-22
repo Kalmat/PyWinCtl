@@ -228,6 +228,21 @@ def getAppsWithName(name: Union[str, re.Pattern[str]], condition: int = Re.IS, f
     return matches
 
 
+def _getAllApps():
+    cmd = "ps -A | awk '{ print $2, $11 }'"
+    proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+    stdout, stderr = proc.communicate()
+    if not stderr:
+        procs = stdout.decode(encoding="utf8").split("\n")[1:]
+        result = []
+        for item in procs:
+            if item:
+                part = item.split(" ")
+                result.append([int(part[0]), part[1]])
+        return result
+    return []
+
+
 def getAllAppsWindowsTitles():
     """
     Get all visible apps names and their open windows titles
@@ -246,6 +261,52 @@ def getAllAppsWindowsTitles():
             result[appName].append(win.title)
         else:
             result[appName] = [win.title]
+    return result
+
+
+def getAllWindowsDict(tryToFilter: bool = False) -> dict[str, int | dict[str, int | dict[str, str | dict[str, int | Point | Size | str]]]]:
+    """
+    Get all visible apps and windows info
+
+    Format:
+        Key: app name
+
+        Values:
+            "pid": app PID
+            "windows": subdictionary of all app windows
+                "title": subdictionary of window info
+                    "id": window handle
+                    "display": display in which window is mostly visible
+                    "position": window position (x, y) within display
+                    "size": window size (width, height)
+                    "status": 0 - normal, 1 - minimized, 2 - maximized
+
+    :param tryToFilter: Windows ONLY. Set to ''True'' to try to get User (non-system) apps only (may skip real user apps)
+    :return: python dictionary
+    """
+    result: dict[str, int | dict[str, int | dict[str, str | dict[str, int | Point | Size | str]]]] = {}
+    for win in getAllWindows():
+        id = win.getHandle()
+        appName = win.getAppName()
+        appPID = win._win.getPid()
+        status = 0
+        if win.isMinimized:
+            status = 1
+        elif win.isMaximized:
+            status = 2
+        winDict = {
+            "id": id,
+            "display": win.getDisplay(),
+            "position": win.position,
+            "size": win.size,
+            "status": status
+        }
+        if appName not in result.keys():
+            result[appName] = {}
+        result[appName]["pìd"] = appPID
+        if "windows" not in result[appName].keys():
+            result[appName]["windows"] = {}
+        result[appName]["windows"][win.title] = winDict
     return result
 
 
@@ -306,7 +367,8 @@ def __remove_bad_windows(windows: Optional[Union[List[str], List[int]]]) -> List
     if windows is not None:
         for window in windows:
             try:
-                outList.append(LinuxWindow(window))
+                # Thanks to Seraphli (https://github.com/Seraphli) for pointing out this issue!
+                if window: outList.append(LinuxWindow(window))
             except:
                 pass
     return outList
@@ -734,6 +796,14 @@ class LinuxWindow(BaseWindow):
         :return: window handle
         """
         return self._hWnd
+
+    def getPID(self) -> Optional[int]:
+        """
+        Get the current application PID
+
+        :return: application PID
+        """
+        return self._win.getPid()
 
     def isParent(self, child: int) -> bool:
         """Returns ''True'' if the window is parent of the given window as input argument
