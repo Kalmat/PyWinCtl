@@ -21,7 +21,7 @@ from typing_extensions import TypeAlias, TypedDict, Literal
 import AppKit
 import Quartz
 
-from ._main import BaseWindow, Re, _WatchDog, _findMonitorName
+from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, _WINDATA, _WINDICT
 from pywinbox import Size, Point, Rect, pointInBox
 
 
@@ -311,7 +311,7 @@ def getAllAppsWindowsTitles():
     return result
 
 
-def getAllWindowsDict(tryToFilter: bool = False) -> dict[str, int | dict[str, int | dict[str, str | dict[str, int | Point | Size | str]]]]:
+def getAllWindowsDict(tryToFilter: bool = False) -> dict[str, _WINDICT]:
     """
     Get all visible apps and windows info
 
@@ -343,7 +343,7 @@ def getAllWindowsDict(tryToFilter: bool = False) -> dict[str, int | dict[str, in
         .replace('missing value', '"missing value"') \
         .replace("{", "[").replace("}", "]")
     res = ast.literal_eval(ret)
-    result: dict[str, int | dict[str, int | dict[str, str | dict[str, int | Point | Size | str]]]] = {}
+    result: dict[str, _WINDICT] = {}
     if len(res) > 0:
         pids = res[0]
         apps = res[1]
@@ -362,19 +362,16 @@ def getAllWindowsDict(tryToFilter: bool = False) -> dict[str, int | dict[str, in
                             status = 1
                         elif win.isMaximized:
                             status = 2
-                        display = win.getDisplay()
-                        if appName not in result.keys():
-                            result[appName] = {}
-                        result[appName]["pid"] = pID
-                        if "windows" not in result[appName].keys():
-                            result[appName]["windows"] = {}
-                        result[appName]["windows"][title] = {
+                        winDict: _WINDATA = {
                             "id": winId,
-                            "display": display,
+                            "display": win.getDisplay(),
                             "position": pos[j],
                             "size": sizes[j],
                             "status": status
                         }
+                        if appName not in result.keys():
+                            result[appName] = {"pid": pID, "windows": {}}
+                        result[appName]["windows"][title] = winDict
                         break
     return result
 

@@ -22,7 +22,7 @@ import Xlib.Xutil
 import Xlib.ext
 from Xlib.xobject.drawable import Window as XWindow
 
-from ._main import BaseWindow, Re, _WatchDog, _findMonitorName
+from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, _WINDATA, _WINDICT
 from ewmhlib import EwmhWindow, EwmhRoot, defaultEwmhRoot, Props
 from ewmhlib._ewmhlib import _xlibGetAllWindows
 
@@ -264,7 +264,7 @@ def getAllAppsWindowsTitles():
     return result
 
 
-def getAllWindowsDict(tryToFilter: bool = False) -> dict[str, int | dict[str, int | dict[str, str | dict[str, int | Point | Size | str]]]]:
+def getAllWindowsDict(tryToFilter: bool = False) -> dict[str, _WINDICT]:
     """
     Get all visible apps and windows info
 
@@ -284,7 +284,7 @@ def getAllWindowsDict(tryToFilter: bool = False) -> dict[str, int | dict[str, in
     :param tryToFilter: Windows ONLY. Set to ''True'' to try to get User (non-system) apps only (may skip real user apps)
     :return: python dictionary
     """
-    result: dict[str, int | dict[str, int | dict[str, str | dict[str, int | Point | Size | str]]]] = {}
+    result: dict[str, _WINDICT] = {}
     for win in getAllWindows():
         winId = win.getHandle()
         appName = win.getAppName()
@@ -294,18 +294,17 @@ def getAllWindowsDict(tryToFilter: bool = False) -> dict[str, int | dict[str, in
             status = 1
         elif win.isMaximized:
             status = 2
-        winDict = {
+        pos = win.position
+        size = win.size
+        winDict: _WINDATA = {
             "id": winId,
             "display": win.getDisplay(),
-            "position": win.position,
-            "size": win.size,
+            "position": (pos.x, pos.y),
+            "size": (size.width, size.height),
             "status": status
         }
         if appName not in result.keys():
-            result[appName] = {}
-        result[appName]["pìd"] = appPID
-        if "windows" not in result[appName].keys():
-            result[appName]["windows"] = {}
+            result[appName] = {"pid": appPID, "windows": {}}
         result[appName]["windows"][win.title] = winDict
     return result
 

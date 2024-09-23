@@ -24,7 +24,7 @@ import win32con
 import win32api
 import win32gui
 
-from ._main import BaseWindow, Re, _WatchDog, _findMonitorName
+from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, _WINDATA, _WINDICT
 from pywinbox import Size, Point, Rect, pointInBox
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
@@ -231,7 +231,7 @@ def getAllAppsWindowsTitles() -> dict[str, List[str]]:
     return result
 
 
-def getAllWindowsDict(tryToFilter: bool = False) -> dict[str, int | dict[str, int | dict[str, str | dict[str, int | Point | Size | str]]]]:
+def getAllWindowsDict(tryToFilter: bool = False) -> dict[str, _WINDICT]:
     """
     Get all visible apps and windows info
 
@@ -241,7 +241,9 @@ def getAllWindowsDict(tryToFilter: bool = False) -> dict[str, int | dict[str, in
         Values:
             "pid": app PID
             "windows": subdictionary of all app windows
-                "title": subdictionary of window info
+                Key: window title
+
+                Values:
                     "id": window handle
                     "display": display in which window is mostly visible
                     "position": window position (x, y) within display
@@ -252,7 +254,7 @@ def getAllWindowsDict(tryToFilter: bool = False) -> dict[str, int | dict[str, in
     :return: python dictionary
     """
     process_list = _getAllApps(tryToFilter)
-    result: dict[str, int | dict[str, int | dict[str, str | dict[str, int | Point | Size | str]]]] = {}
+    result: dict[str, _WINDICT] = {}
     for win in getAllWindows():
         winId = win.getHandle()
         pID = win32process.GetWindowThreadProcessId(winId)
@@ -265,18 +267,17 @@ def getAllWindowsDict(tryToFilter: bool = False) -> dict[str, int | dict[str, in
                     status = 1
                 elif win.isMaximized:
                     status = 2
-                winDict = {
+                pos = win.position
+                size = win.size
+                winDict: _WINDATA = {
                     "id": winId,
                     "display": win.getDisplay(),
-                    "position": win.position,
-                    "size": win.size,
+                    "position": (pos.x, pos.y),
+                    "size": (size.width, size.height),
                     "status": status
                 }
                 if appName not in result.keys():
-                    result[appName] = {}
-                result[appName]["pìd"] = appPID
-                if "windows" not in result[appName].keys():
-                    result[appName]["windows"] = {}
+                    result[appName] = {"pid": appPID, "windows": {}}
                 result[appName]["windows"][win.title] = winDict
                 break
     return result

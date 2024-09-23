@@ -9,7 +9,7 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any, cast, List, Tuple, Union
+from typing import Any, cast, List, Tuple, Union, TypedDict
 
 from pymonctl import findMonitorsAtPoint, getAllMonitors, getAllMonitorsDict, getMousePos as getMouse
 from pywinbox import PyWinBox, Box, Rect, Point, Size
@@ -990,6 +990,19 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
     except KeyboardInterrupt:
         sys.stdout.write('\n\n')
         sys.stdout.flush()
+
+
+class _WINDATA(TypedDict):
+    id: Union[int, tuple[str, str]]
+    display: list[str]
+    position: tuple[int, int]
+    size: tuple[int, int]
+    status: int
+
+
+class _WINDICT(TypedDict):
+    pid: int
+    windows: dict[str, _WINDATA]
 
 
 if sys.platform == "darwin":
