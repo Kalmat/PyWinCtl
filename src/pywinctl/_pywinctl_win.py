@@ -886,9 +886,9 @@ class Win32Window(BaseWindow):
 
     def getPID(self) -> Optional[int]:
         """
-        Get the current application PID
+        Get the current application PID the window belongs to
 
-        :return: application PID
+        :return: application PID or None if it couldn't be retrieved
         """
         ret = win32process.GetWindowThreadProcessId(self._hWnd)
         if ret and len(ret) > 1:
