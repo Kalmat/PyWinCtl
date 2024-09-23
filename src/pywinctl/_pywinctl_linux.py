@@ -286,7 +286,7 @@ def getAllWindowsDict(tryToFilter: bool = False) -> dict[str, int | dict[str, in
     """
     result: dict[str, int | dict[str, int | dict[str, str | dict[str, int | Point | Size | str]]]] = {}
     for win in getAllWindows():
-        id = win.getHandle()
+        winId = win.getHandle()
         appName = win.getAppName()
         appPID = win._win.getPid()
         status = 0
@@ -295,7 +295,7 @@ def getAllWindowsDict(tryToFilter: bool = False) -> dict[str, int | dict[str, in
         elif win.isMaximized:
             status = 2
         winDict = {
-            "id": id,
+            "id": winId,
             "display": win.getDisplay(),
             "position": win.position,
             "size": win.size,
