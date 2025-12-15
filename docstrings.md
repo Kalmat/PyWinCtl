@@ -106,7 +106,7 @@ Use ''flags'' to define additional values according to each condition type:
 **Arguments**:
 
 - `title`: title or regex pattern to match, as string
-- `app`: (optional) tuple of app names. Defaults to ALL (empty list)
+- `app`: (optional) tuple of app names. Defaults to ALL (empty list).  Unsupported on macOS.
 - `condition`: (optional) condition to apply when searching the window. Defaults to ''Re.IS'' (is equal to)
 - `flags`: (optional) specific flags to apply to condition. Defaults to 0 (no flags)
 
