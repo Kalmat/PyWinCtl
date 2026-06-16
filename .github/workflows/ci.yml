@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - ".github/workflows/type-checking.yml"
+      - "docs/**"
+      - ".readthedocs.yaml"
+      - "pyproject.toml"
+      - "setup.cfg"
+      - "**/*.py"
+  pull_request:
+    paths:
+      - ".github/workflows/type-checking.yml"
+      - "docs/**"
+      - ".readthedocs.yaml"
+      - "pyproject.toml"
+      - "setup.cfg"
+      - "**/*.py"
+
+jobs:
+  mypy:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        python-version: ["3.10"]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install . --group=dev
+      - run: mypy . --python-version=${{ matrix.python-version }}
+
+  sphinx:
+    runs-on: ubuntu-22.04 # Keep in sync with build.os in .readthedocs.yaml
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11" # Keep in sync with build.tools.python in .readthedocs.yaml
+      - run: pip install . --group=docs
+      - name: Build docs
+        # TODO: Add --fail-on-warning, but still too many warnings right now
+        run: sphinx-build --keep-going -b html docs/source docs/_build/html
