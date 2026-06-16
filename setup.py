@@ -1,7 +1,8 @@
 import io
 import os
 import re
-from setuptools import setup, find_packages
+
+from setuptools import find_packages, setup
 
 scriptFolder = os.path.dirname(os.path.realpath(__file__))
 os.chdir(scriptFolder)
@@ -44,16 +45,6 @@ setup(
         "pywinbox>=0.7",
         "pymonctl>=0.92"
     ],
-    extras_require={
-        'dev': [
-            "types-setuptools>=65.5",
-            "mypy>=0.990",
-            "types-pywin32>=305.0.0.3",
-            "types-python-xlib>=0.32",
-            "myst-parser",
-            "ewmhlib>=0.2",
-        ]
-    },
     keywords="gui window control menu title name geometry size position move resize minimize maximize restore "
              + "hide show activate raise lower close screen-size mouse-position",
     classifiers=[

@@ -61,11 +61,14 @@ dependencies = [
     "typing_extensions>=4.4.0",
 ]
 
-[project.optional-dependencies]
-dev = [
-    "ewmhlib>=0.2",
-    "mypy>=0.990",
+[dependency-groups]
+docs = [
     "myst-parser",
+]
+dev = [
+    {include-group = "docs"},
+    "ewmhlib",
+    "mypy>=0.990,<2",
     "types-python-xlib>=0.32",
     "types-pywin32>=305.0.0.3",
     "types-setuptools>=65.5",

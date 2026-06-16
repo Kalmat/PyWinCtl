@@ -252,7 +252,7 @@ If you want to use this code or contribute, you can either:
 * Create a fork of the [repository](https://github.com/Kalmat/PyWinCtl), or 
 * [Download the repository](https://github.com/Kalmat/PyWinCtl/archive/refs/heads/master.zip), uncompress, and open it on your IDE of choice (e.g. PyCharm)
 
-Be sure you install all dependencies described on "requirements.txt" by using pip
+Be sure you install all dev dependencies by using pip: `pip install -e . --group=dev`
 
 ## Test <a name="test"></a>
 
