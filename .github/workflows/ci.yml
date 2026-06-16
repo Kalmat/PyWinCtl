@@ -18,7 +18,7 @@ on:
       - "docs/**"
       - ".readthedocs.yaml"
       - "pyproject.toml"
-      - "setup.cfg"
+      - "mypy.ini"
       - "**/*.py"
 
 concurrency:
