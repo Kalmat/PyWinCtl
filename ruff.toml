@@ -1,0 +1,75 @@
+[lint]
+future-annotations = true
+# https://docs.astral.sh/ruff/rules/
+extend-select = [
+  "ANN2", # flake8-annotations: missing-return-type
+  "PYI", # flake8-pyi
+  "FA", # flake8-future-annotations
+  "ICN", # flake8-import-conventions
+  "F401", # unused-import
+  "YTT", # flake8-2020
+  "TC", # flake8-type-checking
+  "TID", # flake8-tidy-imports
+  "UP", # pyupgrade
+  "RUF", # Ruff-specific rules
+  "F404", # late-future-import
+  "PGH", # pygrep-hooks (blanket-* rules)
+]
+ignore = [
+  # Only enforce return types on public functions. Where otherwise mypy infers as Any
+  # Still worth running `ruff check --fix --select=202` once in a while for autofixes
+  "ANN202", # missing-return-type-private-function
+  # Explicit is preferred
+  "UP015", # redundant-open-modes, 
+  # Autofixes print-f style formatting to f-strings,
+  # which is sometimes simpler, but looses template code reading semantics
+  "UP032", # f-string
+  # TC helps prevent circular imports, reduce runtime cost of typing symbols,
+  # and prevent leaking implementations details into modules
+  # However stdlib is not at risk of circular import, is clearly not public API,
+  # and assume it's gonna be included in the import chain at some point anyway
+  "TC003", # typing-only-standard-library-import
+  # Typeshed doesn't want complex or non-literal defaults for maintenance and testing reasons.
+  # This doesn't affect us, let's have more complete stubs.
+  "PYI011", # typed-argument-default-in-stub
+  "PYI014", # argument-default-in-stub
+  "PYI053", # string-or-bytes-too-long
+
+  # TODO: Consider later
+  "UP031", # printf-string-formatting
+  "RUF059", # unused-unpacked-variable
+  "E722", # bare-except
+]
+# F401 would remove imports not marked as explicit re-exports, which may break API boundaries
+extend-unsafe-fixes = ["F401"]
+
+[lint.per-file-ignores]
+"**/typings/**/*.pyi" = [
+  "PGH003", # TODO: Blanket ignores until using pyobj type stubs
+  "F811", # Re-exports false positives
+  # The following can't be controlled for external libraries:
+  "A", # Shadowing builtin names
+  "E741", # ambiguous variable name
+  "F403", # `from . import *` used; unable to detect undefined names
+  "FBT", # flake8-boolean-trap
+  "ICN001", # unconventional-import-alias
+  "N8", # Naming conventions
+  "PLC2701", # Private name import
+  "PLE0302", # The special method expects a given signature
+  "PLR0904", # Too many public methods
+  "PLR0913", # Argument count
+  "PLR0917", # Too many positional arguments
+  "PLW3201", # misspelled dunder method name
+  "SLOT", # flake8-slots
+  # Stubs can sometimes re-export entire modules.
+  # Issues with using a star-imported name will be caught by type-checkers.
+  "F405", # may be undefined, or defined from star imports
+  # It's normal to be missing annotations for local stubs.
+  # If they were complete, we'd upload them to typeshed!
+  "ANN0",
+  "ANN2",
+]
+
+# https://docs.astral.sh/ruff/settings/#lintflake8-type-checking
+[lint.flake8-type-checking]
+quote-annotations = true

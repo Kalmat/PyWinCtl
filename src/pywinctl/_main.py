@@ -1,5 +1,4 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import difflib
@@ -9,18 +8,19 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any, cast, List, Tuple, Union, TypedDict
+from typing import Any, ClassVar, TypedDict
 
-from pymonctl import findMonitorsAtPoint, getAllMonitors, getAllMonitorsDict, getMousePos as getMouse
-from pywinbox import PyWinBox, Box, Rect, Point, Size
+from pymonctl import findMonitorsAtPoint, getAllMonitors, getAllMonitorsDict
+from pymonctl import getMousePos as getMouse
+from pywinbox import Box, Point, PyWinBox, Rect, Size
 
 
 class BaseWindow(ABC):
 
-    def __init__(self, handle):
+    def __init__(self, handle) -> None:
         self._box: PyWinBox = PyWinBox(None, None, handle)
 
-    def __str__(self):
+    def __str__(self) -> str:
         box = self._box.box
         return '<%s left="%s", top="%s", width="%s", height="%s", title="%s">' % (
             self.__class__.__qualname__,
@@ -92,7 +92,7 @@ class BaseWindow(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
+    def getExtraFrameSize(self, includeBorder: bool = True) -> tuple[int, int, int, int]:
         """
         Get the extra space, in pixels, around the window, including or not the border.
         Notice not all applications/windows will use this property values
@@ -103,7 +103,7 @@ class BaseWindow(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def getClientFrame(self) -> Tuple[int, int, int, int]:
+    def getClientFrame(self) -> tuple[int, int, int, int]:
         """
         Get the client area of window, as a Rect (x, y, right, bottom)
         Notice that scroll and status bars might be included, or not, depending on the application
@@ -181,7 +181,7 @@ class BaseWindow(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def getChildren(self) -> List[Any]:
+    def getChildren(self) -> list[Any]:
         """
         Get the children handles of current window
 
@@ -212,7 +212,7 @@ class BaseWindow(ABC):
     isChildOf = isChild  # isParentOf is an alias of isParent method
 
     @abstractmethod
-    def getDisplay(self) -> List[str]:
+    def getDisplay(self) -> list[str]:
         """Returns the list of names of the monitors the window is in"""
         raise NotImplementedError
     getMonitor = getDisplay  # getMonitor is an alias of getDisplay method
@@ -252,7 +252,7 @@ class BaseWindow(ABC):
     @abstractmethod
     def visible(self) -> bool:
         raise NotImplementedError
-    isVisible: bool = cast(bool, visible)  # isVisible is an alias for the visible property.
+    isVisible = visible  # isVisible is an alias for the visible property.
 
     @property
     @abstractmethod
@@ -317,7 +317,7 @@ class BaseWindow(ABC):
         return self._box.position
 
     @position.setter
-    def position(self, value: Union[Point, Tuple[int, int]]):
+    def position(self, value: Point | tuple[int, int]):
         self._box.position = value
 
     @property
@@ -325,7 +325,7 @@ class BaseWindow(ABC):
         return self._box.size
 
     @size.setter
-    def size(self, value: Union[Size, Tuple[int, int]]):
+    def size(self, value: Size | tuple[int, int]):
         self._box.size = value
 
     @property
@@ -333,7 +333,7 @@ class BaseWindow(ABC):
         return self._box.box
 
     @box.setter
-    def box(self, value: Union[Box, Tuple[int, int, int, int]]):
+    def box(self, value: Box | tuple[int, int, int, int]):
         self._box.box = value
 
     @property
@@ -341,7 +341,7 @@ class BaseWindow(ABC):
         return self._box.rect
 
     @rect.setter
-    def rect(self, value: Union[Rect, Tuple[int, int, int, int]]):
+    def rect(self, value: Rect | tuple[int, int, int, int]):
         self._box.rect = value
     bbox = rect
 
@@ -350,7 +350,7 @@ class BaseWindow(ABC):
         return self._box.topleft
 
     @topleft.setter
-    def topleft(self, value: Union[Point, Tuple[int, int]]):
+    def topleft(self, value: Point | tuple[int, int]):
         self._box.topleft = value
 
     @property
@@ -358,7 +358,7 @@ class BaseWindow(ABC):
         return self._box.bottomleft
 
     @bottomleft.setter
-    def bottomleft(self, value: Union[Point, Tuple[int, int]]):
+    def bottomleft(self, value: Point | tuple[int, int]):
         self._box.bottomleft = value
 
     @property
@@ -366,7 +366,7 @@ class BaseWindow(ABC):
         return self._box.topright
 
     @topright.setter
-    def topright(self, value: Union[Point, Tuple[int, int]]):
+    def topright(self, value: Point | tuple[int, int]):
         self._box.topright = value
 
     @property
@@ -374,7 +374,7 @@ class BaseWindow(ABC):
         return self._box.bottomright
 
     @bottomright.setter
-    def bottomright(self, value: Union[Point, Tuple[int, int]]):
+    def bottomright(self, value: Point | tuple[int, int]):
         self._box.bottomright = value
 
     @property
@@ -382,7 +382,7 @@ class BaseWindow(ABC):
         return self._box.midtop
 
     @midtop.setter
-    def midtop(self, value: Union[Point, Tuple[int, int]]):
+    def midtop(self, value: Point | tuple[int, int]):
         self._box.midtop = value
 
     @property
@@ -390,7 +390,7 @@ class BaseWindow(ABC):
         return self._box.midbottom
 
     @midbottom.setter
-    def midbottom(self, value: Union[Point, Tuple[int, int]]):
+    def midbottom(self, value: Point | tuple[int, int]):
         self._box.midbottom = value
 
     @property
@@ -398,7 +398,7 @@ class BaseWindow(ABC):
         return self._box.midleft
 
     @midleft.setter
-    def midleft(self, value: Union[Point, Tuple[int, int]]):
+    def midleft(self, value: Point | tuple[int, int]):
         self._box.midleft = value
 
     @property
@@ -406,7 +406,7 @@ class BaseWindow(ABC):
         return self._box.midright
 
     @midright.setter
-    def midright(self, value: Union[Point, Tuple[int, int]]):
+    def midright(self, value: Point | tuple[int, int]):
         self._box.midright = value
 
     @property
@@ -414,7 +414,7 @@ class BaseWindow(ABC):
         return self._box.center
 
     @center.setter
-    def center(self, value: Union[Point, Tuple[int, int]]):
+    def center(self, value: Point | tuple[int, int]):
         self._box.center = value
 
     @property
@@ -449,7 +449,7 @@ class _WatchDog:
     :meth kill: Stop the entire watchdog and all its hooks
     :meth isAlive: Check if watchdog is running
     """
-    def __init__(self, parent: BaseWindow):
+    def __init__(self, parent: BaseWindow) -> None:
         self._watchdog: _WatchDogWorker | None = None
         self._parent = parent
 
@@ -460,10 +460,10 @@ class _WatchDog:
         isVisibleCB: Callable[[bool], None] | None = None,
         isMinimizedCB: Callable[[bool], None] | None = None,
         isMaximizedCB: Callable[[bool], None] | None = None,
-        resizedCB: Callable[[Tuple[int, int]], None] | None = None,
-        movedCB: Callable[[Tuple[int, int]], None] | None = None,
+        resizedCB: Callable[[tuple[int, int]], None] | None = None,
+        movedCB: Callable[[tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
-        changedDisplayCB: Callable[[List[str]], None] | None = None,
+        changedDisplayCB: Callable[[list[str]], None] | None = None,
         interval: float = 0.3
     ):
         """
@@ -515,10 +515,10 @@ class _WatchDog:
         isVisibleCB: Callable[[bool], None] | None = None,
         isMinimizedCB: Callable[[bool], None] | None = None,
         isMaximizedCB: Callable[[bool], None] | None = None,
-        resizedCB: Callable[[Tuple[int, int]], None] | None = None,
-        movedCB: Callable[[Tuple[int, int]], None] | None = None,
+        resizedCB: Callable[[tuple[int, int]], None] | None = None,
+        movedCB: Callable[[tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
-        changedDisplayCB: Callable[[List[str]], None] | None = None
+        changedDisplayCB: Callable[[list[str]], None] | None = None
     ):
         """
         Change the states this watchdog is hooked to
@@ -606,12 +606,12 @@ class _WatchDogWorker(threading.Thread):
         isVisibleCB: Callable[[bool], None] | None = None,
         isMinimizedCB: Callable[[bool], None] | None = None,
         isMaximizedCB: Callable[[bool], None] | None = None,
-        resizedCB: Callable[[Tuple[int, int]], None] | None = None,
-        movedCB: Callable[[Tuple[int, int]], None] | None = None,
+        resizedCB: Callable[[tuple[int, int]], None] | None = None,
+        movedCB: Callable[[tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
-        changedDisplayCB: Callable[[List[str]], None] | None = None,
+        changedDisplayCB: Callable[[list[str]], None] | None = None,
         interval: float = 0.3
-    ):
+    ) -> None:
         threading.Thread.__init__(self)
         self._win = win
         self._interval = interval
@@ -707,7 +707,7 @@ class _WatchDogWorker(threading.Thread):
                     visible = self._win.isVisible
                     if self._isVisible != visible:
                         self._isVisible = visible
-                        self._isVisibleCB(visible)  # type: ignore[arg-type]  # mypy bug
+                        self._isVisibleCB(visible)
 
                 if self._isMinimizedCB:
                     minimized = self._win.isMinimized
@@ -757,10 +757,10 @@ class _WatchDogWorker(threading.Thread):
         isVisibleCB: Callable[[bool], None] | None = None,
         isMinimizedCB: Callable[[bool], None] | None = None,
         isMaximizedCB: Callable[[bool], None] | None = None,
-        resizedCB: Callable[[Tuple[int, int]], None] | None = None,
-        movedCB: Callable[[Tuple[int, int]], None] | None = None,
+        resizedCB: Callable[[tuple[int, int]], None] | None = None,
+        movedCB: Callable[[tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
-        changedDisplayCB: Callable[[List[str]], None] | None = None
+        changedDisplayCB: Callable[[list[str]], None] | None = None
     ):
 
         self._isAliveCB = isAliveCB
@@ -792,10 +792,10 @@ class _WatchDogWorker(threading.Thread):
         isVisibleCB: Callable[[bool], None] | None = None,
         isMinimizedCB: Callable[[bool], None] | None = None,
         isMaximizedCB: Callable[[bool], None] | None = None,
-        resizedCB: Callable[[Tuple[int, int]], None] | None = None,
-        movedCB: Callable[[Tuple[int, int]], None] | None = None,
+        resizedCB: Callable[[tuple[int, int]], None] | None = None,
+        movedCB: Callable[[tuple[int, int]], None] | None = None,
         changedTitleCB: Callable[[str], None] | None = None,
-        changedDisplayCB: Callable[[List[str]], None] | None = None,
+        changedDisplayCB: Callable[[list[str]], None] | None = None,
         interval: float = 0.3
     ):
         self._kill.set()
@@ -805,7 +805,7 @@ class _WatchDogWorker(threading.Thread):
         self.run()
 
 
-def _findMonitorName(x: int, y: int) -> List[str]:
+def _findMonitorName(x: int, y: int) -> list[str]:
     return [monitor.name for monitor in findMonitorsAtPoint(x, y)]
 
 
@@ -827,7 +827,8 @@ class Re:
     IGNORECASE = re.IGNORECASE
 
     # Does not play well with static typing and current implementation of TypedDict
-    _cond_dic: dict[int, Callable[[str | re.Pattern[str], str, float], bool]] = {
+    # ruff: disable[PGH003]
+    _cond_dic: ClassVar[dict[int, Callable[[str | re.Pattern[str], str, float], bool]]] = {
         IS: lambda s1, s2, fl: s1 == s2,
         CONTAINS: lambda s1, s2, fl: s1 in s2,  # type: ignore  # pyright: ignore
         STARTSWITH: lambda s1, s2, fl: s2.startswith(s1),  # type: ignore  # pyright: ignore
@@ -839,9 +840,9 @@ class Re:
         MATCH: lambda s1, s2, fl: bool(s1.search(s2)),  # type: ignore  # pyright: ignore
         NOTMATCH: lambda s1, s2, fl: not (bool(s1.search(s2))),  # type: ignore  # pyright: ignore
         EDITDISTANCE: lambda s1, s2, fl: _levenshtein(s1, s2) >= fl,  # type: ignore  # pyright: ignore
-        DIFFRATIO: lambda s1, s2, fl: difflib.SequenceMatcher(None, s1, s2).ratio() * 100 >= fl  # type: ignore  # pyright: ignore
+        DIFFRATIO: lambda s1, s2, fl: difflib.SequenceMatcher(None, s1, s2).ratio() * 100 >= fl,  # type: ignore  # pyright: ignore
     }
-
+    # ruff: enable[PGH003]
 
 def _levenshtein(seq1: str, seq2: str) -> float:
     # https://stackabuse.com/levenshtein-distance-and-text-similarity-in-python/
@@ -994,38 +995,63 @@ def displayWindowsUnderMouse(xOffset: int = 0, yOffset: int = 0) -> None:
 
 
 class _WINDATA(TypedDict):
-    id: Union[int, tuple[str, str]]
+    id: int | tuple[str, str]
     display: list[str]
     position: tuple[int, int]
     size: tuple[int, int]
     status: int
 
 
-class _WINDICT(TypedDict):
+class _WINDICT(TypedDict):  # noqa: PYI049 # Private symbol imported by internal modules
     pid: int
     windows: dict[str, _WINDATA]
 
-
+# Explicit re-exports
 if sys.platform == "darwin":
-    from ._pywinctl_macos import (MacOSWindow as Window, checkPermissions, getActiveWindow,
-                                  getActiveWindowTitle, getAllAppsNames, getAllAppsWindowsTitles,
-                                  getAllTitles, getAllWindows, getAppsWithName, getWindowsWithTitle,
-                                  getAllWindowsDict, getTopWindowAt, getWindowsAt
-                                  )
-
+    from ._pywinctl_macos import MacOSWindow as Window
+    from ._pywinctl_macos import checkPermissions as checkPermissions
+    from ._pywinctl_macos import getActiveWindow as getActiveWindow
+    from ._pywinctl_macos import getActiveWindowTitle as getActiveWindowTitle
+    from ._pywinctl_macos import getAllAppsNames as getAllAppsNames
+    from ._pywinctl_macos import getAllAppsWindowsTitles as getAllAppsWindowsTitles
+    from ._pywinctl_macos import getAllTitles as getAllTitles
+    from ._pywinctl_macos import getAllWindows as getAllWindows
+    from ._pywinctl_macos import getAllWindowsDict as getAllWindowsDict
+    from ._pywinctl_macos import getAppsWithName as getAppsWithName
+    from ._pywinctl_macos import getTopWindowAt as getTopWindowAt
+    from ._pywinctl_macos import getWindowsAt as getWindowsAt
+    from ._pywinctl_macos import getWindowsWithTitle as getWindowsWithTitle
 elif sys.platform == "win32":
-    from ._pywinctl_win import (Win32Window as Window, checkPermissions, getActiveWindow,
-                                getActiveWindowTitle, getAllAppsNames, getAllAppsWindowsTitles,
-                                getAllTitles, getAllWindows, getAppsWithName, getWindowsWithTitle,
-                                getAllWindowsDict, getTopWindowAt, getWindowsAt
-                                )
-
+    from ._pywinctl_win import Win32Window as Window
+    from ._pywinctl_win import checkPermissions as checkPermissions
+    from ._pywinctl_win import getActiveWindow as getActiveWindow
+    from ._pywinctl_win import getActiveWindowTitle as getActiveWindowTitle
+    from ._pywinctl_win import getAllAppsNames as getAllAppsNames
+    from ._pywinctl_win import getAllAppsWindowsTitles as getAllAppsWindowsTitles
+    from ._pywinctl_win import getAllTitles as getAllTitles
+    from ._pywinctl_win import getAllWindows as getAllWindows
+    from ._pywinctl_win import getAllWindowsDict as getAllWindowsDict
+    from ._pywinctl_win import getAppsWithName as getAppsWithName
+    from ._pywinctl_win import getTopWindowAt as getTopWindowAt
+    from ._pywinctl_win import getWindowsAt as getWindowsAt
+    from ._pywinctl_win import getWindowsWithTitle as getWindowsWithTitle
 elif sys.platform == "linux":
-    from ._pywinctl_linux import (LinuxWindow as Window, checkPermissions, getActiveWindow,
-                                  getActiveWindowTitle, getAllAppsNames, getAllAppsWindowsTitles,
-                                  getAllTitles, getAllWindows, getAppsWithName, getWindowsWithTitle,
-                                  getAllWindowsDict, getTopWindowAt, getWindowsAt
-                                  )
-
+    from ._pywinctl_linux import LinuxWindow as Window
+    from ._pywinctl_linux import checkPermissions as checkPermissions
+    from ._pywinctl_linux import getActiveWindow as getActiveWindow
+    from ._pywinctl_linux import getActiveWindowTitle as getActiveWindowTitle
+    from ._pywinctl_linux import getAllAppsNames as getAllAppsNames
+    from ._pywinctl_linux import getAllAppsWindowsTitles as getAllAppsWindowsTitles
+    from ._pywinctl_linux import getAllTitles as getAllTitles
+    from ._pywinctl_linux import getAllWindows as getAllWindows
+    from ._pywinctl_linux import getAllWindowsDict as getAllWindowsDict
+    from ._pywinctl_linux import getAppsWithName as getAppsWithName
+    from ._pywinctl_linux import getTopWindowAt as getTopWindowAt
+    from ._pywinctl_linux import getWindowsAt as getWindowsAt
+    from ._pywinctl_linux import getWindowsWithTitle as getWindowsWithTitle
 else:
-    raise NotImplementedError('PyWinCtl currently does not support this platform. If you think you can help, please contribute! https://github.com/Kalmat/PyWinCtl')
+    raise NotImplementedError(
+        "PyWinCtl currently does not support this platform. "
+        + "If you think you can help, please contribute! https://github.com/Kalmat/PyWinCtl"
+    )
+Window = Window

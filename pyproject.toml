@@ -82,6 +82,7 @@ dev = [
     { include-group = "docs" },
     "ewmhlib",
     "mypy>=0.990,<2",
+    "ruff>=0.15.16",
     "types-python-xlib>=0.32",
     "types-pywin32>=305.0.0.3",
 ]

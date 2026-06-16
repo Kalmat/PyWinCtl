@@ -1,7 +1,12 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
+from ._main import (Re, Window, checkPermissions, getActiveWindow,
+                    getActiveWindowTitle, getAllAppsNames, getAllAppsWindowsTitles,
+                    getAllTitles, getAllWindows, getAppsWithName, getWindowsWithTitle,
+                    getAllWindowsDict, getTopWindowAt, getWindowsAt, displayWindowsUnderMouse,
+                    getAllScreens, getScreenSize, getWorkArea, getMousePos
+                    )
 
-__all__ = [
+__all__ = [  # noqa: RUF022
     "version", "Re",
     # OS Specifics
     "Window", "checkPermissions", "getActiveWindow", "getActiveWindowTitle", "getWindowsWithTitle",
@@ -18,9 +23,3 @@ def version(numberOnly: bool = True) -> str:
     return ("" if numberOnly else "PyWinCtl-")+__version__
 
 
-from ._main import (Re, Window, checkPermissions, getActiveWindow,
-                    getActiveWindowTitle, getAllAppsNames, getAllAppsWindowsTitles,
-                    getAllTitles, getAllWindows, getAppsWithName, getWindowsWithTitle,
-                    getAllWindowsDict, getTopWindowAt, getWindowsAt, displayWindowsUnderMouse,
-                    getAllScreens, getScreenSize, getWorkArea, getMousePos
-                    )
