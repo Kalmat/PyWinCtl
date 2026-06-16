@@ -21,13 +21,22 @@ on:
       - "setup.cfg"
       - "**/*.py"
 
+concurrency:
+  # Cancel previous runs for the same PR
+  # Don't cancel successive pushes to master
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   mypy:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: &timeout-minutes 5
     strategy:
+      # mypy is os and python-version sensitive. Test on all supported combinations
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
-        python-version: ["3.10"]
+        # Arm runners are faster (as long as the same wheels are available)
+        os: [windows-11-arm, ubuntu-24.04-arm, macos-latest]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
       fail-fast: false
     steps:
       - uses: actions/checkout@v6
@@ -38,15 +47,50 @@ jobs:
       - run: uv sync --locked
       - run: mypy . --python-version=${{ matrix.python-version }}
 
+  tests:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: *timeout-minutes
+    strategy:
+      # Test on all supported runtime combinations
+      matrix:
+        # Arm runners are faster (as long as the same wheels are available)
+        # PyWinCtl doesn't have any code that should act differently per architecture
+        os: [windows-11-arm, ubuntu-24.04-arm, macos-latest]
+        # TODO: Run tests in parallel on free-threaded python to catch free-threading issues
+        # See: https://py-free-threading.github.io/testing/
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Linux Packages
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        run: |
+          sudo apt update
+          sudo apt install gedit xvfb x11-xserver-utils openbox dbus-x11
+      - uses: astral-sh/setup-uv@v8.2.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          activate-environment: true
+      - run: uv sync --locked
+      - name: Run tests (Linux)
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        working-directory: tests
+        run: xvfb-run --server-args="-screen 0 1280x1024x24" bash -c "openbox & sleep 1 && dbus-launch --exit-with-session python test_pywinctl.py"
+      - name: Run tests (Windows & macOS)
+        if: ${{ !startsWith(matrix.os, 'ubuntu') }}
+        working-directory: tests
+        run: python test_pywinctl.py
+
   sphinx:
-    runs-on: ubuntu-22.04 # Keep in sync with build.os in .readthedocs.yaml
+    runs-on: ubuntu-lts-latest # Keep in sync with build.os in .readthedocs.yaml
+    timeout-minutes: *timeout-minutes
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v8.2.0
         with:
-          python-version: "3.11" # Keep in sync with build.tools.python in .readthedocs.yaml
+          python-version: "3.14" # Keep in sync with build.tools.python in .readthedocs.yaml
           activate-environment: true
       - run: uv sync --locked --no-default-groups --group=docs
       - name: Build docs
         # TODO: Add --fail-on-warning, but still too many warnings right now
-        run: sphinx-build --keep-going -b html docs/source docs/_build/html
+        run: sphinx-build --keep-going --builder html docs/source docs/_build/html

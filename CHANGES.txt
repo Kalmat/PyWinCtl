@@ -1,3 +1,4 @@
+0.4.02, 2026/06/16 -- ALL: Fixed WatchDog.stop() not joining the worker thread. Known to have been causing Xlib race conditions on Linux
 0.4.01, 2024/09/22 -- ALL: Added getAllWindowsDict() general function. Added getPID() method.
                       LINUX: Added bad window filter to check for window.id == 0
 0.4, 2023/10/11 -- ALL: Added getMonitor() as alias for getDisplay()

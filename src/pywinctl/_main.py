@@ -582,6 +582,7 @@ class _WatchDog:
         """
         if self._watchdog:
             self._watchdog.kill()
+            self._watchdog.join()
 
     def isAlive(self):
         """Check if watchdog is running
