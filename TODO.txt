@@ -38,4 +38,4 @@ macOS / NSWindow:
 
 General:
 - [Type_check] PyRect: Create type stubs or add to base library
-- [Type_check] Return to "full" type-checking.yml version
+- [Type_check] Add back pyright (for PyLance) type checking in ci.yml

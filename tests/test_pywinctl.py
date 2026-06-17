@@ -5,8 +5,14 @@ from __future__ import annotations
 import subprocess
 import sys
 import time
+from typing import TypedDict
 
 import pywinctl
+
+
+class GetWindowKwargs(TypedDict):
+    title: str
+    condition: int  # TODO: Consider making pywinctl.Re an IntEnum
 
 
 def test_basic():
@@ -26,52 +32,41 @@ def test_basic():
     print()
 
     if sys.platform == "win32":
-        subprocess.Popen('notepad')
-        time.sleep(2)
-
-        testWindows = [pywinctl.getActiveWindow()]
-        assert len(testWindows) == 1
-
-        npw = testWindows[0]
-        wait = True
-        timelap = 0.50
-
-        basic_test(npw, wait, timelap)
-
+        process = "notepad"
+        get_window_kwargs: GetWindowKwargs = {
+            "title": "Notepad",
+            "condition": pywinctl.Re.ENDSWITH,
+        }
     elif sys.platform == "linux":
-        subprocess.Popen('gedit')
-        time.sleep(2)
-
-        testWindows = [pywinctl.getActiveWindow()]
-        assert len(testWindows) == 1
-
-        npw = testWindows[0]
-        wait = True
-        timelap = 0.50
-
-        basic_test(npw, wait, timelap)
-
+        process = "gedit"
+        get_window_kwargs: GetWindowKwargs = {
+            "title": "gedit",
+            "condition": pywinctl.Re.ENDSWITH,
+        }
     elif sys.platform == "darwin":
         if not pywinctl.checkPermissions(activate=True):
             exit()
-        subprocess.Popen(['touch', 'test.py'])
-        time.sleep(2)
-        subprocess.Popen(['open', '-a', 'TextEdit', 'test.py'])
-        time.sleep(5)
-
-        testWindows = pywinctl.getWindowsWithTitle('test.py')
-        assert len(testWindows) == 1
-
-        npw = testWindows[0]
-        wait = True
-        timelap = 0.50
-
-        basic_test(npw, wait, timelap)
-        subprocess.Popen(['rm', 'test.py'])
-
+        process = ["open", "-a", "TextEdit", __file__]
+        get_window_kwargs: GetWindowKwargs = {
+            "title": "test_pywinctl.py",
+            "condition": pywinctl.Re.IS,
+        }
     else:
-        raise NotImplementedError('PyWinCtl currently does not support this platform. If you have useful knowledge, please contribute! https://github.com/Kalmat/pywinctl')
+        raise NotImplementedError(
+            "PyWinCtl currently does not support this platform. "
+            + "If you have useful knowledge, please contribute! https://github.com/Kalmat/PyWinCtl"
+        )
 
+    subprocess.Popen(process)
+
+    testWindows: list[pywinctl.Window] = []
+    deadline = time.time() + 15
+    while not testWindows and time.time() < deadline:
+        time.sleep(0.5)
+        testWindows = pywinctl.getWindowsWithTitle(**get_window_kwargs)
+    assert len(testWindows) == 1
+
+    basic_test(npw=testWindows[0], wait=True, timelap=0.50)
 
 def basic_test(npw: pywinctl.Window | None, wait: bool, timelap: float):
     assert npw is not None
@@ -249,8 +244,9 @@ def basic_test(npw: pywinctl.Window | None, wait: bool, timelap: float):
     print("PARENT INFO")
     parent = npw.getParent()
     if parent:
-        print("WINDOW PARENT:", parent, npw.isChild(parent))
-        assert npw.isChild(parent)
+        is_child = npw.isChild(parent)
+        print("WINDOW PARENT:", parent, is_child)
+        assert is_child
     children = npw.getChildren()
     for child in children:
         if child and isinstance(child, int):

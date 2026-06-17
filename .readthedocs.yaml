@@ -6,9 +6,9 @@ version: 2
 
 # Set the OS, Python version and other tools you might need
 build:
-  os: ubuntu-22.04 # Keep in sync with runs-on in .github/workflows/docs.yml
+  os: ubuntu-24.04 # Keep in sync with runs-on in .github/workflows/ci.yml
   tools:
-    python: "3.11" # Keep in sync with python-version in .github/workflows/docs.yml
+    python: "3.14" # Keep in sync with python-version in .github/workflows/ci.yml
     # You can also specify other tool versions:
     # nodejs: "20"
     # rust: "1.70"
