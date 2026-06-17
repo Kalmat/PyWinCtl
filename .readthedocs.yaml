@@ -6,7 +6,7 @@ version: 2
 
 # Set the OS, Python version and other tools you might need
 build:
-  os: ubuntu-lts-latest # Keep in sync with runs-on in .github/workflows/ci.yml
+  os: ubuntu-24.04 # Keep in sync with runs-on in .github/workflows/ci.yml
   tools:
     python: "3.14" # Keep in sync with python-version in .github/workflows/ci.yml
     # You can also specify other tool versions:

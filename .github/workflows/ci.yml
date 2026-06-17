@@ -82,7 +82,7 @@ jobs:
         run: python test_pywinctl.py
 
   sphinx:
-    runs-on: ubuntu-lts-latest # Keep in sync with build.os in .readthedocs.yaml
+    runs-on: ubuntu-24.04-arm # Keep in sync with build.os in .readthedocs.yaml
     timeout-minutes: *timeout-minutes
     steps:
       - uses: actions/checkout@v6
