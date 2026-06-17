@@ -223,17 +223,17 @@ Note not all windows/applications will have a menu accessible by these methods.
 
 ## Install <a name="install"></a>
 
-To install this module on your system, you can use pip: 
+To install this module on your system, you can use pip:
 
-    pip3 install pywinctl
+    python -m pip install pywinctl
 
-or
+or using uv:
 
-    python3 -m pip install pywinctl
+    uv add pywinctl
 
 Alternatively, you can download the wheel file (.whl) available in the [Download page](https://pypi.org/project/PyWinCtl/#files) and run this (don't forget to replace 'x.xx' with proper version number):
 
-    pip install PyWinCtl-x.xx-py3-none-any.whl
+    python -m pip install PyWinCtl-x.xx-py3-none-any.whl
 
 You may want to add `--force-reinstall` option to be sure you are installing the right dependencies version.
 
@@ -249,14 +249,20 @@ In case you have a problem, comments or suggestions, do not hesitate to [open is
 
 If you want to use this code or contribute, you can either:
 
-* Create a fork of the [repository](https://github.com/Kalmat/PyWinCtl), or 
+* Create a fork of the [repository](https://github.com/Kalmat/PyWinCtl), or
 * [Download the repository](https://github.com/Kalmat/PyWinCtl/archive/refs/heads/master.zip), uncompress, and open it on your IDE of choice (e.g. PyCharm)
 
-Be sure you install all dev dependencies by using pip: `pip install -e . --group=dev`
+Be sure you install all dev dependencies by running:
+
+    uv sync
+
+or
+    python -m venv .venv
+    python -m pip install -e . --group=dev
 
 ## Test <a name="test"></a>
 
 To test this module on your own system, cd to "tests" folder and run:
 
-    python3 test_pywinctl.py
+    uv run test_pywinctl.py
 

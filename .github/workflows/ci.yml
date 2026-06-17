@@ -6,7 +6,7 @@ on:
     branches:
       - master
     paths:
-      - ".github/workflows/type-checking.yml"
+      - ".github/workflows/ci.yml"
       - "docs/**"
       - ".readthedocs.yaml"
       - "pyproject.toml"
@@ -14,7 +14,7 @@ on:
       - "**/*.py"
   pull_request:
     paths:
-      - ".github/workflows/type-checking.yml"
+      - ".github/workflows/ci.yml"
       - "docs/**"
       - ".readthedocs.yaml"
       - "pyproject.toml"
@@ -30,21 +30,23 @@ jobs:
         python-version: ["3.10"]
       fail-fast: false
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8.2.0
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install . --group=dev
+          activate-environment: true
+      - run: uv sync --locked
       - run: mypy . --python-version=${{ matrix.python-version }}
 
   sphinx:
     runs-on: ubuntu-22.04 # Keep in sync with build.os in .readthedocs.yaml
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8.2.0
         with:
           python-version: "3.11" # Keep in sync with build.tools.python in .readthedocs.yaml
-      - run: pip install . --group=docs
+          activate-environment: true
+      - run: uv sync --locked --no-default-groups --group=docs
       - name: Build docs
         # TODO: Add --fail-on-warning, but still too many warnings right now
         run: sphinx-build --keep-going -b html docs/source docs/_build/html

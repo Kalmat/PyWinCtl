@@ -7,10 +7,10 @@ name = "PyWinCtl"
 dynamic = ["version"]
 description = "Cross-Platform toolkit to get info on and control windows on screen"
 authors = [
-    { name = "Kalmat", email = "palookjones@gmail.com" },
+    { name = "Kalmat", email = "palookjones@gmail.com" }
 ]
 readme = "README.md"
-license = {file = "LICENSE.txt"}
+license = { file = "LICENSE.txt" }
 requires-python = ">=3.9"
 keywords = [
     "activate",
@@ -66,7 +66,7 @@ docs = [
     "myst-parser",
 ]
 dev = [
-    {include-group = "docs"},
+    { include-group = "docs" },
     "ewmhlib",
     "mypy>=0.990,<2",
     "types-python-xlib>=0.32",
@@ -74,11 +74,19 @@ dev = [
     "types-setuptools>=65.5",
 ]
 
+[tool.uv]
+exclude-newer = "1 week"
+[tool.uv.exclude-newer-package]
+# Kalmat owns these packages
+ewmhlib = false
+pymonctl = false
+pywinbox = false
+
 [project.urls]
 Homepage = "https://github.com/Kalmat/PyWinCtl"
 
 [tool.setuptools.packages.find]
-where = ["src"]  # list of folders that contain the packages (["."] by default)
+where = ["src"] # list of folders that contain the packages (["."] by default)
 
 [tool.setuptools.dynamic]
-version = {attr = "pywinctl.__version__"}  # any module attribute compatible with ast.literal_eval
+version = { attr = "pywinctl.__version__" } # any module attribute compatible with ast.literal_eval

@@ -1,5 +1,6 @@
 venv/
 .tox/
+.python-version
 
 *.pyc
 __pycache__/
