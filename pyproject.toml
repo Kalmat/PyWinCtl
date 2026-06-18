@@ -1,6 +1,16 @@
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
+requires = ["setuptools>=77.0.3", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = { attr = "pywinctl.__version__" } # any module attribute compatible with ast.literal_eval
+
+[project.urls]
+Homepage = "https://github.com/Kalmat/PyWinCtl"
+Repository = "https://github.com/Kalmat/PyWinCtl.git"
+Issues = "https://github.com/Kalmat/PyWinCtl/issues"
+Changelog = "https://github.com/Kalmat/PyWinCtl/blob/HEAD/CHANGES.txt"
+Documentation = "https://pywinctl.readthedocs.io/"
 
 [project]
 name = "PyWinCtl"
@@ -10,7 +20,8 @@ authors = [
     { name = "Kalmat", email = "palookjones@gmail.com" }
 ]
 readme = "README.md"
-license = { file = "LICENSE.txt" }
+license = "BSD-3-Clause"
+license-files = ["LICENSE.txt"]
 requires-python = ">=3.9"
 keywords = [
     "activate",
@@ -42,7 +53,6 @@ classifiers = [
     "Environment :: Win32 (MS Windows)",
     "Environment :: X11 Applications",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
@@ -74,7 +84,6 @@ dev = [
     "mypy>=0.990,<2",
     "types-python-xlib>=0.32",
     "types-pywin32>=305.0.0.3",
-    "types-setuptools>=65.5",
 ]
 
 [tool.uv]
@@ -84,12 +93,3 @@ exclude-newer = "1 week"
 ewmhlib = false
 pymonctl = false
 pywinbox = false
-
-[project.urls]
-Homepage = "https://github.com/Kalmat/PyWinCtl"
-
-[tool.setuptools.packages.find]
-where = ["src"] # list of folders that contain the packages (["."] by default)
-
-[tool.setuptools.dynamic]
-version = { attr = "pywinctl.__version__" } # any module attribute compatible with ast.literal_eval
