@@ -15,4 +15,4 @@ from Quartz.QuartzCore import *
 from Quartz.QuartzFilters import *
 from Quartz.QuickLookUI import *
 
-def __getattr__(__name: str) -> Any: ...  # pyright: ignore[reportIncompleteStub]
+def __getattr__(name: str, /) -> Any: ...  # pyright: ignore[reportIncompleteStub]

@@ -1,9 +1,10 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import sys
-assert sys.platform == "linux"
+
+if sys.platform != "linux":
+    raise OSError(f"Cannot import {__name__} on {sys.platform}")
 
 import json
 import os
@@ -11,22 +12,21 @@ import platform
 import re
 import subprocess
 import time
-from typing import cast, Optional, Union, List, Tuple
+from typing import cast
 
 import Xlib.display
 import Xlib.error
+import Xlib.ext
 import Xlib.protocol
 import Xlib.X
 import Xlib.Xatom
 import Xlib.Xutil
-import Xlib.ext
+from ewmhlib import EwmhRoot, EwmhWindow, Props, defaultEwmhRoot
+from ewmhlib._ewmhlib import _xlibGetAllWindows
+from pywinbox import Point, Rect, Size, pointInBox
 from Xlib.xobject.drawable import Window as XWindow
 
-from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, _WINDATA, _WINDICT
-from ewmhlib import EwmhWindow, EwmhRoot, defaultEwmhRoot, Props
-from ewmhlib._ewmhlib import _xlibGetAllWindows
-
-from pywinbox import Size, Point, Rect, pointInBox
+from ._main import _WINDATA, _WINDICT, BaseWindow, Re, _findMonitorName, _WatchDog
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -46,7 +46,7 @@ def checkPermissions(activate: bool = False) -> bool:
     return True
 
 
-def getActiveWindow() -> Optional[LinuxWindow]:
+def getActiveWindow() -> LinuxWindow | None:
     """
     Get the currently active (focused) Window in default root
 
@@ -70,7 +70,7 @@ def getActiveWindow() -> Optional[LinuxWindow]:
     # https://stackoverflow.com/questions/48797323/retrieving-active-window-from-mutter-on-gnome-wayland-session
     # https://discourse.gnome.org/t/get-window-id-of-a-window-object-window-get-xwindow-doesnt-exist/10956/3
     # https://www.reddit.com/r/gnome/comments/d8x27b/is_there_a_program_that_can_show_keypresses_on/
-    win_id: Union[str, int] = 0
+    win_id: str | int = 0
     if os.environ.get('XDG_SESSION_TYPE', '').lower() == "wayland":
         # IN SWAY: swaymsg -t get_tree | jq '.. | select(.type?) | select(.focused==true).pid'
         # pynput / mouse --> Not working (no global events allowed, only application events)
@@ -120,7 +120,7 @@ def getAllWindows():
     return __remove_bad_windows(windows)
 
 
-def getAllTitles() -> List[str]:
+def getAllTitles() -> list[str]:
     """
     Get the list of titles of all visible windows
 
@@ -129,7 +129,7 @@ def getAllTitles() -> List[str]:
     return [window.title for window in getAllWindows()]
 
 
-def getWindowsWithTitle(title: Union[str, re.Pattern[str]], app: Optional[Tuple[str, ...]] = (), condition: int = Re.IS, flags: int = 0):
+def getWindowsWithTitle(title: str | re.Pattern[str], app: tuple[str, ...] | None = (), condition: int = Re.IS, flags: int = 0):
     """
     Get the list of window objects whose title match the given string with condition and flags.
     Use ''condition'' to delimit the search. Allowed values are stored in pywinctl.Re sub-class (e.g. pywinctl.Re.CONTAINS)
@@ -154,7 +154,7 @@ def getWindowsWithTitle(title: Union[str, re.Pattern[str]], app: Optional[Tuple[
     :param flags: (optional) specific flags to apply to condition. Defaults to 0 (no flags)
     :return: list of Window objects
     """
-    matches: List[LinuxWindow] = []
+    matches: list[LinuxWindow] = []
     if title and condition in Re._cond_dic:
         lower = False
         if condition in (Re.MATCH, Re.NOTMATCH):
@@ -175,7 +175,7 @@ def getWindowsWithTitle(title: Union[str, re.Pattern[str]], app: Optional[Tuple[
     return matches
 
 
-def getAllAppsNames() -> List[str]:
+def getAllAppsNames() -> list[str]:
     """
     Get the list of names of all visible apps
 
@@ -184,7 +184,7 @@ def getAllAppsNames() -> List[str]:
     return list(getAllAppsWindowsTitles())
 
 
-def getAppsWithName(name: Union[str, re.Pattern[str]], condition: int = Re.IS, flags: int = 0):
+def getAppsWithName(name: str | re.Pattern[str], condition: int = Re.IS, flags: int = 0):
     """
     Get the list of app names which match the given string using the given condition and flags.
     Use ''condition'' to delimit the search. Allowed values are stored in pywinctl.Re sub-class (e.g. pywinctl.Re.CONTAINS)
@@ -208,7 +208,7 @@ def getAppsWithName(name: Union[str, re.Pattern[str]], condition: int = Re.IS, f
     :param flags: (optional) specific flags to apply to condition. Defaults to 0 (no flags)
     :return: list of app names
     """
-    matches: List[str] = []
+    matches: list[str] = []
     if name and condition in Re._cond_dic:
         lower = False
         if condition in (Re.MATCH, Re.NOTMATCH):
@@ -254,7 +254,7 @@ def getAllAppsWindowsTitles():
 
     :return: python dictionary
     """
-    result: dict[str, List[str]] = {}
+    result: dict[str, list[str]] = {}
     for win in getAllWindows():
         appName = win.getAppName()
         if appName in result.keys():
@@ -332,7 +332,7 @@ def getTopWindowAt(x: int, y: int):
     :param y: Y screen coordinate of the window
     :return: Window object or None
     """
-    windows: List[LinuxWindow] = getAllWindows()
+    windows: list[LinuxWindow] = getAllWindows()
     for window in reversed(windows):
         if pointInBox(x, y, window.box):
             return window
@@ -340,20 +340,20 @@ def getTopWindowAt(x: int, y: int):
         return None
 
 
-def _WgetAllWindows() -> Tuple[List[dict[str, Union[str, bool]]], dict[str, Union[str, bool]]]:
+def _WgetAllWindows() -> tuple[list[dict[str, str | bool]], dict[str, str | bool]]:
     # POSSIBLE REFERENCE: https://www.roojs.org/seed/gir-1.2-gtk-3.0/seed/Meta.Window.html
     # Built-in / official apps (e.g. Terminal or gedit) do not fulfill proper get_description() to get the Xid
-    windowsList: List[dict[str, Union[str, bool]]] = [{}]
-    activeWindow: dict[str, Union[str, bool]] = {}
+    windowsList: list[dict[str, str | bool]] = [{}]
+    activeWindow: dict[str, str | bool] = {}
     cmd = ('gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell '
            '--method org.gnome.Shell.Eval "global.get_window_actors()'
            '.map(a=>a.meta_window)'
            '.map(w=>({class: w.get_wm_class(), title: w.get_title(), active: w.has_focus(), id: w.get_description(), id2: w.get_id(), id3: w.get_pid()}))"')
     ret = subprocess.check_output(cmd, shell=True, timeout=1).decode("utf-8").replace("\n", "")
     if ret and ret.startswith("(true, "):
-        windows: List[str] = (str(ret[8:-2]).replace("[", "").replace("]", "").replace("},{", "}|&|{").split("|&|"))
+        windows: list[str] = (str(ret[8:-2]).replace("[", "").replace("]", "").replace("},{", "}|&|{").split("|&|"))
         for window in windows:
-            output: dict[str, Union[str, bool]] = json.loads(window)
+            output: dict[str, str | bool] = json.loads(window)
             if str(output.get("id", "")).startswith("0x"):
                 windowsList.append(output)
                 if output.get("active", False):
@@ -361,13 +361,14 @@ def _WgetAllWindows() -> Tuple[List[dict[str, Union[str, bool]]], dict[str, Unio
     return windowsList, activeWindow
 
 
-def __remove_bad_windows(windows: Optional[Union[List[str], List[int]]]) -> List[LinuxWindow]:
+def __remove_bad_windows(windows: list[str] | list[int] | None) -> list[LinuxWindow]:
     outList = []
     if windows is not None:
         for window in windows:
             try:
                 # Thanks to Seraphli (https://github.com/Seraphli) for pointing out this issue!
-                if window: outList.append(LinuxWindow(window))
+                if window:
+                    outList.append(LinuxWindow(window))
             except:
                 pass
     return outList
@@ -375,7 +376,7 @@ def __remove_bad_windows(windows: Optional[Union[List[str], List[int]]]) -> List
 
 class LinuxWindow(BaseWindow):
 
-    def __init__(self, hWnd: Union[XWindow, int, str]):
+    def __init__(self, hWnd: XWindow | int | str) -> None:
         super().__init__(hWnd)
 
         if isinstance(hWnd, XWindow):
@@ -392,9 +393,9 @@ class LinuxWindow(BaseWindow):
 
         self._currDesktop = os.environ.get('XDG_CURRENT_DESKTOP', "").lower()
         self._currSessionType = os.environ.get('XDG_SESSION_TYPE', "").lower()
-        self._motifHints: List[int] = []
+        self._motifHints: list[int] = []
 
-    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
+    def getExtraFrameSize(self, includeBorder: bool = True) -> tuple[int, int, int, int]:
         """
         Get the extra space, in pixels, around the window, including or not the border.
         Notice not all applications/windows will use this property values
@@ -402,13 +403,13 @@ class LinuxWindow(BaseWindow):
         :param includeBorder: set to ''False'' to avoid including borders
         :return: additional frame size in pixels, as a tuple of int (left, top, right, bottom)
         """
-        ret: Tuple[int, int, int, int] = (0, 0, 0, 0)
+        ret: tuple[int, int, int, int] = (0, 0, 0, 0)
         borderWidth = 0
         if includeBorder:
             geom = self._xWin.get_geometry()
             borderWidth = geom.border_width
         if "gnome" in self._currDesktop:
-            _gtk_extents: List[int] = self._win._getGtkFrameExtents()
+            _gtk_extents: list[int] = self._win._getGtkFrameExtents()
             if _gtk_extents and len(_gtk_extents) >= 4:
                 ret = (_gtk_extents[0] + borderWidth, _gtk_extents[2] + borderWidth,
                        _gtk_extents[1] + borderWidth, _gtk_extents[3] + borderWidth)
@@ -440,7 +441,7 @@ class LinuxWindow(BaseWindow):
         ret = Rect(x, y, x + w, y + h)
         return ret
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return '%s(hWnd=%s)' % (self.__class__.__name__, self._hWnd)
 
     def __eq__(self, other: object) -> bool:
@@ -720,7 +721,7 @@ class LinuxWindow(BaseWindow):
 
                 self._win.changeWmState(Props.StateAction.REMOVE, Props.State.BELOW)
 
-                onebyte = int(0xFF)
+                onebyte = 0xFF
                 fourbytes = onebyte | (onebyte << 8) | (onebyte << 16) | (onebyte << 24)
                 self._win.changeProperty("_NET_WM_WINDOW_OPACITY", [fourbytes], Xlib.Xatom.CARDINAL)
 
@@ -735,7 +736,7 @@ class LinuxWindow(BaseWindow):
 
                 self._win.changeWmState(Props.StateAction.ADD, Props.State.BELOW)
 
-                onebyte = int(0xFA)  # Calculate as 0xff * target_opacity
+                onebyte = 0xFA  # Calculate as 0xff * target_opacity
                 fourbytes = onebyte | (onebyte << 8) | (onebyte << 16) | (onebyte << 24)
                 self._win.changeProperty("_NET_WM_WINDOW_OPACITY", [fourbytes], Xlib.Xatom.CARDINAL)
 
@@ -780,13 +781,13 @@ class LinuxWindow(BaseWindow):
         self._xWin.reparent(parent, 0, 0)
         return bool(self.isChild(parent))
 
-    def getChildren(self) -> List[int]:
+    def getChildren(self) -> list[int]:
         """
         Get the children handles of current window
 
         :return: list of handles
         """
-        return cast(List[int], self._xWin.query_tree().children)
+        return cast("list[int]", self._xWin.query_tree().children)
 
     def getHandle(self) -> int:
         """
@@ -796,7 +797,7 @@ class LinuxWindow(BaseWindow):
         """
         return self._hWnd
 
-    def getPID(self) -> Optional[int]:
+    def getPID(self) -> int | None:
         """
         Get the current application PID the window belongs to
 
@@ -826,7 +827,7 @@ class LinuxWindow(BaseWindow):
         return bool(parent == self.getParent())
     isChildOf = isChild  # isChildOf is an alias of isParent method
 
-    def getDisplay(self) -> List[str]:
+    def getDisplay(self) -> list[str]:
         """
         Get display names in which current window space is mostly visible
 
@@ -878,7 +879,7 @@ class LinuxWindow(BaseWindow):
 
         :return: title as a string
         """
-        name: Union[str, bytes] = self._win.getName()
+        name: str | bytes = self._win.getName()
         if isinstance(name, bytes):
             name = name.decode()
         return name
@@ -893,7 +894,7 @@ class LinuxWindow(BaseWindow):
         state: int = self._xWin.get_attributes().map_state
         return bool(state == Xlib.X.IsViewable)
 
-    isVisible: bool = cast(bool, visible)  # isVisible is an alias for the visible property.
+    isVisible = visible  # isVisible is an alias for the visible property.
 
     @property
     def isAlive(self) -> bool:
@@ -903,7 +904,7 @@ class LinuxWindow(BaseWindow):
         :return: ''True'' if window exists
         """
         try:
-            state: int = self._xWin.get_attributes().map_state
+            _state: int = self._xWin.get_attributes().map_state
         except Xlib.error.BadWindow:
             return False
         else:

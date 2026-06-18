@@ -10,7 +10,7 @@ on:
       - "docs/**"
       - ".readthedocs.yaml"
       - "pyproject.toml"
-      - "setup.cfg"
+      - "mypy.ini"
       - "**/*.py"
   pull_request:
     paths:
@@ -28,9 +28,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  ruff:
+    runs-on: ubuntu-latest
+    timeout-minutes: &timeout-minutes 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/ruff-action@v4.0.0
+
   mypy:
     runs-on: ${{ matrix.os }}
-    timeout-minutes: &timeout-minutes 5
+    timeout-minutes: *timeout-minutes
     strategy:
       # mypy is os and python-version sensitive. Test on all supported combinations
       matrix:

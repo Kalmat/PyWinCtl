@@ -1,9 +1,10 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import sys
-assert sys.platform == "win32"
+
+if sys.platform != "win32":
+    raise OSError(f"Cannot import {__name__} on {sys.platform}")
 
 import ctypes
 import re
@@ -11,7 +12,7 @@ import threading
 import time
 from collections.abc import Sequence
 from ctypes import wintypes
-from typing import cast, Any, TYPE_CHECKING, Tuple, Optional, Union, List
+from typing import cast, Any, TYPE_CHECKING
 from typing_extensions import NotRequired, TypedDict
 
 if TYPE_CHECKING:
@@ -45,7 +46,7 @@ def checkPermissions(activate: bool = False) -> bool:
     return True
 
 
-def getActiveWindow() -> Optional[Win32Window]:
+def getActiveWindow() -> Win32Window | None:
     """
     Get the currently active (focused) Window
 
@@ -71,7 +72,7 @@ def getActiveWindowTitle() -> str:
         return ""
 
 
-def getAllWindows() -> List[Win32Window]:
+def getAllWindows() -> list[Win32Window]:
     """
     Get the list of Window objects for all visible windows
 
@@ -82,7 +83,7 @@ def getAllWindows() -> List[Win32Window]:
     return [window for window in __remove_bad_windows(_findWindowHandles())]
 
 
-def __remove_bad_windows(windows: Optional[List[int]]):
+def __remove_bad_windows(windows: list[int] | None):
     """
     :param windows: win32 Windows
     :return: A generator of Win32Window that filters out BadWindows
@@ -97,7 +98,7 @@ def __remove_bad_windows(windows: Optional[List[int]]):
     return outList
 
 
-def getAllTitles() -> List[str]:
+def getAllTitles() -> list[str]:
     """
     Get the list of titles of all visible windows
 
@@ -106,7 +107,7 @@ def getAllTitles() -> List[str]:
     return [window.title for window in getAllWindows()]
 
 
-def getWindowsWithTitle(title: Union[str, re.Pattern[str]], app: Optional[Tuple[str, ...]] = (), condition: int = Re.IS, flags: int = 0) -> List[Win32Window]:
+def getWindowsWithTitle(title: str | re.Pattern[str], app: tuple[str, ...] | None = (), condition: int = Re.IS, flags: int = 0) -> list[Win32Window]:
     """
     Get the list of window objects whose title match the given string with condition and flags.
     Use ''condition'' to delimit the search. Allowed values are stored in pywinctl.Re sub-class (e.g. pywinctl.Re.CONTAINS)
@@ -131,7 +132,7 @@ def getWindowsWithTitle(title: Union[str, re.Pattern[str]], app: Optional[Tuple[
     :param flags: (optional) specific flags to apply to condition. Defaults to 0 (no flags)
     :return: list of Window objects
     """
-    matches: List[Win32Window] = []
+    matches: list[Win32Window] = []
     if title and condition in Re._cond_dic:
         lower = False
         if condition in (Re.MATCH, Re.NOTMATCH):
@@ -152,7 +153,7 @@ def getWindowsWithTitle(title: Union[str, re.Pattern[str]], app: Optional[Tuple[
     return matches
 
 
-def getAllAppsNames() -> List[str]:
+def getAllAppsNames() -> list[str]:
     """
     Get the list of names of all visible apps
 
@@ -161,7 +162,7 @@ def getAllAppsNames() -> List[str]:
     return list(getAllAppsWindowsTitles().keys())
 
 
-def getAppsWithName(name: Union[str, re.Pattern[str]], condition: int = Re.IS, flags: int = 0) -> List[str]:
+def getAppsWithName(name: str | re.Pattern[str], condition: int = Re.IS, flags: int = 0) -> list[str]:
     """
     Get the list of app names which match the given string using the given condition and flags.
     Use ''condition'' to delimit the search. Allowed values are stored in pywinctl.Re sub-class (e.g. pywinctl.Re.CONTAINS)
@@ -185,7 +186,7 @@ def getAppsWithName(name: Union[str, re.Pattern[str]], condition: int = Re.IS, f
     :param flags: (optional) specific flags to apply to condition. Defaults to 0 (no flags)
     :return: list of app names
     """
-    matches: List[str] = []
+    matches: list[str] = []
     if name and condition in Re._cond_dic:
         lower = False
         if condition in (Re.MATCH, Re.NOTMATCH):
@@ -204,7 +205,7 @@ def getAppsWithName(name: Union[str, re.Pattern[str]], condition: int = Re.IS, f
     return matches
 
 
-def getAllAppsWindowsTitles() -> dict[str, List[str]]:
+def getAllAppsWindowsTitles() -> dict[str, list[str]]:
     """
     Get all visible apps names and their open windows titles
 
@@ -216,7 +217,7 @@ def getAllAppsWindowsTitles() -> dict[str, List[str]]:
     :return: python dictionary
     """
     process_list = _getAllApps(tryToFilter=True)
-    result: dict[str, List[str]] = {}
+    result: dict[str, list[str]] = {}
     for win in getAllWindows():
         pID = win32process.GetWindowThreadProcessId(win.getHandle())
         for item in process_list:
@@ -283,7 +284,7 @@ def getAllWindowsDict(tryToFilter: bool = False) -> dict[str, _WINDICT]:
     return result
 
 
-def getWindowsAt(x: int, y: int) -> List[Win32Window]:
+def getWindowsAt(x: int, y: int) -> list[Win32Window]:
     """
     Get the list of Window objects whose windows contain the point ``(x, y)`` on screen
 
@@ -298,7 +299,7 @@ def getWindowsAt(x: int, y: int) -> List[Win32Window]:
         if pointInBox(x, y, box)]
 
 
-def getTopWindowAt(x: int, y: int) -> Optional[Win32Window]:
+def getTopWindowAt(x: int, y: int) -> Win32Window | None:
     """
     Get the Window object at the top of the stack at the point ``(x, y)`` on screen
 
@@ -315,9 +316,9 @@ def getTopWindowAt(x: int, y: int) -> Optional[Win32Window]:
     return Win32Window(hwnd) if hwnd else None
 
 
-def _findWindowHandles(parent: Optional[int] = None, window_class: Optional[str] = None, title: Optional[str] = None, onlyVisible: bool = True) -> List[int]:
+def _findWindowHandles(parent: int | None = None, window_class: str | None = None, title: str | None = None, onlyVisible: bool = True) -> list[int]:
 
-    handle_list: List[int] = []
+    handle_list: list[int] = []
 
     def findit(hwnd: int, ctx: Any) -> bool:
 
@@ -330,25 +331,25 @@ def _findWindowHandles(parent: Optional[int] = None, window_class: Optional[str]
         return True
 
     if not parent:
-        parent = win32gui.GetDesktopWindow()  # type: ignore[no-untyped-call]  # pyright: ignore[reportUnknownMemberType]
+        parent = win32gui.GetDesktopWindow()
     win32gui.EnumChildWindows(parent, findit, None)
     return handle_list
 
 
-def _findMainWindowHandles() -> List[Tuple[int, int]]:
+def _findMainWindowHandles() -> list[tuple[int, int]]:
     # Filter windows: https://stackoverflow.com/questions/64586371/filtering-background-processes-pywin32
 
     class TITLEBARINFO(ctypes.Structure):
         if TYPE_CHECKING:
             cbSize: int
             rcTitleBar: wintypes.RECT
-            rgstate: List[int]
+            rgstate: list[int]
             def __init__(
                 self,
                 cbSize: int = ...,
                 rcTitleBar: wintypes.RECT = ...,
-                rgstate: List[int] = ...
-            ): ...
+                rgstate: list[int] = ...
+            ) -> None: ...
 
         _fields_ = [
             ("cbSize", wintypes.DWORD),
@@ -378,12 +379,12 @@ def _findMainWindowHandles() -> List[Tuple[int, int]]:
             if not (title_info.rgstate[0] & win32con.STATE_SYSTEM_INVISIBLE):
                 handle_list.append((hwnd, win32process.GetWindowThreadProcessId(hwnd)[1]))
 
-    handle_list: List[Tuple[int, int]] = []
+    handle_list: list[tuple[int, int]] = []
     win32gui.EnumWindows(winEnumHandler, None)
     return handle_list
 
 
-def _getAllApps(tryToFilter: bool = False) -> Union[List[Tuple[int, Optional[str]]], List[Tuple[int, str]]]:
+def _getAllApps(tryToFilter: bool = False) -> list[tuple[int, str | None]] | list[tuple[int, str]]:
     # https://stackoverflow.com/questions/550653/cross-platform-way-to-get-pids-by-process-name-in-python
     WMI = GetObject('winmgmts:')
     if tryToFilter:
@@ -394,10 +395,10 @@ def _getAllApps(tryToFilter: bool = False) -> Union[List[Tuple[int, Optional[str
         return [(p.Properties_("ProcessID").Value, p.Properties_("Name").Value) for p in WMI.InstancesOf('Win32_Process')]
 
 
-def _getAllAppsDict(tryToFilter: bool = False) -> dict[str, Union[int, str]]:
+def _getAllAppsDict(tryToFilter: bool = False) -> dict[str, int | str]:
     # https://stackoverflow.com/questions/550653/cross-platform-way-to-get-pids-by-process-name-in-python
     WMI = GetObject('winmgmts:')
-    result: dict[str, Union[int, str]] = {}
+    result: dict[str, int | str] = {}
     if tryToFilter:
         mainWindows = [w[1] for w in _findMainWindowHandles()]
         for p in WMI.InstancesOf('Win32_Process'):
@@ -434,7 +435,7 @@ class tagWINDOWINFO(ctypes.Structure):
             cyWindowBorders: int = ...,
             atomWindowType: int = ...,
             wCreatorVersion: int = ...
-        ): ...
+        ) -> None: ...
 
     _fields_ = [
         ('cbSize', wintypes.DWORD),
@@ -450,7 +451,7 @@ class tagWINDOWINFO(ctypes.Structure):
     ]
 
 
-def _getWindowInfo(hWnd: Optional[Union[int, str, bytes, bool]]) -> tagWINDOWINFO:
+def _getWindowInfo(hWnd: int | str | bytes | bool | None) -> tagWINDOWINFO:
 
     # PWINDOWINFO = ctypes.POINTER(tagWINDOWINFO)
     # LPWINDOWINFO = ctypes.POINTER(tagWINDOWINFO)
@@ -478,30 +479,30 @@ def _getWindowInfo(hWnd: Optional[Union[int, str, bytes, bool]]) -> tagWINDOWINF
 
 class _SubMenuStructure(TypedDict):
     hSubMenu: int
-    wID: Optional[int]
+    wID: int | None
     entries: dict[str, _SubMenuStructure]
     parent: int
-    rect: Optional[Rect]
+    rect: Rect | None
     item_info: NotRequired[_MENUITEMINFO]
     shortcut: str
 
 
 class Win32Window(BaseWindow):
 
-    def __init__(self, hWnd: Union[int, str]):
+    def __init__(self, hWnd: int | str) -> None:
         super().__init__(hWnd)
 
         self._hWnd = int(hWnd, base=16) if isinstance(hWnd, str) else int(hWnd)
         self._parent = win32gui.GetParent(self._hWnd)
-        self._t: Optional[_SendBottom] = None
+        self._t: _SendBottom | None = None
         self._kill_t = threading.Event()
         self.menu = self._Menu(self)
         self.watchdog = _WatchDog(self)
 
-        self._hDpy: Optional[int] = None
+        self._hDpy: int | None = None
         self._display: str = ""
 
-    def getExtraFrameSize(self, includeBorder: bool = True) -> Tuple[int, int, int, int]:
+    def getExtraFrameSize(self, includeBorder: bool = True) -> tuple[int, int, int, int]:
         """
         Get the invisible space, in pixels, around the window, including or not the visible resize border (usually 1px)
         This can be useful to accurately adjust window position and size to the desired visible space
@@ -537,7 +538,7 @@ class Win32Window(BaseWindow):
         """
         wi = _getWindowInfo(self._hWnd)
         if wi:
-            rcClient: Rect = cast(Rect, wi.rcClient)
+            rcClient: Rect = cast("Rect", wi.rcClient)
         else:
             rcClient = self.rect
         return Rect(rcClient.left, rcClient.top, rcClient.right, rcClient.bottom)
@@ -797,9 +798,9 @@ class Win32Window(BaseWindow):
         """
         # https://www.codeproject.com/Articles/856020/Draw-Behind-Desktop-Icons-in-Windows-plus
         if sb:
-            def getWorkerW() -> List[int]:
+            def getWorkerW() -> list[int]:
 
-                thelist: List[int] = []
+                thelist: list[int] = []
 
                 def findit(hwnd: int, ctx: Any):
                     p = win32gui.FindWindowEx(hwnd, None, "SHELLDLL_DefView", "")
@@ -819,7 +820,8 @@ class Win32Window(BaseWindow):
         else:
             ret = win32gui.SetParent(self._hWnd, self._parent)
             win32gui.DefWindowProc(self._hWnd, 0x0128, 3 | 0x4, 0)
-            win32gui.RedrawWindow(self._hWnd, win32gui.GetWindowRect(self._hWnd), 0, 0)  # type: ignore[arg-type]  # pyright: ignore[reportUnknownMemberType, reportGeneralTypeIssues]  # We expect an error here
+              # We expect an error here, but on non-win32 mypy says unused-ignore
+            win32gui.RedrawWindow(self._hWnd, win32gui.GetWindowRect(self._hWnd), 0, 0) # type: ignore[arg-type, unused-ignore]  # pyright: ignore[reportUnknownMemberType, reportGeneralTypeIssues]
         return ret != 0
 
     def acceptInput(self, setTo: bool):
@@ -869,7 +871,7 @@ class Win32Window(BaseWindow):
             win32gui.SetParent(self._hWnd, parent)
         return bool(self.isChild(parent))
 
-    def getChildren(self) -> List[int]:
+    def getChildren(self) -> list[int]:
         """
         Get the children handles of current window
 
@@ -885,7 +887,7 @@ class Win32Window(BaseWindow):
         """
         return self._hWnd
 
-    def getPID(self) -> Optional[int]:
+    def getPID(self) -> int | None:
         """
         Get the current application PID the window belongs to
 
@@ -916,7 +918,7 @@ class Win32Window(BaseWindow):
         return parent == self.getParent()
     isChildOf = isChild  # isChildOf is an alias of isParent method
 
-    def getDisplay(self) -> List[str]:
+    def getDisplay(self) -> list[str]:
         """
         Get display names in which current window space is mostly visible
 
@@ -984,7 +986,7 @@ class Win32Window(BaseWindow):
     # https://github.com/python/mypy/issues/2563
     # https://github.com/python/mypy/issues/11619
     # https://github.com/python/mypy/issues/13975
-    isVisible: bool = cast(bool, visible)  # isVisible is an alias for the visible property.
+    isVisible = visible  # isVisible is an alias for the visible property.
 
     @property
     def isAlive(self) -> bool:
@@ -1086,7 +1088,7 @@ class Win32Window(BaseWindow):
 
     class _Menu:
 
-        def __init__(self, parent: Win32Window):
+        def __init__(self, parent: Win32Window) -> None:
             self._parent = parent
             self._hWnd = parent.getHandle()
             self._hMenu = win32gui.GetMenu(self._hWnd)
@@ -1124,7 +1126,7 @@ class Win32Window(BaseWindow):
                         sub-items within the sub-menu (if any)
             """
 
-            def findit(parent: int, level: str = "", parentRect: Optional[Rect] = None):
+            def findit(parent: int, level: str = "", parentRect: Rect | None = None):
 
                 option = self._menuStructure
                 if level:
@@ -1132,7 +1134,7 @@ class Win32Window(BaseWindow):
                         option = cast("dict[str, _SubMenuStructure]", option[section])
 
                 for i in range(win32gui.GetMenuItemCount(parent)):
-                    item_info: Optional[_MENUITEMINFO] = self._getMenuItemInfo(hSubMenu=parent, itemPos=i)
+                    item_info: _MENUITEMINFO | None = self._getMenuItemInfo(hSubMenu=parent, itemPos=i)
                     if not item_info or not item_info.text or item_info.hSubMenu is None:
                         continue
                     text = item_info.text.split("\t")
@@ -1149,7 +1151,7 @@ class Win32Window(BaseWindow):
                 findit(self._hMenu)
             return self._menuStructure
 
-        def clickMenuItem(self, itemPath: Optional[Sequence[str]] = None, wID: Optional[int] = 0) -> bool:
+        def clickMenuItem(self, itemPath: Sequence[str] | None = None, wID: int | None = 0) -> bool:
             """
             Simulates a click on a menu item
 
@@ -1180,7 +1182,7 @@ class Win32Window(BaseWindow):
                             break
 
                     if option and itemPath[-1] in option:
-                        itemID = cast(int, option[itemPath[-1]]["wID"])
+                        itemID = cast("int", option[itemPath[-1]]["wID"])
 
                 if itemID:
                     win32gui.PostMessage(self._hWnd, win32con.WM_COMMAND, itemID, 0)
@@ -1188,7 +1190,7 @@ class Win32Window(BaseWindow):
 
             return found
 
-        def getMenuInfo(self, hSubMenu: int = 0) -> Optional[_MENUINFO]:
+        def getMenuInfo(self, hSubMenu: int = 0) -> _MENUINFO | None:
             """
             Returns the MENUINFO struct of the given sub-menu or main menu if none given
 
@@ -1216,7 +1218,7 @@ class Win32Window(BaseWindow):
                 hSubMenu = self._hMenu
             return win32gui.GetMenuItemCount(hSubMenu)
 
-        def getMenuItemInfo(self, hSubMenu: int, wID: int) -> Optional[_MENUITEMINFO]:
+        def getMenuItemInfo(self, hSubMenu: int, wID: int) -> _MENUITEMINFO | None:
             """
             Returns the MENUITEMINFO struct for the given menu item
 
@@ -1231,7 +1233,7 @@ class Win32Window(BaseWindow):
                 item_info = win32gui_struct.UnpackMENUITEMINFO(buf)
             return item_info
 
-        def _getMenuItemInfo(self, hSubMenu: int, itemPos: int) -> Optional[_MENUITEMINFO]:
+        def _getMenuItemInfo(self, hSubMenu: int, itemPos: int) -> _MENUITEMINFO | None:
             item_info = None
             if self._hMenu:
                 buf, _extras = win32gui_struct.EmptyMENUITEMINFO()
@@ -1247,9 +1249,9 @@ class Win32Window(BaseWindow):
             :param wID: id of the window within menu struct (as returned by :meth: getMenu())
             :return: Rect struct
             """
-            def findit(menu: dict[str, _SubMenuStructure], hSubMenu: int, wID: Optional[int]) -> int:
+            def findit(menu: dict[str, _SubMenuStructure], hSubMenu: int, wID: int | None) -> int:
 
-                menuFound: List[dict[str, _SubMenuStructure]] = [{}]
+                menuFound: list[dict[str, _SubMenuStructure]] = [{}]
 
                 def findMenu(inMenu: dict[str, _SubMenuStructure], hSubMenu: int):
 
@@ -1280,7 +1282,7 @@ class Win32Window(BaseWindow):
                     ret = Rect(x, y, r, b)
             return ret
 
-        def _getMenuItemRect(self, hSubMenu: int, itemPos: int, parentRect: Optional[Rect] = None, relative: bool = False) -> Optional[Rect]:
+        def _getMenuItemRect(self, hSubMenu: int, itemPos: int, parentRect: Rect | None = None, relative: bool = False) -> Rect | None:
             ret = None
             if self._hMenu and hSubMenu and 0 <= itemPos < self.getMenuItemCount(hSubMenu=hSubMenu):
                 result, (x, y, r, b) = win32gui.GetMenuItemRect(self._hWnd, hSubMenu, itemPos)
@@ -1298,7 +1300,7 @@ class Win32Window(BaseWindow):
 
 class _SendBottom(threading.Thread):
 
-    def __init__(self, hWnd: int, kill: threading.Event, interval: float = 0.5):
+    def __init__(self, hWnd: int, kill: threading.Event, interval: float = 0.5) -> None:
         threading.Thread.__init__(self)
         self._hWnd = hWnd
         self._kill = kill

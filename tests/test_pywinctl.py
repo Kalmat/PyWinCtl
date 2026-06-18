@@ -1,5 +1,4 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import subprocess
@@ -15,7 +14,7 @@ class GetWindowKwargs(TypedDict):
     condition: int  # TODO: Consider making pywinctl.Re an IntEnum
 
 
-def test_basic():
+def test_basic() -> None:
 
     print("PLATFORM:", sys.platform)
     print()
@@ -68,7 +67,7 @@ def test_basic():
 
     basic_test(npw=testWindows[0], wait=True, timelap=0.50)
 
-def basic_test(npw: pywinctl.Window | None, wait: bool, timelap: float):
+def basic_test(npw: pywinctl.Window | None, wait: bool, timelap: float) -> None:
     assert npw is not None
 
     def test_moveresize(attr, value):
@@ -209,12 +208,12 @@ def basic_test(npw: pywinctl.Window | None, wait: bool, timelap: float):
     print("LOWER WINDOW")
     lowered = npw.lowerWindow()
     time.sleep(timelap*3)
-    # assert lowered, 'Window has not been lowered'
+    assert lowered, 'Window has not been lowered'
 
     print("RAISE WINDOW")
     raised = npw.raiseWindow()
     time.sleep(timelap)
-    # assert raised, 'Window has not been raised'
+    assert raised, 'Window has not been raised'
 
     if sys.platform != "darwin":
         print("SEND BEHIND")
