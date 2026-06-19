@@ -15,6 +15,9 @@ class GetWindowKwargs(TypedDict):
 
 
 def test_basic() -> None:
+    if sys.platform == "darwin":
+        if not pywinctl.checkPermissions(activate=True):
+            sys.exit(1)
 
     print("PLATFORM:", sys.platform)
     print()
@@ -43,8 +46,6 @@ def test_basic() -> None:
             "condition": pywinctl.Re.ENDSWITH,
         }
     elif sys.platform == "darwin":
-        if not pywinctl.checkPermissions(activate=True):
-            exit()
         process = ["open", "-a", "TextEdit", __file__]
         get_window_kwargs: GetWindowKwargs = {
             "title": "test_pywinctl.py",
