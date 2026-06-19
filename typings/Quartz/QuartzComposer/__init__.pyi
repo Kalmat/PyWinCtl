@@ -1,4 +1,3 @@
-# pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportMissingTypeArgument=false
 from typing import Any
 
 CFArrayCreate: Any

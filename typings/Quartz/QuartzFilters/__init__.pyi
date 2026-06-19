@@ -1,8 +1,10 @@
-# pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportMissingTypeArgument=false
+import sys
+
+assert sys.platform == "darwin"
+
 from typing import Any
 
-import Foundation as Foundation  # type: ignore  # pyright: ignore
-
+import Foundation as Foundation
 
 def sel32or64(a, b): ...
 def selAorI(a, b): ...

@@ -1,9 +1,11 @@
-# pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportMissingTypeArgument=false, reportUnknownMemberType=false, reportUnknownVariableType=false
-# mypy: disable-error-code=type-arg
+import sys
+
+assert sys.platform == "darwin"
+
 from typing import Any, ClassVar
 
-import objc  # type: ignore  # pyright: ignore
-import objc._lazyimport  # type: ignore  # pyright: ignore
+import objc
+import objc._lazyimport
 
 CAAnimationCalculationMode: Any
 CAAnimationRotationMode: Any
@@ -49,7 +51,7 @@ r: Any
 protocols: Any
 expressions: Any
 
-class CAFrameRateRange(objc._structwrapper):  # type: ignore  # pyright: ignore
+class CAFrameRateRange(objc._structwrapper):
     _fields: ClassVar[tuple] = ...
     __match_args__: ClassVar[tuple] = ...
     __typestr__: ClassVar[bytes] = ...
@@ -68,7 +70,7 @@ class CAFrameRateRange(objc._structwrapper):  # type: ignore  # pyright: ignore
     def __setattr__(self, name, value) -> Any: ...
     def __setitem__(self, index, object) -> Any: ...
 
-class CATransform3D(objc._structwrapper):  # type: ignore  # pyright: ignore
+class CATransform3D(objc._structwrapper):
     _fields: ClassVar[tuple] = ...
     __match_args__: ClassVar[tuple] = ...
     __typestr__: ClassVar[bytes] = ...

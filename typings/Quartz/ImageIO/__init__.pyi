@@ -1,4 +1,7 @@
-# pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportMissingTypeArgument=false
+import sys
+
+assert sys.platform == "darwin"
+
 from typing import Any
 
 CFArrayCreate: Any

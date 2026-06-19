@@ -45,7 +45,7 @@ extend-unsafe-fixes = ["F401"]
 
 [lint.per-file-ignores]
 "**/typings/**/*.pyi" = [
-  "PGH003", # TODO: Blanket ignores until using pyobj type stubs
+  "E402", # https://github.com/astral-sh/ruff/issues/26160
   "F811", # Re-exports false positives
   # The following can't be controlled for external libraries:
   "A", # Shadowing builtin names
