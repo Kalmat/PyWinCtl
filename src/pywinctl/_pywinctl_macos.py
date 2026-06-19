@@ -159,12 +159,7 @@ def getAllTitles() -> list[str]:
         .replace('missing value', '"missing value"') \
         .replace("{", "[").replace("}", "]")
     res = ast.literal_eval(ret)
-    matches: list[str] = []
-    if len(res) > 0:
-        for item in res[0]:
-            for title in item:
-                matches.append(title)
-    return matches
+    return [title for item in res[0] for title in item] if res else []
 
 
 def getWindowsWithTitle(title: str | re.Pattern[str], condition: int = Re.IS, flags: int = 0) -> list[MacOSWindow]:
@@ -241,7 +236,7 @@ def getAllAppsNames() -> list[str]:
     return res or []
 
 
-def getAppsWithName(name: str | re.Pattern[str], condition: int = Re.IS, flags: int = 0):
+def getAppsWithName(name: str | re.Pattern[str], condition: int = Re.IS, flags: int = 0) -> list[str]:
     """
     Get the list of app names which match the given string using the given condition and flags.
     Use ''condition'' to delimit the search. Allowed values are stored in pywinctl.Re sub-class (e.g. pywinctl.Re.CONTAINS)
@@ -265,23 +260,24 @@ def getAppsWithName(name: str | re.Pattern[str], condition: int = Re.IS, flags: 
     :param flags: (optional) specific flags to apply to condition. Defaults to 0 (no flags)
     :return: list of app names
     """
-    matches: list[str] = []
-    if name and condition in Re._cond_dic:
-        lower = False
-        if condition in (Re.MATCH, Re.NOTMATCH):
-            name = re.compile(name, flags)
-        elif condition in (Re.EDITDISTANCE, Re.DIFFRATIO):
-            if not isinstance(flags, int) or not (0 < flags <= 100):
-                flags = 90
-        elif flags == Re.IGNORECASE:
-            lower = True
-            if isinstance(name, re.Pattern):
-                name = name.pattern
-            name = name.lower()
-        for title in getAllAppsNames():
-            if title and Re._cond_dic[condition](name, title.lower() if lower else title, flags):
-                matches.append(title)
-    return matches
+    if not (name and condition in Re._cond_dic):
+        return []
+
+    lower = False
+    if condition in (Re.MATCH, Re.NOTMATCH):
+        name = re.compile(name, flags)
+    elif condition in (Re.EDITDISTANCE, Re.DIFFRATIO):
+        if not isinstance(flags, int) or not (0 < flags <= 100):
+            flags = 90
+    elif flags == Re.IGNORECASE:
+        lower = True
+        if isinstance(name, re.Pattern):
+            name = name.pattern
+        name = name.lower()
+    return [
+        title for title in getAllAppsNames()
+        if title and Re._cond_dic[condition](name, title.lower() if lower else title, flags)
+    ]
 
 
 def getAllAppsWindowsTitles():
@@ -387,12 +383,11 @@ def getWindowsAt(x: int, y: int, allWindows: list[MacOSWindow] | None = None) ->
     :param allWindows: (optional) list of window objects (required to improve performance in Apple Script version)
     :return: list of Window objects
     """
-    windows = allWindows if allWindows else getAllWindows()
-    windowBoxGenerator = ((window, window.box) for window in windows)
     return [
-        window for (window, box)
-        in windowBoxGenerator
-        if pointInBox(x, y, box)]
+        window for window
+        in (allWindows or getAllWindows())
+        if pointInBox(x, y, window.box)
+    ]
 
 
 def getTopWindowAt(x: int, y: int, allWindows: list[MacOSWindow] | None = None) -> MacOSWindow | None:
@@ -413,11 +408,10 @@ def getTopWindowAt(x: int, y: int, allWindows: list[MacOSWindow] | None = None) 
 
 
 def _getAllApps(userOnly: bool = True):
-    matches: list[AppKit.NSRunningApplication] = []
-    for app in AppKit.NSWorkspace.sharedWorkspace().runningApplications():
-        if not userOnly or (userOnly and app.activationPolicy() == Quartz.NSApplicationActivationPolicyRegular):
-            matches.append(app)
-    return matches
+    return [
+        app for app in AppKit.NSWorkspace.sharedWorkspace().runningApplications()
+        if not userOnly or app.activationPolicy() == Quartz.NSApplicationActivationPolicyRegular
+    ]
 
 
 def _getAppWindowsTitles(app: AppKit.NSRunningApplication):

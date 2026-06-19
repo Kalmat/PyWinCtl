@@ -4,8 +4,6 @@ assert sys.platform == "darwin"
 
 from typing import Any
 
-import Foundation as Foundation
-
 def sel32or64(a, b): ...
 def selAorI(a, b): ...
 
