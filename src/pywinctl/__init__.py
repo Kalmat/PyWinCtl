@@ -15,7 +15,7 @@ __all__ = [  # noqa: RUF022
     "getAllScreens", "getScreenSize", "getWorkArea", "getMousePos"
 ]
 
-__version__ = "0.4.01"
+__version__ = "0.4.1"
 
 
 def version(numberOnly: bool = True) -> str:
