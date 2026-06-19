@@ -38,7 +38,6 @@ ignore = [
   # TODO: Consider later
   "UP031", # printf-string-formatting
   "RUF059", # unused-unpacked-variable
-  "E722", # bare-except
 ]
 # F401 would remove imports not marked as explicit re-exports, which may break API boundaries
 extend-unsafe-fixes = ["F401"]

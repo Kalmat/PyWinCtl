@@ -591,7 +591,7 @@ class _WatchDog:
         """
         try:
             alive = bool(self._watchdog and self._watchdog.is_alive())
-        except:
+        except Exception:
             alive = False
         return alive
 
@@ -663,7 +663,7 @@ class _WatchDogWorker(threading.Thread):
 
             if self._changedDisplayCB:
                 self._display = self._win.getDisplay()
-        except:
+        except Exception:
             if self._isAliveCB:
                 self._isAliveCB(False)
             self.kill()
@@ -744,7 +744,7 @@ class _WatchDogWorker(threading.Thread):
                     if self._display != display:
                         self._display = display
                         self._changedDisplayCB(display)
-            except:
+            except Exception:
                 if self._isAliveCB:
                     self._isAliveCB(False)
                 self.kill()

@@ -93,7 +93,7 @@ def __remove_bad_windows(windows: list[int] | None):
         for window in windows:
             try:
                 outList.append(Win32Window(window))
-            except:
+            except Exception:
                 pass
     return outList
 
@@ -460,7 +460,7 @@ def _getWindowInfo(hWnd: int | str | bytes | bool | None) -> tagWINDOWINFO:
     wi.cbSize = ctypes.sizeof(wi)
     try:
         ctypes.windll.user32.GetWindowInfo(hWnd, ctypes.byref(wi))
-    except:
+    except Exception:
         pass
 
     # None of these seem to return the right value, at least not in my system, but might be useful for other metrics
@@ -521,7 +521,7 @@ class Win32Window(BaseWindow):
             try:
                 xBorder = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CXBORDER)
                 yBorder = ctypes.windll.user32.GetSystemMetrics(win32con.SM_CYBORDER)
-            except:
+            except Exception:
                 xBorder = 1
                 yBorder = 1
             xOffset -= xBorder
@@ -644,7 +644,7 @@ class Win32Window(BaseWindow):
         """
         try:
             win32gui.SetForegroundWindow(self._hWnd)
-        except:
+        except Exception:
             pass
         return self.isActive
 
@@ -1019,7 +1019,7 @@ class Win32Window(BaseWindow):
     #                 desc: str = win32api.GetFileVersionInfo(exeName, stringFileInfo)  # type: ignore[func-returns-value]
     #                 if desc:
     #                     description = desc
-    #         except:
+    #         except Exception:
     #             pass
     #         return description
     #
@@ -1040,7 +1040,7 @@ class Win32Window(BaseWindow):
     #             w: pywinauto.WindowSpecification = sysTray.child_window(title_re=name, found_index=0)
     #             ret: Rect = w.rectangle()
     #             return Rect(ret.left, ret.top, ret.right, ret.bottom)
-    #         except:
+    #         except Exception:
     #             return None
     #
     #     def _intToRGBA(color: int) -> Tuple[int, int, int, int]:
