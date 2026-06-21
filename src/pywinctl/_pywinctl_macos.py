@@ -133,7 +133,7 @@ def getAllWindows() -> list[MacOSWindow]:
         try:
             pID = item[0]
             title = item[1]
-        except:
+        except Exception:
             continue
         for activeApp in activeApps:
             if activeApp.processIdentifier() == pID:
@@ -465,10 +465,10 @@ def _getWindowTitles() -> list[list[str]]:
                         pos = res[1][1][i][j]
                         size = res[1][2][i][j]
                         result.append([pID, title, pos, size])
-                    except:
+                    except Exception:
                         pass
                     j += 1
-            except:
+            except Exception:
                 pass
     return result
 
@@ -1856,19 +1856,19 @@ class MacOSWindow(BaseWindow):
 
             try:
                 key = item_info["AXMenuItemCmdChar"]["value"]
-            except:
+            except Exception:
                 key = ""
             try:
                 modifiers = int(item_info["AXMenuItemCmdModifiers"]["value"])
-            except:
+            except Exception:
                 modifiers = -1
             try:
                 glyph = int(item_info["AXMenuItemCmdGlyph"]["value"])
-            except:
+            except Exception:
                 glyph = -1
             try:
                 virtual_key = int(item_info["AXMenuItemCmdVirtualKey"]["value"])
-            except:
+            except Exception:
                 virtual_key = -1
 
             modifiers_type = ""

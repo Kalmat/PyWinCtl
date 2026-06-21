@@ -369,7 +369,7 @@ def __remove_bad_windows(windows: list[str] | list[int] | None) -> list[LinuxWin
                 # Thanks to Seraphli (https://github.com/Seraphli) for pointing out this issue!
                 if window:
                     outList.append(LinuxWindow(window))
-            except:
+            except Exception:
                 pass
     return outList
 
