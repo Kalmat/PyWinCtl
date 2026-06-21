@@ -1,8 +1,10 @@
-# pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportMissingTypeArgument=false, reportUnknownMemberType=false
-# mypy: disable-error-code=type-arg
+import sys
+
+assert sys.platform == "darwin"
+
 from typing import Any
 
-import objc._lazyimport  # type: ignore  # pyright: ignore
+import objc._lazyimport
 
 PDFAccessPermissions: Any
 PDFActionNamedName: Any

@@ -1,9 +1,13 @@
+import sys
+
+assert sys.platform == "darwin"
+
 # https://github.com/ronaldoussoren/pyobjc/issues/198
 # https://github.com/ronaldoussoren/pyobjc/issues/417
 # https://github.com/ronaldoussoren/pyobjc/issues/419
 from typing import Any
 
-import objc as objc  # type: ignore  # pyright: ignore
+import objc as objc
 from AppKit import *
 from Quartz.CoreGraphics import *
 from Quartz.CoreVideo import *
