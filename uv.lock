@@ -8315,6 +8315,7 @@ wheels = [
 
 [[package]]
 name = "pywinctl"
+version = "0.4.2"
 source = { editable = "." }
 dependencies = [
     { name = "ewmhlib", marker = "sys_platform == 'linux'" },

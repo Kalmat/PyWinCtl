@@ -1,9 +1,6 @@
 [build-system]
-requires = ["setuptools>=77.0.3", "setuptools-scm"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools.dynamic]
-version = { attr = "pywinctl.__version__" } # any module attribute compatible with ast.literal_eval
+requires = ["uv_build>=0.11.21,<0.12"]
+build-backend = "uv_build"
 
 [project.urls]
 Homepage = "https://github.com/Kalmat/PyWinCtl"
@@ -14,7 +11,7 @@ Documentation = "https://pywinctl.readthedocs.io/"
 
 [project]
 name = "PyWinCtl"
-dynamic = ["version"]
+version = "0.4.2"
 description = "Cross-Platform toolkit to get info on and control windows on screen"
 authors = [
     { name = "Kalmat", email = "palookjones@gmail.com" }
