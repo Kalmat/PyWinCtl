@@ -3,17 +3,22 @@ future-annotations = true
 # https://docs.astral.sh/ruff/rules/
 extend-select = [
   "ANN2", # flake8-annotations: missing-return-type
-  "PYI", # flake8-pyi
-  "FA", # flake8-future-annotations
-  "ICN", # flake8-import-conventions
+  "C4", # flake8-comprehensions
   "F401", # unused-import
-  "YTT", # flake8-2020
+  "F404", # late-future-import
+  "FA", # flake8-future-annotations
+  "FLY", # Flynt
+  "ICN", # flake8-import-conventions
+  "PERF", # Perflint
+  "PGH", # pygrep-hooks (blanket-* rules)
+  "PYI", # flake8-pyi
+  "RUF", # Ruff-specific rules
+  "SIM9", # flake8-simplify: split-static-string + zip-dict-keys-and-values
+  "SLOT", # flake8-slots
   "TC", # flake8-type-checking
   "TID", # flake8-tidy-imports
   "UP", # pyupgrade
-  "RUF", # Ruff-specific rules
-  "F404", # late-future-import
-  "PGH", # pygrep-hooks (blanket-* rules)
+  "YTT", # flake8-2020
 ]
 ignore = [
   # Only enforce return types on public functions. Where otherwise mypy infers as Any
@@ -34,6 +39,9 @@ ignore = [
   "PYI011", # typed-argument-default-in-stub
   "PYI014", # argument-default-in-stub
   "PYI053", # string-or-bytes-too-long
+  # Good to watch for, but often unfixable
+  # Anyway Python 3.11 introduced "zero cost" exception handling
+  "PERF203", # try-except-in-loop,
 
   # TODO: Consider later
   "UP031", # printf-string-formatting

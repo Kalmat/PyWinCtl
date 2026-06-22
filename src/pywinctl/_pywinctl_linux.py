@@ -16,11 +16,8 @@ from typing import cast
 
 import Xlib.display
 import Xlib.error
-import Xlib.ext
-import Xlib.protocol
 import Xlib.X
 import Xlib.Xatom
-import Xlib.Xutil
 from ewmhlib import EwmhRoot, EwmhWindow, Props, defaultEwmhRoot
 from ewmhlib._ewmhlib import _xlibGetAllWindows
 from pywinbox import Point, Rect, Size, pointInBox
@@ -129,7 +126,7 @@ def getAllTitles() -> list[str]:
     return [window.title for window in getAllWindows()]
 
 
-def getWindowsWithTitle(title: str | re.Pattern[str], app: tuple[str, ...] | None = (), condition: int = Re.IS, flags: int = 0):
+def getWindowsWithTitle(title: str | re.Pattern[str], app: tuple[str, ...] | None = (), condition: int = Re.IS, flags: int = 0) -> list[LinuxWindow]:
     """
     Get the list of window objects whose title match the given string with condition and flags.
     Use ''condition'' to delimit the search. Allowed values are stored in pywinctl.Re sub-class (e.g. pywinctl.Re.CONTAINS)
@@ -154,25 +151,26 @@ def getWindowsWithTitle(title: str | re.Pattern[str], app: tuple[str, ...] | Non
     :param flags: (optional) specific flags to apply to condition. Defaults to 0 (no flags)
     :return: list of Window objects
     """
-    matches: list[LinuxWindow] = []
-    if title and condition in Re._cond_dic:
-        lower = False
-        if condition in (Re.MATCH, Re.NOTMATCH):
-            title = re.compile(title, flags)
-        elif condition in (Re.EDITDISTANCE, Re.DIFFRATIO):
-            if not isinstance(flags, int) or not (0 < flags <= 100):
-                flags = 90
-        elif flags == Re.IGNORECASE:
-            lower = True
-            if isinstance(title, re.Pattern):
-                title = title.pattern
-            else:
-                title = title.lower()
-        for win in getAllWindows():
-            if win.title and Re._cond_dic[condition](title, win.title.lower() if lower else win.title, flags)  \
-                    and (not app or (app and win.getAppName() in app)):
-                matches.append(win)
-    return matches
+    if not (title and condition in Re._cond_dic):
+        return []
+    
+    lower = False
+    if condition in (Re.MATCH, Re.NOTMATCH):
+        title = re.compile(title, flags)
+    elif condition in (Re.EDITDISTANCE, Re.DIFFRATIO):
+        if not isinstance(flags, int) or not (0 < flags <= 100):
+            flags = 90
+    elif flags == Re.IGNORECASE:
+        lower = True
+        if isinstance(title, re.Pattern):
+            title = title.pattern
+        else:
+            title = title.lower()
+    return [
+        win for win in getAllWindows()
+        if win.title and Re._cond_dic[condition](title, win.title.lower() if lower else win.title, flags)
+        and (not app or win.getAppName() in app)
+    ]
 
 
 def getAllAppsNames() -> list[str]:
@@ -184,7 +182,7 @@ def getAllAppsNames() -> list[str]:
     return list(getAllAppsWindowsTitles())
 
 
-def getAppsWithName(name: str | re.Pattern[str], condition: int = Re.IS, flags: int = 0):
+def getAppsWithName(name: str | re.Pattern[str], condition: int = Re.IS, flags: int = 0) -> list[str]:
     """
     Get the list of app names which match the given string using the given condition and flags.
     Use ''condition'' to delimit the search. Allowed values are stored in pywinctl.Re sub-class (e.g. pywinctl.Re.CONTAINS)
@@ -208,24 +206,25 @@ def getAppsWithName(name: str | re.Pattern[str], condition: int = Re.IS, flags: 
     :param flags: (optional) specific flags to apply to condition. Defaults to 0 (no flags)
     :return: list of app names
     """
-    matches: list[str] = []
-    if name and condition in Re._cond_dic:
-        lower = False
-        if condition in (Re.MATCH, Re.NOTMATCH):
-            name = re.compile(name, flags)
-        elif condition in (Re.EDITDISTANCE, Re.DIFFRATIO):
-            if not isinstance(flags, int) or not (0 < flags <= 100):
-                flags = 90
-        elif flags == Re.IGNORECASE:
-            lower = True
-            if isinstance(name, re.Pattern):
-                name = name.pattern
-            else:
-                name = name.lower()
-        for title in getAllAppsNames():
-            if title and Re._cond_dic[condition](name, title.lower() if lower else title, flags):
-                matches.append(title)
-    return matches
+    if not (name and condition in Re._cond_dic):
+        return []
+
+    lower = False
+    if condition in (Re.MATCH, Re.NOTMATCH):
+        name = re.compile(name, flags)
+    elif condition in (Re.EDITDISTANCE, Re.DIFFRATIO):
+        if not isinstance(flags, int) or not (0 < flags <= 100):
+            flags = 90
+    elif flags == Re.IGNORECASE:
+        lower = True
+        if isinstance(name, re.Pattern):
+            name = name.pattern
+        else:
+            name = name.lower()
+    return [
+        title for title in getAllAppsNames()
+        if title and Re._cond_dic[condition](name, title.lower() if lower else title, flags)
+    ]
 
 
 def _getAllApps():
@@ -309,7 +308,7 @@ def getAllWindowsDict(tryToFilter: bool = False) -> dict[str, _WINDICT]:
     return result
 
 
-def getWindowsAt(x: int, y: int):
+def getWindowsAt(x: int, y: int) -> list[LinuxWindow]:
     """
     Get the list of Window objects whose windows contain the point ``(x, y)`` on screen
 
@@ -317,11 +316,11 @@ def getWindowsAt(x: int, y: int):
     :param y: Y screen coordinate of the window(s)
     :return: list of Window objects
     """
-    windowBoxGenerator = ((window, window.box) for window in getAllWindows())
     return [
-        window for (window, box)
-        in windowBoxGenerator
-        if pointInBox(x, y, box)]
+        window for window
+        in getAllWindows()
+        if pointInBox(x, y, window.box)
+    ]
 
 
 def getTopWindowAt(x: int, y: int):
@@ -742,7 +741,7 @@ class LinuxWindow(BaseWindow):
 
                 ret = self._win.getProperty("_MOTIF_WM_HINTS")
                 # Cinnamon uses this as default: [2, 1, 1, 0, 0]
-                self._motifHints = [a for a in ret.value] if ret and hasattr(ret, "value") else [2, 0, 0, 0, 0]
+                self._motifHints = list(ret.value) if ret and hasattr(ret, "value") else [2, 0, 0, 0, 0]
                 self._win.changeProperty("_MOTIF_WM_HINTS", [0, 0, 0, 0, 0])
 
             self._win.setWmWindowType(Props.WindowType.DESKTOP)

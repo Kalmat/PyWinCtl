@@ -15,8 +15,6 @@ from ctypes import wintypes
 from typing import cast, Any, TYPE_CHECKING
 from typing_extensions import NotRequired, TypedDict
 
-if TYPE_CHECKING:
-    from win32.lib.win32gui_struct import _MENUITEMINFO, _MENUINFO
 
 import win32gui_struct
 import win32process
@@ -27,6 +25,9 @@ import win32gui
 
 from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, _WINDATA, _WINDICT
 from pywinbox import Size, Point, Rect, pointInBox
+
+if TYPE_CHECKING:
+    from win32.lib.win32gui_struct import _MENUITEMINFO, _MENUINFO
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -80,13 +81,13 @@ def getAllWindows() -> list[Win32Window]:
     """
     # https://stackoverflow.com/questions/64586371/filtering-background-processes-pywin32
     # return [Win32Window(hwnd[0]) for hwnd in _findMainWindowHandles()]
-    return [window for window in __remove_bad_windows(_findWindowHandles())]
+    return __remove_bad_windows(_findWindowHandles())
 
 
-def __remove_bad_windows(windows: list[int] | None):
+def __remove_bad_windows(windows: list[int] | None) -> list[Win32Window]:
     """
     :param windows: win32 Windows
-    :return: A generator of Win32Window that filters out BadWindows
+    :return: A list of Win32Window that filters out BadWindows
     """
     outList = []
     if windows is not None:
@@ -132,25 +133,26 @@ def getWindowsWithTitle(title: str | re.Pattern[str], app: tuple[str, ...] | Non
     :param flags: (optional) specific flags to apply to condition. Defaults to 0 (no flags)
     :return: list of Window objects
     """
-    matches: list[Win32Window] = []
-    if title and condition in Re._cond_dic:
-        lower = False
-        if condition in (Re.MATCH, Re.NOTMATCH):
-            title = re.compile(title, flags)
-        elif condition in (Re.EDITDISTANCE, Re.DIFFRATIO):
-            # flags = Re.IGNORECASE | ratio -> lower = flags & Re.IGNORECASE == Re.IGNORECASE / ratio = flags ^ Re.IGNORECASE
-            if not isinstance(flags, int) or not (0 < flags <= 100):
-                flags = 90
-        elif flags == Re.IGNORECASE:
-            lower = True
-            if isinstance(title, re.Pattern):
-                title = title.pattern
-            title = title.lower()
-        for win in getAllWindows():
-            if win.title and Re._cond_dic[condition](title, win.title.lower() if lower else win.title, flags) \
-                    and (not app or (app and win.getAppName() in app)):
-                matches.append(win)
-    return matches
+    if not (title and condition in Re._cond_dic):
+        return []
+
+    lower = False
+    if condition in (Re.MATCH, Re.NOTMATCH):
+        title = re.compile(title, flags)
+    elif condition in (Re.EDITDISTANCE, Re.DIFFRATIO):
+        # flags = Re.IGNORECASE | ratio -> lower = flags & Re.IGNORECASE == Re.IGNORECASE / ratio = flags ^ Re.IGNORECASE
+        if not isinstance(flags, int) or not (0 < flags <= 100):
+            flags = 90
+    elif flags == Re.IGNORECASE:
+        lower = True
+        if isinstance(title, re.Pattern):
+            title = title.pattern
+        title = title.lower()
+    return [
+        win for win in getAllWindows()
+        if win.title and Re._cond_dic[condition](title, win.title.lower() if lower else win.title, flags)
+        and (not app or win.getAppName() in app)
+    ]
 
 
 def getAllAppsNames() -> list[str]:
@@ -186,24 +188,24 @@ def getAppsWithName(name: str | re.Pattern[str], condition: int = Re.IS, flags: 
     :param flags: (optional) specific flags to apply to condition. Defaults to 0 (no flags)
     :return: list of app names
     """
-    matches: list[str] = []
-    if name and condition in Re._cond_dic:
-        lower = False
-        if condition in (Re.MATCH, Re.NOTMATCH):
-            name = re.compile(name, flags)
-        elif condition in (Re.EDITDISTANCE, Re.DIFFRATIO):
-            if not isinstance(flags, int) or not (0 < flags <= 100):
-                flags = 90
-        elif flags == Re.IGNORECASE:
-            lower = True
-            if isinstance(name, re.Pattern):
-                name = name.pattern
-            name = name.lower()
-        for title in getAllAppsNames():
-            if title and Re._cond_dic[condition](name, title.lower() if lower else title, flags):
-                matches.append(title)
-    return matches
+    if not (name and condition in Re._cond_dic):
+        return []
 
+    lower = False
+    if condition in (Re.MATCH, Re.NOTMATCH):
+        name = re.compile(name, flags)
+    elif condition in (Re.EDITDISTANCE, Re.DIFFRATIO):
+        if not isinstance(flags, int) or not (0 < flags <= 100):
+            flags = 90
+    elif flags == Re.IGNORECASE:
+        lower = True
+        if isinstance(name, re.Pattern):
+            name = name.pattern
+        name = name.lower()
+    return [
+        title for title in getAllAppsNames()
+        if title and Re._cond_dic[condition](name, title.lower() if lower else title, flags)
+    ]
 
 def getAllAppsWindowsTitles() -> dict[str, list[str]]:
     """
@@ -292,11 +294,11 @@ def getWindowsAt(x: int, y: int) -> list[Win32Window]:
     :param y: Y screen coordinate of the window(s)
     :return: list of Window objects
     """
-    windowBoxGenerator = ((window, window.box) for window in getAllWindows())
     return [
-        window for (window, box)
-        in windowBoxGenerator
-        if pointInBox(x, y, box)]
+        window for window
+        in getAllWindows()
+        if pointInBox(x, y, window.box)
+    ]
 
 
 def getTopWindowAt(x: int, y: int) -> Win32Window | None:

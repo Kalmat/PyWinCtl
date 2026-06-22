@@ -2,10 +2,14 @@ import sys
 
 assert sys.platform == "darwin"
 
-from typing import Any, ClassVar
+from typing import Any, ClassVar, type_check_only
 
 import objc
 import objc._lazyimport
+
+# Is actually objc._structwrapper, but our stubs doesn't expose it
+@type_check_only
+class _objc_structwrapper: ...
 
 CAAnimationCalculationMode: Any
 CAAnimationRotationMode: Any
@@ -35,7 +39,7 @@ CAValueFunctionName: Any
 _ObjCLazyModule__aliases_deprecated: dict
 _ObjCLazyModule__enum_deprecated: dict
 _ObjCLazyModule__expressions: dict
-_ObjCLazyModule__expressions_mapping: objc._lazyimport.GetAttrMap
+_ObjCLazyModule__expressions_mapping: objc._lazyimport._GetAttrMap
 _ObjCLazyModule__varmap_dct: dict
 _ObjCLazyModule__varmap_deprecated: dict
 
@@ -51,7 +55,7 @@ r: Any
 protocols: Any
 expressions: Any
 
-class CAFrameRateRange(objc._structwrapper):
+class CAFrameRateRange(_objc_structwrapper):
     _fields: ClassVar[tuple] = ...
     __match_args__: ClassVar[tuple] = ...
     __typestr__: ClassVar[bytes] = ...
@@ -70,7 +74,7 @@ class CAFrameRateRange(objc._structwrapper):
     def __setattr__(self, name, value) -> Any: ...
     def __setitem__(self, index, object) -> Any: ...
 
-class CATransform3D(objc._structwrapper):
+class CATransform3D(_objc_structwrapper):
     _fields: ClassVar[tuple] = ...
     __match_args__: ClassVar[tuple] = ...
     __typestr__: ClassVar[bytes] = ...

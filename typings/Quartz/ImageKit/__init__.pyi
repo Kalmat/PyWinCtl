@@ -14,7 +14,7 @@ IKScannerDeviceViewTransferMode: Any
 _ObjCLazyModule__aliases_deprecated: dict
 _ObjCLazyModule__enum_deprecated: dict
 _ObjCLazyModule__expressions: dict
-_ObjCLazyModule__expressions_mapping: objc._lazyimport.GetAttrMap
+_ObjCLazyModule__expressions_mapping: objc._lazyimport._GetAttrMap
 _ObjCLazyModule__varmap_dct: dict
 _ObjCLazyModule__varmap_deprecated: dict
 
