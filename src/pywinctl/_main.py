@@ -1054,4 +1054,3 @@ else:
         "PyWinCtl currently does not support this platform. "
         + "If you think you can help, please contribute! https://github.com/Kalmat/PyWinCtl"
     )
-Window = Window

@@ -15,10 +15,8 @@ import re
 import subprocess
 import threading
 import time
-from collections.abc import Iterable
-from typing import Any, cast, ClassVar
-from collections.abc import Sequence
-from typing_extensions import TypeAlias, TypedDict, Literal
+from collections.abc import Iterable, Sequence
+from typing import Any, cast, ClassVar, TYPE_CHECKING, TypedDict, Literal
 
 import AppKit
 import Quartz
@@ -26,6 +24,8 @@ import Quartz
 from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, _WINDATA, _WINDICT
 from pywinbox import Size, Point, Rect, pointInBox
 
+if TYPE_CHECKING:
+    from typing_extensions import TypeAlias
 
 Incomplete: TypeAlias = Any
 Attribute: TypeAlias = Sequence['tuple[str, str, bool, str]']
