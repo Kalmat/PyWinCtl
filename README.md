@@ -119,9 +119,9 @@ notepad.resizeTo(size.width // 2, size.height)
 ## Ecosystem
 
 PyWinCtl is based on these other libraries, which offer a rich set of additional, useful features:
-* [PyMonCtl(https://github.com/Kalmat/PyMonCtl)] → monitor management (especially for multi-monitor awareness)
-* [PyWinBox(https://github.com/Kalmat/PyWinBox)] → geometry utilities (similar to PyGame.Rect object, but enhanced)
-* [EWMHlib(https://github.com/Kalmat/EWMHlib)] → Extended Window Manager Hints (EWMH) implementation (X11 only)
+* [PyMonCtl](https://github.com/Kalmat/PyMonCtl) → monitor management (especially for multi-monitor awareness)
+* [PyWinBox](https://github.com/Kalmat/PyWinBox) → geometry utilities (similar to PyGame.Rect object, but enhanced)
+* [EWMHlib](https://github.com/Kalmat/EWMHlib) → Extended Window Manager Hints (EWMH) implementation (X11 only)
 
 ---
 
