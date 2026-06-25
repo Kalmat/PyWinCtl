@@ -9,11 +9,9 @@
 
 **Cross-platform window management for Python.** Discover, control, and monitor any open window on your desktop — across Windows, macOS, and Linux — with a single, unified API.
 
-With PyWinCtl you can list open windows, retrieve their properties, move and resize them, minimize, maximize, restore, 
-activate, close, and even track window state changes in real time. PyWinCtl supports Windows, macOS, and Linux, making it an ideal solution 
-for desktop automation, screen recording, GUI testing, window monitoring or tiling, kiosks, overlays, and multi-monitor workflows.
+With PyWinCtl you can list open windows, retrieve their properties, move and resize them, minimize, maximize, restore, activate, close, and even track window state changes in real time.
 
-PyWinCtl works on all three major platforms with the same API, using native backends under the hood: Win32 API on Windows, Apple Script on macOS, and EWMH/Xlib on Linux.
+PyWinCtl uses native backends under the hood: Win32 API on Windows, Apple Script on macOS, and EWMH/Xlib on Linux; making it an ideal solution for desktop automation, screen recording, UI testing, window monitoring or tiling, kiosks, overlays, and multi-monitor workflows.
 
 *Sincere thanks to [MestreLion](https://github.com/MestreLion), [super-ibby](https://github.com/super-ibby), [Avasam](https://github.com/Avasam), [macdeport](https://github.com/macdeport), [holychowders](https://github.com/holychowders), and all other contributors (see [AUTHORS.txt](AUTHORS.txt)) for their help, feedback, and moral support.*
 
