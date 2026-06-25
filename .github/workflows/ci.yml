@@ -7,16 +7,12 @@ on:
       - master
     paths:
       - ".github/workflows/ci.yml"
-      - "docs/**"
-      - ".readthedocs.yaml"
       - "pyproject.toml"
       - "mypy.ini"
       - "**/*.py"
   pull_request:
     paths:
       - ".github/workflows/ci.yml"
-      - "docs/**"
-      - ".readthedocs.yaml"
       - "pyproject.toml"
       - "mypy.ini"
       - "**/*.py"
@@ -61,7 +57,7 @@ jobs:
       # Test on all supported runtime combinations
       matrix:
         # Arm runners are faster (as long as the same wheels are available)
-        # PyWinCtl doesn't have any code that should act differently per architecture
+        # This project doesn't have any code that should act differently per architecture
         os: [windows-11-arm, ubuntu-24.04-arm, macos-latest]
         # TODO: Run tests in parallel on free-threaded python to catch free-threading issues
         # See: https://py-free-threading.github.io/testing/

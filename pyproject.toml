@@ -68,7 +68,6 @@ dependencies = [
     "python-xlib>=0.21; sys_platform == 'linux'",
     "pywin32>=302; sys_platform == 'win32'",
     "pywinbox>=0.7",
-    "typing_extensions>=4.4.0",
 ]
 
 [dependency-groups]
@@ -82,6 +81,7 @@ dev = [
     "ruff>=0.15.16",
     "types-python-xlib>=0.32",
     "types-pywin32>=305.0.0.3",
+    "typing_extensions>=4.4.0",
 ]
 
 [tool.uv]

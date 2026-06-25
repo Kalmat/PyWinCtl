@@ -12,9 +12,7 @@ import threading
 import time
 from collections.abc import Sequence
 from ctypes import wintypes
-from typing import cast, Any, TYPE_CHECKING
-from typing_extensions import NotRequired, TypedDict
-
+from typing import cast, Any, TYPE_CHECKING, TypedDict
 
 import win32gui_struct
 import win32process
@@ -27,6 +25,7 @@ from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, _WINDATA, _WINDI
 from pywinbox import Size, Point, Rect, pointInBox
 
 if TYPE_CHECKING:
+    from typing_extensions import NotRequired
     from win32.lib.win32gui_struct import _MENUITEMINFO, _MENUINFO
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
