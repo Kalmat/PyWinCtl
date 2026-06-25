@@ -11,7 +11,7 @@
 
 With PyWinCtl you can list open windows, retrieve their properties, move and resize them, minimize, maximize, restore, activate, close, and even track window state changes in real time.
 
-PyWinCtl uses native backends under the hood: Win32 API on Windows, Apple Script on macOS, and EWMH/Xlib on Linux; making it an ideal solution for desktop automation, screen recording, UI testing, window monitoring or tiling, kiosks, overlays, and multi-monitor workflows.
+PyWinCtl uses native backends under the hood: Win32 API on Windows, Apple Script on macOS, and [EWMHlib](https://github.com/Kalmat/EWMHlib)/Xlib on Linux; making it an ideal solution for desktop automation, screen recording, UI testing, window monitoring or tiling, kiosks, overlays, and multi-monitor workflows.
 
 *Sincere thanks to [MestreLion](https://github.com/MestreLion), [super-ibby](https://github.com/super-ibby), [Avasam](https://github.com/Avasam), [macdeport](https://github.com/macdeport), [holychowders](https://github.com/holychowders), and all other contributors (see [AUTHORS.txt](AUTHORS.txt)) for their help, feedback, and moral support.*
 
