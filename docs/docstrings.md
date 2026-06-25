@@ -1351,3 +1351,15 @@ Get the Rect struct (left, top, right, bottom) of the given Menu option
 **Returns**:
 
 Rect struct
+
+#### getPID
+
+```python
+def getPID(self) -> int | None
+```
+
+Get the PID of the application the window belongs to
+
+**Returns**:
+
+Application PID as integer or None if it couldn't be retrieved

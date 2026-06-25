@@ -49,6 +49,6 @@ urlretrieve(
     "index.md"
 )
 urlretrieve(
-    "https://raw.githubusercontent.com/kalmat/pywinctl/master/docstrings.md",
+    "https://raw.githubusercontent.com/kalmat/pywinctl/master/docs/docstrings.md",
     "docstrings.md"
 )
