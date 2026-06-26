@@ -20,7 +20,7 @@ With PyWinCtl you can list open windows, retrieve their properties, move and res
 If you've ever needed to do any of the following from a Python script, this library is for you:
 
 - **Find a window** — get the active window or find any other window by its title, getting an object to query or modify its properties
-- **Move or resize a window** — position a browser at exactly (0, 0) before taking a screenshot, or snap two windows side-by-side automatically
+- **Move or resize a window** — position a browser at exactly (0, 0) before taking a screenshot, or snap two windows side-by-side
 - **Bring a window to the front** — activate a specific app after launching it via `subprocess`
 - **Get notified when a window closes, moves, or changes title** — react in real time from a background thread
 - **Automate GUI workflows** — launch an app, wait for its window, interact with its menu, and close it programmatically
@@ -28,7 +28,7 @@ If you've ever needed to do any of the following from a Python script, this libr
 - **Build a screen capture tool** — get the exact position and size of a window to pass to `mss`, `PIL`, or `OpenCV`
 - **Control your own app's windows** — manage Tkinter/Qt/wx window geometry or state from outside the main loop
 
-PyWinCtl uses native backends under the hood: Win32 API on Windows, Apple Script on macOS, and [EWMHlib](https://github.com/Kalmat/EWMHlib)/Xlib on Linux; 
+PyWinCtl uses native backends under the hood: Win32 API on Windows, Apple Script on macOS, and [EWMHlib](https://github.com/Kalmat/EWMHlib)/Xlib on Linux. 
 
 ```python
 import pywinctl as pwc
