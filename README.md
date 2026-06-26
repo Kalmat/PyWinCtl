@@ -9,7 +9,11 @@
 
 **Cross-platform window management for Python.** Discover, control, and monitor any open window on your desktop — across Windows, macOS, and Linux — with a single, unified API.
 
-With PyWinCtl you can list open windows, retrieve their properties, move and resize them, minimize, maximize, restore, activate, close, and even track window state changes in real time; making it an ideal solution for desktop automation, screen recording, UI testing, window monitoring or tiling, kiosks, overlays, and multi-monitor workflows.
+With PyWinCtl you can list open windows, retrieve their properties, move and resize them, minimize, maximize, restore, 
+activate, close, and even track window state changes in real time. PyWinCtl supports Windows, macOS, and Linux, making it an ideal solution 
+for desktop automation, screen recording, GUI testing, window monitoring or tiling, kiosks, overlays, and multi-monitor workflows.
+
+PyWinCtl works on all three major platforms with the same API, using native backends under the hood: Win32 API on Windows, Apple Script on macOS, and EWMH/Xlib on Linux.
 
 *Sincere thanks to [MestreLion](https://github.com/MestreLion), [super-ibby](https://github.com/super-ibby), [Avasam](https://github.com/Avasam), [macdeport](https://github.com/macdeport), [holychowders](https://github.com/holychowders), and all other contributors (see [AUTHORS.txt](AUTHORS.txt)) for their help, feedback, and moral support.*
 
@@ -20,15 +24,13 @@ With PyWinCtl you can list open windows, retrieve their properties, move and res
 If you've ever needed to do any of the following from a Python script, this library is for you:
 
 - **Find a window** — get the active window or find any other window by its title, getting an object to query or modify its properties
-- **Move or resize a window** — position a browser at exactly (0, 0) before taking a screenshot, or snap two windows side-by-side
+- **Move or resize a window** — position a browser at exactly (0, 0) before taking a screenshot, or snap two windows side-by-side automatically
 - **Bring a window to the front** — activate a specific app after launching it via `subprocess`
 - **Get notified when a window closes, moves, or changes title** — react in real time from a background thread
 - **Automate GUI workflows** — launch an app, wait for its window, interact with its menu, and close it programmatically
 - **Manage a multi-window test harness** — enumerate all open windows, find ones by title or PID, check their state
 - **Build a screen capture tool** — get the exact position and size of a window to pass to `mss`, `PIL`, or `OpenCV`
 - **Control your own app's windows** — manage Tkinter/Qt/wx window geometry or state from outside the main loop
-
-PyWinCtl uses native backends under the hood: Win32 API on Windows, Apple Script on macOS, and [EWMHlib](https://github.com/Kalmat/EWMHlib)/Xlib on Linux. 
 
 ```python
 import pywinctl as pwc
@@ -152,34 +154,34 @@ All three layers are available on Windows, Linux, and macOS.
 
 | Module-level functions | Window methods                                                                                      | Window properties |
 |---|-----------------------------------------------------------------------------------------------------|---|
-| [getActiveWindow](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getactivewindow) | [close](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#close)                         | (GET) [title](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#title) |
-| [getActiveWindowTitle](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getactivewindowtitle) | [minimize](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#minimize)                   | (GET) [updatedTitle](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#updatedtitle) *(MacOSWindow only)* |
-| [getAllWindows](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getallwindows) | [maximize](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#maximize)                   | (GET) [isMaximized](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#ismaximized) |
-| [getAllTitles](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getalltitles) | [restore](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#restore)                     | (GET) [isMinimized](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#isminimized) |
-| [getWindowsWithTitle](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getwindowswithtitle) | [hide](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#hide)                           | (GET) [isActive](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#isactive) |
-| [getAllAppsNames](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getallappsnames) | [show](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#show)                           | (GET) [isVisible](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#isvisible) |
-| [getAppsWithName](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getappswithname) | [activate](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#activate)                   | (GET) [isAlive](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#isalive) |
-| [getAllAppsWindowsTitles](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getallappswindowstitles) | [resize / resizeRel](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#resize)           | **Position / Size** *(via [PyWinBox](https://github.com/Kalmat/PyWinBox))* |
-| [getWindowsAt](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getwindowsat) | [resizeTo](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#resizeto)                   | (GET/SET) position (x, y) |
-| [getTopWindowAt](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#gettopwindowat) | [move / moveRel](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#move)                 | (GET/SET) left, top, right, bottom |
-| [displayWindowsUnderMouse](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#displaywindowsundermouse) | [moveTo](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#moveto)                       | (GET/SET) topleft, topright, bottomleft, bottomright |
-| [version](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#version) | [raiseWindow](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#raisewindow)             | (GET/SET) midtop, midleft, midbottom, midright |
-| [checkPermissions](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#checkpermissions) *(macOS only)* | [lowerWindow](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#lowerwindow)             | (GET/SET) center, centerx, centery |
-| | [alwaysOnTop](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#alwaysontop)             | (GET/SET) size (width, height) |
-| | [alwaysOnBottom](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#alwaysonbottom)       | (GET/SET) width, height |
-| | [sendBehind](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#sendbehind)               | (GET/SET) box (x, y, width, height) |
-| | [acceptInput](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#acceptinput)             | (GET/SET) rect (x, y, right, bottom) |
-| | [getAppName](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getappname)               | |
-| | [getHandle](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#gethandle)                 | |
-| | [getParent](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getparent)                 | |
-| | [setParent](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#setparent)                 | |
-| | [getChildren](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getchildren)             | |
-| | [isParent](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#isparent)                   | |
-| | [isChild](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#ischild)                     | |
-| | [getDisplay](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getdisplay)               | |
-| | [getExtraFrameSize](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getextraframesize) | |
-| | [getClientFrame](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getclientframe)       | |
-| | [getPID](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getPID)                       | |
+| [getActiveWindow](docs/docstrings.md#getactivewindow) | [close](docs/docstrings.md#close)                         | (GET) [title](docs/docstrings.md#title) |
+| [getActiveWindowTitle](docs/docstrings.md#getactivewindowtitle) | [minimize](docs/docstrings.md#minimize)                   | (GET) [updatedTitle](docs/docstrings.md#updatedtitle) *(MacOSWindow only)* |
+| [getAllWindows](docs/docstrings.md#getallwindows) | [maximize](docs/docstrings.md#maximize)                   | (GET) [isMaximized](docs/docstrings.md#ismaximized) |
+| [getAllTitles](docs/docstrings.md#getalltitles) | [restore](docs/docstrings.md#restore)                     | (GET) [isMinimized](docs/docstrings.md#isminimized) |
+| [getWindowsWithTitle](docs/docstrings.md#getwindowswithtitle) | [hide](docs/docstrings.md#hide)                           | (GET) [isActive](docs/docstrings.md#isactive) |
+| [getAllAppsNames](docs/docstrings.md#getallappsnames) | [show](docs/docstrings.md#show)                           | (GET) [isVisible](docs/docstrings.md#isvisible) |
+| [getAppsWithName](docs/docstrings.md#getappswithname) | [activate](docs/docstrings.md#activate)                   | (GET) [isAlive](docs/docstrings.md#isalive) |
+| [getAllAppsWindowsTitles](docs/docstrings.md#getallappswindowstitles) | [resize / resizeRel](docs/docstrings.md#resize)           | **Position / Size** *(via [PyWinBox](https://github.com/Kalmat/PyWinBox))* |
+| [getWindowsAt](docs/docstrings.md#getwindowsat) | [resizeTo](docs/docstrings.md#resizeto)                   | (GET/SET) position (x, y) |
+| [getTopWindowAt](docs/docstrings.md#gettopwindowat) | [move / moveRel](docs/docstrings.md#move)                 | (GET/SET) left, top, right, bottom |
+| [displayWindowsUnderMouse](docs/docstrings.md#displaywindowsundermouse) | [moveTo](docs/docstrings.md#moveto)                       | (GET/SET) topleft, topright, bottomleft, bottomright |
+| [version](docs/docstrings.md#version) | [raiseWindow](docs/docstrings.md#raisewindow)             | (GET/SET) midtop, midleft, midbottom, midright |
+| [checkPermissions](docs/docstrings.md#checkpermissions) *(macOS only)* | [lowerWindow](docs/docstrings.md#lowerwindow)             | (GET/SET) center, centerx, centery |
+| | [alwaysOnTop](docs/docstrings.md#alwaysontop)             | (GET/SET) size (width, height) |
+| | [alwaysOnBottom](docs/docstrings.md#alwaysonbottom)       | (GET/SET) width, height |
+| | [sendBehind](docs/docstrings.md#sendbehind)               | (GET/SET) box (x, y, width, height) |
+| | [acceptInput](docs/docstrings.md#acceptinput)             | (GET/SET) rect (x, y, right, bottom) |
+| | [getAppName](docs/docstrings.md#getappname)               | |
+| | [getHandle](docs/docstrings.md#gethandle)                 | |
+| | [getParent](docs/docstrings.md#getparent)                 | |
+| | [setParent](docs/docstrings.md#setparent)                 | |
+| | [getChildren](docs/docstrings.md#getchildren)             | |
+| | [isParent](docs/docstrings.md#isparent)                   | |
+| | [isChild](docs/docstrings.md#ischild)                     | |
+| | [getDisplay](docs/docstrings.md#getdisplay)               | |
+| | [getExtraFrameSize](docs/docstrings.md#getextraframesize) | |
+| | [getClientFrame](docs/docstrings.md#getclientframe)       | |
+| | [getPID](docs/docstrings.md#getPID)                       | |
 
 ### Important macOS notice
 
@@ -240,12 +242,12 @@ changedDisplayCB: fires when the window moves to a different display
 
 | Watchdog methods | |
 |---|---|
-| [start](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#start) | Start watching with the given callbacks |
-| [updateCallbacks](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#updatecallbacks) | Replace active callbacks (pass all desired ones) |
-| [updateInterval](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#updateinterval) | Change the polling interval |
-| [setTryToFind](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#settrytofind) *(macOS only)* | Try to locate window after title change |
-| [isAlive](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#-watchdog-isalive) | Check if the watchdog is still running |
-| [stop](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#stop) | Stop the watchdog |
+| [start](docs/docstrings.md#start) | Start watching with the given callbacks |
+| [updateCallbacks](docs/docstrings.md#updatecallbacks) | Replace active callbacks (pass all desired ones) |
+| [updateInterval](docs/docstrings.md#updateinterval) | Change the polling interval |
+| [setTryToFind](docs/docstrings.md#settrytofind) *(macOS only)* | Try to locate window after title change |
+| [isAlive](docs/docstrings.md#-watchdog-isalive) | Check if the watchdog is still running |
+| [stop](docs/docstrings.md#stop) | Stop the watchdog |
 
 **Example:**
 
@@ -300,12 +302,12 @@ The `menu` sub-module lets you inspect and interact with native application menu
 
 | Menu methods | |
 |---|---|
-| [getMenu](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getmenu) | Returns the full menu structure as a nested dict |
-| [getMenuInfo](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getmenuinfo) | Returns info about a specific menu |
-| [getMenuItemCount](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getmenuitemcount) | Returns the number of items in a menu |
-| [getMenuItemInfo](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getmenuiteminfo) | Returns info about a specific menu item |
-| [getMenuItemRect](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getmenuitemrect) | Returns the bounding rect of a menu item |
-| [clickMenuItem](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#clickmenuitem) | Clicks a menu item by path |
+| [getMenu](docs/docstrings.md#getmenu) | Returns the full menu structure as a nested dict |
+| [getMenuInfo](docs/docstrings.md#getmenuinfo) | Returns info about a specific menu |
+| [getMenuItemCount](docs/docstrings.md#getmenuitemcount) | Returns the number of items in a menu |
+| [getMenuItemInfo](docs/docstrings.md#getmenuiteminfo) | Returns info about a specific menu item |
+| [getMenuItemRect](docs/docstrings.md#getmenuitemrect) | Returns the bounding rect of a menu item |
+| [clickMenuItem](docs/docstrings.md#clickmenuitem) | Clicks a menu item by path |
 
 **Example (Windows — note: menu labels are language-dependent):**
 
