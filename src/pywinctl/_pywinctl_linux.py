@@ -27,7 +27,7 @@ from ._main import _WINDATA, _WINDICT, BaseWindow, Re, _findMonitorName, _WatchD
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
-WAIT_ATTEMPTS = 10
+WAIT_ATTEMPTS = 15
 WAIT_DELAY = 0.025  # Will be progressively increased on every retry
 
 

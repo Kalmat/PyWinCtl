@@ -33,6 +33,25 @@ Attribute: TypeAlias = Sequence['tuple[str, str, bool, str]']
 WAIT_ATTEMPTS = 10
 WAIT_DELAY = 0.025  # Will be progressively increased on every retry
 
+_OSASCRIPT_TIMEOUT = WAIT_DELAY * WAIT_ATTEMPTS * (WAIT_ATTEMPTS + 1) / 2  # Matches max wait-loop duration
+
+
+def _run_osascript(script: str, *args: str, strict: bool = False) -> str:
+    """Run an AppleScript via osascript stdin, returning raw stdout. Returns '' on timeout."""
+    cmd: list[str] = ['osascript']
+    if strict:
+        cmd += ['-s', 's']
+    if args:
+        cmd += ['-', *args]
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
+    try:
+        ret, _ = proc.communicate(script, timeout=_OSASCRIPT_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.communicate()
+        return ""
+    return ret
+
 
 def checkPermissions(activate: bool = False) -> bool:
     """
@@ -61,9 +80,7 @@ def checkPermissions(activate: bool = False) -> bool:
                     set UI_enabled to UI elements enabled
                 end tell
                 return UI_enabled"""
-    proc = subprocess.Popen(['osascript'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-    ret, err = proc.communicate(cmd)
-    ret = ret.replace("\n", "")
+    ret = _run_osascript(cmd).replace("\n", "")
     return ret == "true"
 
 
@@ -90,9 +107,7 @@ def getActiveWindow() -> MacOSWindow | None:
                 end try
                 return {appID, winName}
             end run"""
-    proc = subprocess.Popen(['osascript'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-    ret, err = proc.communicate(cmd)
-    entries = ret.replace("\n", "").split(", ")
+    entries = _run_osascript(cmd).replace("\n", "").split(", ")
     appID = entries[0]
     # Thanks to Anthony Molinaro (djnym) for pointing out this bug and provide the solution!!!
     # sometimes the title of the window contains ',' characters, so just get the first entry as the appName and
@@ -148,16 +163,17 @@ def getAllTitles() -> list[str]:
 
     :return: list of titles as strings
     """
-    cmd = """osascript -s 's' -e 'tell application "System Events"
-                                set winNames to {}
-                                try
-                                    set winNames to {name of every window} of (every process whose background only is false)
-                                end try
-                            end tell
-                            return winNames'"""
-    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "") \
-        .replace('missing value', '"missing value"') \
-        .replace("{", "[").replace("}", "]")
+    script = """tell application "System Events"
+                    set winNames to {}
+                    try
+                        set winNames to {name of every window} of (every process whose background only is false)
+                    end try
+                end tell
+                return winNames"""
+    ret = _run_osascript(script, strict=True)
+    if not ret:
+        return []
+    ret = ret.replace("\n", "").replace('missing value', '"missing value"').replace("{", "[").replace("}", "]")
     res = ast.literal_eval(ret)
     return [title for item in res[0] for title in item] if res else []
 
@@ -222,16 +238,17 @@ def getAllAppsNames() -> list[str]:
 
     :return: list of names as strings
     """
-    cmd = """osascript -s 's' -e 'tell application "System Events"
-                                    set winNames to {}
-                                    try
-                                        set winNames to name of every process whose background only is false
-                                    end try
-                                end tell
-                                return winNames'"""
-    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "") \
-        .replace('missing value', '"missing value"') \
-        .replace("{", "[").replace("}", "]")
+    script = """tell application "System Events"
+                    set winNames to {}
+                    try
+                        set winNames to name of every process whose background only is false
+                    end try
+                end tell
+                return winNames"""
+    ret = _run_osascript(script, strict=True)
+    if not ret:
+        return []
+    ret = ret.replace("\n", "").replace('missing value', '"missing value"').replace("{", "[").replace("}", "]")
     res = ast.literal_eval(ret)
     return res or []
 
@@ -291,16 +308,17 @@ def getAllAppsWindowsTitles():
 
     :return: python dictionary
     """
-    cmd = """osascript -s 's' -e 'tell application "System Events"
-                                    set winNames to {}
-                                    try
-                                        set winNames to {name, (name of every window)} of (every process whose background only is false)
-                                    end try
-                                end tell
-                                return winNames'"""
-    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8") \
-        .replace('missing value', '"missing value"') \
-        .replace("\n", "").replace("{", "[").replace("}", "]")
+    script = """tell application "System Events"
+                    set winNames to {}
+                    try
+                        set winNames to {name, (name of every window)} of (every process whose background only is false)
+                    end try
+                end tell
+                return winNames"""
+    ret = _run_osascript(script, strict=True)
+    if not ret:
+        return {}
+    ret = ret.replace('missing value', '"missing value"').replace("\n", "").replace("{", "[").replace("}", "]")
     res: tuple[list[str], list[list[str]]] = ast.literal_eval(ret)
     result: dict[str, list[str]] = {}
     if res and len(res) > 0:
@@ -330,16 +348,15 @@ def getAllWindowsDict(tryToFilter: bool = False) -> dict[str, _WINDICT]:
     :return: python dictionary
     """
     windows = getAllWindows()
-    cmd = """osascript -s 's' -e 'tell application "System Events"
-                                    set winNames to {}
-                                    try
-                                        set winNames to {unix id, name, ({name, position, size} of every window)} of (every process whose background only is false)
-                                    end try
-                                end tell
-                                return winNames'"""
-    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "") \
-        .replace('missing value', '"missing value"') \
-        .replace("{", "[").replace("}", "]")
+    script = """tell application "System Events"
+                    set winNames to {}
+                    try
+                        set winNames to {unix id, name, ({name, position, size} of every window)} of (every process whose background only is false)
+                    end try
+                end tell
+                return winNames"""
+    raw = _run_osascript(script, strict=True)
+    ret = raw.replace("\n", "").replace('missing value', '"missing value"').replace("{", "[").replace("}", "]")
     res = ast.literal_eval(ret)
     result: dict[str, _WINDICT] = {}
     if len(res) > 0:
@@ -427,9 +444,7 @@ def _getAppWindowsTitles(app: AppKit.NSRunningApplication):
                 end try
                 return winNames
             end run"""
-    proc = subprocess.Popen(['osascript', '-s', 's', '-', pid],
-                            stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-    ret, err = proc.communicate(cmd)
+    ret = _run_osascript(cmd, pid, strict=True)
     ret = ret.replace("\n", "").replace('missing value', '"missing value"').replace("{", "[").replace("}", "]")
     res = ast.literal_eval(ret)
     return res or []
@@ -437,18 +452,19 @@ def _getAppWindowsTitles(app: AppKit.NSRunningApplication):
 
 def _getWindowTitles() -> list[list[str]]:
     # https://gist.github.com/qur2/5729056 - qur2
-    cmd = """osascript -s 's' -e 'tell application "System Events"
-                                    set winNames to {}
-                                    try
-                                        set winNames to {unix id, ({name, position, size} of (every window))} of (every process whose background only is false)
-                                    end try
-                                end tell
-                                return winNames'"""
-    ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "") \
-        .replace('missing value', '"missing value"') \
-        .replace("{", "[").replace("}", "]")
-    res = ast.literal_eval(ret)
+    script = """tell application "System Events"
+                    set winNames to {}
+                    try
+                        set winNames to {unix id, ({name, position, size} of (every window))} of (every process whose background only is false)
+                    end try
+                end tell
+                return winNames"""
+    ret = _run_osascript(script, strict=True)
     result: list[list[str]] = []
+    if not ret:
+        return result
+    ret = ret.replace("\n", "").replace('missing value', '"missing value"').replace("{", "[").replace("}", "]")
+    res = ast.literal_eval(ret)
     if len(res) > 0:
         for i, pID in enumerate(res[0]):
             try:
@@ -516,10 +532,7 @@ class MacOSWindow(BaseWindow):
                     end try
                     return procName
                 end run"""
-        proc = subprocess.Popen(['osascript', '-', str(appPID)],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
-        return str(ret.replace("\n", ""))
+        return _run_osascript(cmd, str(appPID)).replace("\n", "")
 
     def getExtraFrameSize(self, includeBorder: bool = True) -> tuple[int, int, int, int]:
         """
@@ -611,9 +624,7 @@ class MacOSWindow(BaseWindow):
                         end tell
                     end try
                 end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self._winTitle],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
+        _run_osascript(cmd, self._appName, self._winTitle)
         if force and self.isAlive:
             self._app.terminate()
         return not self.isAlive
@@ -637,9 +648,7 @@ class MacOSWindow(BaseWindow):
                         end tell
                     end try
                 end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self._winTitle],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
+        _run_osascript(cmd, self._appName, self._winTitle)
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and not self.isMinimized:
             retries += 1
@@ -678,9 +687,7 @@ class MacOSWindow(BaseWindow):
                                 end tell
                             end try
                         end run"""
-            proc = subprocess.Popen(['osascript', '-', self._appName, self._winTitle],
-                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-            ret, err = proc.communicate(cmd)
+            _run_osascript(cmd, self._appName, self._winTitle)
             retries = 0
             while wait and retries < WAIT_ATTEMPTS and not self.isMaximized:
                 retries += 1
@@ -709,9 +716,7 @@ class MacOSWindow(BaseWindow):
                                 end tell
                             end try
                         end run"""
-                proc = subprocess.Popen(['osascript', '-', self._appName, self._winTitle],
-                                        stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-                ret, err = proc.communicate(cmd)
+                _run_osascript(cmd, self._appName, self._winTitle)
             else:
                 cmd = """on run {arg1, arg2}
                             set appName to arg1 as string
@@ -722,9 +727,7 @@ class MacOSWindow(BaseWindow):
                                 end tell
                             end try
                         end run"""
-                proc = subprocess.Popen(['osascript', '-', self._appName, self._winTitle],
-                                        stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-                ret, err = proc.communicate(cmd)
+                _run_osascript(cmd, self._appName, self._winTitle)
         elif self.isMinimized:
             cmd = """on run {arg1, arg2}
                         set appName to arg1 as string
@@ -735,9 +738,7 @@ class MacOSWindow(BaseWindow):
                             end tell
                         end try
                     end run"""
-            proc = subprocess.Popen(['osascript', '-', self._appName, self._winTitle],
-                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-            ret, err = proc.communicate(cmd)
+            _run_osascript(cmd, self._appName, self._winTitle)
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and (self.isMinimized or self.isMaximized):
             retries += 1
@@ -767,9 +768,7 @@ class MacOSWindow(BaseWindow):
                     end try
                     return (isDone as string)
                end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self._winTitle],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
+        ret = _run_osascript(cmd, self._appName, self._winTitle)
         ret = ret.replace("\n", "")
         if ret != "true":
             self._app.unhide()
@@ -802,9 +801,7 @@ class MacOSWindow(BaseWindow):
                     end try
                     return (isDone as string)
                 end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self._winTitle],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
+        ret = _run_osascript(cmd, self._appName, self._winTitle)
         ret = ret.replace("\n", "")
         if ret != "true":
             self._app.hide()
@@ -841,9 +838,7 @@ class MacOSWindow(BaseWindow):
                         end tell
                     end try
                 end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self._winTitle],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
+        _run_osascript(cmd, self._appName, self._winTitle)
         retries = 0
         while wait and retries < WAIT_ATTEMPTS and not self.isActive:
             retries += 1
@@ -985,10 +980,8 @@ class MacOSWindow(BaseWindow):
                         end repeat
                     end try
                end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self._winTitle],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
-        return not err
+        _run_osascript(cmd, self._appName, self._winTitle)
+        return True
 
     def raiseWindow(self):
         """
@@ -1011,10 +1004,8 @@ class MacOSWindow(BaseWindow):
                         end tell
                     end try
                end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self._winTitle],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
-        return not err
+        _run_osascript(cmd, self._appName, self._winTitle)
+        return True
 
     def sendBehind(self, sb: bool = True) -> bool:
         """
@@ -1067,10 +1058,7 @@ class MacOSWindow(BaseWindow):
                     end try
                     return {parentRole, parentName}
                end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self._winTitle],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
-        ret = ret.replace("\n", "")
+        ret = _run_osascript(cmd, self._appName, self._winTitle).replace("\n", "")
         entries = ret.replace("\n", "").split(", ")
         role = entries[0]
         parent = ", ".join(entries[1:])
@@ -1113,10 +1101,7 @@ class MacOSWindow(BaseWindow):
                     end try
                     return winChildren
                end run"""
-        proc = subprocess.Popen(['osascript', '-s', 's', '-', self._appName, self._winTitle],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
-        ret = ret.replace("\n", "").replace("{", "['").replace("}", "']").replace('"', '').replace(", ", "', '").replace('missing value', '"missing value"')
+        ret = _run_osascript(cmd, self._appName, self._winTitle, strict=True).replace("\n", "").replace("{", "['").replace("}", "']").replace('"', '').replace(", ", "', '").replace('missing value', '"missing value"')
         ret = ast.literal_eval(ret)
         for item in ret:
             if item.startswith("window"):
@@ -1141,15 +1126,17 @@ class MacOSWindow(BaseWindow):
 
         :return: application PID or None if it couldn't be retrieved
         """
-        cmd = """osascript -s 's' -e 'tell application "System Events"
-                                        set appPID to "0"
-                                        try
-                                            set appPID to unix id of first application process whose name is "%s"
-                                        end try
-                                    end tell
-                                    return appPID'""" % self._appName
-        ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "") \
-            .replace('missing value', "0")
+        script = """on run {arg1}
+                        set procName to arg1 as string
+                        set appPID to "0"
+                        try
+                            tell application "System Events"
+                                set appPID to unix id of first application process whose name is procName
+                            end tell
+                        end try
+                        return appPID
+                    end run"""
+        ret = _run_osascript(script, self._appName, strict=True).replace("\n", "").replace('missing value', "0")
         if ret and ret != "0":
             return int(ret)
         return None
@@ -1212,11 +1199,7 @@ class MacOSWindow(BaseWindow):
                     end try
                     return (isMin as string)
                 end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self._winTitle],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
-        ret = ret.replace("\n", "")
-        return ret == "true"
+        return _run_osascript(cmd, self._appName, self._winTitle).replace("\n", "") == "true"
 
     @property
     def isMaximized(self) -> bool:
@@ -1252,11 +1235,7 @@ class MacOSWindow(BaseWindow):
                         end try
                         return (isFull as string)
                     end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self._winTitle],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
-        ret = ret.replace("\n", "")
-        return ret == "true"
+        return _run_osascript(cmd, self._appName, self._winTitle).replace("\n", "") == "true"
 
     @property
     def isActive(self) -> bool:
@@ -1341,11 +1320,7 @@ class MacOSWindow(BaseWindow):
                     end try
                     return (isDone as string)
                end run"""
-        proc = subprocess.Popen(['osascript', '-', self._appName, self._winTitle],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-        ret, err = proc.communicate(cmd)
-        ret = ret.replace("\n", "")
-        return ret == "true"
+        return _run_osascript(cmd, self._appName, self._winTitle).replace("\n", "") == "true"
 
     # @property
     # def isAlerting(self) -> bool:
@@ -1457,9 +1432,7 @@ class MacOSWindow(BaseWindow):
                                 """ % (subCmd1, subCmd2, subCmd3, subCmd4)
                         # https://stackoverflow.com/questions/69774133/how-to-use-global-variables-inside-of-an-applescript-function-for-a-python-code
                         # Didn't find a way to get the "injected code" working if passed this way
-                        proc = subprocess.Popen(['osascript', '-s', 's', '-', str(self._parent._app.localizedName())],
-                                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-                        ret, err = proc.communicate(cmd)
+                        ret = _run_osascript(cmd, str(self._parent._app.localizedName()), strict=True)
                         if addItemInfo:
                             ret = ret.replace("\n", "").replace("\t", "").replace('missing value', '"missing value"') \
                                 .replace("{", "[").replace("}", "]").replace("value:", "'") \
@@ -1469,7 +1442,7 @@ class MacOSWindow(BaseWindow):
                                 .replace("{", "[").replace("}", "]")
                         item = ast.literal_eval(ret)
 
-                        if err is None and not self._isListEmpty(item[0]):
+                        if not self._isListEmpty(item[0]):
                             nameList.append(item[0])
                             sizeList.append(item[1])
                             posList.append(item[2])
@@ -1598,9 +1571,7 @@ class MacOSWindow(BaseWindow):
                             end run
                             """ % subCmd
 
-                    proc = subprocess.Popen(['osascript', '-s', 's', '-', str(self._parent._app.localizedName())], 
-                                            stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-                    ret, err = proc.communicate(cmd)
+                    _run_osascript(cmd, str(self._parent._app.localizedName()), strict=True)
 
             return found
 
@@ -1661,9 +1632,7 @@ class MacOSWindow(BaseWindow):
                             end run
                             """ % subCmd
 
-                    proc = subprocess.Popen(['osascript', '-s', 's', '-', str(self._parent._app.localizedName())], 
-                                            stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-                    ret, err = proc.communicate(cmd)
+                    ret = _run_osascript(cmd, str(self._parent._app.localizedName()), strict=True)
                     ret = ret.replace("\n", "")
                     if ret.isnumeric():
                         count = int(ret)
@@ -1722,9 +1691,7 @@ class MacOSWindow(BaseWindow):
                             """ % subCmd
                     # https://stackoverflow.com/questions/69774133/how-to-use-global-variables-inside-of-an-applescript-function-for-a-python-code
                     # Didn't find a way to get the "injected code" working if passed this way
-                    proc = subprocess.Popen(['osascript', '-s', 's', '-', str(self._parent._app.localizedName())], 
-                                            stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-                    ret, err = proc.communicate(cmd)
+                    ret = _run_osascript(cmd, str(self._parent._app.localizedName()), strict=True)
                     itemInfo = self._parseAttr(ret)
 
             return itemInfo
@@ -1767,9 +1734,7 @@ class MacOSWindow(BaseWindow):
                             end run
                             """ % subCmd
 
-                    proc = subprocess.Popen(['osascript', '-s', 's', '-', str(self._parent._app.localizedName())], 
-                                            stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf8')
-                    ret, err = proc.communicate(cmd)
+                    ret = _run_osascript(cmd, str(self._parent._app.localizedName()), strict=True)
                     ret = ret.replace("\n", "").replace("{", "[").replace("}", "]").replace('missing value', '"missing value"')
                     rect = ast.literal_eval(ret)
                     x, y = rect[0]
