@@ -358,7 +358,7 @@ These are the most common surprises reported by users — knowing them upfront w
 
 **`getWindowsWithTitle()` is a substring search by default**
 
-Pass `condition=pwc.Re.EQUALS` for an exact match, or `condition=pwc.Re.CONTAINS` with `flags=pwc.Re.IGNORECASE` for case-insensitive partial matching. Window titles are language-dependent on some platforms (notably menu labels on Windows).
+Pass `condition=pwc.Re.IS` for an exact match, or `condition=pwc.Re.CONTAINS` with `flags=pwc.Re.IGNORECASE` for case-insensitive partial matching. Window titles are language-dependent on some platforms (notably menu labels on Windows).
 
 **macOS is slow for Apple Script calls**
 
