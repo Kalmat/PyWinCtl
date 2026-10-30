@@ -1,4 +1,3 @@
-#!/usr/bin/python
 from __future__ import annotations
 
 import difflib
@@ -574,7 +573,6 @@ class _WatchDog:
 
         :param tryToFind: set to ''True'' to try to find a similar title. Set to ''False'' to deactivate this behavior
         """
-        pass
 
     def stop(self):
         """
@@ -677,25 +675,20 @@ class _WatchDogWorker(threading.Thread):
             self._kill.wait(self._interval)
 
             try:
-                if self._isAliveCB:
-                    if not self._win.isAlive:
-                        if sys.platform == "darwin":
-                            # In macOS AppScript version, if title changes, it will consider window is not alive anymore
-                            if self._tryToFind:
-                                title = self._win.title
-                                if self._title != title:
-                                    title = self._win.updatedTitle
-                                    self._title = title
-                                    if self._changedTitleCB:
-                                        self._changedTitleCB(title)
-                            if not self._tryToFind or (self._tryToFind and not self._title):
-                                self._isAliveCB(False)
-                                self.kill()
-                                break
-                        else:
-                            self._isAliveCB(False)
-                            self.kill()
-                            break
+                if self._isAliveCB and not self._win.isAlive:
+                    # In macOS AppScript version, if title changes, it will consider window is not alive anymore
+                    tryToFind = sys.platform == "darwin" and self._tryToFind
+                    if tryToFind:
+                        title = self._win.title
+                        if self._title != title:
+                            title = self._win.updatedTitle  # pyright: ignore[reportAttributeAccessIssue]
+                            self._title = title
+                            if self._changedTitleCB:
+                                self._changedTitleCB(title)
+                    if not tryToFind or not self._title:
+                        self._isAliveCB(False)
+                        self.kill()
+                        break
 
                 if self._isActiveCB:
                     active = self._win.isActive
@@ -853,7 +846,7 @@ def _levenshtein(seq1: str, seq2: str) -> float:
     matrix = [[0 for _y in range(size_y)] for _x in range(size_x)]
     for x in range(size_x):
         matrix[x][0] = x
-    matrix[0] = list(range(0, size_y))
+    matrix[0] = list(range(size_y))
 
     for x in range(1, size_x):
         for y in range(1, size_y):
@@ -1007,6 +1000,7 @@ class _WINDICT(TypedDict):  # noqa: PYI049 # Private symbol imported by internal
     windows: dict[str, _WINDATA]
 
 # Explicit re-exports
+# ruff: disable[PLC0414]
 if sys.platform == "darwin":
     from ._pywinctl_macos import MacOSWindow as Window
     from ._pywinctl_macos import checkPermissions as checkPermissions
@@ -1054,3 +1048,4 @@ else:
         "PyWinCtl currently does not support this platform. "
         + "If you think you can help, please contribute! https://github.com/Kalmat/PyWinCtl"
     )
+# ruff: enable[PLC0414]

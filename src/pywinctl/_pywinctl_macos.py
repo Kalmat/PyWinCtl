@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # Incomplete type stubs for pyobjc
 # mypy: disable_error_code = no-any-return
 from __future__ import annotations
@@ -16,13 +15,13 @@ import subprocess
 import threading
 import time
 from collections.abc import Iterable, Sequence
-from typing import Any, cast, ClassVar, TYPE_CHECKING, TypedDict, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypedDict, cast
 
 import AppKit
 import Quartz
+from pywinbox import Point, Rect, Size, pointInBox
 
-from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, _WINDATA, _WINDICT
-from pywinbox import Size, Point, Rect, pointInBox
+from ._main import _WINDATA, _WINDICT, BaseWindow, Re, _findMonitorName, _WatchDog
 
 if TYPE_CHECKING:
     from typing_extensions import TypeAlias
@@ -367,7 +366,7 @@ def getAllWindowsDict(tryToFilter: bool = False) -> dict[str, _WINDICT]:
                             "size": sizes[j],
                             "status": status
                         }
-                        if appName not in result.keys():
+                        if appName not in result:
                             result[appName] = {"pid": pID, "windows": {}}
                         result[appName]["windows"][title] = winDict
                         break
@@ -453,15 +452,14 @@ def _getWindowTitles() -> list[list[str]]:
         for i, pID in enumerate(res[0]):
             try:
                 item = res[1][0][i]
-                j = 0
-                for title in item:  # One-liner script is way faster, but produces complex data structures
+                # One-liner script is way faster, but produces complex data structures
+                for j, title in enumerate(item):
                     try:
                         pos = res[1][1][i][j]
                         size = res[1][2][i][j]
                         result.append([pID, title, pos, size])
                     except Exception:
                         pass
-                    j += 1
             except Exception:
                 pass
     return result
@@ -1810,9 +1808,8 @@ class MacOSWindow(BaseWindow):
 
         def _getPathFromWid(self, wID: int):
             itemPath = []
-            if self._checkMenuStruct():
-                if 0 < wID <= len(self.itemList):
-                    itemPath = self.itemList[wID - 1].split(self.SEP)
+            if self._checkMenuStruct() and 0 < wID <= len(self.itemList):
+                itemPath = self.itemList[wID - 1].split(self.SEP)
             return itemPath
 
         def _getNewHSubMenu(self, ref: str):
@@ -1821,9 +1818,8 @@ class MacOSWindow(BaseWindow):
 
         def _getPathFromHSubMenu(self, hSubMenu: int):
             menuPath = []
-            if self._checkMenuStruct():
-                if 0 < hSubMenu <= len(self.menuList):
-                    menuPath = self.menuList[hSubMenu - 1].split(self.SEP)
+            if self._checkMenuStruct() and  0 < hSubMenu <= len(self.menuList):
+                menuPath = self.menuList[hSubMenu - 1].split(self.SEP)
             return menuPath
 
         def _getMenuItemWid(self, itemPath: str):

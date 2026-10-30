@@ -4,10 +4,6 @@ future-annotations = true
 extend-select = [
   "ANN2", # flake8-annotations: missing-return-type
   "C4", # flake8-comprehensions
-  "F401", # unused-import
-  "F404", # late-future-import
-  "FA", # flake8-future-annotations
-  "FLY", # Flynt
   "ICN", # flake8-import-conventions
   "PERF", # Perflint
   "PGH", # pygrep-hooks (blanket-* rules)
@@ -18,7 +14,6 @@ extend-select = [
   "TC", # flake8-type-checking
   "TID", # flake8-tidy-imports
   "UP", # pyupgrade
-  "YTT", # flake8-2020
 ]
 ignore = [
   # Only enforce return types on public functions. Where otherwise mypy infers as Any
@@ -44,8 +39,11 @@ ignore = [
   "PERF203", # try-except-in-loop,
 
   # TODO: Consider later
-  "UP031", # printf-string-formatting
+  "BLE001", # blind-except
+  "S110", # try-except-pass
+  "S112", # try-except-continue
   "RUF059", # unused-unpacked-variable
+  "UP031", # printf-string-formatting
 ]
 # F401 would remove imports not marked as explicit re-exports, which may break API boundaries
 extend-unsafe-fixes = ["F401"]

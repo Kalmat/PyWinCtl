@@ -1,4 +1,3 @@
-#!/usr/bin/python
 from __future__ import annotations
 
 import sys
@@ -12,21 +11,21 @@ import threading
 import time
 from collections.abc import Sequence
 from ctypes import wintypes
-from typing import cast, Any, TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict, cast
 
+import win32api
+import win32con
+import win32gui
 import win32gui_struct
 import win32process
+from pywinbox import Point, Rect, Size, pointInBox
 from win32com.client import GetObject
-import win32con
-import win32api
-import win32gui
 
-from ._main import BaseWindow, Re, _WatchDog, _findMonitorName, _WINDATA, _WINDICT
-from pywinbox import Size, Point, Rect, pointInBox
+from ._main import _WINDATA, _WINDICT, BaseWindow, Re, _findMonitorName, _WatchDog
 
 if TYPE_CHECKING:
     from typing_extensions import NotRequired
-    from win32.lib.win32gui_struct import _MENUITEMINFO, _MENUINFO
+    from win32.lib.win32gui_struct import _MENUINFO, _MENUITEMINFO
 
 # WARNING: Changes are not immediately applied, specially for hide/show (unmap/map)
 #          You may set wait to True in case you need to effectively know if/when change has been applied.
@@ -278,7 +277,7 @@ def getAllWindowsDict(tryToFilter: bool = False) -> dict[str, _WINDICT]:
                     "size": (size.width, size.height),
                     "status": status
                 }
-                if appName not in result.keys():
+                if appName not in result:
                     result[appName] = {"pid": appPID, "windows": {}}
                 result[appName]["windows"][win.title] = winDict
                 break
@@ -376,9 +375,9 @@ def _findMainWindowHandles() -> list[tuple[int, int]]:
         title = win32gui.GetWindowText(hwnd)
 
         # Append HWND to list
-        if win32gui.IsWindowVisible(hwnd) and title != '' and isCloaked.value == 0:
-            if not (title_info.rgstate[0] & win32con.STATE_SYSTEM_INVISIBLE):
-                handle_list.append((hwnd, win32process.GetWindowThreadProcessId(hwnd)[1]))
+        if (win32gui.IsWindowVisible(hwnd) and title != '' and isCloaked.value == 0
+            and not (title_info.rgstate[0] & win32con.STATE_SYSTEM_INVISIBLE)):
+            handle_list.append((hwnd, win32process.GetWindowThreadProcessId(hwnd)[1]))
 
     handle_list: list[tuple[int, int]] = []
     win32gui.EnumWindows(winEnumHandler, None)
@@ -1256,12 +1255,12 @@ class Win32Window(BaseWindow):
 
                 def findMenu(inMenu: dict[str, _SubMenuStructure], hSubMenu: int):
 
-                    for key in inMenu:
-                        if inMenu[key]["hSubMenu"] == hSubMenu:
-                            menuFound[0] = inMenu[key]["entries"]
+                    for value in inMenu.values():
+                        if value["hSubMenu"] == hSubMenu:
+                            menuFound[0] = value["entries"]
                             break
-                        elif "entries" in inMenu[key]:
-                            findMenu(inMenu[key]["entries"], hSubMenu)
+                        elif "entries" in value:
+                            findMenu(value["entries"], hSubMenu)
 
                 findMenu(menu, hSubMenu)
                 subMenu = menuFound[0]

@@ -20,7 +20,7 @@ def test_basic() -> None:
     print()
     print("MONITORS:")
     monitors = pywinctl.getAllScreens()
-    for monitor in monitors.keys():
+    for monitor in monitors:
         print(monitor, monitors[monitor])
         print()
     print("ALL WINDOWS")
@@ -44,7 +44,7 @@ def test_basic() -> None:
         }
     elif sys.platform == "darwin":
         if not pywinctl.checkPermissions(activate=True):
-            exit()
+            sys.exit()
         process = ["open", "-a", "TextEdit", __file__]
         get_window_kwargs: GetWindowKwargs = {
             "title": "test_pywinctl.py",

@@ -1,12 +1,26 @@
-#!/usr/bin/python
 from importlib.metadata import version as _importlib_version
 
-from ._main import (Re, Window, checkPermissions, getActiveWindow,
-                    getActiveWindowTitle, getAllAppsNames, getAllAppsWindowsTitles,
-                    getAllTitles, getAllWindows, getAppsWithName, getWindowsWithTitle,
-                    getAllWindowsDict, getTopWindowAt, getWindowsAt, displayWindowsUnderMouse,
-                    getAllScreens, getScreenSize, getWorkArea, getMousePos
-                    )
+from ._main import (
+    Re,
+    Window,
+    checkPermissions,
+    displayWindowsUnderMouse,
+    getActiveWindow,
+    getActiveWindowTitle,
+    getAllAppsNames,
+    getAllAppsWindowsTitles,
+    getAllScreens,
+    getAllTitles,
+    getAllWindows,
+    getAllWindowsDict,
+    getAppsWithName,
+    getMousePos,
+    getScreenSize,
+    getTopWindowAt,
+    getWindowsAt,
+    getWindowsWithTitle,
+    getWorkArea,
+)
 
 __all__ = [  # noqa: RUF022
     "version", "Re",

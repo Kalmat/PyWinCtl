@@ -1,4 +1,3 @@
-#!/usr/bin/python
 from __future__ import annotations
 
 import sys
@@ -256,7 +255,7 @@ def getAllAppsWindowsTitles():
     result: dict[str, list[str]] = {}
     for win in getAllWindows():
         appName = win.getAppName()
-        if appName in result.keys():
+        if appName in result:
             result[appName].append(win.title)
         else:
             result[appName] = [win.title]
@@ -302,7 +301,7 @@ def getAllWindowsDict(tryToFilter: bool = False) -> dict[str, _WINDICT]:
             "size": (size.width, size.height),
             "status": status
         }
-        if appName not in result.keys():
+        if appName not in result:
             result[appName] = {"pid": appPID, "windows": {}}
         result[appName]["windows"][win.title] = winDict
     return result
@@ -335,8 +334,7 @@ def getTopWindowAt(x: int, y: int):
     for window in reversed(windows):
         if pointInBox(x, y, window.box):
             return window
-    else:
-        return None
+    return None
 
 
 def _WgetAllWindows() -> tuple[list[dict[str, str | bool]], dict[str, str | bool]]:
