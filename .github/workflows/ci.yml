@@ -29,7 +29,9 @@ jobs:
     timeout-minutes: &timeout-minutes 5
     steps:
       - uses: actions/checkout@v6
-      - uses: astral-sh/ruff-action@v4.0.0
+      - uses: astral-sh/ruff-action@v4.1.0
+        with:
+          version-file: uv.lock
 
   mypy:
     runs-on: ${{ matrix.os }}
@@ -43,7 +45,7 @@ jobs:
       fail-fast: false
     steps:
       - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v8.2.0
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
           python-version: ${{ matrix.python-version }}
           activate-environment: true
@@ -70,7 +72,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt install gedit xvfb x11-xserver-utils openbox dbus-x11
-      - uses: astral-sh/setup-uv@v8.2.0
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
           python-version: ${{ matrix.python-version }}
           activate-environment: true
@@ -89,7 +91,7 @@ jobs:
     timeout-minutes: *timeout-minutes
     steps:
       - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v8.2.0
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
           python-version: "3.14" # Keep in sync with build.tools.python in .readthedocs.yaml
           activate-environment: true

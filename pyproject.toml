@@ -85,6 +85,7 @@ dev = [
 ]
 
 [tool.uv]
+required-version = ">=0.13.0" # Defaults to ARM64 Python on ARM64 host
 exclude-newer = "1 week"
 [tool.uv.exclude-newer-package]
 # Kalmat owns these packages
