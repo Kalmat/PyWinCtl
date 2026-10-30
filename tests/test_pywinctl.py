@@ -67,6 +67,43 @@ def test_basic() -> None:
 
     basic_test(npw=testWindows[0], wait=True, timelap=0.50)
 
+
+def test_x_server_only() -> None:
+    """
+    Windows are found through the X server alone, without GNOME Shell (none is running here, like on KDE).
+    On Wayland, this is how windows of X11 apps running through XWayland are found.
+    """
+    if sys.platform != "linux":
+        return
+
+    process = subprocess.Popen("gedit")
+    try:
+        testWindows: list[pywinctl.Window] = []
+        deadline = time.time() + 15
+        while not testWindows and time.time() < deadline:
+            time.sleep(0.5)
+            testWindows = pywinctl.getWindowsWithTitle("gedit", condition=pywinctl.Re.ENDSWITH)
+        assert len(testWindows) == 1
+        npw = testWindows[0]
+        assert npw.title in pywinctl.getAllTitles()
+
+        center = npw.center
+        topWindow = pywinctl.getTopWindowAt(center.x, center.y)
+        assert topWindow is not None
+        assert topWindow.getHandle() == npw.getHandle()
+
+        npw.activate(wait=True)
+        activeWindow = pywinctl.getActiveWindow()
+        assert activeWindow is not None
+        assert activeWindow.getHandle() == npw.getHandle()
+
+        npw.close()
+        process.wait(timeout=5)
+    finally:
+        if process.poll() is None:
+            process.kill()
+
+
 def basic_test(npw: pywinctl.Window | None, wait: bool, timelap: float) -> None:
     assert npw is not None
 
@@ -283,4 +320,5 @@ def basic_test(npw: pywinctl.Window | None, wait: bool, timelap: float) -> None:
 
 
 if __name__ == '__main__':
+    test_x_server_only()
     test_basic()

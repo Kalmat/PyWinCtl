@@ -6,7 +6,6 @@ import sys
 if sys.platform != "linux":
     raise OSError(f"Cannot import {__name__} on {sys.platform}")
 
-import json
 import os
 import platform
 import re
@@ -48,34 +47,14 @@ def getActiveWindow() -> LinuxWindow | None:
     Get the currently active (focused) Window in default root
 
     WAYLAND
-    This will not work on Wayland unless you activate unsafe_mode:
-       - Press alt + f2
-       - write "lg" (without the quotation marks) and press Enter
-       - In the command entry box (at the bottom of the window), write "global.context.unsafe_mode = true" (without the quotation marks) and press Enter
-       - To exit the "lg" program, click on any of the options in the upper right corner, then press Escape (it seems a lg bug!)
-       - You can set unsafe_mode off again by following the same steps, but in this case, using "global.context.unsafe_mode = false"
-    Anyway, it will not work with all windows (especially built-in/"official" apps do not populate xid nor X-Window object)
+    Only X11 apps running through XWayland can be returned. Native Wayland windows have no X Window ID.
 
     :return: Window object or None
     """
-    # Wayland doesn't seem to have a way to get the active window or the list of open windows
-    # This alternative partially works, but will require to enable unsafe_mode (on newer versions,
-    # this is not possible from command-line nor using any gnome-shell extension, so it has to be done manually)
-    # https://unix.stackexchange.com/questions/399753/how-to-get-a-list-of-active-windows-when-using-wayland
-    # https://stackoverflow.com/questions/45465016/how-do-i-get-the-active-window-on-gnome-wayland
-    # https://askubuntu.com/questions/1412130/dbus-calls-to-gnome-shell-dont-work-under-ubuntu-22-04
-    # https://stackoverflow.com/questions/48797323/retrieving-active-window-from-mutter-on-gnome-wayland-session
-    # https://discourse.gnome.org/t/get-window-id-of-a-window-object-window-get-xwindow-doesnt-exist/10956/3
-    # https://www.reddit.com/r/gnome/comments/d8x27b/is_there_a_program_that_can_show_keypresses_on/
-    win_id: str | int = 0
-    if os.environ.get('XDG_SESSION_TYPE', '').lower() == "wayland":
-        # IN SWAY: swaymsg -t get_tree | jq '.. | select(.type?) | select(.focused==true).pid'
-        # pynput / mouse --> Not working (no global events allowed, only application events)
-        _, activeWindow = _WgetAllWindows()
-        if activeWindow:
-            win_id = str(activeWindow["id"])
-    if not win_id:
-        win_id = defaultEwmhRoot.getActiveWindow()
+    # On Wayland, the compositor still manages XWayland windows as an X11 window manager,
+    # so the X server knows which one is active like on X11.
+    # (Asking GNOME Shell instead only works on GNOME with unsafe_mode, and only returns X windows anyway)
+    win_id = defaultEwmhRoot.getActiveWindow()
     if win_id:
         return LinuxWindow(win_id)
     return None
@@ -99,22 +78,14 @@ def getAllWindows():
     Get the list of Window objects for all visible windows in default root
 
     WAYLAND
-    This will not work on Wayland unless you activate unsafe_mode:
-       - Press alt + f2
-       - write "lg" (without the quotation marks) and press Enter
-       - In the command entry box (at the bottom of the window), write "global.context.unsafe_mode = true" (without the quotation marks) and press Enter
-       - To exit the "lg" program, click on any of the options in the upper right corner, then press Escape (it seems a lg bug!)
-       - You can set unsafe_mode off again by following the same steps, but in this case, using "global.context.unsafe_mode = false"
-    Anyway, it will not work with all windows (especially built-in/"official" apps do not populate xid nor X-Window object)
+    Only X11 apps running through XWayland are listed. Native Wayland windows have no X Window ID.
 
     :return: list of Window objects
     """
-    if os.environ.get('XDG_SESSION_TYPE', '').lower() == "wayland":
-        windowsList, _ = _WgetAllWindows()
-        windows = [str(win["id"]) for win in windowsList]
-    else:
-        windows = defaultEwmhRoot.getClientListStacking()
-    return __remove_bad_windows(windows)
+    # On Wayland, the compositor still manages XWayland windows as an X11 window manager,
+    # so they are listed by the X server like on X11.
+    # (Asking GNOME Shell instead only works on GNOME with unsafe_mode, and only returns X windows anyway)
+    return __remove_bad_windows(defaultEwmhRoot.getClientListStacking())
 
 
 def getAllTitles() -> list[str]:
@@ -339,27 +310,6 @@ def getTopWindowAt(x: int, y: int):
         return None
 
 
-def _WgetAllWindows() -> tuple[list[dict[str, str | bool]], dict[str, str | bool]]:
-    # POSSIBLE REFERENCE: https://www.roojs.org/seed/gir-1.2-gtk-3.0/seed/Meta.Window.html
-    # Built-in / official apps (e.g. Terminal or gedit) do not fulfill proper get_description() to get the Xid
-    windowsList: list[dict[str, str | bool]] = [{}]
-    activeWindow: dict[str, str | bool] = {}
-    cmd = ('gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell '
-           '--method org.gnome.Shell.Eval "global.get_window_actors()'
-           '.map(a=>a.meta_window)'
-           '.map(w=>({class: w.get_wm_class(), title: w.get_title(), active: w.has_focus(), id: w.get_description(), id2: w.get_id(), id3: w.get_pid()}))"')
-    ret = subprocess.check_output(cmd, shell=True, timeout=1).decode("utf-8").replace("\n", "")
-    if ret and ret.startswith("(true, "):
-        windows: list[str] = (str(ret[8:-2]).replace("[", "").replace("]", "").replace("},{", "}|&|{").split("|&|"))
-        for window in windows:
-            output: dict[str, str | bool] = json.loads(window)
-            if str(output.get("id", "")).startswith("0x"):
-                windowsList.append(output)
-                if output.get("active", False):
-                    activeWindow = output
-    return windowsList, activeWindow
-
-
 def __remove_bad_windows(windows: list[str] | list[int] | None) -> list[LinuxWindow]:
     outList = []
     if windows is not None:
@@ -391,7 +341,6 @@ class LinuxWindow(BaseWindow):
         self.watchdog = _WatchDog(self)
 
         self._currDesktop = os.environ.get('XDG_CURRENT_DESKTOP', "").lower()
-        self._currSessionType = os.environ.get('XDG_SESSION_TYPE', "").lower()
         self._motifHints: list[int] = []
 
     def getExtraFrameSize(self, includeBorder: bool = True) -> tuple[int, int, int, int]:

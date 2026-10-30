@@ -193,7 +193,7 @@ The wide variety of Linux distributions, desktop environments, and window manage
 
 PyWinCtl has been tested successfully on these X11 setups: Ubuntu/GNOME, Ubuntu/KDE, Ubuntu/Unity, Mint/Cinnamon, and Raspbian/LXDE. The `sendBehind()` method does not work correctly on most setups except Mint/Cinnamon and Ubuntu 22.04+.
 
-On **Wayland** (the default display protocol on Ubuntu 22.04+ and many modern distros), `getActiveWindow()` and `getAllWindows()` are unreliable — built-in and "official" applications do not expose their X Window ID, so these calls may fail even with unsafe mode enabled. They may still work for third-party applications such as Chrome, or for your own application's windows.
+On **Wayland** (the default display protocol on Ubuntu 22.04+ and many modern distros), only X11 apps running through XWayland can be found and controlled. Native Wayland windows, including most built-in and "official" applications, do not have an X Window ID, so `getActiveWindow()`, `getAllWindows()` and the functions built on them do not return these windows.
 
 **WSL2** is not supported — the X server environment WSL2 provides does not expose the information PyWinCtl requires.
 
@@ -366,7 +366,7 @@ Calls like `getActiveWindowTitle()` can take 400–500 ms on Apple Silicon Macs.
 
 **Wayland support is limited**
 
-On Wayland (Ubuntu 22.04+, Fedora, and others), most window enumeration functions will fail or return empty results for system applications. Use X11/XWayland mode if you need full functionality, or instantiate `Window` directly with a known XID.
+On Wayland (Ubuntu 22.04+, Fedora, and others), window enumeration functions only return X11 apps running through XWayland. Native Wayland windows, like most system applications, are not listed. Use an X11 session if you need full functionality.
 
 **WSL2 is not supported**
 
