@@ -1036,19 +1036,36 @@ elif sys.platform == "win32":
     from ._pywinctl_win import getWindowsAt as getWindowsAt
     from ._pywinctl_win import getWindowsWithTitle as getWindowsWithTitle
 elif sys.platform == "linux":
-    from ._pywinctl_linux import LinuxWindow as Window
-    from ._pywinctl_linux import checkPermissions as checkPermissions
-    from ._pywinctl_linux import getActiveWindow as getActiveWindow
-    from ._pywinctl_linux import getActiveWindowTitle as getActiveWindowTitle
-    from ._pywinctl_linux import getAllAppsNames as getAllAppsNames
-    from ._pywinctl_linux import getAllAppsWindowsTitles as getAllAppsWindowsTitles
-    from ._pywinctl_linux import getAllTitles as getAllTitles
-    from ._pywinctl_linux import getAllWindows as getAllWindows
-    from ._pywinctl_linux import getAllWindowsDict as getAllWindowsDict
-    from ._pywinctl_linux import getAppsWithName as getAppsWithName
-    from ._pywinctl_linux import getTopWindowAt as getTopWindowAt
-    from ._pywinctl_linux import getWindowsAt as getWindowsAt
-    from ._pywinctl_linux import getWindowsWithTitle as getWindowsWithTitle
+    from ._pywinctl_linux_kwin import isKWinWayland as _isKWinWayland
+    if _isKWinWayland():
+        # KDE Plasma on Wayland: X11 calls only see XWayland windows, so KWin scripting is used instead
+        from ._pywinctl_linux_kwin import KWinWindow as Window
+        from ._pywinctl_linux_kwin import checkPermissions as checkPermissions
+        from ._pywinctl_linux_kwin import getActiveWindow as getActiveWindow
+        from ._pywinctl_linux_kwin import getActiveWindowTitle as getActiveWindowTitle
+        from ._pywinctl_linux_kwin import getAllAppsNames as getAllAppsNames
+        from ._pywinctl_linux_kwin import getAllAppsWindowsTitles as getAllAppsWindowsTitles
+        from ._pywinctl_linux_kwin import getAllTitles as getAllTitles
+        from ._pywinctl_linux_kwin import getAllWindows as getAllWindows
+        from ._pywinctl_linux_kwin import getAllWindowsDict as getAllWindowsDict
+        from ._pywinctl_linux_kwin import getAppsWithName as getAppsWithName
+        from ._pywinctl_linux_kwin import getTopWindowAt as getTopWindowAt
+        from ._pywinctl_linux_kwin import getWindowsAt as getWindowsAt
+        from ._pywinctl_linux_kwin import getWindowsWithTitle as getWindowsWithTitle
+    else:
+        from ._pywinctl_linux import LinuxWindow as Window
+        from ._pywinctl_linux import checkPermissions as checkPermissions
+        from ._pywinctl_linux import getActiveWindow as getActiveWindow
+        from ._pywinctl_linux import getActiveWindowTitle as getActiveWindowTitle
+        from ._pywinctl_linux import getAllAppsNames as getAllAppsNames
+        from ._pywinctl_linux import getAllAppsWindowsTitles as getAllAppsWindowsTitles
+        from ._pywinctl_linux import getAllTitles as getAllTitles
+        from ._pywinctl_linux import getAllWindows as getAllWindows
+        from ._pywinctl_linux import getAllWindowsDict as getAllWindowsDict
+        from ._pywinctl_linux import getAppsWithName as getAppsWithName
+        from ._pywinctl_linux import getTopWindowAt as getTopWindowAt
+        from ._pywinctl_linux import getWindowsAt as getWindowsAt
+        from ._pywinctl_linux import getWindowsWithTitle as getWindowsWithTitle
 else:
     raise NotImplementedError(
         "PyWinCtl currently does not support this platform. "

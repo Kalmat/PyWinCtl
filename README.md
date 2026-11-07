@@ -193,7 +193,9 @@ The wide variety of Linux distributions, desktop environments, and window manage
 
 PyWinCtl has been tested successfully on these X11 setups: Ubuntu/GNOME, Ubuntu/KDE, Ubuntu/Unity, Mint/Cinnamon, and Raspbian/LXDE. The `sendBehind()` method does not work correctly on most setups except Mint/Cinnamon and Ubuntu 22.04+.
 
-On **Wayland** (the default display protocol on Ubuntu 22.04+ and many modern distros), `getActiveWindow()` and `getAllWindows()` are unreliable — built-in and "official" applications do not expose their X Window ID, so these calls may fail even with unsafe mode enabled. They may still work for third-party applications such as Chrome, or for your own application's windows.
+On **KDE Plasma 6 / Wayland**, PyWinCtl automatically uses a KWin-based backend: it loads small KWin scripts through D-Bus, so it sees and controls *all* windows, including native Wayland ones. Window handles are KWin internal ids (UUID strings) instead of X11 ids. Some features are not possible on Wayland: `hide()` minimizes the window, `sendBehind()` keeps it below all others (it can not go behind the desktop), and `acceptInput()` and `setParent()` are not supported. Resizing is asynchronous (the app must accept the new size), so use `wait=True` if you need to confirm it. It is selected when `XDG_SESSION_TYPE` is `wayland`, `XDG_CURRENT_DESKTOP` contains `KDE` and `KDE_SESSION_VERSION` is 6 or higher (Plasma 5 uses a different KWin scripting API, so it keeps the previous behavior). Set the `PYWINCTL_LINUX_BACKEND` environment variable to `x11` or `kwin` to force one backend.
+
+On **other Wayland desktops** (e.g. GNOME), `getActiveWindow()` and `getAllWindows()` are unreliable — built-in and "official" applications do not expose their X Window ID, so these calls may fail even with unsafe mode enabled. They may still work for third-party applications such as Chrome, or for your own application's windows.
 
 **WSL2** is not supported — the X server environment WSL2 provides does not expose the information PyWinCtl requires.
 
@@ -366,7 +368,7 @@ Calls like `getActiveWindowTitle()` can take 400–500 ms on Apple Silicon Macs.
 
 **Wayland support is limited**
 
-On Wayland (Ubuntu 22.04+, Fedora, and others), most window enumeration functions will fail or return empty results for system applications. Use X11/XWayland mode if you need full functionality, or instantiate `Window` directly with a known XID.
+On Wayland desktops other than KDE Plasma 6 (e.g. GNOME on Ubuntu 22.04+ or Fedora Workstation), most window enumeration functions will fail or return empty results for system applications. Use X11/XWayland mode if you need full functionality, or instantiate `Window` directly with a known XID.
 
 **WSL2 is not supported**
 
