@@ -63,6 +63,7 @@ classifiers = [
 ]
 dependencies = [
     "ewmhlib>=0.2; sys_platform == 'linux'",
+    "jeepney>=0.8; sys_platform == 'linux'",
     "pymonctl>=0.92",
     "pyobjc>=8.1; sys_platform == 'darwin'",
     "python-xlib>=0.21; sys_platform == 'linux'",
